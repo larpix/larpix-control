@@ -3,8 +3,8 @@
 
 int main()
 {
-    larpix_connection c;
-    c.portNumber = 0;
+    larpix_connection _c;
+    larpix_connection* c = &_c;
     int status = 0;
 
     if((status = larpix_connect(c)) == 0)

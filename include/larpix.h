@@ -17,5 +17,4 @@ typedef struct larpix_connection
 void larpix_default_connection(larpix_connection* c);
 int larpix_connect(larpix_connection* c);
 int larpix_disconnect(larpix_connection* c);
-
-int larpix_init(larpix_connection* c);
+int larpix_configure_ftdi(larpix_connection* c);

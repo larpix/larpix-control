@@ -12,7 +12,7 @@ void larpix_default_connection(larpix_connection* c)
 }
 int larpix_connect(larpix_connection* c)
 {
-    FT_STATUS status = FT_Open(c.port_number, &(c->ft_handle));
+    FT_STATUS status = FT_Open(c->port_number, &(c->ft_handle));
     return (int) status;
 }
 
@@ -26,7 +26,7 @@ int larpix_configure_ftdi(larpix_connection* c)
 {
     FT_HANDLE* handle = &(c->ft_handle);
     FT_STATUS status = FT_OK;
-    status | = FT_SetBitMode(handle,
+    status |= FT_SetBitMode(handle,
             c->pin_io_directions,
             c->bit_mode);
     status |= FT_SetDivisor(handle, c->clk_divisor);
