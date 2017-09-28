@@ -8,6 +8,10 @@ void larpix_default_connection(larpix_connection* c)
     c->bit_mode = FT_BITMODE_SYNC_BITBANG;
     c->timeout = 10;
     c->usb_transfer_size = 64;
+    for(uint i = 0; i < 1024; ++i)
+    {
+        c->output_buffer[i] = 0;
+    }
     return;
 }
 int larpix_connect(larpix_connection* c)
@@ -35,4 +39,24 @@ int larpix_configure_ftdi(larpix_connection* c)
             c->usb_transfer_size,
             c->usb_transfer_size);
     return (int) status;
+}
+
+uint larpix_write_zeros_loop(larpix_connection* c, uint num_loops)
+{
+    FT_HANDLE* handle = &(c->ft_handle);
+
+    FT_STATUS status = FT_OK;
+    uint counter = 0;
+    uint tot_num_bytes_written = 0;
+    uint num_bytes_written = 0;
+    while(status == FT_OK && counter < num_loops)
+    {
+        status = FT_Write(handle,
+                c->output_buffer,
+                LARPIX_BUFFER_SIZE,
+                &num_bytes_written);
+        tot_num_bytes_written += num_bytes_written;
+        ++counter;
+    }
+    return tot_num_bytes_written;
 }
