@@ -13,8 +13,12 @@ int main()
         printf("Could not connect (exit code %d)\n", status);
         return 1;
     }
-    larpix_configure_ftdi(c);
-    uint num_bytes_written = larpix_write_zeros_loop(c, 1);
+    status = larpix_configure_ftdi(c);
+    if(status != 0)
+    {
+        printf("Could not configure (exit code %d)\n", status);
+    }
+    uint num_bytes_written = larpix_write_clock_loop(c, 10);
     printf("Wrote %d bytes to FTDI chip\n", num_bytes_written);
 
     larpix_disconnect(c);
