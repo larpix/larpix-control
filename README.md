@@ -2,7 +2,7 @@
 
 Control the LArPix chip using the FTDI D2XX driver library.
 
-### Setup and installation
+## Setup and installation
 
 Download the D2XX library from FTDI's website. Make sure libftd2xx.so is
 in your LD\_LIBRARY\_PATH or other search path, and ftd2xx.h and
@@ -15,7 +15,9 @@ Download this repository.
 To generate the larpix.o file and a demonstration executable just run
 `make`.
 
-### Tutorial
+## Tutorial
+
+### Connecting to the FTDI chip
 
 The fundamental data structure is the `larpix_connection`. You can
 initialize the data structure with
@@ -37,12 +39,29 @@ larpix_connect(&c);
 larpix_configure_ftdi(&c);
 ```
 
+When you're done, you'll want to disconnect from the chip. You can do
+that with
+
+```C
+larpix_disconnect(&c);
+```
+
 By the way, you can access the low-level `FT_HANDLE` structure using
 `c.ft_handle`. Leave it alone, though, for your own good.
 
-Next you might want to write some data to the chip. To facilitate
-bitstreams and bytestreams, there is a data structure called
-`larpix_data`. To create one, use
+### Handling data to send to the chip
+
+Next you might want to write some data to the chip. The D2XX software
+accepts as input an array of bytes called a bytestream. Within a byte,
+the different bits correspond to different pins on the chip. Each byte
+corresponds to one timestep. The collection of all of the bits in the
+same position at each element of the bytestream is a bitstream. A
+bytestream has 8 bitstreams.
+
+To facilitate bitstreams and bytestreams, there is a data structure
+called `larpix_data`. In the `larpix_connection` struct there is already
+a `larpix_data` object ready to go at `c.output_data`. If you want to
+create one for yourself, use
 
 ```C
 larpix_data data;
@@ -50,11 +69,12 @@ larpix_data_init(&data);
 ```
 
 You can set each of the 8 bitstreams individually. For example, if you
-have an array `ch0` that contains the bits for channel 0, you can add it
-to the bytestream using
+have an array `ch0` that contains the bitstream for channel 0, you can
+write it to the bytestream using
 
 ```C
-larpix_data_set_bitstream(&data, ch0, 0, length);
+larpix_data_set_bitstream(&data, ch0, 0, length); // Separate object
+larpix_data_set_bitstream(&(c.output_data), ch0, 0, length); // Part of larpix_connection
 ```
 
 If the length of the array is longer than the maximum allowed
@@ -63,3 +83,24 @@ If the length of the array is longer than the maximum allowed
 There are a few type shorthands which can make things easier. You can
 use `byte` for a single byte (it's aliased to `unsigned char`, or `BYTE`
 in D2XX). And `uint` for `unsigned int`, or `DWORD` in D2XX.
+
+If you already have a bytestream in an array and want to load it into
+the `larpix_data` struct, or you want to extract the bytestream from
+`larpix_data`, use
+
+```C
+larpix_array_to_data(&data, bytestream_array, length); // load in bytestream
+larpix_data_to_array(&data, bytestream_array, length); // extract bytestream
+```
+
+### Sending data to the chip
+
+Once you have set up the `c.output_data` with your bytestream, you can
+send it to the chip with
+
+```C
+larpix_write_data_loop(&c, num_loops, length);
+```
+
+This command will write the first `length` bytes of data in
+`c.output_data` to the FTDI chip repeatedly, `num_loops` times.
