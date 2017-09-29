@@ -54,6 +54,10 @@ uint larpix_write_data_loop(larpix_connection* c,
         larpix_data* data,
         uint num_loops,
         uint nbytes);
+uint larpix_read_data_loop(larpix_connection* c,
+        larpix_data** data_array,
+        uint num_loops,
+        uint nbytes);
 
 void larpix_data_init_high(larpix_data* data);
 void larpix_data_init_low(larpix_data* data);

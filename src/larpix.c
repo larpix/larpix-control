@@ -77,7 +77,7 @@ uint larpix_write_data_loop(larpix_connection* c,
         nbytes = LARPIX_BUFFER_SIZE;
     }
     FT_STATUS status = FT_OK;
-    FT_Purge(c->ft_handle, FT_PURGE_RX | FT_PURGE_TX);
+    FT_Purge(c->ft_handle, FT_PURGE_TX);
     byte output_buffer[LARPIX_BUFFER_SIZE];
     larpix_data_to_array(data, output_buffer, LARPIX_BUFFER_SIZE);
     uint counter = 0;
@@ -93,6 +93,37 @@ uint larpix_write_data_loop(larpix_connection* c,
         ++counter;
     }
     return tot_num_bytes_written;
+}
+
+uint larpix_read_data_loop(larpix_connection* c,
+        larpix_data** data_array,
+        uint num_loops,
+        uint nbytes)
+{
+    if(nbytes > LARPIX_BUFFER_SIZE)
+    {
+        nbytes = LARPIX_BUFFER_SIZE;
+    }
+    if(num_loops > sizeof(data_array)/sizeof(data_array[0]))
+    {
+        num_loops = sizeof(data_array)/sizeof(data_array[0]);
+    }
+    FT_STATUS status = FT_OK;
+    byte input_buffer[LARPIX_BUFFER_SIZE];
+    uint counter = 0;
+    uint tot_num_bytes_read = 0;
+    uint num_bytes_read = 0;
+    while(status == FT_OK && counter < num_loops)
+    {
+        status = FT_Read(c->ft_handle,
+                input_buffer,
+                nbytes,
+                &num_bytes_read);
+        larpix_array_to_data(data_array[counter], input_buffer, nbytes);
+        tot_num_bytes_read += num_bytes_read;
+        ++counter;
+    }
+    return tot_num_bytes_read;
 }
 
 void larpix_data_init_high(larpix_data* data)
