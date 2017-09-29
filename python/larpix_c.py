@@ -10,6 +10,7 @@ larpix = c.cdll.LoadLibrary('../bin/larpix.so')
 
 LARPIX_BUFFER_SIZE = 1024
 LARPIX_UART_SIZE = 54
+
 class larpix_data(c.Structure):
     _fields_ = [("bits", (c.c_ubyte * 8) * LARPIX_BUFFER_SIZE)]
 
@@ -28,9 +29,8 @@ class larpix_uart_packet(c.Structure):
     _fields_ = [("data", c.c_ubyte * LARPIX_UART_SIZE)]
 
 larpix_packet_type = {
-        "data": 0,
-        "test": 1,
-        "config_write": 2,
-        "config_read": 3
+        "data": c.c_int(0),
+        "test": c.c_int(1),
+        "config_write": c.c_int(2),
+        "config_read": c.c_int(3)
         }
-
