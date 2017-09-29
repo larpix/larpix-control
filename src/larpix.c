@@ -1,5 +1,36 @@
 #include "larpix.h"
 
+ulong larpix_bitstream_to_int(byte* bitstream, uint length)
+{
+    ulong result = 0;
+    for(uint i = 0; i < length; ++i)
+    {
+        if(!(bitstream[i] == 0))
+        {
+            ulong value_to_add = 1 << i;
+            result += value_to_add;
+        }
+    }
+    return result;
+}
+
+void larpix_int_to_bitstream(byte* bitstream, ulong input, uint length)
+{
+    for(uint i = 0; i < length; ++i)
+    {
+        ulong bit_to_test = 1 << i;
+        if((input & bit_to_test) == 0)
+        {
+            bitstream[i] = 0;
+        }
+        else
+        {
+            bitstream[i] = 1;
+        }
+    }
+    return;
+}
+
 void larpix_default_connection(larpix_connection* c)
 {
     c->port_number = 0;
@@ -171,4 +202,99 @@ void larpix_data_get_bitstream(larpix_data* data,
         }
     }
     return;
+}
+
+uint larpix_uart_to_data(larpix_uart_packet* packet, larpix_data* data,
+        uint bit_position,
+        uint startbit)
+{
+    if(startbit + LARPIX_UART_SIZE + 2 > LARPIX_BUFFER_SIZE)
+    {
+        return 1;
+    }
+    byte* bit_channel = data->bits[bit_position];
+    // UART spec: 0th bit is 0, last bit is 1
+    bit_channel[startbit] = 0;
+    for(uint i = 0; i < LARPIX_UART_SIZE; ++i)
+    {
+        uint write_position = startbit + i + 1;
+        bit_channel[write_position] = packet->data[i];
+    }
+    bit_channel[startbit + LARPIX_UART_SIZE + 1] = 1;
+    return 0;
+}
+
+uint larpix_data_to_uart(larpix_uart_packet* packet, larpix_data* data,
+        uint bit_position,
+        uint startbit)
+{
+    if(startbit + LARPIX_UART_SIZE + 2 > LARPIX_BUFFER_SIZE)
+    {
+        return 1;
+    }
+    byte* bit_channel = data->bits[bit_position];
+    for(uint i = 0; i < LARPIX_UART_SIZE; ++i)
+    {
+        uint read_position = startbit + i + 1;
+         packet->data[i] = bit_channel[read_position];
+    }
+    return 0;
+}
+
+uint larpix_uart_compute_parity(larpix_uart_packet* packet)
+{
+    uint number_of_ones = 0;
+    for(uint i = 0; i < LARPIX_UART_PARITY; ++i)
+    {
+        if(packet->data[i] == 1)
+        {
+            ++number_of_ones;
+        }
+    }
+    uint parity = 1 - (number_of_ones % 2);
+    return parity;
+}
+
+void larpix_uart_set_parity(larpix_uart_packet* packet)
+{
+    uint parity = larpix_uart_compute_parity(packet);
+    packet->data[LARPIX_UART_PARITY] = parity;
+    return;
+}
+
+void larpix_uart_set_packet_type(larpix_uart_packet* packet,
+        larpix_packet_type type)
+{
+    uint start = LARPIX_UART_PTYPE_LOW;
+    byte* startbit = &(packet->data[start]);
+    uint length = 1 + LARPIX_UART_PTYPE_HIGH - start;
+    larpix_int_to_bitstream(startbit, (ulong) type, length);
+    return;
+}
+
+larpix_packet_type larpix_uart_get_packet_type(larpix_uart_packet* packet)
+{
+    uint start = LARPIX_UART_PTYPE_LOW;
+    byte* startbit = &(packet->data[start]);
+    uint length = 1 + LARPIX_UART_PTYPE_HIGH - start;
+    ulong value = larpix_bitstream_to_int(startbit, length);
+    return (larpix_packet_type) value;
+}
+
+void larpix_uart_set_chipid(larpix_uart_packet* packet, uint chipid)
+{
+    uint start = LARPIX_UART_CHIPID_LOW;
+    byte* startbit = &(packet->data[start]);
+    uint length = 1 + LARPIX_UART_CHIPID_HIGH - start;
+    larpix_int_to_bitstream(startbit, (ulong) chipid, length);
+    return;
+}
+
+uint larpix_uart_get_chipid(larpix_uart_packet* packet)
+{
+    uint start = LARPIX_UART_CHIPID_LOW;
+    byte* startbit = &(packet->data[start]);
+    uint length = 1 + LARPIX_UART_CHIPID_HIGH - start;
+    ulong value = larpix_bitstream_to_int(startbit, length);
+    return (uint) value;
 }

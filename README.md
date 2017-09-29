@@ -104,3 +104,40 @@ larpix_write_data_loop(&c, num_loops, length);
 
 This command will write the first `length` bytes of data in
 `c.output_data` to the FTDI chip repeatedly, `num_loops` times.
+
+### Handling UART data format
+
+All communication to and from the LArPix chip is in 54-bit UART (plus a
+start bit and a stop bit). To aid in the construction and interpretation
+of these UART words, use `larpix_uart_packet`. Each section of the UART
+packet has a corresponding getter and setter.
+
+```C
+larpix_uart_packet packet;
+
+// Packet type
+larpix_uart_set_packet_type(&packet, LARPIX_PACKET_DATA);
+larpix_uart_set_packet_type(&packet, LARPIX_PACKET_CONFIG_WRITE);
+larpix_packet_type type = larpix_uart_get_packet_type(&packet);
+
+// Parity bit
+larpix_uart_set_parity(&packet); // computes automatically
+uint parity = larpix_uart_compute_parity(&packet);
+uint status = larpix_uart_check_parity(&packet); // 0 -> good, 1-> error
+```
+
+
+To communicate with the chip, `larpix_uart_packet` must be converted
+to/from `larpix_data`. The functions also return a status value which is
+nonzero if there is not enough space in the `larpix_data` to fit all the
+bits of the packet. Note for both data-to-uart and uart-to-data functions,
+the `startbit` parameter gives the location of the UART start bit, _not_
+the first bit of the 54-bit word.
+
+```C
+// To prepare to write to chip
+// Include which data stream (e.g. pin 1) and
+// where along the bitstream the UART start bit should go (e.g. 128)
+uint status = larpix_uart_to_data(&packet, &data, 1, 128); // 0->good, 1->error
+uint status = larpix_data_to_uart(&packet, &data, 1, 128); // 0->good, 1->error
+```
