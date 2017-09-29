@@ -53,7 +53,8 @@ int larpix_disconnect(larpix_connection* c);
 int larpix_configure_ftdi(larpix_connection* c);
 uint larpix_write_data_loop(larpix_connection* c, uint num_loops, uint nbytes);
 
-void larpix_data_init(larpix_data* data);
+void larpix_data_init_high(larpix_data* data);
+void larpix_data_init_low(larpix_data* data);
 void larpix_data_to_array(larpix_data* data, byte* array, uint nbytes);
 void larpix_array_to_data(larpix_data* data, byte* array, uint nbytes);
 void larpix_data_set_bitstream(larpix_data* data,

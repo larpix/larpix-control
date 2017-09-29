@@ -45,7 +45,7 @@ void larpix_default_connection(larpix_connection* c)
         clk_pattern[i] = i % 2;
     }
     larpix_data* data = &(c->output_data);
-    larpix_data_init(data);
+    larpix_data_init_high(data);
     larpix_data_set_bitstream(data, clk_pattern, 0, LARPIX_BUFFER_SIZE);
     return;
 }
@@ -100,7 +100,19 @@ uint larpix_write_data_loop(larpix_connection* c, uint num_loops, uint nbytes)
     return tot_num_bytes_written;
 }
 
-void larpix_data_init(larpix_data* data)
+void larpix_data_init_high(larpix_data* data)
+{
+    for(uint bit_position = 0; bit_position < 8; ++bit_position)
+    {
+        for(uint i = 0; i < LARPIX_BUFFER_SIZE; ++i)
+        {
+            data->bits[bit_position][i] = 1;
+        }
+    }
+    return;
+}
+
+void larpix_data_init_low(larpix_data* data)
 {
     for(uint bit_position = 0; bit_position < 8; ++bit_position)
     {
