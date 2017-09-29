@@ -105,6 +105,19 @@ larpix_write_data_loop(&c, &data, num_loops, length);
 This command will write the first `length` bytes of data in
 `data` to the FTDI chip repeatedly, `num_loops` times.
 
+### Reading data from the chip
+
+To read data from the chip, first decide how many times you want to
+loop. Create an array of `larpix_data*` (pointers to `larpix_data`) with
+size equal to the number of times to loop. Then you can read with
+
+```C
+larpix_read_data_loop(&c, &data_array, num_loops, length);
+```
+
+This command will read `length` bytes from the FTDI into each
+`larpix_data`.
+
 ### Handling UART data format
 
 All communication to and from the LArPix chip is in 54-bit UART (plus a
