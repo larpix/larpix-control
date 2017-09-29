@@ -60,12 +60,12 @@ bytestream has 8 bitstreams.
 
 To facilitate bitstreams and bytestreams, there is a data structure
 called `larpix_data`. In the `larpix_connection` struct there is already
-a `larpix_data` object ready to go at `c.output_data`. If you want to
-create one for yourself, use
+a `larpix_data` object ready to go at `c.output_data` initialized to all
+bits high. If you want to create one for yourself, use
 
 ```C
 larpix_data data;
-larpix_data_init(&data);
+larpix_data_init_high(&data); // or init_low
 ```
 
 You can set each of the 8 bitstreams individually. For example, if you
