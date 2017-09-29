@@ -50,14 +50,14 @@ void larpix_default_connection(larpix_connection* c);
 int larpix_connect(larpix_connection* c);
 int larpix_disconnect(larpix_connection* c);
 int larpix_configure_ftdi(larpix_connection* c);
-uint larpix_write_data_loop(larpix_connection* c,
-        larpix_data* data,
-        uint num_loops,
-        uint nbytes);
-uint larpix_read_data_loop(larpix_connection* c,
-        larpix_data** data_array,
-        uint num_loops,
-        uint nbytes);
+uint larpix_write_data(larpix_connection* c,
+        larpix_data* data_array,
+        uint num_writes,
+        uint num_bytes_to_write);
+uint larpix_read_data(larpix_connection* c,
+        larpix_data* data_array,
+        uint num_reads,
+        uint num_bytes_to_read);
 
 void larpix_data_init_high(larpix_data* data);
 void larpix_data_init_low(larpix_data* data);

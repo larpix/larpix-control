@@ -102,24 +102,35 @@ Once you have set up the `larpix_data` with your bytestream, you can
 send it to the chip with
 
 ```C
-larpix_write_data_loop(&c, &data, num_loops, length);
+larpix_write_data(&c, &data, 1, length);
 ```
 
 This command will write the first `length` bytes of data in
 `data` to the FTDI chip repeatedly, `num_loops` times.
 
-### Reading data from the chip
-
-To read data from the chip, first decide how many times you want to
-loop. Create an array of `larpix_data*` (pointers to `larpix_data`) with
-size equal to the number of times to loop. Then you can read with
+You might wonder what the `1` argument is for. Well, if you have a whole
+set of `larpix_data` in an array (e.g. `larpix_data array[10];`), and
+you want to write them out in quick succession, you're in luck!
 
 ```C
-larpix_read_data_loop(&c, &data_array, num_loops, length);
+larpix_write_data(&c, data_array, array_size, length);
+```
+
+This is the absolute fastest that data can be written to the FTDI chip.
+
+### Reading data from the chip
+
+To read data from the chip, first decide how many data blocks you want
+to read. Create an array of `larpix_data` with size equal to the number
+of blocks to read. Then you can read with
+
+```C
+larpix_read_data(&c, data_array, array_size, length);
 ```
 
 This command will read `length` bytes from the FTDI into each
-`larpix_data`.
+`larpix_data` and is the fastest that data can be read fro mthe FTDI
+chip.
 
 ### Handling UART data format
 
@@ -191,5 +202,5 @@ larpix.larpix_data_init_high(c.byref(data))
 larpix.larpix_data_set_clk(c.byref(data), 0)  # can use python integer as c int
 status = larpix.larpix_uart_to_data(c.byref(packet), c.byref(data), 1, 128)
 
-larpix.larpix_write_data_loop(c.byref(conn), c.byref(data), 1, LARPIX_BUFFER_SIZE)
+larpix.larpix_write_data(c.byref(conn), c.byref(data), 1, LARPIX_BUFFER_SIZE)
 ```

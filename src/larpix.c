@@ -67,27 +67,32 @@ int larpix_configure_ftdi(larpix_connection* c)
     return (int) status;
 }
 
-uint larpix_write_data_loop(larpix_connection* c,
-        larpix_data* data,
-        uint num_loops,
-        uint nbytes)
+uint larpix_write_data(larpix_connection* c,
+        larpix_data* data_array,
+        uint num_writes,
+        uint num_bytes_per_write)
 {
-    if(nbytes > LARPIX_BUFFER_SIZE)
+    if(num_bytes_per_write > LARPIX_BUFFER_SIZE)
     {
-        nbytes = LARPIX_BUFFER_SIZE;
+        num_bytes_per_write = LARPIX_BUFFER_SIZE;
+    }
+    if(num_writes > sizeof(data_array)/sizeof(data_array[0]))
+    {
+        num_writes = sizeof(data_array)/sizeof(data_array[0]);
     }
     FT_STATUS status = FT_OK;
     FT_Purge(c->ft_handle, FT_PURGE_TX);
     byte output_buffer[LARPIX_BUFFER_SIZE];
-    larpix_data_to_array(data, output_buffer, LARPIX_BUFFER_SIZE);
     uint counter = 0;
     uint tot_num_bytes_written = 0;
     uint num_bytes_written = 0;
-    while(status == FT_OK && counter < num_loops)
+    while(status == FT_OK && counter < num_writes)
     {
+        larpix_data* data = &(data_array[counter]);
+        larpix_data_to_array(data, output_buffer, num_bytes_per_write);
         status = FT_Write(c->ft_handle,
                 output_buffer,
-                nbytes,
+                num_bytes_per_write,
                 &num_bytes_written);
         tot_num_bytes_written += num_bytes_written;
         ++counter;
@@ -95,31 +100,32 @@ uint larpix_write_data_loop(larpix_connection* c,
     return tot_num_bytes_written;
 }
 
-uint larpix_read_data_loop(larpix_connection* c,
-        larpix_data** data_array,
-        uint num_loops,
-        uint nbytes)
+uint larpix_read_data(larpix_connection* c,
+        larpix_data* data_array,
+        uint num_reads,
+        uint num_bytes_per_read)
 {
-    if(nbytes > LARPIX_BUFFER_SIZE)
+    if(num_bytes_per_read > LARPIX_BUFFER_SIZE)
     {
-        nbytes = LARPIX_BUFFER_SIZE;
+        num_bytes_per_read = LARPIX_BUFFER_SIZE;
     }
-    if(num_loops > sizeof(data_array)/sizeof(data_array[0]))
+    if(num_reads > sizeof(data_array)/sizeof(data_array[0]))
     {
-        num_loops = sizeof(data_array)/sizeof(data_array[0]);
+        num_reads = sizeof(data_array)/sizeof(data_array[0]);
     }
     FT_STATUS status = FT_OK;
     byte input_buffer[LARPIX_BUFFER_SIZE];
     uint counter = 0;
     uint tot_num_bytes_read = 0;
     uint num_bytes_read = 0;
-    while(status == FT_OK && counter < num_loops)
+    while(status == FT_OK && counter < num_reads)
     {
+        larpix_data* data = &(data_array[counter]);
         status = FT_Read(c->ft_handle,
                 input_buffer,
-                nbytes,
+                num_bytes_per_read,
                 &num_bytes_read);
-        larpix_array_to_data(data_array[counter], input_buffer, nbytes);
+        larpix_array_to_data(data, input_buffer, num_bytes_per_read);
         tot_num_bytes_read += num_bytes_read;
         ++counter;
     }
