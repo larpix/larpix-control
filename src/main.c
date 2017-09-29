@@ -7,7 +7,7 @@ int main()
     larpix_connection* c = &_c;
 
     larpix_default_connection(c);
-    int status = larpix_connect(c);
+    uint status = larpix_connect(c);
     if(status != 0)
     {
         printf("Could not connect (exit code %d)\n", status);
@@ -19,17 +19,16 @@ int main()
     {
         printf("Could not configure (exit code %d)\n", status);
     }
-    byte ch1[LARPIX_BUFFER_SIZE];
-    for(uint i = 0; i < LARPIX_BUFFER_SIZE; ++i)
-    {
-        ch1[i] = 0;
-    }
-    ch1[1] = 1;
-    ch1[10] = 1;
-    ch1[100] = 1;
-    ch1[1000] = 1;
-    larpix_data_set_bitstream(&(c->output_data), ch1, 1, LARPIX_BUFFER_SIZE);
-    uint num_bytes_written = larpix_write_data_loop(c, 10, LARPIX_BUFFER_SIZE);
+    larpix_uart_packet p;
+    larpix_uart_set_packet_type(&p, LARPIX_PACKET_CONFIG_WRITE);
+    larpix_uart_set_chipid(&p, 12);
+    larpix_uart_set_parity(&p);
+    larpix_data data;
+    larpix_data_init_high(&data);
+    larpix_data_set_clk(&data, 0);
+    status = larpix_uart_to_data(&p, &data, 1, 5);
+    uint num_bytes_written = larpix_write_data_loop(c, &data, 10,
+            LARPIX_BUFFER_SIZE);
     printf("Wrote %d bytes to FTDI chip\n", num_bytes_written);
 
     larpix_disconnect(c);

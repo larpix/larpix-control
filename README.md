@@ -59,22 +59,22 @@ same position at each element of the bytestream is a bitstream. A
 bytestream has 8 bitstreams.
 
 To facilitate bitstreams and bytestreams, there is a data structure
-called `larpix_data`. In the `larpix_connection` struct there is already
-a `larpix_data` object ready to go at `c.output_data` initialized to all
-bits high. If you want to create one for yourself, use
+called `larpix_data`. Usually you will want to initialize all bitstreams
+to 1 (high) because of the UART interface. You can also set one of the
+channels to be a clock (clk).
 
 ```C
 larpix_data data;
 larpix_data_init_high(&data); // or init_low
+larpix_data_set_clk(&data, 0); // clk on channel 0
 ```
 
 You can set each of the 8 bitstreams individually. For example, if you
-have an array `ch0` that contains the bitstream for channel 0, you can
+have an array `ch3` that contains the bitstream for channel 3, you can
 write it to the bytestream using
 
 ```C
-larpix_data_set_bitstream(&data, ch0, 0, length); // Separate object
-larpix_data_set_bitstream(&(c.output_data), ch0, 0, length); // Part of larpix_connection
+larpix_data_set_bitstream(&data, ch3, 3, length); // Separate object
 ```
 
 If the length of the array is longer than the maximum allowed
@@ -95,15 +95,15 @@ larpix_data_to_array(&data, bytestream_array, length); // extract bytestream
 
 ### Sending data to the chip
 
-Once you have set up the `c.output_data` with your bytestream, you can
+Once you have set up the `larpix_data` with your bytestream, you can
 send it to the chip with
 
 ```C
-larpix_write_data_loop(&c, num_loops, length);
+larpix_write_data_loop(&c, &data, num_loops, length);
 ```
 
 This command will write the first `length` bytes of data in
-`c.output_data` to the FTDI chip repeatedly, `num_loops` times.
+`data` to the FTDI chip repeatedly, `num_loops` times.
 
 ### Handling UART data format
 

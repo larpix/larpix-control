@@ -39,14 +39,6 @@ void larpix_default_connection(larpix_connection* c)
     c->bit_mode = FT_BITMODE_SYNC_BITBANG;
     c->timeout = 10;
     c->usb_transfer_size = 64;
-    byte clk_pattern[LARPIX_BUFFER_SIZE];
-    for(uint i = 0; i < LARPIX_BUFFER_SIZE; ++i)
-    {
-        clk_pattern[i] = i % 2;
-    }
-    larpix_data* data = &(c->output_data);
-    larpix_data_init_high(data);
-    larpix_data_set_bitstream(data, clk_pattern, 0, LARPIX_BUFFER_SIZE);
     return;
 }
 int larpix_connect(larpix_connection* c)
@@ -75,7 +67,10 @@ int larpix_configure_ftdi(larpix_connection* c)
     return (int) status;
 }
 
-uint larpix_write_data_loop(larpix_connection* c, uint num_loops, uint nbytes)
+uint larpix_write_data_loop(larpix_connection* c,
+        larpix_data* data,
+        uint num_loops,
+        uint nbytes)
 {
     if(nbytes > LARPIX_BUFFER_SIZE)
     {
@@ -84,7 +79,7 @@ uint larpix_write_data_loop(larpix_connection* c, uint num_loops, uint nbytes)
     FT_STATUS status = FT_OK;
     FT_Purge(c->ft_handle, FT_PURGE_RX | FT_PURGE_TX);
     byte output_buffer[LARPIX_BUFFER_SIZE];
-    larpix_data_to_array(&(c->output_data), output_buffer, LARPIX_BUFFER_SIZE);
+    larpix_data_to_array(data, output_buffer, LARPIX_BUFFER_SIZE);
     uint counter = 0;
     uint tot_num_bytes_written = 0;
     uint num_bytes_written = 0;
@@ -124,6 +119,16 @@ void larpix_data_init_low(larpix_data* data)
     return;
 }
 
+void larpix_data_set_clk(larpix_data* data, uint bit_position)
+{
+    byte clk_pattern[LARPIX_BUFFER_SIZE];
+    for(uint i = 0; i < LARPIX_BUFFER_SIZE; ++i)
+    {
+        clk_pattern[i] = i % 2;
+    }
+    larpix_data_init_high(data);
+    larpix_data_set_bitstream(data, clk_pattern, bit_position, LARPIX_BUFFER_SIZE);
+}
 void larpix_data_to_array(larpix_data* data, byte* array, uint nbytes)
 {
     if(nbytes > LARPIX_BUFFER_SIZE)

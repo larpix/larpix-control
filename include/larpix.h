@@ -29,7 +29,6 @@ typedef struct larpix_connection
     byte bit_mode;
     uint timeout;
     uint usb_transfer_size;
-    larpix_data output_data;
 } larpix_connection;
 
 typedef struct larpix_uart_packet
@@ -51,10 +50,14 @@ void larpix_default_connection(larpix_connection* c);
 int larpix_connect(larpix_connection* c);
 int larpix_disconnect(larpix_connection* c);
 int larpix_configure_ftdi(larpix_connection* c);
-uint larpix_write_data_loop(larpix_connection* c, uint num_loops, uint nbytes);
+uint larpix_write_data_loop(larpix_connection* c,
+        larpix_data* data,
+        uint num_loops,
+        uint nbytes);
 
 void larpix_data_init_high(larpix_data* data);
 void larpix_data_init_low(larpix_data* data);
+void larpix_data_set_clk(larpix_data* data, uint bit_position);
 void larpix_data_to_array(larpix_data* data, byte* array, uint nbytes);
 void larpix_array_to_data(larpix_data* data, byte* array, uint nbytes);
 void larpix_data_set_bitstream(larpix_data* data,
