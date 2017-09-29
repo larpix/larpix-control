@@ -29,7 +29,7 @@ int main()
     ch1[100] = 1;
     ch1[1000] = 1;
     larpix_data_set_bitstream(&(c->output_data), ch1, 1, LARPIX_BUFFER_SIZE);
-    uint num_bytes_written = larpix_write_data_loop(c, 10);
+    uint num_bytes_written = larpix_write_data_loop(c, 10, LARPIX_BUFFER_SIZE);
     printf("Wrote %d bytes to FTDI chip\n", num_bytes_written);
 
     larpix_disconnect(c);

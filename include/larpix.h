@@ -29,7 +29,7 @@ void larpix_default_connection(larpix_connection* c);
 int larpix_connect(larpix_connection* c);
 int larpix_disconnect(larpix_connection* c);
 int larpix_configure_ftdi(larpix_connection* c);
-uint larpix_write_data_loop(larpix_connection* c, uint num_loops);
+uint larpix_write_data_loop(larpix_connection* c, uint num_loops, uint nbytes);
 
 void larpix_data_init(larpix_data* data);
 void larpix_data_to_array(larpix_data* data, byte* array, uint nbytes);

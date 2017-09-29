@@ -44,9 +44,12 @@ int larpix_configure_ftdi(larpix_connection* c)
     return (int) status;
 }
 
-uint larpix_write_data_loop(larpix_connection* c, uint num_loops)
+uint larpix_write_data_loop(larpix_connection* c, uint num_loops, uint nbytes)
 {
-
+    if(nbytes > LARPIX_BUFFER_SIZE)
+    {
+        nbytes = LARPIX_BUFFER_SIZE;
+    }
     FT_STATUS status = FT_OK;
     FT_Purge(c->ft_handle, FT_PURGE_RX | FT_PURGE_TX);
     byte output_buffer[LARPIX_BUFFER_SIZE];
@@ -58,7 +61,7 @@ uint larpix_write_data_loop(larpix_connection* c, uint num_loops)
     {
         status = FT_Write(c->ft_handle,
                 output_buffer,
-                LARPIX_BUFFER_SIZE,
+                nbytes,
                 &num_bytes_written);
         tot_num_bytes_written += num_bytes_written;
         ++counter;
