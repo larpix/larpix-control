@@ -131,6 +131,61 @@ uint larpix_read_data(larpix_connection* c,
     }
     return tot_num_bytes_read;
 }
+void larpix_write_read_data(larpix_connection* c,
+        larpix_data* write_array,
+        larpix_data* read_array,
+        uint num_read_writes,
+        uint num_bytes_per_write,
+        uint num_bytes_per_read,
+        uint* total_num_bytes_written,
+        uint* total_num_bytes_read)
+{
+    if(num_bytes_per_read > LARPIX_BUFFER_SIZE)
+    {
+        num_bytes_per_read = LARPIX_BUFFER_SIZE;
+    }
+    if(num_bytes_per_write > LARPIX_BUFFER_SIZE)
+    {
+        num_bytes_per_write = LARPIX_BUFFER_SIZE;
+    }
+    if(num_read_writes > sizeof(write_array)/sizeof(write_array[0]))
+    {
+        num_read_writes = sizeof(write_array)/sizeof(write_array[0]);
+    }
+    if(num_read_writes > sizeof(read_array)/sizeof(read_array[0]))
+    {
+        num_read_writes = sizeof(read_array)/sizeof(read_array[0]);
+    }
+    FT_STATUS status = FT_OK;
+    byte input_buffer[LARPIX_BUFFER_SIZE];
+    byte output_buffer[LARPIX_BUFFER_SIZE];
+    uint counter = 0;
+    uint tot_num_bytes_read = 0;
+    uint tot_num_bytes_written = 0;
+    uint num_bytes_read = 0;
+    uint num_bytes_written = 0;
+    while(status == FT_OK && counter < num_read_writes)
+    {
+        larpix_data* input_data = &(read_array[counter]);
+        larpix_data* output_data = &(write_array[counter]);
+        larpix_array_to_data(output_data, output_buffer, num_bytes_per_write);
+        status = FT_Write(c->ft_handle,
+                output_buffer,
+                num_bytes_per_write,
+                &num_bytes_written);
+        status = FT_Read(c->ft_handle,
+                input_buffer,
+                num_bytes_per_read,
+                &num_bytes_read);
+        larpix_array_to_data(input_data, input_buffer, num_bytes_per_read);
+        tot_num_bytes_read += num_bytes_read;
+        tot_num_bytes_written += num_bytes_written;
+        ++counter;
+    }
+    *total_num_bytes_read = tot_num_bytes_read;
+    *total_num_bytes_written = tot_num_bytes_written;
+    return;
+}
 
 void larpix_data_init_high(larpix_data* data)
 {

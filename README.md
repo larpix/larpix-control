@@ -129,8 +129,31 @@ larpix_read_data(&c, data_array, array_size, length);
 ```
 
 This command will read `length` bytes from the FTDI into each
-`larpix_data` and is the fastest that data can be read fro mthe FTDI
+`larpix_data` and is the fastest that data can be read from the FTDI
 chip.
+
+### Reading and writting in quick succession
+
+It will be extremely useful to read and write in quick succession, not
+only when querying the configuration status or when using the LArPix
+test mode, but also in normal operation since we must write out the
+clock and a constant high signal on the UART line. This function will
+write first and then read, repeatedly and in quick succession. Assuming
+you have an array of `larpix_data` to read and another array to write,
+you can do the following.
+
+```C
+uint total_bytes_written;
+uint total_bytes_read;
+larpix_write_read_data(&c, write_array, read_array,
+    1, // number of write-read pairs
+    length_write, // number of bytes per write
+    length_read, // number of bytes per read
+    &total_bytes_written, // will be filled with total bytes written
+    &total_bytes_read); // will be filled with total bytes read
+```
+
+This is the fastest possible read-write configuration.
 
 ### Handling UART data format
 

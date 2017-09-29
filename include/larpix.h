@@ -53,11 +53,19 @@ int larpix_configure_ftdi(larpix_connection* c);
 uint larpix_write_data(larpix_connection* c,
         larpix_data* data_array,
         uint num_writes,
-        uint num_bytes_to_write);
+        uint num_bytes_per_write);
 uint larpix_read_data(larpix_connection* c,
         larpix_data* data_array,
         uint num_reads,
-        uint num_bytes_to_read);
+        uint num_bytes_per_read);
+void larpix_write_read_data(larpix_connection* c,
+        larpix_data* write_array,
+        larpix_data* read_array,
+        uint num_read_writes,
+        uint num_bytes_per_write,
+        uint num_bytes_per_read,
+        uint* total_bytes_written,
+        uint* total_bytes_read);
 
 void larpix_data_init_high(larpix_data* data);
 void larpix_data_init_low(larpix_data* data);
