@@ -1,3 +1,6 @@
+#ifndef LARPIX_H
+#define LARPIX_H
+
 #include <ftd2xx/ftd2xx.h>
 
 typedef unsigned int uint;
@@ -39,3 +42,5 @@ void larpix_data_get_bitstream(larpix_data* data,
         byte* array,
         uint bit_position,
         uint nbytes);
+
+#endif //ifndef LARPIX_H
