@@ -15,10 +15,15 @@ CFLAGS = -Wall -Wextra -I./include $(DEPENDENCIES) $(LINKER_OPTIONS)
 
 BINARIES = bin/larpix-control
 
-all: $(BINARIES)
+LIBRARY_FILES = bin/larpix.o bin/larpix.so
+
+all: $(BINARIES) $(LIBRARY_FILES)
 
 bin/larpix-control: src/main.c bin/larpix.o
 	$(CC) -o $@ $^ $(CFLAGS)
 
 bin/larpix.o: src/larpix.c include/larpix.h
 	$(CC) -c -o $@ $< $(CFLAGS)
+
+bin/larpix.so: src/larpix.c include/larpix.h
+	$(CC) -shared -o $@ -fPIC $< $(CFLAGS)
