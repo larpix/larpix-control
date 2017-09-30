@@ -9,6 +9,7 @@ typedef unsigned char byte;
 
 #define LARPIX_BUFFER_SIZE 1024
 #define LARPIX_UART_SIZE 54
+#define LARPIX_BITS_PER_BAUD 4
 
 #define LARPIX_UART_PTYPE_LOW 0
 #define LARPIX_UART_PTYPE_HIGH 1

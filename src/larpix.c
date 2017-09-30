@@ -301,19 +301,27 @@ uint larpix_uart_to_data(larpix_uart_packet* packet, larpix_data* data,
         uint bit_position,
         uint startbit)
 {
-    if(startbit + LARPIX_UART_SIZE + 2 > LARPIX_BUFFER_SIZE)
+    uint size_in_buffer = (LARPIX_UART_SIZE + 2) * LARPIX_BITS_PER_BAUD;
+    if(startbit + size_in_buffer > LARPIX_BUFFER_SIZE)
     {
         return 1;
     }
     byte* bit_channel = data->bits[bit_position];
     // UART spec: 0th bit is 0, last bit is 1
-    bit_channel[startbit] = 0;
+    for(uint j = 0; j < LARPIX_BITS_PER_BAUD; ++j)
+    {
+        bit_channel[startbit + j] = 0;
+        bit_channel[startbit + size_in_buffer - j - 1] = 1;
+    }
+    uint BPB = LARPIX_BITS_PER_BAUD;
     for(uint i = 0; i < LARPIX_UART_SIZE; ++i)
     {
-        uint write_position = startbit + i + 1;
-        bit_channel[write_position] = packet->data[i];
+        for(uint j = 0; j < LARPIX_BITS_PER_BAUD; ++j)
+        {
+            uint write_position = startbit + (i+1)*BPB + j;
+            bit_channel[write_position] = packet->data[i];
+        }
     }
-    bit_channel[startbit + LARPIX_UART_SIZE + 1] = 1;
     return 0;
 }
 
