@@ -76,14 +76,6 @@ uint larpix_write_data(larpix_connection* c,
     {
         num_bytes_per_write = LARPIX_BUFFER_SIZE;
     }
-    if(sizeof(data_array) == sizeof(larpix_data*))
-    {
-        num_writes = 1;
-    }
-    else if(num_writes > sizeof(data_array)/sizeof(data_array[0]))
-    {
-        num_writes = sizeof(data_array)/sizeof(data_array[0]);
-    }
     FT_STATUS status = FT_OK;
     FT_Purge(c->ft_handle, FT_PURGE_TX);
     byte output_buffer[LARPIX_BUFFER_SIZE];
@@ -112,14 +104,6 @@ uint larpix_read_data(larpix_connection* c,
     if(num_bytes_per_read > LARPIX_BUFFER_SIZE)
     {
         num_bytes_per_read = LARPIX_BUFFER_SIZE;
-    }
-    if(sizeof(data_array) == sizeof(larpix_data*))
-    {
-        num_reads = 1;
-    }
-    else if(num_reads > sizeof(data_array)/sizeof(data_array[0]))
-    {
-        num_reads = sizeof(data_array)/sizeof(data_array[0]);
     }
     FT_STATUS status = FT_OK;
     byte input_buffer[LARPIX_BUFFER_SIZE];
@@ -155,25 +139,6 @@ void larpix_write_read_data(larpix_connection* c,
     if(num_bytes_per_write > LARPIX_BUFFER_SIZE)
     {
         num_bytes_per_write = LARPIX_BUFFER_SIZE;
-    }
-    if(sizeof(read_array) == sizeof(larpix_data*))
-    {
-        num_read_writes = 1;
-    }
-    else if(sizeof(write_array) == sizeof(larpix_data*))
-    {
-        num_read_writes = 1;
-    }
-    else
-    {
-        if(num_read_writes > sizeof(write_array)/sizeof(write_array[0]))
-        {
-            num_read_writes = sizeof(write_array)/sizeof(write_array[0]);
-        }
-        if(num_read_writes > sizeof(read_array)/sizeof(read_array[0]))
-        {
-            num_read_writes = sizeof(read_array)/sizeof(read_array[0]);
-        }
     }
     FT_STATUS status = FT_OK;
     byte input_buffer[LARPIX_BUFFER_SIZE];
