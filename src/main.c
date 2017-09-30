@@ -23,11 +23,15 @@ int main()
     larpix_uart_set_packet_type(&p, LARPIX_PACKET_CONFIG_WRITE);
     larpix_uart_set_chipid(&p, 12);
     larpix_uart_set_parity(&p);
-    larpix_data data;
-    larpix_data_init_high(&data);
-    larpix_data_set_clk(&data, 0);
-    status = larpix_uart_to_data(&p, &data, 1, 5);
-    uint num_bytes_written = larpix_write_data(c, &data, 1,
+    larpix_data data_array[10];
+    for(uint i = 0; i < 10; ++i)
+    {
+        larpix_data* data = data_array + i;
+        larpix_data_init_high(data);
+        larpix_data_set_clk(data, 0);
+        status = larpix_uart_to_data(&p, data, 1, 50 * i);
+    }
+    uint num_bytes_written = larpix_write_data(c, data_array, 10,
             LARPIX_BUFFER_SIZE);
     printf("Wrote %d bytes to FTDI chip\n", num_bytes_written);
 
