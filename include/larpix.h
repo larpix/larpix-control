@@ -15,6 +15,14 @@ typedef unsigned char byte;
 #define LARPIX_UART_PTYPE_HIGH 1
 #define LARPIX_UART_CHIPID_LOW 2
 #define LARPIX_UART_CHIPID_HIGH 9
+#define LARPIX_UART_CHANNELID_LOW 10
+#define LARPIX_UART_CHANNELID_HIGH 16
+#define LARPIX_UART_TIMESTAMP_LOW 17
+#define LARPIX_UART_TIMESTAMP_HIGH 40
+#define LARPIX_UART_DATAWORD_LOW 41
+#define LARPIX_UART_DATAWORD_HIGH 50
+#define LARPIX_UART_FIFO_HALF 51
+#define LARPIX_UART_FIFO_FULL 52
 #define LARPIX_UART_PARITY 53
 
 typedef struct larpix_data
@@ -88,14 +96,25 @@ uint larpix_uart_to_data(larpix_uart_packet* packet, larpix_data* data,
 uint larpix_data_to_uart(larpix_uart_packet* packet, larpix_data* data,
         uint bit_position,
         uint startbit);
-uint larpix_uart_compute_parity(larpix_uart_packet* packet);
-void larpix_uart_set_parity(larpix_uart_packet* packet);
-uint larpix_uart_check_parity(larpix_uart_packet* packet);
 void larpix_uart_set_packet_type(larpix_uart_packet* packet,
         larpix_packet_type type);
 larpix_packet_type larpix_uart_get_packet_type(larpix_uart_packet* packet);
 void larpix_uart_set_chipid(larpix_uart_packet* packet, uint chipid);
 uint larpix_uart_get_chipid(larpix_uart_packet* packet);
-
+void larpix_uart_set_channelid(larpix_uart_packet* packet, uint channelid);
+uint larpix_uart_get_channelid(larpix_uart_packet* packet);
+void larpix_uart_set_timestamp(larpix_uart_packet* packet, ulong timestamp);
+ulong larpix_uart_get_timestamp(larpix_uart_packet* packet);
+void larpix_uart_set_dataword(larpix_uart_packet* packet, uint dataword);
+uint larpix_uart_get_dataword(larpix_uart_packet* packet);
+void larpix_uart_set_fifohalfflag(larpix_uart_packet* packet, byte fifohalfflag);
+byte larpix_uart_get_fifohalfflag(larpix_uart_packet* packet);
+void larpix_uart_set_fifofullflag(larpix_uart_packet* packet, byte fifofullflag);
+byte larpix_uart_get_fifofullflag(larpix_uart_packet* packet);
+byte larpix_uart_compute_parity(larpix_uart_packet* packet);
+void larpix_uart_set_parity(larpix_uart_packet* packet);
+void larpix_uart_force_set_parity(larpix_uart_packet* packet, byte parity);
+byte larpix_uart_get_parity(larpix_uart_packet* packet);
+uint larpix_uart_check_parity(larpix_uart_packet* packet);
 
 #endif //ifndef LARPIX_H
