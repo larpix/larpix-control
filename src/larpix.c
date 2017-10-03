@@ -202,7 +202,6 @@ void larpix_data_set_clk(larpix_data* data, uint bit_position)
     {
         clk_pattern[i] = i % 2;
     }
-    larpix_data_init_high(data);
     larpix_data_set_bitstream(data, clk_pattern, bit_position, LARPIX_BUFFER_SIZE);
 }
 void larpix_data_to_array(larpix_data* data, byte* array, uint nbytes)
