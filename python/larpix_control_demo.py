@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 
-import LArPix
+import larpix
 
 # Initialize LArPix Control system
-controller = LArPix.Controller()
-controller.SetClockSpeed(10) # MHz
+controller = larpix.Controller()
+controller.set_clock_speed(10) # MHz
 
 # Initialize four LArPix chips, on two I/O daisy chains
-chip_15 = LArPix.Chip(chip_id = 15, io_chain = 0)
-chip_85 = LArPix.Chip(chip_id = 85, io_chain = 0)
-chip_170 = LArPix.Chip(chip_id = 170, io_chain = 1)
-chip_240 = LArPix.Chip(chip_id = 240, io_chain = 1)
+chip_15 = larpix.Chip(chip_id=15, io_chain=0)
+chip_85 = larpix.Chip(chip_id=85, io_chain=0)
+chip_170 = larpix.Chip(chip_id=170, io_chain=1)
+chip_240 = larpix.Chip(chip_id=240, io_chain=1)
 chips = [chip_15, chip_85, chip_170, chip_240]
 
 controller.set_chips(chips)
