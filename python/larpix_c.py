@@ -8,11 +8,8 @@ import ctypes as c
 
 larpix = c.cdll.LoadLibrary('../bin/larpix.so')
 
-LARPIX_BUFFER_SIZE = 1024
-LARPIX_UART_SIZE = 54
-
 class larpix_data(c.Structure):
-    _fields_ = [("bits", (c.c_ubyte * 8) * LARPIX_BUFFER_SIZE)]
+    _fields_ = [("bits", (c.c_ubyte * larpix.larpix_buffer_size()) * 8)]
 
 class larpix_connection(c.Structure):
     _fields_ = [
@@ -26,7 +23,7 @@ class larpix_connection(c.Structure):
             ]
 
 class larpix_uart_packet(c.Structure):
-    _fields_ = [("data", c.c_ubyte * LARPIX_UART_SIZE)]
+    _fields_ = [("data", c.c_ubyte * larpix.larpix_uart_size())]
 
 larpix_packet_type = {
         "data": c.c_int(0),
