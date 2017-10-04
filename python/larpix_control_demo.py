@@ -20,22 +20,22 @@ for chip in chips:
     # General
     chip.disable_all_channels()
     # CSA configuration
-    chip.enable_internal_bypass()
-    chip.disable_analog_monitor()
-    chip.set_csa_gain(1)
+    chip.internal_bypass = True
+    chip.analog_monitor = False
+    chip.csa_gain = 1
     # ADC configuration
-    chip.set_sample_cycles(1)
-    chip.set_adc_burst_length(1)
-    chip.disable_csa_bypass()
+    chip.sample_cycles = 1
+    chip.adc_burst_length = 1
+    chip.csa_bypass = False
     # Self-trigger configuration
-    chip.set_cross_trigger_mode(0)
+    chip.cross_trigger_mode = False
     # Discriminator configuration
-    chip.set_reset_cycles(0xA00) # 1024 us @ 10 MHz master clock
-    chip.enable_periodic_reset()
-    chip.set_global_threshold(16)
-    chip.set_pixel_trim_thresholds([16]*32)
+    chip.reset_cycles = 0xA00 # 1024 us @ 10 MHz master clock
+    chip.periodic_reset = True
+    chip.global_threshold = 16
+    chip.pixel_trim_thresholds = [16]*32
     # General
-    chip.disable_fifo_diagnostic()
+    chip.fifo_diagnostic = False
     chip.enable_normal_operation()
 
 
