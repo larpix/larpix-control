@@ -176,6 +176,9 @@ uint parity = larpix_uart_compute_parity(&packet);
 uint status = larpix_uart_check_parity(&packet); // 0 -> good, 1-> error
 ```
 
+There is a getter/setter for every section of the UART packet that is
+described in Section 5.4 of the LArPix Datasheet (v2).
+
 
 To communicate with the chip, `larpix_uart_packet` must be converted
 to/from `larpix_data`. The functions also return a status value which is
@@ -192,6 +195,11 @@ uint status = larpix_uart_to_data(&packet, &data, 1, 128); // 0->good, 1->error
 uint status = larpix_data_to_uart(&packet, &data, 1, 128); // 0->good, 1->error
 ```
 
+The `larpix_uart_to_data` function dilates the data by a factor of
+4 to account for the relationship between the master clock and the
+UART baudrate. This feature will likely change depending on the final
+communication setup between the C code and the LArPix chip.
+
 ### Python interface
 
 You can access all of the larpix-control functionality through
@@ -200,11 +208,8 @@ your program. Then you can access the struct types as python
 classes with the same names as the corresponding C structs.
 `larpix_packet_type` is a python dict with keys `data`, `test`,
 `config_write`, and `config_read`. You can call any and all C functions
-via `larpix\_c.larpix.<function-name>`.
+via `larpix_c.larpix.<function-name>`.
 
-Note: I may decide to provide a more Pythonic wrapper. Or it may end up
-being more convenient to interface between C and Python indirectly, e.g.
-through sockets.
 
 Here's an example:
 
@@ -227,3 +232,5 @@ status = larpix.larpix_uart_to_data(c.byref(packet), c.byref(data), 1, 128)
 
 larpix.larpix_write_data(c.byref(conn), c.byref(data), 1, LARPIX_BUFFER_SIZE)
 ```
+
+Note: a more Pythonic wrapper is under development.
