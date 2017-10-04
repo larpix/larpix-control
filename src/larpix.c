@@ -1,5 +1,15 @@
 #include "larpix.h"
 
+uint larpix_buffer_size()
+{
+    return LARPIX_BUFFER_SIZE;
+}
+
+uint larpix_uart_size()
+{
+    return LARPIX_UART_SIZE;
+}
+
 ulong larpix_bitstream_to_int(byte* bitstream, uint length)
 {
     // Note: unsigned ints (uints) only hold 16 bits. We expect some of
