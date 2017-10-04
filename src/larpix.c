@@ -523,4 +523,17 @@ byte larpix_uart_get_fifofullflag(larpix_uart_packet* packet)
     return packet->data[LARPIX_UART_FIFO_FULL];
 }
 
+uint larpix_uart_get_test_counter(larpix_uart_packet* packet)
+{
+    uint start = LARPIX_UART_TEST_BITS_11_0_LOW;
+    byte* startbit = &(packet->data[start]);
+    uint length = 1 + LARPIX_UART_TEST_BITS_11_0_HIGH - start;
+    ulong value = larpix_bitstream_to_int(startbit, length);
 
+    uint start2 = LARPIX_UART_TEST_BITS_15_12_LOW;
+    byte* startbit2 = &(packet->data[start2]);
+    uint length2 = 1 + LARPIX_UART_TEST_BITS_15_12_HIGH - start2;
+    ulong value2 = larpix_bitstream_to_int(startbit2, length2);
+    value2 = value2 << length;
+    return (uint) (value + value2);
+}
