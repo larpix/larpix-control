@@ -537,3 +537,39 @@ uint larpix_uart_get_test_counter(larpix_uart_packet* packet)
     value2 = value2 << length;
     return (uint) (value + value2);
 }
+
+void larpix_uart_set_register(larpix_uart_packet* packet, uint address)
+{
+    uint start = LARPIX_UART_REGISTER_ADDRESS_LOW;
+    byte* startbit = &(packet->data[start]);
+    uint length = 1 + LARPIX_UART_REGISTER_ADDRESS_HIGH - start;
+    larpix_int_to_bitstream(startbit, (ulong) address, length);
+    return;
+}
+
+uint larpix_uart_get_register(larpix_uart_packet* packet)
+{
+    uint start = LARPIX_UART_REGISTER_ADDRESS_LOW;
+    byte* startbit = &(packet->data[start]);
+    uint length = 1 + LARPIX_UART_REGISTER_ADDRESS_HIGH - start;
+    ulong value = larpix_bitstream_to_int(startbit, length);
+    return (uint) value;
+}
+
+void larpix_uart_set_register_data(larpix_uart_packet* packet, uint value)
+{
+    uint start = LARPIX_UART_REGISTER_DATA_LOW;
+    byte* startbit = &(packet->data[start]);
+    uint length = 1 + LARPIX_UART_REGISTER_DATA_HIGH - start;
+    larpix_int_to_bitstream(startbit, (ulong) value, length);
+    return;
+}
+
+uint larpix_uart_get_register_data(larpix_uart_packet* packet)
+{
+    uint start = LARPIX_UART_REGISTER_DATA_LOW;
+    byte* startbit = &(packet->data[start]);
+    uint length = 1 + LARPIX_UART_REGISTER_DATA_HIGH - start;
+    ulong value = larpix_bitstream_to_int(startbit, length);
+    return (uint) value;
+}

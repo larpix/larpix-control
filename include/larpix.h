@@ -139,6 +139,12 @@ byte larpix_uart_get_fifohalfflag(larpix_uart_packet* packet);
 void larpix_uart_set_fifofullflag(larpix_uart_packet* packet, byte fifofullflag);
 byte larpix_uart_get_fifofullflag(larpix_uart_packet* packet);
 
+// UART access for config packets
+void larpix_uart_set_register(larpix_uart_packet* packet, uint address);
+uint larpix_uart_get_register(larpix_uart_packet* packet);
+void larpix_uart_set_register_data(larpix_uart_packet* packet, uint value);
+uint larpix_uart_get_register_data(larpix_uart_packet* packet);
+
 // UART access for test packets
 uint larpix_uart_get_test_counter(larpix_uart_packet* packet);
 #endif //ifndef LARPIX_H
