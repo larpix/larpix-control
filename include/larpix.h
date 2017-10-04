@@ -101,6 +101,11 @@ void larpix_uart_set_packet_type(larpix_uart_packet* packet,
 larpix_packet_type larpix_uart_get_packet_type(larpix_uart_packet* packet);
 void larpix_uart_set_chipid(larpix_uart_packet* packet, uint chipid);
 uint larpix_uart_get_chipid(larpix_uart_packet* packet);
+byte larpix_uart_compute_parity(larpix_uart_packet* packet);
+void larpix_uart_set_parity(larpix_uart_packet* packet);
+void larpix_uart_force_set_parity(larpix_uart_packet* packet, byte parity);
+byte larpix_uart_get_parity(larpix_uart_packet* packet);
+uint larpix_uart_check_parity(larpix_uart_packet* packet);
 void larpix_uart_set_channelid(larpix_uart_packet* packet, uint channelid);
 uint larpix_uart_get_channelid(larpix_uart_packet* packet);
 void larpix_uart_set_timestamp(larpix_uart_packet* packet, ulong timestamp);
@@ -111,10 +116,5 @@ void larpix_uart_set_fifohalfflag(larpix_uart_packet* packet, byte fifohalfflag)
 byte larpix_uart_get_fifohalfflag(larpix_uart_packet* packet);
 void larpix_uart_set_fifofullflag(larpix_uart_packet* packet, byte fifofullflag);
 byte larpix_uart_get_fifofullflag(larpix_uart_packet* packet);
-byte larpix_uart_compute_parity(larpix_uart_packet* packet);
-void larpix_uart_set_parity(larpix_uart_packet* packet);
-void larpix_uart_force_set_parity(larpix_uart_packet* packet, byte parity);
-byte larpix_uart_get_parity(larpix_uart_packet* packet);
-uint larpix_uart_check_parity(larpix_uart_packet* packet);
 
 #endif //ifndef LARPIX_H

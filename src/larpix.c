@@ -380,6 +380,59 @@ uint larpix_uart_get_chipid(larpix_uart_packet* packet)
     return (uint) value;
 }
 
+byte larpix_uart_compute_parity(larpix_uart_packet* packet)
+{
+    uint number_of_ones = 0;
+    for(uint i = 0; i < LARPIX_UART_PARITY; ++i)
+    {
+        if(packet->data[i] == 1)
+        {
+            ++number_of_ones;
+        }
+    }
+    byte parity = 1 - (byte)(number_of_ones % 2);
+    return parity;
+}
+
+void larpix_uart_set_parity(larpix_uart_packet* packet)
+{
+    byte parity = larpix_uart_compute_parity(packet);
+    packet->data[LARPIX_UART_PARITY] = parity;
+    return;
+}
+
+void larpix_uart_force_set_parity(larpix_uart_packet* packet, byte parity)
+{
+    if(parity == 0)
+    {
+        packet->data[LARPIX_UART_PARITY] = 0;
+    }
+    else
+    {
+        packet->data[LARPIX_UART_PARITY] = 1;
+    }
+    return;
+}
+
+byte larpix_uart_get_parity(larpix_uart_packet* packet)
+{
+    return packet->data[LARPIX_UART_PARITY];
+}
+
+uint larpix_uart_check_parity(larpix_uart_packet* packet)
+{
+    byte computed_parity = larpix_uart_compute_parity(packet);
+    byte received_parity = packet->data[LARPIX_UART_PARITY];
+    if(computed_parity == received_parity)
+    {
+        return 0;
+    }
+    else
+    {
+        return 1;
+    }
+}
+
 void larpix_uart_set_channelid(larpix_uart_packet* packet, uint channelid)
 {
     uint start = LARPIX_UART_CHANNELID_LOW;
@@ -446,6 +499,7 @@ void larpix_uart_set_fifohalfflag(larpix_uart_packet* packet, byte fifohalfflag)
     }
     return;
 }
+
 byte larpix_uart_get_fifohalfflag(larpix_uart_packet* packet)
 {
     return packet->data[LARPIX_UART_FIFO_HALF];
@@ -463,60 +517,10 @@ void larpix_uart_set_fifofullflag(larpix_uart_packet* packet, byte fifofullflag)
     }
     return;
 }
+
 byte larpix_uart_get_fifofullflag(larpix_uart_packet* packet)
 {
     return packet->data[LARPIX_UART_FIFO_FULL];
 }
 
-byte larpix_uart_compute_parity(larpix_uart_packet* packet)
-{
-    uint number_of_ones = 0;
-    for(uint i = 0; i < LARPIX_UART_PARITY; ++i)
-    {
-        if(packet->data[i] == 1)
-        {
-            ++number_of_ones;
-        }
-    }
-    byte parity = 1 - (byte)(number_of_ones % 2);
-    return parity;
-}
 
-void larpix_uart_set_parity(larpix_uart_packet* packet)
-{
-    byte parity = larpix_uart_compute_parity(packet);
-    packet->data[LARPIX_UART_PARITY] = parity;
-    return;
-}
-
-void larpix_uart_force_set_parity(larpix_uart_packet* packet, byte parity)
-{
-    if(parity == 0)
-    {
-        packet->data[LARPIX_UART_PARITY] = 0;
-    }
-    else
-    {
-        packet->data[LARPIX_UART_PARITY] = 1;
-    }
-    return;
-}
-
-byte larpix_uart_get_parity(larpix_uart_packet* packet)
-{
-    return packet->data[LARPIX_UART_PARITY];
-}
-
-uint larpix_uart_check_parity(larpix_uart_packet* packet)
-{
-    byte computed_parity = larpix_uart_compute_parity(packet);
-    byte received_parity = packet->data[LARPIX_UART_PARITY];
-    if(computed_parity == received_parity)
-    {
-        return 0;
-    }
-    else
-    {
-        return 1;
-    }
-}
