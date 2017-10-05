@@ -265,6 +265,12 @@ There is a corresponding `larpix_config_read_all` function which
 extracts the configuration from an array of UART packets into a
 `larpix_configuration` object. It does not modify the packets at all,
 but the array should be in "configuration register" order from 0 to 62.
+This function also returns a "status" result which is `0` if all reads
+are successful, else is the number of unsuccessful reads. (A possible
+upgrade here is to specify which reads are unsuccessful. Don't hold your
+breath though.) Unsuccessful reads happen when the "register map
+address" in the UART packet does not match the expected address for the
+particular configuration being read.
 
 It is also possible to create UART packets one at a time, for only the
 configuration values that you want to update. Each data member of the
@@ -273,13 +279,14 @@ configuration values that you want to update. Each data member of the
 `larpix_config_read_X(config, uart_packet)` functions. Like with
 `larpix_config_write_all`, these individual functions adjust the
 register map address and register map data portions of the UART packet,
-and the read functions are read-only.
+and the read functions are read-only. The read functions return 0 on
+successful read and 1 on unsuccessful read.
 
 ```C
 larpix_config_write_csa_testpulse_dac_amplitude(&config, &packet);
 
 byte channel_chunk = 2;
-larpix_config_read_csa_bypass_select(&config, &packet, channel_chunk);
+uint status = larpix_config_read_csa_bypass_select(&config, &packet, channel_chunk);
 ```
 
 As implied by the code example, there are a few subtleties.
