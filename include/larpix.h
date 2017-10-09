@@ -18,6 +18,10 @@ typedef unsigned char byte;
 #define LARPIX_UART_CHANNELID_HIGH 16
 #define LARPIX_UART_TIMESTAMP_LOW 17
 #define LARPIX_UART_TIMESTAMP_HIGH 40
+#define LARPIX_UART_DATAWORD_LOW 41
+#define LARPIX_UART_DATAWORD_HIGH 50
+#define LARPIX_UART_FIFO_HALF_FLAG 51
+#define LARPIX_UART_FIFO_FULL_FLAG 52
 #define LARPIX_UART_PARITY 53
 
 typedef struct larpix_data
@@ -102,7 +106,12 @@ uint larpix_uart_get_chipid(larpix_uart_packet* packet);
 uint larpix_uart_set_channelid(larpix_uart_packet* packet, uint channelid);
 long larpix_uart_get_channelid(larpix_uart_packet* packet);
 uint larpix_uart_set_timestamp(larpix_uart_packet* packet, ulong timestamp);
-unsigned long long larpix_uart_get_timestamp(larpix_uart_packet* packet);
-
+long long larpix_uart_get_timestamp(larpix_uart_packet* packet);
+uint larpix_uart_set_dataword(larpix_uart_packet* packet, uint dataword);
+long larpix_uart_get_dataword(larpix_uart_packet* packet);
+uint larpix_uart_set_fifo_half_flag(larpix_uart_packet* packet, uint dataword);
+int larpix_uart_get_fifo_half_flag(larpix_uart_packet* packet);
+uint larpix_uart_set_fifo_full_flag(larpix_uart_packet* packet, uint dataword);
+int larpix_uart_get_fifo_full_flag(larpix_uart_packet* packet);
 
 #endif //ifndef LARPIX_H

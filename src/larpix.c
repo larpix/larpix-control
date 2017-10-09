@@ -444,7 +444,7 @@ uint larpix_uart_set_timestamp(larpix_uart_packet* packet, ulong timestamp)
     return 0;
 }
 
-unsigned long long larpix_uart_get_timestamp(larpix_uart_packet* packet)
+long long larpix_uart_get_timestamp(larpix_uart_packet* packet)
 {
     larpix_packet_type packet_type = larpix_uart_get_packet_type(packet);
     if( packet_type != LARPIX_PACKET_DATA )
@@ -453,5 +453,74 @@ unsigned long long larpix_uart_get_timestamp(larpix_uart_packet* packet)
     byte* startbit = &(packet->data[start]);
     uint length = 1 + LARPIX_UART_TIMESTAMP_HIGH - start;
     ulong value = larpix_bitstream_to_int(startbit, length);
-    return (unsigned long long) value;
+    return (long long) value;
 }
+
+uint larpix_uart_set_dataword(larpix_uart_packet* packet, uint dataword)
+{
+    larpix_packet_type packet_type = larpix_uart_get_packet_type(packet);
+    if( packet_type != LARPIX_PACKET_DATA )
+      return 1;
+    uint start = LARPIX_UART_DATAWORD_LOW;
+    byte* startbit = &(packet->data[start]);
+    uint length = 1 + LARPIX_UART_DATAWORD_HIGH - start;
+    larpix_int_to_bitstream(startbit, dataword, length);
+    return 0;
+}
+
+long larpix_uart_get_dataword(larpix_uart_packet* packet)
+{
+    larpix_packet_type packet_type = larpix_uart_get_packet_type(packet);
+    if( packet_type != LARPIX_PACKET_DATA )
+      return -1;
+    uint start = LARPIX_UART_DATAWORD_LOW;
+    byte* startbit = &(packet->data[start]);
+    uint length = 1 + LARPIX_UART_DATAWORD_HIGH - start;
+    ulong value = larpix_bitstream_to_int(startbit, length);
+    return (long) value;
+}
+
+uint larpix_uart_set_fifo_half_flag(larpix_uart_packet* packet, uint dataword)
+{
+    larpix_packet_type packet_type = larpix_uart_get_packet_type(packet);
+    if( packet_type != LARPIX_PACKET_DATA )
+      return 1;
+    uint start = LARPIX_UART_FIFO_HALF_FLAG;
+    byte* startbit = &(packet->data[start]);
+    larpix_int_to_bitstream(startbit, dataword, 1);
+    return 0;
+}
+
+int larpix_uart_get_fifo_half_flag(larpix_uart_packet* packet)
+{
+    larpix_packet_type packet_type = larpix_uart_get_packet_type(packet);
+    if( packet_type != LARPIX_PACKET_DATA )
+      return -1;
+    uint start = LARPIX_UART_FIFO_HALF_FLAG;
+    byte* startbit = &(packet->data[start]);
+    ulong value = larpix_bitstream_to_int(startbit, 1);
+    return (int) value;
+}
+
+uint larpix_uart_set_fifo_full_flag(larpix_uart_packet* packet, uint dataword)
+{
+    larpix_packet_type packet_type = larpix_uart_get_packet_type(packet);
+    if( packet_type != LARPIX_PACKET_DATA )
+      return 1;
+    uint start = LARPIX_UART_FIFO_FULL_FLAG;
+    byte* startbit = &(packet->data[start]);
+    larpix_int_to_bitstream(startbit, dataword, 1);
+    return 0;
+}
+
+int larpix_uart_get_fifo_full_flag(larpix_uart_packet* packet)
+{
+    larpix_packet_type packet_type = larpix_uart_get_packet_type(packet);
+    if( packet_type != LARPIX_PACKET_DATA )
+      return -1;
+    uint start = LARPIX_UART_FIFO_FULL_FLAG;
+    byte* startbit = &(packet->data[start]);
+    ulong value = larpix_bitstream_to_int(startbit, 1);
+    return (int) value;
+}
+
