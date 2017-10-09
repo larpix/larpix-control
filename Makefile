@@ -27,3 +27,6 @@ bin/larpix.o: src/larpix.c include/larpix.h
 
 bin/larpix.so: src/larpix.c include/larpix.h
 	$(CC) -shared -o $@ -fPIC $< $(CFLAGS)
+
+clean:
+	rm $(BINARIES) $(LIBRARY_FILES)
