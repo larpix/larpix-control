@@ -176,6 +176,9 @@ uint parity = larpix_uart_compute_parity(&packet);
 uint status = larpix_uart_check_parity(&packet); // 0 -> good, 1-> error
 ```
 
+There is a getter/setter for every section of the UART packet that is
+described in Section 5.4 of the LArPix Datasheet (v2).
+
 
 To communicate with the chip, `larpix_uart_packet` must be converted
 to/from `larpix_data`. The functions also return a status value which is
@@ -192,6 +195,126 @@ uint status = larpix_uart_to_data(&packet, &data, 1, 128); // 0->good, 1->error
 uint status = larpix_data_to_uart(&packet, &data, 1, 128); // 0->good, 1->error
 ```
 
+The `larpix_uart_to_data` function dilates the data by a factor of
+4 to account for the relationship between the master clock and the
+UART baudrate. This feature will likely change depending on the final
+communication setup between the C code and the LArPix chip.
+
+### Chip configuration
+
+First: the configuration layout is a bit complicated. So bear with me.
+
+To configure the LArPix chip upon startup, three things need to happen:
+
+  1. You need to decide on a configuration
+
+  2. That configuration needs to be written to a large number of UART
+     packets (currently 63), with the caveats that
+
+     - some configurations occupy multiple registers/bytes so must be
+       sent on multiple UART packets
+
+     - some configurations are only a bit or two and are combined with
+       other configuration values onto a single register/byte, so are
+       sent together on the same UART packet
+
+  3. Those packets must all be sent to the chip
+
+For subsequent configurations, e.g. to enable then disable test mode,
+keeping everything else the same, only the UART packets corresponding to
+the changed configuration values need to be created and then sent.
+
+The data structure that keeps track of a chip's configuration is the
+`larpix_configuration` struct. Initialize it to the LArPix chip's
+default values using
+
+```C
+larpix_configuration config;
+larpix_config_init_defaults(&config);
+```
+
+You can then access the struct's members to adjust the configuration.
+View the larpix.h header file to see all of the members. They are named
+to match the list in Section 5.2 of the LArPix datasheet, and they are
+in the same order in the header file as in that list.
+
+A small technicality is that `test_burst_length` and `reset_cycles` both
+use more than a byte to store a number, and are represented by an array
+of bytes. So you'll have to do the math yourself to get the number you
+want. For example:
+
+```C
+config.test_burst_length[0] = 5;
+config.test_burst_length[1] = 1; // value is 256 + 5 = 261
+```
+
+To transfer the complete configuration into a collection of UART
+packets, use the `larpix_config_write_all` function:
+
+```C
+larpix_uart_packet full_config_packets[LARPIX_NUM_CONFIG_REGISTERS]; // [63]
+larpix_config_write_all(&config, full_config_packets);
+```
+
+This function only adjusts the "register map address" and "register map
+data" portions of the UART packet (i.e. calls `larpix_uart_set_register`
+and `larpix_uart_set_register_data` but no other `larpix_uart`
+functions).
+
+There is a corresponding `larpix_config_read_all` function which
+extracts the configuration from an array of UART packets into a
+`larpix_configuration` object. It does not modify the packets at all,
+but the array should be in "configuration register" order from 0 to 62.
+This function also returns a "status" result which is `0` if all reads
+are successful, else is the number of unsuccessful reads. (A possible
+upgrade here is to specify which reads are unsuccessful. Don't hold your
+breath though.) Unsuccessful reads happen when the "register map
+address" in the UART packet does not match the expected address for the
+particular configuration being read.
+
+It is also possible to create UART packets one at a time, for only the
+configuration values that you want to update. Each data member of the
+`larpix_configuration` struct has its own
+`larpix_config_write_X(config, uart_packet)` and
+`larpix_config_read_X(config, uart_packet)` functions. Like with
+`larpix_config_write_all`, these individual functions adjust the
+register map address and register map data portions of the UART packet,
+and the read functions are read-only. The read functions return 0 on
+successful read and 1 on unsuccessful read.
+
+```C
+larpix_config_write_csa_testpulse_dac_amplitude(&config, &packet);
+
+byte channel_chunk = 2;
+uint status = larpix_config_read_csa_bypass_select(&config, &packet, channel_chunk);
+```
+
+As implied by the code example, there are a few subtleties.
+
+ - `pixel_trim_thresholds` requires an additional parameter ,`channelid`
+
+ - `csa_bypass_select`, `csa_monitor_select`, `csa_testpulse_enable`,
+   `channel_mask`, and `external_trigger_mask` store only one bit per
+   channel, and are squeezed into 4 bytes each. So the corresponding
+   read/write functions require an additional parameter, `channel_chunk`,
+   which ranges from 0 to 3 and determines which group of channels to
+   write (0:7, 8:15, 16:23, or 24:31, respectively).
+
+ - `test_burst_length` and `reset_cycles`, as mentioned above, combine
+   more than 1 byte into a single number. The corresponding read/write
+   functions require an additional parameter, `value_chunk`, which
+   determines which byte is written.
+
+ - `csa_gain`, `csa_bypass`, and `internal_bypass` are combined into a
+   single byte, so there is only one read and one write function which
+   includes all three settings, namely
+   `larpix_config_write_csa_gain_and_bypasses` (and the corresponding
+   read function).
+
+ - `test_mode`, `cross_trigger_mode`, `periodic_reset`, and
+   `fifo_diagnostic` are also combined into a single byte. Their
+   combined function is `larpix_config_write_test_mode_xtrig_reset_diag`.
+
 ### Python interface
 
 You can access all of the larpix-control functionality through
@@ -200,11 +323,8 @@ your program. Then you can access the struct types as python
 classes with the same names as the corresponding C structs.
 `larpix_packet_type` is a python dict with keys `data`, `test`,
 `config_write`, and `config_read`. You can call any and all C functions
-via `larpix\_c.larpix.<function-name>`.
+via `larpix_c.larpix.<function-name>`.
 
-Note: I may decide to provide a more Pythonic wrapper. Or it may end up
-being more convenient to interface between C and Python indirectly, e.g.
-through sockets.
 
 Here's an example:
 
@@ -227,3 +347,5 @@ status = larpix.larpix_uart_to_data(c.byref(packet), c.byref(data), 1, 128)
 
 larpix.larpix_write_data(c.byref(conn), c.byref(data), 1, LARPIX_BUFFER_SIZE)
 ```
+
+Note: a more Pythonic wrapper is under development.
