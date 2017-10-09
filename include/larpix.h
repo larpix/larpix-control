@@ -14,6 +14,10 @@ typedef unsigned char byte;
 #define LARPIX_UART_PTYPE_HIGH 1
 #define LARPIX_UART_CHIPID_LOW 2
 #define LARPIX_UART_CHIPID_HIGH 9
+#define LARPIX_UART_CHANNELID_LOW 10
+#define LARPIX_UART_CHANNELID_HIGH 16
+#define LARPIX_UART_TIMESTAMP_LOW 17
+#define LARPIX_UART_TIMESTAMP_HIGH 40
 #define LARPIX_UART_PARITY 53
 
 typedef struct larpix_data
@@ -95,6 +99,10 @@ void larpix_uart_set_packet_type(larpix_uart_packet* packet,
 larpix_packet_type larpix_uart_get_packet_type(larpix_uart_packet* packet);
 void larpix_uart_set_chipid(larpix_uart_packet* packet, uint chipid);
 uint larpix_uart_get_chipid(larpix_uart_packet* packet);
+uint larpix_uart_set_channelid(larpix_uart_packet* packet, uint channelid);
+long larpix_uart_get_channelid(larpix_uart_packet* packet);
+uint larpix_uart_set_timestamp(larpix_uart_packet* packet, ulong timestamp);
+unsigned long long larpix_uart_get_timestamp(larpix_uart_packet* packet);
 
 
 #endif //ifndef LARPIX_H

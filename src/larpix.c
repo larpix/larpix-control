@@ -407,3 +407,51 @@ uint larpix_uart_get_chipid(larpix_uart_packet* packet)
     ulong value = larpix_bitstream_to_int(startbit, length);
     return (uint) value;
 }
+
+uint larpix_uart_set_channelid(larpix_uart_packet* packet, uint channelid)
+{
+    larpix_packet_type packet_type = larpix_uart_get_packet_type(packet);
+    if( packet_type != LARPIX_PACKET_DATA )
+      return 1;
+    uint start = LARPIX_UART_CHANNELID_LOW;
+    byte* startbit = &(packet->data[start]);
+    uint length = 1 + LARPIX_UART_CHANNELID_HIGH - start;
+    larpix_int_to_bitstream(startbit, (ulong) channelid, length);
+    return 0;
+}
+
+long larpix_uart_get_channelid(larpix_uart_packet* packet)
+{
+    larpix_packet_type packet_type = larpix_uart_get_packet_type(packet);
+    if( packet_type != LARPIX_PACKET_DATA )
+      return -1;
+    uint start = LARPIX_UART_CHANNELID_LOW;
+    byte* startbit = &(packet->data[start]);
+    uint length = 1 + LARPIX_UART_CHANNELID_HIGH - start;
+    ulong value = larpix_bitstream_to_int(startbit, length);
+    return (long) value;
+}
+
+uint larpix_uart_set_timestamp(larpix_uart_packet* packet, ulong timestamp)
+{
+    larpix_packet_type packet_type = larpix_uart_get_packet_type(packet);
+    if( packet_type != LARPIX_PACKET_DATA )
+      return 1;
+    uint start = LARPIX_UART_TIMESTAMP_LOW;
+    byte* startbit = &(packet->data[start]);
+    uint length = 1 + LARPIX_UART_TIMESTAMP_HIGH - start;
+    larpix_int_to_bitstream(startbit, timestamp, length);
+    return 0;
+}
+
+unsigned long long larpix_uart_get_timestamp(larpix_uart_packet* packet)
+{
+    larpix_packet_type packet_type = larpix_uart_get_packet_type(packet);
+    if( packet_type != LARPIX_PACKET_DATA )
+      return -1;
+    uint start = LARPIX_UART_TIMESTAMP_LOW;
+    byte* startbit = &(packet->data[start]);
+    uint length = 1 + LARPIX_UART_TIMESTAMP_HIGH - start;
+    ulong value = larpix_bitstream_to_int(startbit, length);
+    return (unsigned long long) value;
+}
