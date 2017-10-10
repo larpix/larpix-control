@@ -1206,7 +1206,7 @@ uint larpix_config_read_reset_cycles(larpix_configuration* config,
     {
         byte value = larpix_uart_get_register_data(packet);
         uint value_chunk = address - LARPIX_REG_RESET_CYCLES_LOW;
-        config->test_burst_length[value_chunk] = value;
+        config->reset_cycles[value_chunk] = value;
         return 0;
     }
 }
