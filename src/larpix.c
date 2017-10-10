@@ -783,6 +783,8 @@ uint larpix_config_read_pixel_trim_threshold(larpix_configuration* config,
         larpix_uart_packet* packet)
 {
     byte address = larpix_uart_get_register(packet);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
     if(address < LARPIX_REG_PIXEL_TRIM_THRESHOLD_LOW || address > LARPIX_REG_PIXEL_TRIM_THRESHOLD_HIGH)
     {
         return 1;
@@ -793,6 +795,7 @@ uint larpix_config_read_pixel_trim_threshold(larpix_configuration* config,
         config->pixel_trim_thresholds[address] = value;
         return 0;
     }
+#pragma GCC diagnostic pop
 }
 
 void larpix_config_write_global_threshold(larpix_configuration* config,
