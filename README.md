@@ -15,6 +15,16 @@ Download this repository.
 To generate the larpix.o file and a demonstration executable just run
 `make`.
 
+### Tests
+
+You can run tests to convince yourself that the software works as
+expected with `make check`. The tests are in the `tests/*Test.c`
+files (except for `tests/CuTest.c` which contains the [unit testing
+framework](http://cutest.sourceforge.net/)). You can read the tests to
+see examples of how to call all of the different functions. I imagine
+they will also come in handy when you're confused about the bit order.
+In general, array index 0 is sent out first and contains the LSB.
+
 ## Tutorial
 
 You're probably also looking for the Python interface. That's after the C
