@@ -833,50 +833,118 @@ void larpix_config_write_csa_gain_and_bypasses(larpix_configuration* config,
     larpix_uart_set_register_data(packet, value);
     return;
 }
-
 uint larpix_config_read_csa_gain_and_bypasses(larpix_configuration* config,
-        larpix_uart_packet* packet);
+        larpix_uart_packet* packet)
+{
+    return 0;
+}
 void larpix_config_write_csa_bypass_select(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channel_chunk);
+        larpix_uart_packet* packet, uint channel_chunk)
+{
+    return;
+}
 uint larpix_config_read_csa_bypass_select(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channel_chunk);
+        larpix_uart_packet* packet, uint channel_chunk)
+{
+    return 0;
+}
 void larpix_config_write_csa_monitor_select(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channel_chunk);
+        larpix_uart_packet* packet, uint channel_chunk)
+{
+    return;
+}
 uint larpix_config_read_csa_monitor_select(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channel_chunk);
+        larpix_uart_packet* packet, uint channel_chunk)
+{
+    return 0;
+}
 void larpix_config_write_csa_testpulse_enable(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channel_chunk);
+        larpix_uart_packet* packet, uint channel_chunk)
+{
+    return;
+}
 uint larpix_config_read_csa_testpulse_enable(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channel_chunk);
+        larpix_uart_packet* packet, uint channel_chunk)
+{
+    return 0;
+}
 void larpix_config_write_csa_testpulse_dac_amplitude(larpix_configuration* config,
-        larpix_uart_packet* packet);
+        larpix_uart_packet* packet)
+{
+    return;
+}
 uint larpix_config_read_csa_testpulse_dac_amplitude(larpix_configuration* config,
-        larpix_uart_packet* packet);
+        larpix_uart_packet* packet)
+{
+    return 0;
+}
 void larpix_config_write_test_mode_xtrig_reset_diag(larpix_configuration* config,
-        larpix_uart_packet* packet);
+        larpix_uart_packet* packet)
+{
+    return;
+}
 uint larpix_config_read_test_mode_xtrig_reset_diag(larpix_configuration* config,
-        larpix_uart_packet* packet);
+        larpix_uart_packet* packet)
+{
+    return 0;
+}
 void larpix_config_write_sample_cycles(larpix_configuration* config,
-        larpix_uart_packet* packet);
+        larpix_uart_packet* packet)
+{
+    return;
+}
 uint larpix_config_read_sample_cycles(larpix_configuration* config,
-        larpix_uart_packet* packet);
+        larpix_uart_packet* packet)
+{
+    return 0;
+}
 void larpix_config_write_test_burst_length(larpix_configuration* config,
-        larpix_uart_packet* packet, uint value_chunk);
+        larpix_uart_packet* packet, uint value_chunk)
+{
+    return;
+}
 uint larpix_config_read_test_burst_length(larpix_configuration* config,
-        larpix_uart_packet* packet, uint value_chunk);
+        larpix_uart_packet* packet, uint value_chunk)
+{
+    return 0;
+}
 void larpix_config_write_adc_burst_length(larpix_configuration* config,
-        larpix_uart_packet* packet);
+        larpix_uart_packet* packet)
+{
+    return;
+}
 uint larpix_config_read_adc_burst_length(larpix_configuration* config,
-        larpix_uart_packet* packet);
+        larpix_uart_packet* packet)
+{
+    return 0;
+}
 void larpix_config_write_channel_mask(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channel_chunk);
+        larpix_uart_packet* packet, uint channel_chunk)
+{
+    return;
+}
 uint larpix_config_read_channel_mask(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channel_chunk);
+        larpix_uart_packet* packet, uint channel_chunk)
+{
+    return 0;
+}
 void larpix_config_write_external_trigger_mask(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channel_chunk);
+        larpix_uart_packet* packet, uint channel_chunk)
+{
+    return;
+}
 uint larpix_config_read_external_trigger_mask(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channel_chunk);
+        larpix_uart_packet* packet, uint channel_chunk)
+{
+    return 0;
+}
 void larpix_config_write_reset_cycles(larpix_configuration* config,
-        larpix_uart_packet* packet, uint value_chunk);
+        larpix_uart_packet* packet, uint value_chunk)
+{
+    return;
+}
 uint larpix_config_read_reset_cycles(larpix_configuration* config,
-        larpix_uart_packet* packet, uint value_chunk);
+        larpix_uart_packet* packet, uint value_chunk)
+{
+    return 0;
+}
