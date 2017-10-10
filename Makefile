@@ -30,3 +30,11 @@ bin/larpix.so: src/larpix.c include/larpix.h
 
 clean:
 	rm $(BINARIES) $(LIBRARY_FILES)
+
+TEST = bin/test
+check: $(TEST)
+	$<
+
+TESTS = tests/UartTest.c tests/ConfigTest.c
+$(TEST): tests/AllTests.c tests/CuTest.c $(TESTS) $(LIBRARY_FILES)
+	$(CC) -o $@ $^ $(CFLAGS)
