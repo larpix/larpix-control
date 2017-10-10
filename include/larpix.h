@@ -99,8 +99,8 @@ typedef struct larpix_configuration
 
 typedef enum larpix_packet_type
 {
-    LARPIX_PACKET_DATA,
     LARPIX_PACKET_TEST,
+    LARPIX_PACKET_DATA,
     LARPIX_PACKET_CONFIG_WRITE,
     LARPIX_PACKET_CONFIG_READ
 } larpix_packet_type;
