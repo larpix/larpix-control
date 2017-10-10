@@ -365,6 +365,15 @@ void larpix_uart_str(larpix_uart_packet* packet, char* buffer, uint length)
     return;
 }
 
+void larpix_uart_init_zeros(larpix_uart_packet* packet)
+{
+    for(uint i = 0; i < LARPIX_UART_SIZE; ++i)
+    {
+        packet->data[i] = 0;
+    }
+    return;
+}
+
 void larpix_uart_set_packet_type(larpix_uart_packet* packet,
         larpix_packet_type type)
 {

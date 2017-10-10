@@ -142,9 +142,10 @@ uint larpix_uart_to_data(larpix_uart_packet* packet, larpix_data* data,
 uint larpix_data_to_uart(larpix_uart_packet* packet, larpix_data* data,
         uint bit_position,
         uint startbit);
+void larpix_uart_str(larpix_uart_packet* packet, char* buffer, uint length);
+void larpix_uart_init_zeros(larpix_uart_packet* packet);
 
 // UART access for all packet types
-void larpix_uart_str(larpix_uart_packet* packet, char* buffer, uint length);
 void larpix_uart_set_packet_type(larpix_uart_packet* packet,
         larpix_packet_type type);
 larpix_packet_type larpix_uart_get_packet_type(larpix_uart_packet* packet);
