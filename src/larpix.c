@@ -310,8 +310,7 @@ void larpix_data_get_bitstream(larpix_data* data,
 }
 
 uint larpix_uart_to_data(larpix_uart_packet* packet, larpix_data* data,
-        uint bit_position,
-        uint startbit)
+        uint bit_position, uint startbit)
 {
     uint size_in_buffer = (LARPIX_UART_SIZE + 2) * LARPIX_BITS_PER_BAUD;
     if(startbit + size_in_buffer > LARPIX_BUFFER_SIZE)
@@ -349,7 +348,7 @@ uint larpix_data_to_uart(larpix_uart_packet* packet, larpix_data* data,
     for(uint i = 0; i < LARPIX_UART_SIZE; ++i)
     {
         uint read_position = startbit + i + 1;
-         packet->data[i] = bit_channel[read_position];
+        packet->data[i] = bit_channel[read_position];
     }
     return 0;
 }
@@ -648,129 +647,130 @@ void larpix_config_init_defaults(larpix_configuration* config)
 }
 /*
 
-void larpix_config_write_all(larpix_configuration* config,
-        larpix_uart_packet packets[LARPIX_NUM_CONFIG_REGISTERS])
-{
-    // This is a pain
-    larpix_uart_packet* packet = packets;
-    for(uint i = 0; i < LARPIX_NUM_CHANNELS; ++i)
-    {
-        larpix_config_write_pixel_trim_threshold(config, packet, i);
-        ++packet;
-    }
-    larpix_config_write_global_threshold(config, packet);
-    ++packet;
-    larpix_config_write_csa_gain_and_bypasses(config, packet);
-    ++packet;
-    for(uint i = 0; i < 4; ++i)
-    {
-        larpix_config_write_csa_bypass_select(config, packet, i);
-        ++packet;
-    }
-    for(uint i = 0; i < 4; ++i)
-    {
-        larpix_config_write_csa_monitor_select(config, packet, i);
-        ++packet;
-    }
-    for(uint i = 0; i < 4; ++i)
-    {
-        larpix_config_write_csa_testpulse_enable(config, packet, i);
-        ++packet;
-    }
-    larpix_config_write_csa_testpulse_dac_amplitude(config, packet);
-    ++packet;
-    larpix_config_write_test_mode_xtrig_reset_diag(config, packet);
-    ++packet;
-    larpix_config_write_sample_cycles(config, packet);
-    ++packet;
-    for(uint i = 0; i < 2; ++i)
-    {
-        larpix_config_write_test_burst_length(config, packet, i);
-        ++packet;
-    }
-    larpix_config_write_adc_burst_length(config, packet);
-    ++packet;
-    for(uint i = 0; i < 4; ++i)
-    {
-        larpix_config_write_channel_mask(config, packet, i);
-        ++packet;
-    }
-    for(uint i = 0; i < 4; ++i)
-    {
-        larpix_config_write_external_trigger_mask(config, packet, i);
-        ++packet;
-    }
-    for(uint i = 0; i < 3; ++i)
-    {
-        larpix_config_write_reset_cycles(config, packet, i);
-        ++packet;
-    }
-    return;
-}
-uint larpix_config_read_all(larpix_configuration* config,
-        larpix_uart_packet packets[LARPIX_NUM_CONFIG_REGISTERS])
-{
-    // This is a pain
-    uint status = 0;
-    larpix_uart_packet* packet = packets;
-    for(uint i = 0; i < LARPIX_NUM_CHANNELS; ++i)
-    {
-        status += larpix_config_read_pixel_trim_threshold(config, packet, i);
-        ++packet;
-    }
-    status += larpix_config_read_global_threshold(config, packet);
-    ++packet;
-    status += larpix_config_read_csa_gain_and_bypasses(config, packet);
-    ++packet;
-    for(uint i = 0; i < 4; ++i)
-    {
-        status += larpix_config_read_csa_bypass_select(config, packet, i);
-        ++packet;
-    }
-    for(uint i = 0; i < 4; ++i)
-    {
-        status += larpix_config_read_csa_monitor_select(config, packet, i);
-        ++packet;
-    }
-    for(uint i = 0; i < 4; ++i)
-    {
-        status += larpix_config_read_csa_testpulse_enable(config, packet, i);
-        ++packet;
-    }
-    status += larpix_config_read_csa_testpulse_dac_amplitude(config, packet);
-    ++packet;
-    status += larpix_config_read_test_mode_xtrig_reset_diag(config, packet);
-    ++packet;
-    status += larpix_config_read_sample_cycles(config, packet);
-    ++packet;
-    for(uint i = 0; i < 2; ++i)
-    {
-        status += larpix_config_read_test_burst_length(config, packet, i);
-        ++packet;
-    }
-    status += larpix_config_read_adc_burst_length(config, packet);
-    ++packet;
-    for(uint i = 0; i < 4; ++i)
-    {
-        status += larpix_config_read_channel_mask(config, packet, i);
-        ++packet;
-    }
-    for(uint i = 0; i < 4; ++i)
-    {
-        status += larpix_config_read_external_trigger_mask(config, packet, i);
-        ++packet;
-    }
-    for(uint i = 0; i < 3; ++i)
-    {
-        status += larpix_config_read_reset_cycles(config, packet, i);
-        ++packet;
-    }
-    return status;
-}
+  void larpix_config_write_all(larpix_configuration* config,
+  larpix_uart_packet packets[LARPIX_NUM_CONFIG_REGISTERS])
+  {
+  // This is a pain
+  larpix_uart_packet* packet = packets;
+  for(uint i = 0; i < LARPIX_NUM_CHANNELS; ++i)
+  {
+  larpix_config_write_pixel_trim_threshold(config, packet, i);
+  ++packet;
+  }
+  larpix_config_write_global_threshold(config, packet);
+  ++packet;
+  larpix_config_write_csa_gain_and_bypasses(config, packet);
+  ++packet;
+  for(uint i = 0; i < 4; ++i)
+  {
+  larpix_config_write_csa_bypass_select(config, packet, i);
+  ++packet;
+  }
+  for(uint i = 0; i < 4; ++i)
+  {
+  larpix_config_write_csa_monitor_select(config, packet, i);
+  ++packet;
+  }
+  for(uint i = 0; i < 4; ++i)
+  {
+  larpix_config_write_csa_testpulse_enable(config, packet, i);
+  ++packet;
+  }
+  larpix_config_write_csa_testpulse_dac_amplitude(config, packet);
+  ++packet;
+  larpix_config_write_test_mode_xtrig_reset_diag(config, packet);
+  ++packet;
+  larpix_config_write_sample_cycles(config, packet);
+  ++packet;
+  for(uint i = 0; i < 2; ++i)
+  {
+  larpix_config_write_test_burst_length(config, packet, i);
+  ++packet;
+  }
+  larpix_config_write_adc_burst_length(config, packet);
+  ++packet;
+  for(uint i = 0; i < 4; ++i)
+  {
+  larpix_config_write_channel_mask(config, packet, i);
+  ++packet;
+  }
+  for(uint i = 0; i < 4; ++i)
+  {
+  larpix_config_write_external_trigger_mask(config, packet, i);
+  ++packet;
+  }
+  for(uint i = 0; i < 3; ++i)
+  {
+  larpix_config_write_reset_cycles(config, packet, i);
+  ++packet;
+  }
+  return;
+  }
+  uint larpix_config_read_all(larpix_configuration* config,
+  larpix_uart_packet packets[LARPIX_NUM_CONFIG_REGISTERS])
+  {
+  // This is a pain
+  uint status = 0;
+  larpix_uart_packet* packet = packets;
+  for(uint i = 0; i < LARPIX_NUM_CHANNELS; ++i)
+  {
+  status += larpix_config_read_pixel_trim_threshold(config, packet, i);
+  ++packet;
+  }
+  status += larpix_config_read_global_threshold(config, packet);
+  ++packet;
+  status += larpix_config_read_csa_gain_and_bypasses(config, packet);
+  ++packet;
+  for(uint i = 0; i < 4; ++i)
+  {
+  status += larpix_config_read_csa_bypass_select(config, packet);
+  ++packet;
+  }
+  for(uint i = 0; i < 4; ++i)
+  {
+  status += larpix_config_read_csa_monitor_select(config, packet);
+  ++packet;
+  }
+  for(uint i = 0; i < 4; ++i)
+  {
+  status += larpix_config_read_csa_testpulse_enable(config, packet);
+  ++packet;
+  }
+  status += larpix_config_read_csa_testpulse_dac_amplitude(config, packet);
+  ++packet;
+  status += larpix_config_read_test_mode_xtrig_reset_diag(config, packet);
+  ++packet;
+  status += larpix_config_read_sample_cycles(config, packet);
+  ++packet;
+  for(uint i = 0; i < 2; ++i)
+  {
+  status += larpix_config_read_test_burst_length(config, packet);
+  ++packet;
+  }
+  status += larpix_config_read_adc_burst_length(config, packet);
+  ++packet;
+  for(uint i = 0; i < 4; ++i)
+  {
+  status += larpix_config_read_channel_mask(config, packet);
+  ++packet;
+  }
+  for(uint i = 0; i < 4; ++i)
+  {
+  status += larpix_config_read_external_trigger_mask(config, packet);
+  ++packet;
+  }
+  for(uint i = 0; i < 3; ++i)
+  {
+  status += larpix_config_read_reset_cycles(config, packet);
+  ++packet;
+  }
+  return status;
+  }
 */
 
 void larpix_config_write_pixel_trim_threshold(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channelid)
+        larpix_uart_packet* packet,
+        uint channelid)
 {
     byte value = config->pixel_trim_thresholds[channelid];
     byte address = LARPIX_REG_PIXEL_TRIM_THRESHOLD_LOW + channelid;
@@ -836,115 +836,377 @@ void larpix_config_write_csa_gain_and_bypasses(larpix_configuration* config,
 uint larpix_config_read_csa_gain_and_bypasses(larpix_configuration* config,
         larpix_uart_packet* packet)
 {
-    return 0;
+    byte address = larpix_uart_get_register(packet);
+    if(address != LARPIX_REG_CSA_GAIN_AND_BYPASSES)
+    {
+        return 1;
+    }
+    else
+    {
+        byte value = larpix_uart_get_register_data(packet);
+        config->csa_gain = (value & 1);
+        config->csa_bypass = (value >> 1) & 1;
+        config->internal_bypass = (value >> 2) & 1;
+        return 0;
+    }
 }
+
 void larpix_config_write_csa_bypass_select(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channel_chunk)
+        larpix_uart_packet* packet,
+        uint channel_chunk)
 {
+    byte value = 0;
+    byte address = LARPIX_REG_CSA_BYPASS_SELECT_LOW + channel_chunk;
+    for ( uint i = 0; i < 8; i++ )
+    {
+        uint channel = channel_chunk * 8 + i;
+        byte channel_value = config->csa_bypass_select[channel];
+        value = value | (channel_value << i);
+    }
+    larpix_uart_set_register(packet, address);
+    larpix_uart_set_register_data(packet, value);
     return;
 }
+
 uint larpix_config_read_csa_bypass_select(larpix_configuration* config,
         larpix_uart_packet* packet)
 {
-    return 0;
+    byte address = larpix_uart_get_register(packet);
+    if(address < LARPIX_REG_CSA_BYPASS_SELECT_LOW ||
+            address > LARPIX_REG_CSA_BYPASS_SELECT_HIGH )
+    {
+        return 1;
+    }
+    else
+    {
+        byte value = larpix_uart_get_register_data(packet);
+        for ( uint i = 0; i < 8; i++ )
+        {
+            uint channel = (address - LARPIX_REG_CSA_BYPASS_SELECT_LOW) * 8 + i;
+            byte channel_value = (value >> i) & 1;
+            config->csa_bypass_select[channel] = channel_value;
+        }
+        return 0;
+    }
 }
+
 void larpix_config_write_csa_monitor_select(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channel_chunk)
+        larpix_uart_packet* packet,
+        uint channel_chunk)
 {
+    byte value = 0;
+    byte address = LARPIX_REG_CSA_MONITOR_SELECT_LOW + channel_chunk;
+    for ( uint i = 0; i < 8; i++ )
+    {
+        uint channel = channel_chunk * 8 + i;
+        byte channel_value = config->csa_monitor_select[channel];
+        value = value | (channel_value << i);
+    }
+    larpix_uart_set_register(packet, address);
+    larpix_uart_set_register_data(packet, value);
     return;
 }
+
 uint larpix_config_read_csa_monitor_select(larpix_configuration* config,
         larpix_uart_packet* packet)
 {
-    return 0;
+    byte address = larpix_uart_get_register(packet);
+    if(address < LARPIX_REG_CSA_MONITOR_SELECT_LOW ||
+            address > LARPIX_REG_CSA_MONITOR_SELECT_HIGH )
+    {
+        return 1;
+    }
+    else
+    {
+        byte value = larpix_uart_get_register_data(packet);
+        for ( uint i = 0; i < 8; i++ )
+        {
+            uint channel = (address - LARPIX_REG_CSA_MONITOR_SELECT_LOW) * 8 + i;
+            byte channel_value = (value >> i) & 1;
+            config->csa_monitor_select[channel] = channel_value;
+        }
+        return 0;
+    }
 }
+
 void larpix_config_write_csa_testpulse_enable(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channel_chunk)
+        larpix_uart_packet* packet,
+        uint channel_chunk)
 {
+    byte value = 0;
+    byte address = LARPIX_REG_CSA_TESTPULSE_ENABLE_LOW + channel_chunk;
+    for ( uint i = 0; i < 8; i++ )
+    {
+        uint channel = channel_chunk * 8 + i;
+        byte channel_value = config->csa_testpulse_enable[channel];
+        value = value | (channel_value << i);
+    }
+    larpix_uart_set_register(packet, address);
+    larpix_uart_set_register_data(packet, value);
     return;
 }
+
 uint larpix_config_read_csa_testpulse_enable(larpix_configuration* config,
         larpix_uart_packet* packet)
 {
-    return 0;
+    byte address = larpix_uart_get_register(packet);
+    if(address < LARPIX_REG_CSA_TESTPULSE_ENABLE_LOW ||
+            address > LARPIX_REG_CSA_TESTPULSE_ENABLE_HIGH )
+    {
+        return 1;
+    }
+    else
+    {
+        byte value = larpix_uart_get_register_data(packet);
+        for ( uint i = 0; i < 8; i++ )
+        {
+            uint channel = (address - LARPIX_REG_CSA_TESTPULSE_ENABLE_LOW) * 8 + i;
+            byte channel_value = (value >> i) & 1;
+            config->csa_testpulse_enable[channel] = channel_value;
+        }
+        return 0;
+    }
 }
+
 void larpix_config_write_csa_testpulse_dac_amplitude(larpix_configuration* config,
         larpix_uart_packet* packet)
 {
+    byte value = config->csa_testpulse_dac_amplitude;
+    byte address = LARPIX_REG_CSA_TESTPULSE_DAC_AMPLITUDE;
+    larpix_uart_set_register(packet, address);
+    larpix_uart_set_register_data(packet, value);
     return;
 }
+
 uint larpix_config_read_csa_testpulse_dac_amplitude(larpix_configuration* config,
         larpix_uart_packet* packet)
 {
-    return 0;
+    byte address = larpix_uart_get_register(packet);
+    if(address != LARPIX_REG_CSA_TESTPULSE_DAC_AMPLITUDE)
+    {
+        return 1;
+    }
+    else
+    {
+        byte value = larpix_uart_get_register_data(packet);
+        config->csa_testpulse_dac_amplitude = value;
+        return 0;
+    }
+
 }
+
 void larpix_config_write_test_mode_xtrig_reset_diag(larpix_configuration* config,
         larpix_uart_packet* packet)
 {
-    return;
+    byte value = 0;
+    byte address = LARPIX_REG_TEST_MODE_XTRIG_RESET_DIAG;
+    value = value | config->test_mode; // bits [1:0]
+    value = value | (config->cross_trigger_mode << 2); // bit [2]
+    value = value | (config->periodic_reset << 3); // bit [3]
+    value = value | (config->fifo_diagnostic << 4); // bit [4]
+    larpix_uart_set_register(packet, address);
+    larpix_uart_set_register_data(packet, value);
 }
+
 uint larpix_config_read_test_mode_xtrig_reset_diag(larpix_configuration* config,
         larpix_uart_packet* packet)
 {
-    return 0;
+    byte address = larpix_uart_get_register(packet);
+    if(address != LARPIX_REG_TEST_MODE_XTRIG_RESET_DIAG)
+    {
+        return 1;
+    }
+    else
+    {
+        byte value = larpix_uart_get_register_data(packet);
+        config->test_mode = (value & 3); // bits [1:0]
+        config->cross_trigger_mode = (value >> 2) & 1; // bit [2]
+        config->periodic_reset = (value >> 3) & 1; // bit [3]
+        config->fifo_diagnostic = (value >> 4) & 1; // bit [4]
+        return 0;
+    }
 }
+
 void larpix_config_write_sample_cycles(larpix_configuration* config,
         larpix_uart_packet* packet)
 {
-    return;
+    byte value = config->sample_cycles;
+    byte address = LARPIX_REG_SAMPLE_CYCLES;
+    larpix_uart_set_register(packet, address);
+    larpix_uart_set_register_data(packet, value);
 }
+
 uint larpix_config_read_sample_cycles(larpix_configuration* config,
         larpix_uart_packet* packet)
 {
-    return 0;
+    byte address = larpix_uart_get_register(packet);
+    if(address != LARPIX_REG_SAMPLE_CYCLES)
+    {
+        return 1;
+    }
+    else
+    {
+        byte value = larpix_uart_get_register_data(packet);
+        config->sample_cycles = value;
+        return 0;
+    }
 }
+
 void larpix_config_write_test_burst_length(larpix_configuration* config,
-        larpix_uart_packet* packet, uint value_chunk)
+        larpix_uart_packet* packet,
+        uint value_chunk)
 {
-    return;
+    byte value = config->test_burst_length[value_chunk];
+    byte address = LARPIX_REG_TEST_BURST_LENGTH_LOW + value_chunk;
+    larpix_uart_set_register(packet, address);
+    larpix_uart_set_register_data(packet, value);
 }
+
 uint larpix_config_read_test_burst_length(larpix_configuration* config,
         larpix_uart_packet* packet)
 {
-    return 0;
+    byte address = larpix_uart_get_register(packet);
+    if(address < LARPIX_REG_TEST_BURST_LENGTH_LOW ||
+            address > LARPIX_REG_TEST_BURST_LENGTH_HIGH)
+    {
+        return 1;
+    }
+    else
+    {
+        byte value = larpix_uart_get_register_data(packet);
+        uint value_chunk = address - LARPIX_REG_TEST_BURST_LENGTH_LOW;
+        config->test_burst_length[value_chunk] = value;
+        return 0;
+    }
 }
+
 void larpix_config_write_adc_burst_length(larpix_configuration* config,
         larpix_uart_packet* packet)
 {
-    return;
+    byte value = config->adc_burst_length;
+    byte address = LARPIX_REG_ADC_BURST_LENGTH;
+    larpix_uart_set_register(packet, address);
+    larpix_uart_set_register_data(packet, value);
 }
+
 uint larpix_config_read_adc_burst_length(larpix_configuration* config,
         larpix_uart_packet* packet)
 {
-    return 0;
+    byte address = larpix_uart_get_register(packet);
+    if(address != LARPIX_REG_ADC_BURST_LENGTH)
+    {
+        return 1;
+    }
+    else
+    {
+        byte value = larpix_uart_get_register_data(packet);
+        config->adc_burst_length = value;
+        return 0;
+    }
 }
+
 void larpix_config_write_channel_mask(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channel_chunk)
+        larpix_uart_packet* packet,
+        uint channel_chunk)
 {
+    byte value = 0;
+    byte address = LARPIX_REG_CHANNEL_MASK_LOW + channel_chunk;
+    for ( uint i = 0; i < 8; i++ )
+    {
+        uint channel = channel_chunk * 8 + i;
+        byte channel_value = config->channel_mask[channel];
+        value = value | (channel_value << i);
+    }
+    larpix_uart_set_register(packet, address);
+    larpix_uart_set_register_data(packet, value);
     return;
 }
+
 uint larpix_config_read_channel_mask(larpix_configuration* config,
         larpix_uart_packet* packet)
 {
-    return 0;
+    byte address = larpix_uart_get_register(packet);
+    if(address < LARPIX_REG_CHANNEL_MASK_LOW ||
+            address > LARPIX_REG_CHANNEL_MASK_HIGH)
+    {
+        return 1;
+    }
+    else
+    {
+        byte value = larpix_uart_get_register_data(packet);
+        for ( uint i = 0; i < 8; i++ )
+        {
+            uint channel = (address - LARPIX_REG_CHANNEL_MASK_LOW) * 8 + i;
+            byte channel_value = (value >> i) & 1;
+            config->channel_mask[channel] = channel_value;
+        }
+        return 0;
+    }
 }
+
 void larpix_config_write_external_trigger_mask(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channel_chunk)
+        larpix_uart_packet* packet,
+        uint channel_chunk)
 {
+    byte value = 0;
+    byte address = LARPIX_REG_EXTERNAL_TRIGGER_MASK_LOW + channel_chunk;
+    for ( uint i = 0; i < 8; i++ )
+    {
+        uint channel = channel_chunk * 8 + i;
+        byte channel_value = config->external_trigger_mask[channel];
+        value = value | (channel_value << i);
+    }
+    larpix_uart_set_register(packet, address);
+    larpix_uart_set_register_data(packet, value);
     return;
 }
+
 uint larpix_config_read_external_trigger_mask(larpix_configuration* config,
         larpix_uart_packet* packet)
 {
-    return 0;
+    byte address = larpix_uart_get_register(packet);
+    if(address < LARPIX_REG_EXTERNAL_TRIGGER_MASK_LOW ||
+            address > LARPIX_REG_EXTERNAL_TRIGGER_MASK_HIGH)
+    {
+        return 1;
+    }
+    else
+    {
+        byte value = larpix_uart_get_register_data(packet);
+        for ( uint i = 0; i < 8; i++ )
+        {
+            uint channel = (address - LARPIX_REG_EXTERNAL_TRIGGER_MASK_LOW) * 8 + i;
+            byte channel_value = (value >> i) & 1;
+            config->external_trigger_mask[channel] = channel_value;
+        }
+        return 0;
+    }
 }
+
 void larpix_config_write_reset_cycles(larpix_configuration* config,
-        larpix_uart_packet* packet, uint value_chunk)
+        larpix_uart_packet* packet,
+        uint value_chunk)
 {
-    return;
+    byte value = config->reset_cycles[value_chunk];
+    byte address = LARPIX_REG_RESET_CYCLES_LOW + value_chunk;
+    larpix_uart_set_register(packet, address);
+    larpix_uart_set_register_data(packet, value);
 }
+
 uint larpix_config_read_reset_cycles(larpix_configuration* config,
         larpix_uart_packet* packet)
 {
-    return 0;
+    byte address = larpix_uart_get_register(packet);
+    if(address < LARPIX_REG_RESET_CYCLES_LOW ||
+            address > LARPIX_REG_RESET_CYCLES_HIGH)
+    {
+        return 1;
+    }
+    else
+    {
+        byte value = larpix_uart_get_register_data(packet);
+        uint value_chunk = address - LARPIX_REG_RESET_CYCLES_LOW;
+        config->test_burst_length[value_chunk] = value;
+        return 0;
+    }
 }
