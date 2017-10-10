@@ -32,6 +32,6 @@ TEST = bin/test
 check: $(TEST)
 	$<
 
-TESTS = tests/UartTest.c
+TESTS = tests/UartTest.c tests/ConfigTest.c
 $(TEST): tests/AllTests.c tests/CuTest.c $(TESTS) $(LIBRARY_FILES)
 	$(CC) -o $@ $^ $(CFLAGS)

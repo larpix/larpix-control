@@ -3,6 +3,7 @@
 #include "CuTest.h"
 
 CuSuite* UartGetSuite();
+CuSuite* ConfigGetSuite();
 
 void RunAllTests(void)
 {
@@ -10,6 +11,7 @@ void RunAllTests(void)
 	CuSuite* suite = CuSuiteNew();
 
 	CuSuiteAddSuite(suite, UartGetSuite());
+	CuSuiteAddSuite(suite, ConfigGetSuite());
 
 	CuSuiteRun(suite);
 	CuSuiteSummary(suite, output);
