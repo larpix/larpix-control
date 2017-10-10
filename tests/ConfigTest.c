@@ -161,7 +161,7 @@ void test_read_csa_bypass_select(CuTest* tc)
     p.data[15] = 1;
     p.data[21] = 1;
     p.data[25] = 1;
-    larpix_config_read_csa_bypass_select(&c, &p, 0);
+    larpix_config_read_csa_bypass_select(&c, &p);
     CuAssertIntEquals(tc, 1, c.csa_bypass_select[3]);
     CuAssertIntEquals(tc, 0, c.csa_bypass_select[5]);
     CuAssertIntEquals(tc, 1, c.csa_bypass_select[7]);
@@ -172,9 +172,9 @@ void test_write_csa_monitor_select(CuTest* tc)
     larpix_configuration c;
     larpix_uart_packet p;
     larpix_config_init_defaults(&c);
-    c.csa_monitor_select[10] = 1;
-    c.csa_monitor_select[12] = 1;
-    larpix_config_write_csa_bypass_select(&c, &p, 1);
+    c.csa_monitor_select[10] = 0;
+    c.csa_monitor_select[12] = 0;
+    larpix_config_write_csa_monitor_select(&c, &p, 1);
     CuAssertIntEquals(tc, 1, p.data[10]);
     CuAssertIntEquals(tc, 1, p.data[11]);
     CuAssertIntEquals(tc, 1, p.data[12]);
@@ -183,14 +183,14 @@ void test_write_csa_monitor_select(CuTest* tc)
     CuAssertIntEquals(tc, 1, p.data[15]);
     CuAssertIntEquals(tc, 0, p.data[16]);
     CuAssertIntEquals(tc, 0, p.data[17]);
-    CuAssertIntEquals(tc, 0, p.data[18]);
-    CuAssertIntEquals(tc, 0, p.data[19]);
-    CuAssertIntEquals(tc, 1, p.data[20]);
-    CuAssertIntEquals(tc, 0, p.data[21]);
-    CuAssertIntEquals(tc, 1, p.data[22]);
-    CuAssertIntEquals(tc, 0, p.data[23]);
-    CuAssertIntEquals(tc, 0, p.data[24]);
-    CuAssertIntEquals(tc, 0, p.data[25]);
+    CuAssertIntEquals(tc, 1, p.data[18]);
+    CuAssertIntEquals(tc, 1, p.data[19]);
+    CuAssertIntEquals(tc, 0, p.data[20]);
+    CuAssertIntEquals(tc, 1, p.data[21]);
+    CuAssertIntEquals(tc, 0, p.data[22]);
+    CuAssertIntEquals(tc, 1, p.data[23]);
+    CuAssertIntEquals(tc, 1, p.data[24]);
+    CuAssertIntEquals(tc, 1, p.data[25]);
 }
 
 void test_read_csa_monitor_select(CuTest* tc)
@@ -203,12 +203,16 @@ void test_read_csa_monitor_select(CuTest* tc)
     p.data[11] = 1;
     p.data[12] = 1;
     p.data[15] = 1;
-    p.data[20] = 1;
-    p.data[22] = 1;
-    larpix_config_read_csa_monitor_select(&c, &p, 1);
-    CuAssertIntEquals(tc, 1, c.csa_monitor_select[10]);
-    CuAssertIntEquals(tc, 1, c.csa_monitor_select[12]);
-    CuAssertIntEquals(tc, 0, c.csa_monitor_select[15]);
+    p.data[18] = 1;
+    p.data[19] = 1;
+    p.data[21] = 1;
+    p.data[23] = 1;
+    p.data[24] = 1;
+    p.data[25] = 1;
+    larpix_config_read_csa_monitor_select(&c, &p);
+    CuAssertIntEquals(tc, 0, c.csa_monitor_select[10]);
+    CuAssertIntEquals(tc, 0, c.csa_monitor_select[12]);
+    CuAssertIntEquals(tc, 1, c.csa_monitor_select[15]);
 }
 
 void test_write_csa_testpulse_enable(CuTest* tc)
@@ -248,8 +252,8 @@ void test_read_csa_testpulse_enable(CuTest* tc)
     p.data[15] = 1;
     p.data[22] = 1;
     p.data[25] = 1;
-    larpix_config_read_csa_testpulse_enable(&c, &p, 2);
-    CuAssertIntEquals(tc, 1, c.csa_testpulse_enable[18]);
+    larpix_config_read_csa_testpulse_enable(&c, &p);
+    CuAssertIntEquals(tc, 0, c.csa_testpulse_enable[18]);
     CuAssertIntEquals(tc, 1, c.csa_testpulse_enable[20]);
     CuAssertIntEquals(tc, 1, c.csa_testpulse_enable[23]);
 }
@@ -311,15 +315,15 @@ void test_write_test_mode_xtrig_reset_diag(CuTest* tc)
     CuAssertIntEquals(tc, 1, p.data[11]);
     CuAssertIntEquals(tc, 1, p.data[12]);
     CuAssertIntEquals(tc, 1, p.data[13]);
-    CuAssertIntEquals(tc, 1, p.data[14]);
-    CuAssertIntEquals(tc, 0, p.data[15]);
-    CuAssertIntEquals(tc, 1, p.data[16]);
+    CuAssertIntEquals(tc, 0, p.data[14]);
+    CuAssertIntEquals(tc, 1, p.data[15]);
+    CuAssertIntEquals(tc, 0, p.data[16]);
     CuAssertIntEquals(tc, 0, p.data[17]);
     CuAssertIntEquals(tc, 1, p.data[18]);
-    CuAssertIntEquals(tc, 1, p.data[19]);
+    CuAssertIntEquals(tc, 0, p.data[19]);
     CuAssertIntEquals(tc, 1, p.data[20]);
     CuAssertIntEquals(tc, 1, p.data[21]);
-    CuAssertIntEquals(tc, 0, p.data[22]);
+    CuAssertIntEquals(tc, 1, p.data[22]);
     CuAssertIntEquals(tc, 0, p.data[23]);
     CuAssertIntEquals(tc, 0, p.data[24]);
     CuAssertIntEquals(tc, 0, p.data[25]);
@@ -335,12 +339,11 @@ void test_read_test_mode_xtrig_reset_diag(CuTest* tc)
     p.data[11] = 1;
     p.data[12] = 1;
     p.data[13] = 1;
-    p.data[14] = 1;
-    p.data[16] = 1;
+    p.data[15] = 1;
     p.data[18] = 1;
-    p.data[19] = 1;
     p.data[20] = 1;
     p.data[21] = 1;
+    p.data[22] = 1;
     larpix_config_read_test_mode_xtrig_reset_diag(&c, &p);
     CuAssertIntEquals(tc, 1, c.test_mode);
     CuAssertIntEquals(tc, 1, c.cross_trigger_mode);
@@ -393,9 +396,8 @@ void test_write_test_burst_length(CuTest* tc)
     larpix_configuration c;
     larpix_uart_packet p;
     larpix_config_init_defaults(&c);
-    c.test_burst_length[4] = 1;
-    c.test_burst_length[7] = 1;
-    larpix_config_write_csa_testpulse_enable(&c, &p, 0);
+    c.test_burst_length[0] = 100;
+    larpix_config_write_test_burst_length(&c, &p, 0);
     CuAssertIntEquals(tc, 1, p.data[10]);
     CuAssertIntEquals(tc, 0, p.data[11]);
     CuAssertIntEquals(tc, 0, p.data[12]);
@@ -406,12 +408,12 @@ void test_write_test_burst_length(CuTest* tc)
     CuAssertIntEquals(tc, 0, p.data[17]);
     CuAssertIntEquals(tc, 0, p.data[18]);
     CuAssertIntEquals(tc, 0, p.data[19]);
-    CuAssertIntEquals(tc, 0, p.data[20]);
+    CuAssertIntEquals(tc, 1, p.data[20]);
     CuAssertIntEquals(tc, 0, p.data[21]);
-    CuAssertIntEquals(tc, 1, p.data[22]);
-    CuAssertIntEquals(tc, 0, p.data[23]);
-    CuAssertIntEquals(tc, 0, p.data[24]);
-    CuAssertIntEquals(tc, 1, p.data[25]);
+    CuAssertIntEquals(tc, 0, p.data[22]);
+    CuAssertIntEquals(tc, 1, p.data[23]);
+    CuAssertIntEquals(tc, 1, p.data[24]);
+    CuAssertIntEquals(tc, 0, p.data[25]);
 }
 
 void test_read_test_burst_length(CuTest* tc)
@@ -423,12 +425,11 @@ void test_read_test_burst_length(CuTest* tc)
     p.data[10] = 1;
     p.data[14] = 1;
     p.data[15] = 1;
-    p.data[22] = 1;
-    p.data[25] = 1;
-    larpix_config_read_test_burst_length(&c, &p, 0);
-    CuAssertIntEquals(tc, 1, c.test_burst_length[4]);
-    CuAssertIntEquals(tc, 0, c.test_burst_length[5]);
-    CuAssertIntEquals(tc, 1, c.test_burst_length[7]);
+    p.data[20] = 1;
+    p.data[23] = 1;
+    p.data[24] = 1;
+    larpix_config_read_test_burst_length(&c, &p);
+    CuAssertIntEquals(tc, 100, c.test_burst_length[0]);
 }
 
 void test_write_adc_burst_length(CuTest* tc)
@@ -509,7 +510,7 @@ void test_read_channel_mask(CuTest* tc)
     p.data[15] = 1;
     p.data[22] = 1;
     p.data[25] = 1;
-    larpix_config_read_channel_mask(&c, &p, 0);
+    larpix_config_read_channel_mask(&c, &p);
     CuAssertIntEquals(tc, 1, c.channel_mask[4]);
     CuAssertIntEquals(tc, 0, c.channel_mask[5]);
     CuAssertIntEquals(tc, 1, c.channel_mask[7]);
@@ -520,8 +521,8 @@ void test_write_external_trigger_mask(CuTest* tc)
     larpix_configuration c;
     larpix_uart_packet p;
     larpix_config_init_defaults(&c);
-    c.external_trigger_mask[4] = 1;
-    c.external_trigger_mask[7] = 1;
+    c.external_trigger_mask[4] = 0;
+    c.external_trigger_mask[7] = 0;
     larpix_config_write_external_trigger_mask(&c, &p, 0);
     CuAssertIntEquals(tc, 0, p.data[10]);
     CuAssertIntEquals(tc, 0, p.data[11]);
@@ -531,14 +532,14 @@ void test_write_external_trigger_mask(CuTest* tc)
     CuAssertIntEquals(tc, 1, p.data[15]);
     CuAssertIntEquals(tc, 0, p.data[16]);
     CuAssertIntEquals(tc, 0, p.data[17]);
-    CuAssertIntEquals(tc, 0, p.data[18]);
-    CuAssertIntEquals(tc, 0, p.data[19]);
-    CuAssertIntEquals(tc, 0, p.data[20]);
-    CuAssertIntEquals(tc, 0, p.data[21]);
-    CuAssertIntEquals(tc, 1, p.data[22]);
-    CuAssertIntEquals(tc, 0, p.data[23]);
-    CuAssertIntEquals(tc, 0, p.data[24]);
-    CuAssertIntEquals(tc, 1, p.data[25]);
+    CuAssertIntEquals(tc, 1, p.data[18]);
+    CuAssertIntEquals(tc, 1, p.data[19]);
+    CuAssertIntEquals(tc, 1, p.data[20]);
+    CuAssertIntEquals(tc, 1, p.data[21]);
+    CuAssertIntEquals(tc, 0, p.data[22]);
+    CuAssertIntEquals(tc, 1, p.data[23]);
+    CuAssertIntEquals(tc, 1, p.data[24]);
+    CuAssertIntEquals(tc, 0, p.data[25]);
 }
 
 void test_read_external_trigger_mask(CuTest* tc)
@@ -550,12 +551,16 @@ void test_read_external_trigger_mask(CuTest* tc)
     p.data[13] = 1;
     p.data[14] = 1;
     p.data[15] = 1;
-    p.data[22] = 1;
-    p.data[25] = 1;
-    larpix_config_read_external_trigger_mask(&c, &p, 0);
-    CuAssertIntEquals(tc, 1, c.external_trigger_mask[4]);
-    CuAssertIntEquals(tc, 0, c.external_trigger_mask[5]);
-    CuAssertIntEquals(tc, 1, c.external_trigger_mask[7]);
+    p.data[18] = 1;
+    p.data[19] = 1;
+    p.data[20] = 1;
+    p.data[21] = 1;
+    p.data[23] = 1;
+    p.data[24] = 1;
+    larpix_config_read_external_trigger_mask(&c, &p);
+    CuAssertIntEquals(tc, 0, c.external_trigger_mask[4]);
+    CuAssertIntEquals(tc, 1, c.external_trigger_mask[5]);
+    CuAssertIntEquals(tc, 0, c.external_trigger_mask[7]);
 }
 
 void test_write_reset_cycles(CuTest* tc)
@@ -563,8 +568,7 @@ void test_write_reset_cycles(CuTest* tc)
     larpix_configuration c;
     larpix_uart_packet p;
     larpix_config_init_defaults(&c);
-    c.reset_cycles[4] = 1;
-    c.reset_cycles[7] = 1;
+    c.reset_cycles[0] = 100;
     larpix_config_write_reset_cycles(&c, &p, 0);
     CuAssertIntEquals(tc, 0, p.data[10]);
     CuAssertIntEquals(tc, 0, p.data[11]);
@@ -576,12 +580,12 @@ void test_write_reset_cycles(CuTest* tc)
     CuAssertIntEquals(tc, 0, p.data[17]);
     CuAssertIntEquals(tc, 0, p.data[18]);
     CuAssertIntEquals(tc, 0, p.data[19]);
-    CuAssertIntEquals(tc, 0, p.data[20]);
+    CuAssertIntEquals(tc, 1, p.data[20]);
     CuAssertIntEquals(tc, 0, p.data[21]);
-    CuAssertIntEquals(tc, 1, p.data[22]);
-    CuAssertIntEquals(tc, 0, p.data[23]);
-    CuAssertIntEquals(tc, 0, p.data[24]);
-    CuAssertIntEquals(tc, 1, p.data[25]);
+    CuAssertIntEquals(tc, 0, p.data[22]);
+    CuAssertIntEquals(tc, 1, p.data[23]);
+    CuAssertIntEquals(tc, 1, p.data[24]);
+    CuAssertIntEquals(tc, 0, p.data[25]);
 }
 
 void test_read_reset_cycles(CuTest* tc)
@@ -594,12 +598,11 @@ void test_read_reset_cycles(CuTest* tc)
     p.data[13] = 1;
     p.data[14] = 1;
     p.data[15] = 1;
-    p.data[22] = 1;
-    p.data[25] = 1;
-    larpix_config_read_reset_cycles(&c, &p, 0);
-    CuAssertIntEquals(tc, 1, c.reset_cycles[4]);
-    CuAssertIntEquals(tc, 0, c.reset_cycles[5]);
-    CuAssertIntEquals(tc, 1, c.reset_cycles[7]);
+    p.data[20] = 1;
+    p.data[23] = 1;
+    p.data[24] = 1;
+    larpix_config_read_reset_cycles(&c, &p);
+    CuAssertIntEquals(tc, 100, c.reset_cycles[0]);
 }
 
 CuSuite* ConfigGetSuite()
