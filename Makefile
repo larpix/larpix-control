@@ -27,3 +27,11 @@ bin/larpix.o: src/larpix.c include/larpix.h
 
 bin/larpix.so: src/larpix.c include/larpix.h
 	$(CC) -shared -o $@ -fPIC $< $(CFLAGS)
+
+TEST = bin/test
+check: $(TEST)
+	$<
+
+TESTS = tests/UartTest.c
+$(TEST): tests/AllTests.c tests/CuTest.c $(TESTS) $(LIBRARY_FILES)
+	$(CC) -o $@ $^ $(CFLAGS)

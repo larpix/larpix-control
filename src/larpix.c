@@ -626,6 +626,7 @@ void larpix_config_init_defaults(larpix_configuration* config)
     config->reset_cycles[2] = 0x00;
     return;
 }
+/*
 
 void larpix_config_write_all(larpix_configuration* config,
         larpix_uart_packet packets[LARPIX_NUM_CONFIG_REGISTERS])
@@ -746,6 +747,7 @@ uint larpix_config_read_all(larpix_configuration* config,
     }
     return status;
 }
+*/
 
 void larpix_config_write_pixel_trim_threshold(larpix_configuration* config,
         larpix_uart_packet* packet, uint channelid)
