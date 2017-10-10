@@ -359,7 +359,7 @@ void larpix_uart_str(larpix_uart_packet* packet, char* buffer, uint length)
     byte* data = packet->data;
     for(uint i = 0; i < max; ++i)
     {
-        buffer[i] = data[max-i] == 0 ? '0' : '1';
+        buffer[i] = data[max-i-1] == 0 ? '0' : '1';
     }
     return;
 }
