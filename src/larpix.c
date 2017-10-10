@@ -354,6 +354,17 @@ uint larpix_data_to_uart(larpix_uart_packet* packet, larpix_data* data,
     return 0;
 }
 
+void larpix_uart_str(larpix_uart_packet* packet, char* buffer, uint length)
+{
+    uint max = length > LARPIX_UART_SIZE ? LARPIX_UART_SIZE : length;
+    byte* data = packet->data;
+    for(uint i = 0; i < max; ++i)
+    {
+        buffer[i] = data[max-i] == 0 ? '0' : '1';
+    }
+    return;
+}
+
 void larpix_uart_set_packet_type(larpix_uart_packet* packet,
         larpix_packet_type type)
 {
