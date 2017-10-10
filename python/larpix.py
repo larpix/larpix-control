@@ -20,63 +20,91 @@ class Chip(object):
         self.configuration = Configuration()
 
     def set_pixel_trim_thresholds(self, thresholds):
-        pass
+        if len(thresholds) != l.larpix_num_channels():
+            return 1
+        for i,value in enumerate(thresholds):
+            self.configuration.pixel_trim_thresholds[i] = value
+        return 0
 
     def set_global_threshold(self, threshold):
-        pass
+        self.configuration.global_threshold = threshold
+        return 0
 
     def set_csa_gain(self, gain):
-        pass
+        self.configuration.csa_gain = gain
+        return 0
 
     def enable_channels(self, map):
-        return
+        self.configuration.channel_mask = self.configuration.channel_mask & ~map 
+        return 0
 
     def disable_channels(self, map):
-        return
+        self.configuration.channel_mask = self.configuration.channel_mask | map
+        return 0
 
     def enable_all_channels(self):
-        return
+        return self.enable_channels(0xFFFFFFFF)
 
     def disable_all_channels(self):
-        return
+        return self.disable_channels(0xFFFFFFFF)
 
     def enable_normal_operation(self):
         return
 
     def enable_external_trigger(self, map):
-        return
+        self.configuration.external_trigger_mask = self.external_trigger_mask & ~map
+        return 0
 
-    def disable_external_trigger(self):
-        return
+    def disable_external_trigger(self, map):
+        self.configuration.external_trigger_mask = self.external_trigger_mask | map
+        return 0
 
-    def set_testpulse_dac(self):
-        return
+    def set_testpulse_dac(self, value):
+        self.configuration.csa_testpulse_dac_amplitude = value
+        return 0
 
     def enable_testpulse(self, map):
-        return
+        for i in range(l.larpix_num_channels()):
+            if (map >> i) & 1 is 1:
+                self.configuration.csa_testpulse_enable[i] = 1
+        return 0
 
-    def disable_testpulse(self):
-        return
+    def disable_testpulse(self, map):
+        for i in range(l.larpix_num_channels()):
+            if (map >> i) & 1 is 1:
+                self.configuration.csa_testpulse_enable[i] = 0
+        return 0
     
     def enable_fifo_diagnostic(self):
-        return
+        self.configuration.fifo_diagnostic = 1
+        return 0
 
     def diable_fifo_diagnostic(self):
-        return
+        self.configuration.fifo_diagnostic = 0
+        return 0
 
     def set_fifo_test_burst_length(self, value):
-        return
+        self.configuration.test_burst_length = value
+        return 0
 
     def enable_fifo_test_mode(self):
-        return
+        self.configuration.test_mode = 0x10
+        return 0
 
     def disable_fifo_test_mode(self):
-        return
+        self.configuration.test_mode = 0x0;
+        return 0
 
     def enable_analog_monitor(self, map):
-        return
+        for i in range(l.larpix_num_channels()):
+            if (map >> i) & 1 is 1:
+                self.configuration.csa_monitor_select[i] = 0
+        return 0
 
-    def disable_analog_monitor(self):
+    def disable_analog_monitor(self, map):
+        for i in range(l.larpix_num_channels()):
+            if (map >> i) & 1 is 1:
+                self.configuration.csa_monitor_select[i] = 1
         return
 
 class Configuration(object):
@@ -85,25 +113,25 @@ class Configuration(object):
 
     '''
     def __init__(self):
-        self.pixel_trim_thresholds = [0] * larpix.larpix_num_channels()
-        self.global_threshold = 0
-        self.csa_gain = 0
+        self.pixel_trim_thresholds = [0x10] * larpix.larpix_num_channels()
+        self.global_threshold = 0x10
+        self.csa_gain = 1
         self.csa_bypass = 0
-        self.internal_bypass = 0
+        self.internal_bypass = 1
         self.csa_bypass_select = [0] * larpix.larpix_num_channels()
-        self.csa_monitor_select = [0] * larpix.larpix_num_channels()
+        self.csa_monitor_select = [1] * larpix.larpix_num_channels()
         self.csa_testpulse_enable = [0] * larpix.larpix_num_channels()
-        self.csa_testpulse_dac_amplitude = [0] * larpix.larpix_num_channels()
+        self.csa_testpulse_dac_amplitude = 0
         self.test_mode = 0
         self.cross_trigger_mode = 0
         self.periodic_reset = 0
         self.fifo_diagnostic = 0
-        self.sample_cycles = 0
-        self.test_burst_length = 0
+        self.sample_cycles = 1
+        self.test_burst_length = 0x00FF
         self.adc_burst_length = 0
         self.channel_mask = 0
-        self.external_trigger_mask = 0
-        self.reset_cycles = 0
+        self.external_trigger_mask = 0xFFFFFFF
+        self.reset_cycles = 0x001000
         
     def get_ctypes_configuration(self):
         ctypes_config = l.larpix_configuration()
