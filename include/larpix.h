@@ -150,6 +150,8 @@ uint larpix_uart_to_data(larpix_uart_packet* packet, larpix_data* data,
 uint larpix_data_to_uart(larpix_uart_packet* packet, larpix_data* data,
         uint bit_position,
         uint startbit);
+// Note: this method returns the *reverse* order so that the MSB starts
+// the string and the LSB ends it.
 void larpix_uart_str(larpix_uart_packet* packet, char* buffer, uint length);
 void larpix_uart_init_zeros(larpix_uart_packet* packet);
 
@@ -163,7 +165,7 @@ byte larpix_uart_compute_parity(larpix_uart_packet* packet);
 void larpix_uart_set_parity(larpix_uart_packet* packet);
 void larpix_uart_force_set_parity(larpix_uart_packet* packet, byte parity);
 byte larpix_uart_get_parity(larpix_uart_packet* packet);
-uint larpix_uart_check_parity(larpix_uart_packet* packet);
+uint larpix_uart_check_parity(larpix_uart_packet* packet); // 0->good, 1->bad
 
 // UART access for data packets
 void larpix_uart_set_channelid(larpix_uart_packet* packet, uint channelid);
