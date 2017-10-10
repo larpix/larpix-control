@@ -37,7 +37,7 @@ void test_read_pixel_trim_threshold(CuTest* tc)
     p.data[18] = 1;
     p.data[19] = 1;
     p.data[20] = 1;
-    larpix_config_read_pixel_trim_threshold(&c, &p, 3);
+    larpix_config_read_pixel_trim_threshold(&c, &p);
     CuAssertIntEquals(tc, 7, c.pixel_trim_thresholds[3]);
 }
 

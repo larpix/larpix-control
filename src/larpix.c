@@ -780,17 +780,17 @@ void larpix_config_write_pixel_trim_threshold(larpix_configuration* config,
 }
 
 uint larpix_config_read_pixel_trim_threshold(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channelid)
+        larpix_uart_packet* packet)
 {
     byte address = larpix_uart_get_register(packet);
-    if(channelid != address - LARPIX_REG_PIXEL_TRIM_THRESHOLD_LOW)
+    if(address < LARPIX_REG_PIXEL_TRIM_THRESHOLD_LOW || address > LARPIX_REG_PIXEL_TRIM_THRESHOLD_HIGH)
     {
         return 1;
     }
     else
     {
         byte value = larpix_uart_get_register_data(packet);
-        config->pixel_trim_thresholds[channelid] = value;
+        config->pixel_trim_thresholds[address] = value;
         return 0;
     }
 }

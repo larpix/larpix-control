@@ -189,7 +189,7 @@ uint larpix_config_read_all(larpix_configuration* config,
 void larpix_config_write_pixel_trim_threshold(larpix_configuration* config,
         larpix_uart_packet* packet, uint channelid);
 uint larpix_config_read_pixel_trim_threshold(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channelid);
+        larpix_uart_packet* packet);
 void larpix_config_write_global_threshold(larpix_configuration* config,
         larpix_uart_packet* packet);
 uint larpix_config_read_global_threshold(larpix_configuration* config,

@@ -285,25 +285,29 @@ successful read and 1 on unsuccessful read.
 ```C
 larpix_config_write_csa_testpulse_dac_amplitude(&config, &packet);
 
-byte channel_chunk = 2;
-uint status = larpix_config_read_csa_bypass_select(&config, &packet, channel_chunk);
+uint status = larpix_config_read_csa_bypass_select(&config, &packet);
 ```
 
-As implied by the code example, there are a few subtleties.
+There are a few subtleties:
 
- - `pixel_trim_thresholds` requires an additional parameter ,`channelid`
+ - `larpix_config_write pixel_trim_thresholds` requires an additional
+   parameter, `channelid`. The read function figures out the `channelid`
+   based on the register address in the `larpix_uart_packet`.
 
  - `csa_bypass_select`, `csa_monitor_select`, `csa_testpulse_enable`,
    `channel_mask`, and `external_trigger_mask` store only one bit per
    channel, and are squeezed into 4 bytes each. So the corresponding
-   read/write functions require an additional parameter, `channel_chunk`,
+   write functions require an additional parameter, `channel_chunk`,
    which ranges from 0 to 3 and determines which group of channels to
-   write (0:7, 8:15, 16:23, or 24:31, respectively).
+   write (0:7, 8:15, 16:23, or 24:31, respectively). The read functions
+   automatically figure out the `channel_chunk` based on the register
+   address which should also be stored in the `larpix_uart_packet`.
 
  - `test_burst_length` and `reset_cycles`, as mentioned above, combine
-   more than 1 byte into a single number. The corresponding read/write
+   more than 1 byte into a single number. The corresponding write
    functions require an additional parameter, `value_chunk`, which
-   determines which byte is written.
+   determines which byte is written. Again, the read function will
+   figure that out automatically.
 
  - `csa_gain`, `csa_bypass`, and `internal_bypass` are combined into a
    single byte, so there is only one read and one write function which
