@@ -79,7 +79,7 @@ class Configuration(object):
         self.periodic_reset = 0x0
         self.fifo_diagnostic = 0x0
         self.sample_cycles = 0x1
-        self.test_burst_length = 0xFF00
+        self.test_burst_length = 0x00FF
         self.adc_burst_length = 0x0
         self.channel_mask = [0x0] * 32
         self.external_trigger_mask = [0x1] * 32
@@ -123,7 +123,7 @@ class Configuration(object):
         return self._to8bits(self.global_threshold)
 
     def csa_gain_and_bypasses_data(self):
-        return Bits('0b00000') + [self.internal_bypass,
+        return Bits('0b0000') + [self.internal_bypass, 0,
                 self.csa_bypass, self.csa_gain]
 
     def csa_bypass_select_data(self, chunk):
@@ -154,7 +154,7 @@ class Configuration(object):
         return self._to8bits(self.csa_testpulse_dac_amplitude)
 
     def test_mode_xtrig_reset_diag_data(self):
-        toReturn = BitArray([self.fifo_diagnostic,
+        toReturn = BitArray([0, 0, 0, self.fifo_diagnostic,
             self.periodic_reset,
             self.cross_trigger_mode])
         toReturn.append('uint:2=' + str(self.test_mode))
@@ -226,7 +226,7 @@ class Controller(object):
         start = time.time()
         with serial.Serial(self.port, baudrate=self.baudrate,
                 timeout=self.timeout) as serial_in:
-            while time.time() - start > timelimit:
+            while time.time() - start < timelimit:
                 stream = serial_in.read()
                 if len(stream) > 0:
                     data_in.append(stream)
