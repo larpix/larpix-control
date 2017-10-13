@@ -65,6 +65,9 @@ typedef struct larpix_connection
     uint clk_divisor;
     byte pin_io_directions;
     byte bit_mode;
+    byte word_length;
+    byte stop_bits;
+    byte parity;
     uint timeout;
     uint usb_transfer_size;
 } larpix_connection;

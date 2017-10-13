@@ -50,7 +50,10 @@ void larpix_default_connection(larpix_connection* c)
     c->clk_divisor = 0;
     c->pin_io_directions = 0x01;
     c->bit_mode = FT_BITMODE_SYNC_BITBANG;
-    c->timeout = 10;
+    c->word_length = FT_BITS_8;
+    c->stop_bits = FT_STOP_BITS_1;
+    c->parity = FT_PARITY_NONE;
+    c->timeout = 0;
     c->usb_transfer_size = 64;
     return;
 }
@@ -77,6 +80,12 @@ int larpix_configure_ftdi(larpix_connection* c)
     status |= FT_SetUSBParameters(c->ft_handle,
             c->usb_transfer_size,
             c->usb_transfer_size);
+    status |= FT_SetDataCharacteristics(c->ft_handle,
+            c->word_length,
+            c->stop_bits,
+            c->parity);
+    status |= FT_ClrDtr(c->ft_handle);
+    status |= FT_SetDtr(c->ft_handle);
     return (int) status;
 }
 
