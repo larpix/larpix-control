@@ -3,7 +3,7 @@ Use the pytest framework to write tests for the larpix module.
 
 '''
 import larpix
-from larpix import Chip, Packet, Configuration
+from larpix import Chip, Packet, Configuration, Controller
 from bitstring import BitArray
 
 def test_chip_get_configuration_packets():
@@ -258,3 +258,27 @@ def test_configuration_reset_cycles_data():
     assert c.reset_cycles_data(1) == expected
     expected = BitArray('0xab')
     assert c.reset_cycles_data(2) == expected
+
+def test_controller_format_UART():
+    controller = Controller(None, None)
+    chip = Chip(2, 4)
+    packet = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)[10]
+    result = controller.format_UART(chip, packet)
+    expected = b'\x73\x04' + packet.bytes() + b'\x71'
+    assert result == expected
+
+def test_controller_format_bytestream():
+    controller = Controller(None, None)
+    chip = Chip(2, 4)
+    packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
+    fpackets = [controller.format_UART(chip, p) for p in packets]
+    result = controller.format_bytestream(fpackets[:1])
+    assert result == fpackets[:1]
+    result = controller.format_bytestream(fpackets[:2])
+    assert result == [b''.join(fpackets[:2])]
+    result = controller.format_bytestream(fpackets[:1]*2000)
+    expected = []
+    expected.append(b''.join(fpackets[:1]*819))
+    expected.append(b''.join(fpackets[:1]*819))
+    expected.append(b''.join(fpackets[:1]*362))
+    assert result == expected

@@ -263,7 +263,7 @@ class Controller(object):
                 bytestreams.append(current_bytestream)
                 current_bytestream = bytes()
                 current_bytestream += packet
-
+        bytestreams.append(current_bytestream)
         return bytestreams
 
 
@@ -274,6 +274,7 @@ class Packet(object):
 
     '''
     size = 54
+    num_bytes = 7
     # These ranges are reversed from the bit addresses given in the
     # LArPix datasheet because BitArray indexing is big-endian but we
     # transmit data little-endian-ly. E.g.:
