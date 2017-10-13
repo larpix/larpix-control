@@ -204,8 +204,8 @@ class Controller(object):
     Controls a collection of LArPix Chip objects.
 
     '''
-    start_byte = b'\x27'
-    stop_byte = b'\x72'
+    start_byte = b'\x73'
+    stop_byte = b'\x71'
     def __init__(self, port, baudrate):
         self.chips = []
         self.connection = l.larpix_connection()
@@ -227,7 +227,7 @@ class Controller(object):
         with serial.Serial(self.port, baudrate=self.baudrate,
                 timeout=self.timeout) as serial_in:
             while time.time() - start < timelimit:
-                stream = serial_in.read()
+                stream = serial_in.read(self.max_write)
                 if len(stream) > 0:
                     data_in.append(stream)
         return data_in
