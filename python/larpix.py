@@ -34,45 +34,47 @@ class Chip(object):
         self.configuration.csa_gain = gain
         return 0
 
-    def enable_channels(self, map):
-        self.configuration.channel_mask = self.configuration.channel_mask & ~map 
+    def enable_channels(self, list_of_channels):
+        for channel in list_of_channels:
+            self.configuration.channel_mask[channel] = 0 
         return 0
 
-    def disable_channels(self, map):
-        self.configuration.channel_mask = self.configuration.channel_mask | map
+    def disable_channels(self, list_of_channels):
+        for channel in list_of_channels:
+            self.configuration.channel_mask[channel] = 1
         return 0
 
     def enable_all_channels(self):
-        return self.enable_channels(0xFFFFFFFF)
+        return self.enable_channels(range(l.larpix_num_channels()))
 
     def disable_all_channels(self):
-        return self.disable_channels(0xFFFFFFFF)
+        return self.disable_channels(range(l.larpix_num_channels()))
 
     def enable_normal_operation(self):
         return
 
-    def enable_external_trigger(self, map):
-        self.configuration.external_trigger_mask = self.external_trigger_mask & ~map
+    def enable_external_trigger(self, list_of_channels):
+        for channel in list_of_channels:
+            self.configuration.external_trigger_mask[channel] = 0
         return 0
 
-    def disable_external_trigger(self, map):
-        self.configuration.external_trigger_mask = self.external_trigger_mask | map
+    def disable_external_trigger(self, list_of_channels):
+        for channel in list_of_channels:
+            self.configuration.external_trigger_mask[channel] = 1
         return 0
 
     def set_testpulse_dac(self, value):
         self.configuration.csa_testpulse_dac_amplitude = value
         return 0
 
-    def enable_testpulse(self, map):
-        for i in range(l.larpix_num_channels()):
-            if (map >> i) & 1 is 1:
-                self.configuration.csa_testpulse_enable[i] = 1
+    def enable_testpulse(self, list_of_channels):
+        for channel in list_of_channels:        
+            self.configuration.csa_testpulse_enable[channel] = 1
         return 0
 
-    def disable_testpulse(self, map):
-        for i in range(l.larpix_num_channels()):
-            if (map >> i) & 1 is 1:
-                self.configuration.csa_testpulse_enable[i] = 0
+    def disable_testpulse(self, list_of_channels):
+        for channel in list_of_channels:        
+            self.configuration.csa_testpulse_enable[channel] = 0
         return 0
     
     def enable_fifo_diagnostic(self):
@@ -95,16 +97,14 @@ class Chip(object):
         self.configuration.test_mode = 0x0;
         return 0
 
-    def enable_analog_monitor(self, map):
-        for i in range(l.larpix_num_channels()):
-            if (map >> i) & 1 is 1:
-                self.configuration.csa_monitor_select[i] = 0
+    def enable_analog_monitor(self, list_of_channels):
+        for channel in list_of_channels:
+            self.configuration.csa_monitor_select[channel] = 0
         return 0
 
-    def disable_analog_monitor(self, map):
-        for i in range(l.larpix_num_channels()):
-            if (map >> i) & 1 is 1:
-                self.configuration.csa_monitor_select[i] = 1
+    def disable_analog_monitor(self, list_of_channels):
+        for channel in list_of_channels:
+            self.configuration.csa_monitor_select[channel] = 1
         return
 
 class Configuration(object):
@@ -127,41 +127,41 @@ class Configuration(object):
         self.periodic_reset = 0
         self.fifo_diagnostic = 0
         self.sample_cycles = 1
-        self.test_burst_length = 0x00FF
+        self.test_burst_length = [0xFF, 0x00]
         self.adc_burst_length = 0
-        self.channel_mask = 0
-        self.external_trigger_mask = 0xFFFFFFF
-        self.reset_cycles = 0x001000
+        self.channel_mask = [0] * larpix.larpix_num_channels()
+        self.external_trigger_mask = [1] * larpix_num_channels()
+        self.reset_cycles = [0x00, 0x10, 0x00]
         
     def get_ctypes_configuration(self):
         ctypes_config = l.larpix_configuration()
 
-        for i,value in enumerate(self._pixel_trim_thresholds):
+        for i,value in enumerate(self.pixel_trim_thresholds):
             ctypes_config.pixel_trim_thresholds[i] = value
-        ctypes_config.global_threshold = self._global_threshold
-        ctypes_config.csa_gain = self._csa_gain
-        ctypes_config.csa_bypass = self._csa_bypass
-        ctypes_config.internal_bypass = self._internal_bypass
-        for i,value in enumerate(self._csa_bypass_select):
+        ctypes_config.global_threshold = self.global_threshold
+        ctypes_config.csa_gain = self.csa_gain
+        ctypes_config.csa_bypass = self.csa_bypass
+        ctypes_config.internal_bypass = self.internal_bypass
+        for i,value in enumerate(self.csa_bypass_select):
             ctypes_config.csa_bypass_select[i] = value
-        for i,value in enumerate(self._csa_monitor_select):
+        for i,value in enumerate(self.csa_monitor_select):
             ctypes_config.csa_monitor_select[i] = value
-        for i,value in enumerate(self._csa_testpulse_enable):
+        for i,value in enumerate(self.csa_testpulse_enable):
             ctypes_config.csa_testpulse_enable[i] = value
-        ctypes_config.csa_testpulse_dac_amplitude = self._csa_testpulse_dac_amplitude
-        ctypes_config.test_mode = self._test_mode
-        ctypes_config.cross_trigger_mode = self._cross_trigger_mode
-        ctypes_config.periodic_reset = self._periodic_reset
-        ctypes_config.fifo_diagnostic = self._fifo_diagnostic
-        ctypes_config.sample_cycles = self._sample_cycles
-        for i,value in enumerate(self._test_burst_length):
+        ctypes_config.csa_testpulse_dac_amplitude = self.csa_testpulse_dac_amplitude
+        ctypes_config.test_mode = self.test_mode
+        ctypes_config.cross_trigger_mode = self.cross_trigger_mode
+        ctypes_config.periodic_reset = self.periodic_reset
+        ctypes_config.fifo_diagnostic = self.fifo_diagnostic
+        ctypes_config.sample_cycles = self.sample_cycles
+        for i,value in enumerate(self.test_burst_length):
             ctypes_config.test_burst_length[i] = value
-        ctypes_config.adc_burst_length = self._adc_burst_length
-        for i,value in enumerate(self._channel_mask):
+        ctypes_config.adc_burst_length = self.adc_burst_length
+        for i,value in enumerate(self.channel_mask):
             ctypes_config.channel_mask[i] = value
-        for i,value in enumerate(self._external_trigger_mask):
+        for i,value in enumerate(self.external_trigger_mask):
             ctypes_config.external_trigger_mask[i] = value
-        for i,value in enumerate(self._reset_cycles):
+        for i,value in enumerate(self.reset_cycles):
             ctypes_config.reset_cycles[i] = value
         
         return ctypes_config
@@ -191,7 +191,7 @@ class Controller(object):
     def run(self, time):
         return
 
-    def run_testpulse(self, map):
+    def run_testpulse(self, list_of_channels):
         return
 
     def run_fifo_test(self):
