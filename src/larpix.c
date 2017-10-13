@@ -645,128 +645,126 @@ void larpix_config_init_defaults(larpix_configuration* config)
     config->reset_cycles[2] = 0x00;
     return;
 }
-/*
 
-  void larpix_config_write_all(larpix_configuration* config,
-  larpix_uart_packet packets[LARPIX_NUM_CONFIG_REGISTERS])
-  {
-  // This is a pain
-  larpix_uart_packet* packet = packets;
-  for(uint i = 0; i < LARPIX_NUM_CHANNELS; ++i)
-  {
-  larpix_config_write_pixel_trim_threshold(config, packet, i);
-  ++packet;
-  }
-  larpix_config_write_global_threshold(config, packet);
-  ++packet;
-  larpix_config_write_csa_gain_and_bypasses(config, packet);
-  ++packet;
-  for(uint i = 0; i < 4; ++i)
-  {
-  larpix_config_write_csa_bypass_select(config, packet, i);
-  ++packet;
-  }
-  for(uint i = 0; i < 4; ++i)
-  {
-  larpix_config_write_csa_monitor_select(config, packet, i);
-  ++packet;
-  }
-  for(uint i = 0; i < 4; ++i)
-  {
-  larpix_config_write_csa_testpulse_enable(config, packet, i);
-  ++packet;
-  }
-  larpix_config_write_csa_testpulse_dac_amplitude(config, packet);
-  ++packet;
-  larpix_config_write_test_mode_xtrig_reset_diag(config, packet);
-  ++packet;
-  larpix_config_write_sample_cycles(config, packet);
-  ++packet;
-  for(uint i = 0; i < 2; ++i)
-  {
-  larpix_config_write_test_burst_length(config, packet, i);
-  ++packet;
-  }
-  larpix_config_write_adc_burst_length(config, packet);
-  ++packet;
-  for(uint i = 0; i < 4; ++i)
-  {
-  larpix_config_write_channel_mask(config, packet, i);
-  ++packet;
-  }
-  for(uint i = 0; i < 4; ++i)
-  {
-  larpix_config_write_external_trigger_mask(config, packet, i);
-  ++packet;
-  }
-  for(uint i = 0; i < 3; ++i)
-  {
-  larpix_config_write_reset_cycles(config, packet, i);
-  ++packet;
-  }
-  return;
-  }
-  uint larpix_config_read_all(larpix_configuration* config,
-  larpix_uart_packet packets[LARPIX_NUM_CONFIG_REGISTERS])
-  {
-  // This is a pain
-  uint status = 0;
-  larpix_uart_packet* packet = packets;
-  for(uint i = 0; i < LARPIX_NUM_CHANNELS; ++i)
-  {
-  status += larpix_config_read_pixel_trim_threshold(config, packet, i);
-  ++packet;
-  }
-  status += larpix_config_read_global_threshold(config, packet);
-  ++packet;
-  status += larpix_config_read_csa_gain_and_bypasses(config, packet);
-  ++packet;
-  for(uint i = 0; i < 4; ++i)
-  {
-  status += larpix_config_read_csa_bypass_select(config, packet);
-  ++packet;
-  }
-  for(uint i = 0; i < 4; ++i)
-  {
-  status += larpix_config_read_csa_monitor_select(config, packet);
-  ++packet;
-  }
-  for(uint i = 0; i < 4; ++i)
-  {
-  status += larpix_config_read_csa_testpulse_enable(config, packet);
-  ++packet;
-  }
-  status += larpix_config_read_csa_testpulse_dac_amplitude(config, packet);
-  ++packet;
-  status += larpix_config_read_test_mode_xtrig_reset_diag(config, packet);
-  ++packet;
-  status += larpix_config_read_sample_cycles(config, packet);
-  ++packet;
-  for(uint i = 0; i < 2; ++i)
-  {
-  status += larpix_config_read_test_burst_length(config, packet);
-  ++packet;
-  }
-  status += larpix_config_read_adc_burst_length(config, packet);
-  ++packet;
-  for(uint i = 0; i < 4; ++i)
-  {
-  status += larpix_config_read_channel_mask(config, packet);
-  ++packet;
-  }
-  for(uint i = 0; i < 4; ++i)
-  {
-  status += larpix_config_read_external_trigger_mask(config, packet);
-  ++packet;
-  }
-  for(uint i = 0; i < 3; ++i)
-  {
-  status += larpix_config_read_reset_cycles(config, packet);
-  ++packet;
-  }
-  return status;
-  }
-*/
+void larpix_config_write_all(larpix_configuration* config,
+        larpix_uart_packet packets[LARPIX_NUM_CONFIG_REGISTERS])
+{
+    // This is a pain
+    larpix_uart_packet* packet = packets;
+    for(uint i = 0; i < LARPIX_NUM_CHANNELS; ++i)
+    {
+        larpix_config_write_pixel_trim_threshold(config, packet, i);
+        ++packet;
+    }
+    larpix_config_write_global_threshold(config, packet);
+    ++packet;
+    larpix_config_write_csa_gain_and_bypasses(config, packet);
+    ++packet;
+    for(uint i = 0; i < 4; ++i)
+    {
+        larpix_config_write_csa_bypass_select(config, packet, i);
+        ++packet;
+    }
+    for(uint i = 0; i < 4; ++i)
+    {
+        larpix_config_write_csa_monitor_select(config, packet, i);
+        ++packet;
+    }
+    for(uint i = 0; i < 4; ++i)
+    {
+        larpix_config_write_csa_testpulse_enable(config, packet, i);
+        ++packet;
+    }
+    larpix_config_write_csa_testpulse_dac_amplitude(config, packet);
+    ++packet;
+    larpix_config_write_test_mode_xtrig_reset_diag(config, packet);
+    ++packet;
+    larpix_config_write_sample_cycles(config, packet);
+    ++packet;
+    for(uint i = 0; i < 2; ++i)
+    {
+        larpix_config_write_test_burst_length(config, packet, i);
+        ++packet;
+    }
+    larpix_config_write_adc_burst_length(config, packet);
+    ++packet;
+    for(uint i = 0; i < 4; ++i)
+    {
+        larpix_config_write_channel_mask(config, packet, i);
+        ++packet;
+    }
+    for(uint i = 0; i < 4; ++i)
+    {
+        larpix_config_write_external_trigger_mask(config, packet, i);
+        ++packet;
+    }
+    for(uint i = 0; i < 3; ++i)
+    {
+        larpix_config_write_reset_cycles(config, packet, i);
+        ++packet;
+    }
+    return;
+}
+uint larpix_config_read_all(larpix_configuration* config,
+        larpix_uart_packet packets[LARPIX_NUM_CONFIG_REGISTERS])
+{
+    // This is a pain
+    uint status = 0;
+    larpix_uart_packet* packet = packets;
+    for(uint i = 0; i < LARPIX_NUM_CHANNELS; ++i)
+    {
+        status += larpix_config_read_pixel_trim_threshold(config, packet);
+        ++packet;
+    }
+    status += larpix_config_read_global_threshold(config, packet);
+    ++packet;
+    status += larpix_config_read_csa_gain_and_bypasses(config, packet);
+    ++packet;
+    for(uint i = 0; i < 4; ++i)
+    {
+        status += larpix_config_read_csa_bypass_select(config, packet);
+        ++packet;
+    }
+    for(uint i = 0; i < 4; ++i)
+    {
+        status += larpix_config_read_csa_monitor_select(config, packet);
+        ++packet;
+    }
+    for(uint i = 0; i < 4; ++i)
+    {
+        status += larpix_config_read_csa_testpulse_enable(config, packet);
+        ++packet;
+    }
+    status += larpix_config_read_csa_testpulse_dac_amplitude(config, packet);
+    ++packet;
+    status += larpix_config_read_test_mode_xtrig_reset_diag(config, packet);
+    ++packet;
+    status += larpix_config_read_sample_cycles(config, packet);
+    ++packet;
+    for(uint i = 0; i < 2; ++i)
+    {
+        status += larpix_config_read_test_burst_length(config, packet);
+        ++packet;
+    }
+    status += larpix_config_read_adc_burst_length(config, packet);
+    ++packet;
+    for(uint i = 0; i < 4; ++i)
+    {
+        status += larpix_config_read_channel_mask(config, packet);
+        ++packet;
+    }
+    for(uint i = 0; i < 4; ++i)
+    {
+        status += larpix_config_read_external_trigger_mask(config, packet);
+        ++packet;
+    }
+    for(uint i = 0; i < 3; ++i)
+    {
+        status += larpix_config_read_reset_cycles(config, packet);
+        ++packet;
+    }
+    return status;
+}
 
 void larpix_config_write_pixel_trim_threshold(larpix_configuration* config,
         larpix_uart_packet* packet,
