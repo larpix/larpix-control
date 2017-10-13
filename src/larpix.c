@@ -11,6 +11,11 @@ uint larpix_uart_size()
     return LARPIX_UART_SIZE;
 }
 
+uint larpix_num_config_registers()
+{
+    return LARPIX_NUM_CONFIG_REGISTERS;
+}
+
 ulong larpix_bitstream_to_int(byte* bitstream, uint length)
 {
     // Note: unsigned ints (uints) only hold 16 bits. We expect some of
