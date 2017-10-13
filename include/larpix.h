@@ -18,6 +18,14 @@ typedef unsigned char byte;
 #define LARPIX_UART_PTYPE_HIGH 1
 #define LARPIX_UART_CHIPID_LOW 2
 #define LARPIX_UART_CHIPID_HIGH 9
+#define LARPIX_UART_CHANNELID_LOW 10
+#define LARPIX_UART_CHANNELID_HIGH 16
+#define LARPIX_UART_TIMESTAMP_LOW 17
+#define LARPIX_UART_TIMESTAMP_HIGH 40
+#define LARPIX_UART_DATAWORD_LOW 41
+#define LARPIX_UART_DATAWORD_HIGH 50
+#define LARPIX_UART_FIFO_HALF_FLAG 51
+#define LARPIX_UART_FIFO_FULL_FLAG 52
 #define LARPIX_UART_PARITY 53
 
 // UART bits for data packets
@@ -91,8 +99,8 @@ typedef struct larpix_configuration
 
 typedef enum larpix_packet_type
 {
-    LARPIX_PACKET_DATA,
     LARPIX_PACKET_TEST,
+    LARPIX_PACKET_DATA,
     LARPIX_PACKET_CONFIG_WRITE,
     LARPIX_PACKET_CONFIG_READ
 } larpix_packet_type;
@@ -143,6 +151,8 @@ uint larpix_uart_to_data(larpix_uart_packet* packet, larpix_data* data,
 uint larpix_data_to_uart(larpix_uart_packet* packet, larpix_data* data,
         uint bit_position,
         uint startbit);
+// Note: this method returns the *reverse* order so that the MSB starts
+// the string and the LSB ends it.
 void larpix_uart_str(larpix_uart_packet* packet, char* buffer, uint length);
 void larpix_uart_init_zeros(larpix_uart_packet* packet);
 
@@ -156,7 +166,7 @@ byte larpix_uart_compute_parity(larpix_uart_packet* packet);
 void larpix_uart_set_parity(larpix_uart_packet* packet);
 void larpix_uart_force_set_parity(larpix_uart_packet* packet, byte parity);
 byte larpix_uart_get_parity(larpix_uart_packet* packet);
-uint larpix_uart_check_parity(larpix_uart_packet* packet);
+uint larpix_uart_check_parity(larpix_uart_packet* packet); // 0->good, 1->bad
 
 // UART access for data packets
 void larpix_uart_set_channelid(larpix_uart_packet* packet, uint channelid);
@@ -165,9 +175,11 @@ void larpix_uart_set_timestamp(larpix_uart_packet* packet, ulong timestamp);
 ulong larpix_uart_get_timestamp(larpix_uart_packet* packet);
 void larpix_uart_set_dataword(larpix_uart_packet* packet, uint dataword);
 uint larpix_uart_get_dataword(larpix_uart_packet* packet);
-void larpix_uart_set_fifohalfflag(larpix_uart_packet* packet, byte fifohalfflag);
+void larpix_uart_set_fifohalfflag(larpix_uart_packet* packet,
+        byte fifohalfflag);
 byte larpix_uart_get_fifohalfflag(larpix_uart_packet* packet);
-void larpix_uart_set_fifofullflag(larpix_uart_packet* packet, byte fifofullflag);
+void larpix_uart_set_fifofullflag(larpix_uart_packet* packet,
+        byte fifofullflag);
 byte larpix_uart_get_fifofullflag(larpix_uart_packet* packet);
 
 // UART access for config packets
@@ -188,9 +200,11 @@ void larpix_config_write_all(larpix_configuration* config,
 uint larpix_config_read_all(larpix_configuration* config,
         larpix_uart_packet packets[LARPIX_NUM_CONFIG_REGISTERS]);
 void larpix_config_write_pixel_trim_threshold(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channelid);
+        larpix_uart_packet* packet,
+        uint channelid);
 uint larpix_config_read_pixel_trim_threshold(larpix_configuration* config,
         larpix_uart_packet* packet);
+
 void larpix_config_write_global_threshold(larpix_configuration* config,
         larpix_uart_packet* packet);
 uint larpix_config_read_global_threshold(larpix_configuration* config,
@@ -200,15 +214,18 @@ void larpix_config_write_csa_gain_and_bypasses(larpix_configuration* config,
 uint larpix_config_read_csa_gain_and_bypasses(larpix_configuration* config,
         larpix_uart_packet* packet);
 void larpix_config_write_csa_bypass_select(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channel_chunk);
+        larpix_uart_packet* packet,
+        uint channel_chunk);
 uint larpix_config_read_csa_bypass_select(larpix_configuration* config,
         larpix_uart_packet* packet);
 void larpix_config_write_csa_monitor_select(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channel_chunk);
+        larpix_uart_packet* packet,
+        uint channel_chunk);
 uint larpix_config_read_csa_monitor_select(larpix_configuration* config,
         larpix_uart_packet* packet);
 void larpix_config_write_csa_testpulse_enable(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channel_chunk);
+        larpix_uart_packet* packet,
+        uint channel_chunk);
 uint larpix_config_read_csa_testpulse_enable(larpix_configuration* config,
         larpix_uart_packet* packet);
 void larpix_config_write_csa_testpulse_dac_amplitude(larpix_configuration* config,
@@ -224,7 +241,8 @@ void larpix_config_write_sample_cycles(larpix_configuration* config,
 uint larpix_config_read_sample_cycles(larpix_configuration* config,
         larpix_uart_packet* packet);
 void larpix_config_write_test_burst_length(larpix_configuration* config,
-        larpix_uart_packet* packet, uint value_chunk);
+        larpix_uart_packet* packet,
+        uint value_chunk);
 uint larpix_config_read_test_burst_length(larpix_configuration* config,
         larpix_uart_packet* packet);
 void larpix_config_write_adc_burst_length(larpix_configuration* config,
@@ -232,15 +250,18 @@ void larpix_config_write_adc_burst_length(larpix_configuration* config,
 uint larpix_config_read_adc_burst_length(larpix_configuration* config,
         larpix_uart_packet* packet);
 void larpix_config_write_channel_mask(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channel_chunk);
+        larpix_uart_packet* packet,
+        uint channel_chunk);
 uint larpix_config_read_channel_mask(larpix_configuration* config,
         larpix_uart_packet* packet);
 void larpix_config_write_external_trigger_mask(larpix_configuration* config,
-        larpix_uart_packet* packet, uint channel_chunk);
+        larpix_uart_packet* packet,
+        uint channel_chunk);
 uint larpix_config_read_external_trigger_mask(larpix_configuration* config,
         larpix_uart_packet* packet);
 void larpix_config_write_reset_cycles(larpix_configuration* config,
-        larpix_uart_packet* packet, uint value_chunk);
+        larpix_uart_packet* packet,
+        uint value_chunk);
 uint larpix_config_read_reset_cycles(larpix_configuration* config,
         larpix_uart_packet* packet);
 

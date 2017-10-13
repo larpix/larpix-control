@@ -605,6 +605,53 @@ void test_read_reset_cycles(CuTest* tc)
     CuAssertIntEquals(tc, 100, c.reset_cycles[0]);
 }
 
+void test_write_all(CuTest* tc)
+{
+    larpix_configuration c;
+    larpix_config_init_defaults(&c);
+    larpix_uart_packet packets[LARPIX_NUM_CONFIG_REGISTERS];
+    larpix_config_write_all(&c, packets);
+    // Check that the registers are written correctly
+    for(uint i = 0; i < LARPIX_NUM_CONFIG_REGISTERS; ++i)
+    {
+        CuAssertIntEquals(tc, i, larpix_uart_get_register(packets + i));
+    }
+}
+
+void test_read_all(CuTest* tc)
+{
+    larpix_configuration c;
+    larpix_config_init_defaults(&c);
+    larpix_uart_packet packets[LARPIX_NUM_CONFIG_REGISTERS];
+    larpix_config_write_all(&c, packets);
+    larpix_configuration c2;
+    larpix_config_read_all(&c2, packets);
+    for(uint i = 0; i < LARPIX_NUM_CHANNELS; ++i)
+    {
+        CuAssertIntEquals(tc, c.pixel_trim_thresholds[i], c2.pixel_trim_thresholds[i]);
+        CuAssertIntEquals(tc, c.csa_bypass_select[i], c2.csa_bypass_select[i]);
+        CuAssertIntEquals(tc, c.csa_monitor_select[i], c2.csa_monitor_select[i]);
+        CuAssertIntEquals(tc, c.csa_testpulse_enable[i], c2.csa_testpulse_enable[i]);
+        CuAssertIntEquals(tc, c.channel_mask[i], c2.channel_mask[i]);
+        CuAssertIntEquals(tc, c.external_trigger_mask[i], c2.external_trigger_mask[i]);
+    }
+    CuAssertIntEquals(tc, c.global_threshold, c2.global_threshold);
+    CuAssertIntEquals(tc, c.csa_gain, c2.csa_gain);
+    CuAssertIntEquals(tc, c.csa_bypass, c2.csa_bypass);
+    CuAssertIntEquals(tc, c.csa_testpulse_dac_amplitude, c2.csa_testpulse_dac_amplitude);
+    CuAssertIntEquals(tc, c.test_mode, c2.test_mode);
+    CuAssertIntEquals(tc, c.cross_trigger_mode, c2.cross_trigger_mode);
+    CuAssertIntEquals(tc, c.periodic_reset, c2.periodic_reset);
+    CuAssertIntEquals(tc, c.fifo_diagnostic, c2.fifo_diagnostic);
+    CuAssertIntEquals(tc, c.sample_cycles, c2.sample_cycles);
+    CuAssertIntEquals(tc, c.test_burst_length[0], c2.test_burst_length[0]);
+    CuAssertIntEquals(tc, c.test_burst_length[1], c2.test_burst_length[1]);
+    CuAssertIntEquals(tc, c.adc_burst_length, c2.adc_burst_length);
+    CuAssertIntEquals(tc, c.reset_cycles[0], c2.reset_cycles[0]);
+    CuAssertIntEquals(tc, c.reset_cycles[1], c2.reset_cycles[1]);
+    CuAssertIntEquals(tc, c.reset_cycles[2], c2.reset_cycles[2]);
+}
+
 CuSuite* ConfigGetSuite()
 {
     CuSuite* suite = CuSuiteNew();
@@ -637,5 +684,7 @@ CuSuite* ConfigGetSuite()
     SUITE_ADD_TEST(suite, test_read_external_trigger_mask);
     SUITE_ADD_TEST(suite, test_write_reset_cycles);
     SUITE_ADD_TEST(suite, test_read_reset_cycles);
+    SUITE_ADD_TEST(suite, test_write_all);
+    SUITE_ADD_TEST(suite, test_read_all);
     return suite;
 }

@@ -1,0 +1,41 @@
+Interface specification between larpix-control and FPGA
+=======================================================
+
+This specification defines how the FPGA will interpret data sent by the
+larpix-control software and vice versa.
+
+Communications will consist of 10-byte packets with the following
+structure:
+
+Byte 0: Start byte 0x__ (to be defined by Thorsten)
+
+Byte 1: FPGA metadata. Bits [3:0] give the I/O line ID (aka daisy
+chain ID). For data sent to the FPGA, this tells the FPGA which line
+(group of chips) to write to. For data sent from the FPGA, this tells
+larpix-control which line (group of chips) the FPGA read from. Bits
+[7:4] are reserved.
+
+Bytes 2-8: LArPix UART data, aka the data payload to/from LArPix, with
+the following structure:
+
+  Byte 2: UART[7:0]
+  Byte 3: UART[15:8]
+  .
+  .
+  Byte 7: UART[47:40]
+  Byte 8: Bits [5:0] contain UART[53:48]. Bits [7:6] are reserved.
+
+Byte 9: End byte 0x__ (to be defined by Thorsten)
+
+Error cases
+-----------
+
+1. Byte 0 is not the start byte.
+
+2. Byte 9 is not the end byte.
+
+In both of these cases, ignore all incoming data until a start byte
+followed by 8 bytes followed by an end byte is received (since those 10
+bytes constitute a complete packet).
+
+There is currently no error correction or acknowledgement of receipt.
