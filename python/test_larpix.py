@@ -3,8 +3,25 @@ Use the pytest framework to write tests for the larpix module.
 
 '''
 import larpix
-from larpix import Packet, Configuration
+from larpix import Chip, Packet, Configuration
 from bitstring import BitArray
+
+def test_chip_get_configuration_packets():
+    chip = Chip(3, 1)
+    packet_type = Packet.CONFIG_WRITE_PACKET
+    packets = chip.get_configuration_packets(packet_type)
+    # test a sampling of the configuration packets
+    packet = packets[5]
+    assert packet.packet_type == packet_type
+    assert packet.chipid == chip.chip_id
+    assert packet.register_address == 5
+    assert packet.register_data == 16
+
+    packet = packets[40]
+    assert packet.packet_type == packet_type
+    assert packet.chipid == chip.chip_id
+    assert packet.register_address == 40
+    assert packet.register_data == 255
 
 def test_packet_bytes_zeros():
     p = Packet()
