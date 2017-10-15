@@ -8,20 +8,21 @@ This code is intended to work on both Python 2.7+ and Python 3.6+,
 but it was designed in Python 3 and is not guaranteed to work in
 Python 2.
 
-Download this repository. Install the Python packages "pyserial" and
-"bitstring" with the following commands:
+Download this repository. From the root directory, run
 
 ```
-pip install pyserial
-pip install bitstring
+pip install -e .
 ```
+
+to download the dependencies and install the `larpix` package in your
+Python namespace. To return your namespace to the pre-larpix state, just
+run `pip uninstall larpix-control`.
 
 ### Tests
 
 You can run tests to convince yourself that the software works as
-expected. First install the "[pytest](https://pytest.org)" package with
-`pip install pytest`. You can then run the tests from the `python`
-directory with the simple command `pytest`.
+expected. After `pip install`ing this package, you can run the tests
+with the simple command `pytest`.
 
 You can read the tests to see examples of how to call all of the common
 functions. I imagine they will also come in handy when you're confused
@@ -31,6 +32,15 @@ about the bit order. (Also see the section on endian-ness below.)
 
 This tutorial runs through how to use all of the main functionality of
 larpix-control.
+
+To access the package contents, use one of the two following `import`
+statements:
+
+```python
+import larpix.larpix as larpix  # use the larpix namespace
+# or ...
+from larpix.larpix import *  # import all larpix classes into the current namespace
+```
 
 ### Endian-ness
 
