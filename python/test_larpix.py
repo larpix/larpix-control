@@ -32,7 +32,7 @@ def test_packet_bytes_zeros():
 def test_packet_bytes_custom():
     p = Packet()
     p.bits[-6:] = [1]*6  # First byte is 0b00111111
-    p.bits[:5] = [1]*5  # Last byte is 0b001111100 (2 MSBs are padding)
+    p.bits[:5] = [1]*5  # Last byte is 0b00111110 (2 MSBs are padding)
     b = p.bytes()
     expected = b'\x3f' + b'\x00' * (Packet.size//8-1) + b'\x3e'
     assert b == expected
