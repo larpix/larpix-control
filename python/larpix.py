@@ -3,8 +3,6 @@ A module to control the LArPix chip.
 
 '''
 
-import larpix_c as l
-import ctypes as c
 import time
 import serial
 from bitstring import BitArray, Bits
@@ -23,7 +21,7 @@ class Chip(object):
         self.configuration = Configuration()
 
     def set_pixel_trim_thresholds(self, thresholds):
-        if len(thresholds) != l.larpix_num_channels():
+        if len(thresholds) != Chip.num_channels:
             return 1
         for i,value in enumerate(thresholds):
             self.configuration.pixel_trim_thresholds[i] = value
@@ -60,10 +58,10 @@ class Chip(object):
         return 0
 
     def enable_all_channels(self):
-        return self.enable_channels(range(l.larpix_num_channels()))
+        return self.enable_channels(range(Chip.num_channels))
 
     def disable_all_channels(self):
-        return self.disable_channels(range(l.larpix_num_channels()))
+        return self.disable_channels(range(Chip.num_channels))
 
     def enable_normal_operation(self):
         return
@@ -143,25 +141,25 @@ class Configuration(object):
     external_trigger_mask_addresses = list(range(56, 60))
     reset_cycles_addresses = [60, 61, 62]
     def __init__(self):
-        self.pixel_trim_thresholds = [0x10] * larpix.larpix_num_channels()
+        self.pixel_trim_thresholds = [0x10] * Chip.num_channels
         self.global_threshold = 0x10
         self.csa_gain = 1
         self.csa_bypass = 0
         self.internal_bypass = 1
-        self.csa_bypass_select = [0] * larpix.larpix_num_channels()
-        self.csa_monitor_select = [1] * larpix.larpix_num_channels()
-        self.csa_testpulse_enable = [0] * larpix.larpix_num_channels()
+        self.csa_bypass_select = [0] * Chip.num_channels
+        self.csa_monitor_select = [1] * Chip.num_channels
+        self.csa_testpulse_enable = [0] * Chip.num_channels
         self.csa_testpulse_dac_amplitude = 0
         self.test_mode = 0
         self.cross_trigger_mode = 0
         self.periodic_reset = 0
         self.fifo_diagnostic = 0
         self.sample_cycles = 1
-        self.test_burst_length = [0xFF, 0x00]
+        self.test_burst_length = 0x00FF
         self.adc_burst_length = 0
-        self.channel_mask = [0] * larpix.larpix_num_channels()
-        self.external_trigger_mask = [1] * larpix_num_channels()
-        self.reset_cycles = [0x00, 0x10, 0x00]
+        self.channel_mask = [0] * Chip.num_channels
+        self.external_trigger_mask = [1] * Chip.num_channels
+        self.reset_cycles = 0x001000
 
     def all_data(self):
         bits = []
@@ -286,7 +284,6 @@ class Controller(object):
     stop_byte = b'\x71'
     def __init__(self, port, baudrate):
         self.chips = []
-        self.connection = l.larpix_connection()
         self.port = port
         self.baudrate = baudrate
         self.timeout = 1
