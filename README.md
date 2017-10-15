@@ -54,6 +54,12 @@ treats the _last_ index as the LSB, which is also how numbers are
 usually displayed on screen, e.g. `0100` in binary means 4 not 2. So for
 `BitArray` and `Bits` objects, the LSB will generally be last.
 
+Note that this combination leads to the slightly awkward convention that
+the least significant bit of a bytestring is the *last bit* of the
+*first byte*. For example, if bits[15:0] of a packet are
+`0000 0010 0000 0001` ( = 0x0201 = 513), then the bytes will be sent out as
+`b'\x01\x02'`.
+
 ### Creating a LArPix Chip
 
 The `Chip` object represents a single LArPix chip and knows about
