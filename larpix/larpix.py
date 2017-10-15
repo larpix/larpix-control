@@ -444,6 +444,12 @@ class Packet(object):
             raise ValueError('Invalid number of bytes: %s' %
                     len(bytestream))
 
+    def __eq__(self, other):
+        return self.bits == other.bits
+
+    def __ne__(self, other):
+        return not (self == other)
+
     def bytes(self):
         # Here's the only other place we have to deal with the
         # endianness issue by reversing the order
