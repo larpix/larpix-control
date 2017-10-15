@@ -23,6 +23,19 @@ def test_chip_get_configuration_packets():
     assert packet.register_address == 40
     assert packet.register_data == 255
 
+def test_packet_init_default():
+    p = Packet()
+    expected = BitArray(Packet.size)
+    assert p.bits == expected
+
+def test_packet_init_bytestream():
+    bytestream = b'\x3f' + b'\x00' * (Packet.size//8-1) + b'\x3e'
+    p = Packet(bytestream)
+    expected = BitArray(Packet.size)
+    expected[-6:] = [1]*6
+    expected[:5] = [1]*5
+    assert p.bits == expected
+
 def test_packet_bytes_zeros():
     p = Packet()
     b = p.bytes()

@@ -19,6 +19,7 @@ class Chip(object):
         self.io_chain = io_chain
         self.data_to_send = []
         self.configuration = Configuration()
+        self.reads = []
 
     def set_pixel_trim_thresholds(self, thresholds):
         if len(thresholds) != Chip.num_channels:
@@ -282,6 +283,7 @@ class Controller(object):
     '''
     start_byte = b'\x73'
     stop_byte = b'\x71'
+    comma_byte = b'\x0D'
     def __init__(self, port):
         self.chips = []
         self.port = port
@@ -290,7 +292,14 @@ class Controller(object):
         self.max_write = 8192
         self._test_mode = False
 
-    def run(self, timelimit):
+    def get_chip(self, chip_id, io_chain):
+        for chip in self.chips:
+            if chip.chip_id == chip_id and chip.io_chain == io_chain:
+                return chip
+        raise ValueError('Could not find chip (%d, %d)' % (chip_id,
+            io_chain))
+
+    def serial_read(self, timelimit):
         data_in = []
         start = time.time()
         with serial.Serial(self.port, baudrate=self.baudrate,
@@ -300,6 +309,12 @@ class Controller(object):
                 if len(stream) > 0:
                     data_in.append(stream)
         return data_in
+
+    def serial_write(self, bytestreams):
+        with serial.Serial(self.port, baudrate=self.baudrate,
+                timeout=self.timeout) as output:
+            for bytestream in bytestreams:
+                output.write(bytestream)
 
     def write_configuration(self, chip, registers=None):
         if registers is None:
@@ -323,12 +338,6 @@ class Controller(object):
             serial_write(bytestreams)
             return
 
-    def serial_write(self, bytestreams):
-        with serial.Serial(self.port, baudrate=self.baudrate,
-                timeout=self.timeout) as output:
-            for bytestream in bytestreams:
-                output.write(bytestream)
-
     def run_testpulse(self, list_of_channels):
         return
 
@@ -344,6 +353,24 @@ class Controller(object):
         formatted_packet = (Controller.start_byte + daisy_chain_byte +
                 packet_bytes + Controller.stop_byte)
         return formatted_packet
+
+    def parse_input(self, bytestream):
+        # parse the bytestream into Packets + metadata
+        byte_packets = []
+        current_stream = bytestream
+        while len(current_stream) >= 9:  # remember to collect the remainder
+            if bytestream[8] == Controller.comma_byte:
+                byte_packets.append((Bits(bytestream[0]),
+                    Packet(bytestream[1:8])))
+                current_stream = current_stream[9:]
+            # TODO: deal with "else" (partial packet or other error)
+        # assign each packet to the corresponding Chip
+        for byte_packet in byte_packets:
+            io_chain = byte_packet[0][4:].uint
+            packet = byte_packet[1]
+            chip_id = packet.chipid
+            self.get_chip(chip_id, io_chain).reads.append(packet)
+        return current_stream  # (the remainder that wasn't read in)
 
     def format_bytestream(self, formatted_packets):
         bytestreams = []
@@ -395,9 +422,20 @@ class Packet(object):
     CONFIG_WRITE_PACKET = Bits('0b10')
     CONFIG_READ_PACKET = Bits('0b11')
 
-    def __init__(self):
-        self.bits = BitArray(Packet.size)
+    def __init__(self, bytestream=None):
         self._bit_padding = Bits('0b00')
+        if bytestream is None:
+            self.bits = BitArray(Packet.size)
+            return
+        elif len(bytestream) == Packet.num_bytes:
+            # Parse the bytestream. Remember that bytestream[0] goes at
+            # the 'end' of the BitArray
+            reversed_bytestream = bytestream[::-1]
+            bits_with_padding = BitArray(reversed_bytestream)
+            self.bits = bits_with_padding[len(self._bit_padding):]
+        else:
+            raise ValueError('Invalid number of bytes: %s' %
+                    len(bytestream))
 
     def bytes(self):
         # Here's the only other place we have to deal with the
