@@ -354,6 +354,13 @@ class Controller(object):
                 packet_bytes + Controller.stop_byte)
         return formatted_packet
 
+    def format_UART_for_input(self, chip, packet):
+        packet_bytes = packet.bytes()
+        daisy_chain_byte = (4 + Bits('uint:4=' + str(chip.io_chain))).bytes
+        formatted_packet = (daisy_chain_byte + packet_bytes +
+                Controller.comma_byte)
+        return formatted_packet
+
     def parse_input(self, bytestream):
         # parse the bytestream into Packets + metadata
         byte_packets = []

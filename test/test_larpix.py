@@ -279,6 +279,14 @@ def test_controller_format_UART():
     expected = b'\x73\x04' + packet.bytes() + b'\x71'
     assert result == expected
 
+def test_controller_format_UART_for_input():
+    controller = Controller(None)
+    chip = Chip(2, 4)
+    packet = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)[10]
+    result = controller.format_UART_for_input(chip, packet)
+    expected = b'\x04' + packet.bytes() + b'\x0D'
+    assert result == expected
+
 def test_controller_format_bytestream():
     controller = Controller(None)
     chip = Chip(2, 4)
