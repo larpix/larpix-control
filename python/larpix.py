@@ -282,19 +282,13 @@ class Controller(object):
     '''
     start_byte = b'\x73'
     stop_byte = b'\x71'
-    def __init__(self, port, baudrate):
+    def __init__(self, port):
         self.chips = []
         self.port = port
-        self.baudrate = baudrate
+        self.baudrate = 1000000
         self.timeout = 1
         self.max_write = 8192
-
-    def set_chips(self, chips):
-        self.chips = chips
-
-    def set_clock_speed(self, speed_MHz):
-        # TODO figure out the math here
-        self.connection.clk_divisor = speed_MHz
+        self._test_mode = False
 
     def run(self, timelimit):
         data_in = []
@@ -307,14 +301,29 @@ class Controller(object):
                     data_in.append(stream)
         return data_in
 
-    def write_configuration(self, chip):
+    def write_configuration(self, chip, registers=None):
+        if registers is None:
+            registers = list(range(Configuration.num_registers))
+        elif isinstance(registers, int):
+            registers = [registers]
+        else:
+            pass
         # The configuration must be sent one register at a time
         configuration_packets = \
             chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET);
+        for i in range(len(configuration_packets)-1, -1, -1):
+            if i not in registers:
+                del configuration_packets[i]
         formatted_packets = [self.format_UART(chip, p) for p in
                 configuration_packets]
         bytestreams = self.format_bytestream(formatted_packets)
+        if self._test_mode:
+            return bytestreams
+        else:
+            serial_write(bytestreams)
+            return
 
+    def serial_write(self, bytestreams):
         with serial.Serial(self.port, baudrate=self.baudrate,
                 timeout=self.timeout) as output:
             for bytestream in bytestreams:

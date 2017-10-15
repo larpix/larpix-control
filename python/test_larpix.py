@@ -260,7 +260,7 @@ def test_configuration_reset_cycles_data():
     assert c.reset_cycles_data(2) == expected
 
 def test_controller_format_UART():
-    controller = Controller(None, None)
+    controller = Controller(None)
     chip = Chip(2, 4)
     packet = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)[10]
     result = controller.format_UART(chip, packet)
@@ -268,7 +268,7 @@ def test_controller_format_UART():
     assert result == expected
 
 def test_controller_format_bytestream():
-    controller = Controller(None, None)
+    controller = Controller(None)
     chip = Chip(2, 4)
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
     fpackets = [controller.format_UART(chip, p) for p in packets]
@@ -281,4 +281,13 @@ def test_controller_format_bytestream():
     expected.append(b''.join(fpackets[:1]*819))
     expected.append(b''.join(fpackets[:1]*819))
     expected.append(b''.join(fpackets[:1]*362))
+    assert result == expected
+
+def test_controller_write_configuration():
+    controller = Controller(None)
+    controller._test_mode = True
+    chip = Chip(2, 4)
+    result = controller.write_configuration(chip, 0)
+    conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[0]
+    expected = [controller.format_UART(chip, conf_data)]
     assert result == expected
