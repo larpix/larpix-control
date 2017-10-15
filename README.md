@@ -1,365 +1,171 @@
 # larpix-control
 
-Control the LArPix chip using the FTDI D2XX driver library.
+Control the LArPix chip
 
 ## Setup and installation
 
-Download the D2XX library from FTDI's website. Make sure libftd2xx.so is
-in your LD\_LIBRARY\_PATH or other search path, and ftd2xx.h and
-WinTypes.h are in a directory called ftd2xx in your include path. Example locations are
-/usr/local/lib/libftd2xx.so and /usr/local/include/ftd2xx/ftd2xx.h and
-WinTypes.h.
+This code is intended to work on both Python 2.7+ and Python 3.6+,
+but it was designed in Python 3 and is not guaranteed to work in
+Python 2.
 
-Download this repository.
+Download this repository. Install the Python packages "pyserial" and
+"bitstring" with the following commands:
 
-To generate the larpix.o file and a demonstration executable just run
-`make`.
+```
+pip install pyserial
+pip install bitstring
+```
 
 ### Tests
 
 You can run tests to convince yourself that the software works as
-expected with `make check`. The tests are in the `tests/*Test.c`
-files (except for `tests/CuTest.c` which contains the [unit testing
-framework](http://cutest.sourceforge.net/)). You can read the tests to
-see examples of how to call all of the different functions. I imagine
-they will also come in handy when you're confused about the bit order.
-In general, array index 0 is sent out first and contains the LSB.
+expected. First install the "[pytest](https://pytest.org)" package with
+`pip install pytest`. You can then run the tests from the `python`
+directory with the simple command `pytest`.
+
+You can read the tests to see examples of how to call all of the common
+functions. I imagine they will also come in handy when you're confused
+about the bit order. (Also see the section on endian-ness below.)
 
 ## Tutorial
 
-You're probably also looking for the Python interface. That's after the C
-tutorial.
-
-### Connecting to the FTDI chip
-
-The fundamental data structure is the `larpix_connection`. You can
-initialize the data structure with
-
-```C
-larpix_connection c;
-larpix_default_connection(&c);
-```
-
-To connect to the FTDI chip, you might have to change `c.port_number`
-from its default of `0`. Usually this is not an issue. You also can
-change various configuration options including `pin_io_directions`,
-`bit_mode`, `clk_divisor`, `timeout`, and `usb_transfer_size`.
-
-The code to open a connection to and configure the FTDI chip is:
-
-```C
-larpix_connect(&c);
-larpix_configure_ftdi(&c);
-```
-
-When you're done, you'll want to disconnect from the chip. You can do
-that with
-
-```C
-larpix_disconnect(&c);
-```
-
-By the way, you can access the low-level `FT_HANDLE` structure using
-`c.ft_handle`. Leave it alone, though, for your own good.
-
-### Handling data to send to the chip
-
-Next you might want to write some data to the chip. The D2XX software
-accepts as input an array of bytes called a bytestream. Within a byte,
-the different bits correspond to different pins on the chip. Each byte
-corresponds to one timestep. The collection of all of the bits in the
-same position at each element of the bytestream is a bitstream. A
-bytestream has 8 bitstreams.
-
-To facilitate bitstreams and bytestreams, there is a data structure
-called `larpix_data`. Usually you will want to initialize all bitstreams
-to 1 (high) because of the UART interface. You can also set one of the
-channels to be a clock (clk).
-
-```C
-larpix_data data;
-larpix_data_init_high(&data); // or init_low
-larpix_data_set_clk(&data, 0); // clk on channel 0
-```
-
-You can set each of the 8 bitstreams individually. For example, if you
-have an array `ch3` that contains the bitstream for channel 3, you can
-write it to the bytestream using
-
-```C
-larpix_data_set_bitstream(&data, ch3, 3, length); // Separate object
-```
-
-If the length of the array is longer than the maximum allowed
-(`LARPIX_BUFFER_SIZE`), then the transcribed data will be truncated.
-
-There are a few type shorthands which can make things easier. You can
-use `byte` for a single byte (it's aliased to `unsigned char`, or `BYTE`
-in D2XX). And `uint` for `unsigned int`, or `DWORD` in D2XX.
-
-If you already have a bytestream in an array and want to load it into
-the `larpix_data` struct, or you want to extract the bytestream from
-`larpix_data`, use
-
-```C
-larpix_array_to_data(&data, bytestream_array, length); // load in bytestream
-larpix_data_to_array(&data, bytestream_array, length); // extract bytestream
-```
-
-### Sending data to the chip
-
-Once you have set up the `larpix_data` with your bytestream, you can
-send it to the chip with
-
-```C
-larpix_write_data(&c, &data, 1, length);
-```
-
-This command will write the first `length` bytes of data in
-`data` to the FTDI chip repeatedly, `num_loops` times.
-
-You might wonder what the `1` argument is for. Well, if you have a whole
-set of `larpix_data` in an array (e.g. `larpix_data array[10];`), and
-you want to write them out in quick succession, you're in luck!
-
-```C
-larpix_write_data(&c, data_array, array_size, length);
-```
-
-This is the absolute fastest that data can be written to the FTDI chip.
-
-### Reading data from the chip
-
-To read data from the chip, first decide how many data blocks you want
-to read. Create an array of `larpix_data` with size equal to the number
-of blocks to read. Then you can read with
-
-```C
-larpix_read_data(&c, data_array, array_size, length);
-```
-
-This command will read `length` bytes from the FTDI into each
-`larpix_data` and is the fastest that data can be read from the FTDI
-chip.
-
-### Reading and writting in quick succession
-
-It will be extremely useful to read and write in quick succession, not
-only when querying the configuration status or when using the LArPix
-test mode, but also in normal operation since we must write out the
-clock and a constant high signal on the UART line. This function will
-write first and then read, repeatedly and in quick succession. Assuming
-you have an array of `larpix_data` to read and another array to write,
-you can do the following.
-
-```C
-uint total_bytes_written;
-uint total_bytes_read;
-larpix_write_read_data(&c, write_array, read_array,
-    1, // number of write-read pairs
-    length_write, // number of bytes per write
-    length_read, // number of bytes per read
-    &total_bytes_written, // will be filled with total bytes written
-    &total_bytes_read); // will be filled with total bytes read
-```
-
-This is the fastest possible read-write configuration.
-
-### Handling UART data format
-
-All communication to and from the LArPix chip is in 54-bit UART (plus a
-start bit and a stop bit). To aid in the construction and interpretation
-of these UART words, use `larpix_uart_packet`. Each section of the UART
-packet has a corresponding getter and setter.
-
-```C
-larpix_uart_packet packet;
-
-// Packet type
-larpix_uart_set_packet_type(&packet, LARPIX_PACKET_DATA);
-larpix_uart_set_packet_type(&packet, LARPIX_PACKET_CONFIG_WRITE);
-larpix_packet_type type = larpix_uart_get_packet_type(&packet);
-
-// Parity bit
-larpix_uart_set_parity(&packet); // computes automatically
-uint parity = larpix_uart_compute_parity(&packet);
-uint status = larpix_uart_check_parity(&packet); // 0 -> good, 1-> error
-```
-
-There is a getter/setter for every section of the UART packet that is
-described in Section 5.4 of the LArPix Datasheet (v2).
-
-
-To communicate with the chip, `larpix_uart_packet` must be converted
-to/from `larpix_data`. The functions also return a status value which is
-nonzero if there is not enough space in the `larpix_data` to fit all the
-bits of the packet. Note for both data-to-uart and uart-to-data functions,
-the `startbit` parameter gives the location of the UART start bit, _not_
-the first bit of the 54-bit word.
-
-```C
-// To prepare to write to chip
-// Include which data stream (e.g. pin 1) and
-// where along the bitstream the UART start bit should go (e.g. 128)
-uint status = larpix_uart_to_data(&packet, &data, 1, 128); // 0->good, 1->error
-uint status = larpix_data_to_uart(&packet, &data, 1, 128); // 0->good, 1->error
-```
-
-The `larpix_uart_to_data` function dilates the data by a factor of
-4 to account for the relationship between the master clock and the
-UART baudrate. This feature will likely change depending on the final
-communication setup between the C code and the LArPix chip.
-
-### Chip configuration
-
-First: the configuration layout is a bit complicated. So bear with me.
-
-To configure the LArPix chip upon startup, three things need to happen:
-
-  1. You need to decide on a configuration
-
-  2. That configuration needs to be written to a large number of UART
-     packets (currently 63), with the caveats that
-
-     - some configurations occupy multiple registers/bytes so must be
-       sent on multiple UART packets
-
-     - some configurations are only a bit or two and are combined with
-       other configuration values onto a single register/byte, so are
-       sent together on the same UART packet
-
-  3. Those packets must all be sent to the chip
-
-For subsequent configurations, e.g. to enable then disable test mode,
-keeping everything else the same, only the UART packets corresponding to
-the changed configuration values need to be created and then sent.
-
-The data structure that keeps track of a chip's configuration is the
-`larpix_configuration` struct. Initialize it to the LArPix chip's
-default values using
-
-```C
-larpix_configuration config;
-larpix_config_init_defaults(&config);
-```
-
-You can then access the struct's members to adjust the configuration.
-View the larpix.h header file to see all of the members. They are named
-to match the list in Section 5.2 of the LArPix datasheet, and they are
-in the same order in the header file as in that list.
-
-A small technicality is that `test_burst_length` and `reset_cycles` both
-use more than a byte to store a number, and are represented by an array
-of bytes. So you'll have to do the math yourself to get the number you
-want. For example:
-
-```C
-config.test_burst_length[0] = 5;
-config.test_burst_length[1] = 1; // value is 256 + 5 = 261
-```
-
-To transfer the complete configuration into a collection of UART
-packets, use the `larpix_config_write_all` function:
-
-```C
-larpix_uart_packet full_config_packets[LARPIX_NUM_CONFIG_REGISTERS]; // [63]
-larpix_config_write_all(&config, full_config_packets);
-```
-
-This function only adjusts the "register map address" and "register map
-data" portions of the UART packet (i.e. calls `larpix_uart_set_register`
-and `larpix_uart_set_register_data` but no other `larpix_uart`
-functions).
-
-There is a corresponding `larpix_config_read_all` function which
-extracts the configuration from an array of UART packets into a
-`larpix_configuration` object. It does not modify the packets at all,
-but the array should be in "configuration register" order from 0 to 62.
-This function also returns a "status" result which is `0` if all reads
-are successful, else is the number of unsuccessful reads. (A possible
-upgrade here is to specify which reads are unsuccessful. Don't hold your
-breath though.) Unsuccessful reads happen when the "register map
-address" in the UART packet does not match the expected address for the
-particular configuration being read.
-
-It is also possible to create UART packets one at a time, for only the
-configuration values that you want to update. Each data member of the
-`larpix_configuration` struct has its own
-`larpix_config_write_X(config, uart_packet)` and
-`larpix_config_read_X(config, uart_packet)` functions. Like with
-`larpix_config_write_all`, these individual functions adjust the
-register map address and register map data portions of the UART packet,
-and the read functions are read-only. The read functions return 0 on
-successful read and 1 on unsuccessful read.
-
-```C
-larpix_config_write_csa_testpulse_dac_amplitude(&config, &packet);
-
-uint status = larpix_config_read_csa_bypass_select(&config, &packet);
-```
-
-There are a few subtleties:
-
- - `larpix_config_write pixel_trim_thresholds` requires an additional
-   parameter, `channelid`. The read function figures out the `channelid`
-   based on the register address in the `larpix_uart_packet`.
-
- - `csa_bypass_select`, `csa_monitor_select`, `csa_testpulse_enable`,
-   `channel_mask`, and `external_trigger_mask` store only one bit per
-   channel, and are squeezed into 4 bytes each. So the corresponding
-   write functions require an additional parameter, `channel_chunk`,
-   which ranges from 0 to 3 and determines which group of channels to
-   write (0:7, 8:15, 16:23, or 24:31, respectively). The read functions
-   automatically figure out the `channel_chunk` based on the register
-   address which should also be stored in the `larpix_uart_packet`.
-
- - `test_burst_length` and `reset_cycles`, as mentioned above, combine
-   more than 1 byte into a single number. The corresponding write
-   functions require an additional parameter, `value_chunk`, which
-   determines which byte is written. Again, the read function will
-   figure that out automatically.
-
- - `csa_gain`, `csa_bypass`, and `internal_bypass` are combined into a
-   single byte, so there is only one read and one write function which
-   includes all three settings, namely
-   `larpix_config_write_csa_gain_and_bypasses` (and the corresponding
-   read function).
-
- - `test_mode`, `cross_trigger_mode`, `periodic_reset`, and
-   `fifo_diagnostic` are also combined into a single byte. Their
-   combined function is `larpix_config_write_test_mode_xtrig_reset_diag`.
-
-### Python interface
-
-You can access all of the larpix-control functionality through
-the Python interface. Simply import the larpix\_c.py module into
-your program. Then you can access the struct types as python
-classes with the same names as the corresponding C structs.
-`larpix_packet_type` is a python dict with keys `data`, `test`,
-`config_write`, and `config_read`. You can call any and all C functions
-via `larpix_c.larpix.<function-name>`.
-
-
-Here's an example:
+This tutorial runs through how to use all of the main functionality of
+larpix-control.
+
+### Endian-ness
+
+We use the convention that the LSB is sent out first and read in first.
+The location of the LSB in arrays and lists changes from object to
+object based on the conventions of the other packages we interact with.
+
+In particular, pyserial sends out index 0 first, so for `bytes` objects,
+index 0 will generally have the LSB. On the other hand, bitstrings
+treats the _last_ index as the LSB, which is also how numbers are
+usually displayed on screen, e.g. `0100` in binary means 4 not 2. So for
+`BitArray` and `Bits` objects, the LSB will generally be last.
+
+### Creating a LArPix Chip
+
+The `Chip` object represents a single LArPix chip and knows about
+everything happening on the chip regarding configuration, data sent in,
+and data read out. To create a Chip, just provide the chip ID number
+(hard-wired into the PCB) and the index for the IO Chain (daisy chain)
+that the chip is part of:
 
 ```python
-from larpix_c import *
-import ctypes as c
-conn = larpix_connection()
-larpix.larpix_default_connection(c.byref(conn))
-larpix.larpix_connect(c.byref(conn))
-larpix.larpix_configure_ftdi(c.byref(conn))
-
-packet = larpix_uart_packet()
-larpix.larpix_uart_set_packet_type(c.byref(packet), larpix_packet_type['data'])
-larpix.larpix_uart_set_parity(c.byref(packet))
-
-data = larpix_data()
-larpix.larpix_data_init_high(c.byref(data))
-larpix.larpix_data_set_clk(c.byref(data), 0)  # can use python integer as c int
-status = larpix.larpix_uart_to_data(c.byref(packet), c.byref(data), 1, 128)
-
-larpix.larpix_write_data(c.byref(conn), c.byref(data), 1, LARPIX_BUFFER_SIZE)
+myChip = Chip(100, 0)
 ```
 
-Note: a more Pythonic wrapper is under development.
+The Chip object uses these ID values when it creates data packets to
+ensure that the packet reaches the correct chip. And other objects use
+the ID values to ensure that received data from the physical chip makes
+its way to the right Chip object.
+
+### Configuring the Chip
+
+To update the configuration register in the LArPix chip, first you must
+set the appropriate values in the Chip object. These values are stored
+in the `Chip.configuration` attribute. An assortment of helper
+methods will make it much easier to set many options, especially those
+operating per channel. For full access to the chip's configuration, read
+the next section on the `Configuration` object, of which
+`chip.configuration` is an instance.
+
+### The Configuration object
+
+The `Configuration` object represents all of the options in the LArPix
+configuration register. Each row in the configuration table in the LArPix datasheet
+has a corresponding attribute in the `Configuration` object. Per-channel
+attributes are stored in a list, and all other attributes are stored as
+a simple integer. (This includes everything from single bits to values
+such as "reset cycles," which spans 3 bytes.) **Warning**: there is
+currently no type checking or range checking on these values. Using
+values outside the expected range will lead to undefined behavior,
+including the possibility that Python will crash _or_ that LArPix will
+be sent bad commands.
+
+The machinery of the `Configuration` object ensures that each value is
+converted to the appropriate set of bits when it comes time to send
+actual commands to the physical chip. Although this is not transparent
+to you as a user of this library, you might want to know that two sets of
+configuration options are always sent together in the same configuration
+packet:
+
+ - `csa_gain`, `csa_bypass`, and `internal_bypass` are combined into a
+   single byte, so even though they have their own attributes, they must
+   be written to the physical chip together
+
+ - `test_mode`, `cross_trigger_mode`, `periodic_reset`, and
+   `fifo_diagnostic` work the same way
+
+Similarly, all of the per-channel options (except for the pixel trim
+thresholds) are sent in 4 groups of 8 channels.
+
+Once the Chip object has been configured, the configuration must be sent
+to the physical chip. This is accomplished with the `Controller` object,
+which we'll discuss next.
+
+### Communicating with the physical LArPix chip
+
+Communication between the computer and the physical LArPix chip is
+handled by the `Controller` object and uses a Serial interface. (The
+interface specification is given in the fpga\_interface.txt file. It's
+based on RS-232 8N1.) To initialize a Controller object, simply provide
+the port you'd like to communicate over. For the envisioned normal
+application (with an FTDI chip as USB-serial bridge), this will likely
+be something like `/dev/ttyUSB0`.
+
+```python
+controller = Controller('/dev/ttyUSB0')
+```
+
+You might want to change the following
+attributes at some point, but their defaults should work in most cases:
+
+ - `baudrate`: default = 1000000 baud. Controls the number of bits per
+   second, including RS-232 start and stop bits.
+ - `timeout`: default = 1 second. Controls how long to wait before
+   ending a read command
+ - `max_write`: default = 8192 bytes. Controls the maximum number of
+   bytes to send with a single write command. The limit is entirely due
+   to the buffer capacity of the FTDI chip.
+
+#### Sending data
+
+The only data that LArPix can receive is configuration data. To send all
+of the configuration packets in write mode, simply call
+
+```python
+myChip = Chip(chip_id, io_chain)
+# Edit the configuration
+# ...
+myController = Controller('/dev/ttyUSB0')
+myController.write_configuration(myChip)
+```
+
+To send only a particular configuration register or list of
+configuration registers, pass the register or list of registers to the
+function:
+
+```python
+register_to_update = 51
+myController.write_configuration(myChip, register_to_update)
+# or pass a list ...
+registers_to_update = [0, 5, 42]
+myController.write_configuration(myChip, registers_to_update)
+```
+
+There is currently not a way to specify which register to update by
+passing a string or other way of identifying the register by name.
+
+Similar functionality exists to read the configuration data. This
+requires both sending data to and receiving data from the LArPix chip.
+To send the "read configuration" commands, call `read_configuration`
+exactly the same way you would call `write_configuration`.
+
+#### Receiving data
+
+There are 3 reasons to receive data from LArPix: because it's real data
+(ADC counts, etc.), because it's configuration data that has been
+requested, or because it's test data from either the UART test or the
+FIFO test.
