@@ -2,7 +2,6 @@
 Use the pytest framework to write tests for the larpix module.
 
 '''
-import larpix
 from larpix.larpix import Chip, Packet, Configuration, Controller
 from bitstring import BitArray
 
