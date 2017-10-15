@@ -49,7 +49,7 @@ class Chip(object):
 
     def enable_channels(self, list_of_channels):
         for channel in list_of_channels:
-            self.configuration.channel_mask[channel] = 0 
+            self.configuration.channel_mask[channel] = 0
         return 0
 
     def disable_channels(self, list_of_channels):
@@ -81,15 +81,15 @@ class Chip(object):
         return 0
 
     def enable_testpulse(self, list_of_channels):
-        for channel in list_of_channels:        
+        for channel in list_of_channels:
             self.configuration.csa_testpulse_enable[channel] = 1
         return 0
 
     def disable_testpulse(self, list_of_channels):
-        for channel in list_of_channels:        
+        for channel in list_of_channels:
             self.configuration.csa_testpulse_enable[channel] = 0
         return 0
-    
+
     def enable_fifo_diagnostic(self):
         self.configuration.fifo_diagnostic = 1
         return 0
