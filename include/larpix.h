@@ -111,6 +111,7 @@ typedef enum larpix_packet_type
 uint larpix_buffer_size();
 uint larpix_uart_size();
 uint larpix_num_config_registers();
+uint larpix_num_channels();
 ulong larpix_bitstream_to_int(byte* bitstream, uint length);
 void larpix_int_to_bitstream(byte* bitstream, ulong input, uint length);
 void larpix_default_connection(larpix_connection* c);
