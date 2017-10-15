@@ -311,3 +311,50 @@ def test_controller_write_configuration():
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[0]
     expected = [controller.format_UART(chip, conf_data)]
     assert result == expected
+
+def test_controller_parse_input():
+    controller = Controller(None)
+    chip = Chip(2, 4)
+    controller.chips.append(chip)
+    packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
+    fpackets = [controller.format_UART_for_input(chip, p) for p in packets]
+    bytestream = b''.join(controller.format_bytestream(fpackets))
+    remainder_bytes = controller.parse_input(bytestream)
+    expected_remainder_bytes = b''
+    assert remainder_bytes == expected_remainder_bytes
+    result = chip.reads
+    expected = packets
+    assert result == expected
+
+def test_controller_parse_input_dropped_data_byte():
+    # Test whether the parser can recover from dropped bytes
+    controller = Controller(None)
+    chip = Chip(2, 4)
+    controller.chips.append(chip)
+    packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
+    fpackets = [controller.format_UART_for_input(chip, p) for p in packets]
+    bytestream = b''.join(controller.format_bytestream(fpackets))
+    # Drop a byte in the first packet
+    bytestream_faulty = bytestream[1:]
+    remainder_bytes = controller.parse_input(bytestream_faulty)
+    expected_remainder_bytes = b''
+    assert remainder_bytes == expected_remainder_bytes
+    result = chip.reads
+    expected = packets[1:]
+    assert result == expected
+
+def test_controller_parse_input_dropped_comma_byte():
+    controller = Controller(None)
+    chip = Chip(2, 4)
+    controller.chips.append(chip)
+    packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
+    fpackets = [controller.format_UART_for_input(chip, p) for p in packets]
+    bytestream = b''.join(controller.format_bytestream(fpackets))
+    # Drop the first comma byte
+    bytestream_faulty = bytestream[:8] + bytestream[9:]
+    remainder_bytes = controller.parse_input(bytestream_faulty)
+    expected_remainder_bytes = b''
+    assert remainder_bytes == expected_remainder_bytes
+    result = chip.reads
+    expected = packets[2:]
+    assert result == expected

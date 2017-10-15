@@ -365,12 +365,16 @@ class Controller(object):
         # parse the bytestream into Packets + metadata
         byte_packets = []
         current_stream = bytestream
+        comma = Controller.comma_byte[0]
         while len(current_stream) >= 9:  # remember to collect the remainder
-            if bytestream[8] == Controller.comma_byte:
-                byte_packets.append((Bits(bytestream[0]),
-                    Packet(bytestream[1:8])))
+            if current_stream[8] == comma:
+                byte_packets.append((Bits('uint:8=' + str(current_stream[0])),
+                    Packet(current_stream[1:8])))
                 current_stream = current_stream[9:]
+            else:
             # TODO: deal with "else" (partial packet or other error)
+                raise ValueError('Unable to parse first 9 bits: %s' %
+                    str(current_stream[:9]))
         # assign each packet to the corresponding Chip
         for byte_packet in byte_packets:
             io_chain = byte_packet[0][4:].uint
