@@ -2,6 +2,7 @@
 Use the pytest framework to write tests for the larpix module.
 
 '''
+import pytest
 from larpix.larpix import Chip, Packet, Configuration, Controller
 from bitstring import BitArray
 
@@ -326,6 +327,7 @@ def test_controller_parse_input():
     expected = packets
     assert result == expected
 
+@pytest.mark.xfail
 def test_controller_parse_input_dropped_data_byte():
     # Test whether the parser can recover from dropped bytes
     controller = Controller(None)
@@ -343,6 +345,7 @@ def test_controller_parse_input_dropped_data_byte():
     expected = packets[1:]
     assert result == expected
 
+@pytest.mark.xfail
 def test_controller_parse_input_dropped_comma_byte():
     controller = Controller(None)
     chip = Chip(2, 4)
