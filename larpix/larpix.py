@@ -460,6 +460,12 @@ class Packet(object):
     def __ne__(self, other):
         return not (self == other)
 
+    def __str__(self):
+        return 'Packet: bit 53->' + self.bits.bin + '<-bit 0'
+
+    def __repr__(self):
+        return 'Packet(' + str(self.bytes()) + ')'
+
     def bytes(self):
         # Here's the only other place we have to deal with the
         # endianness issue by reversing the order
