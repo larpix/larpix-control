@@ -28,8 +28,5 @@ setup(
         ],
         keywords='dune physics',
         packages=['larpix'],
-        install_requires=['pyserial','bitstring'],
-        extras_require={
-            'test': ['pytest'],
-        },
+        install_requires=['pyserial','bitstring','pytest'],
 )
