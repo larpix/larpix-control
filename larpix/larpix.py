@@ -335,7 +335,7 @@ class Controller(object):
         if self._test_mode:
             return bytestreams
         else:
-            serial_write(bytestreams)
+            self.serial_write(bytestreams)
             return
 
     def run_testpulse(self, list_of_channels):
