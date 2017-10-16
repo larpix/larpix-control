@@ -23,7 +23,7 @@ def test_chip_get_configuration_packets():
     assert packet.register_address == 40
     assert packet.register_data == 255
 
-def test_packet_bits_bites():
+def test_packet_bits_bytes():
     assert Packet.num_bytes == Packet.size // 8 + 1
 
 def test_packet_init_default():
