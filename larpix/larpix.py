@@ -368,7 +368,14 @@ class Controller(object):
         comma = Controller.comma_byte[0]
         while len(current_stream) >= 9:  # remember to collect the remainder
             if current_stream[8] == comma:
-                byte_packets.append((Bits('uint:8=' + str(current_stream[0])),
+                metadata = current_stream[0]
+                # This is necessary because of differences between
+                # Python 2 and Python 3
+                if isinstance(metadata, int):  # Python 3
+                    code = 'uint:8='
+                elif isinstance(metadata, str):  # Python 2
+                    code = 'bytes:1='
+                byte_packets.append((Bits(code + str(current_stream[0])),
                     Packet(current_stream[1:8])))
                 current_stream = current_stream[9:]
             else:
@@ -442,7 +449,7 @@ class Packet(object):
             # Parse the bytestream. Remember that bytestream[0] goes at
             # the 'end' of the BitArray
             reversed_bytestream = bytestream[::-1]
-            bits_with_padding = BitArray(reversed_bytestream)
+            bits_with_padding = BitArray(bytes=reversed_bytestream)
             self.bits = bits_with_padding[len(self._bit_padding):]
         else:
             raise ValueError('Invalid number of bytes: %s' %
