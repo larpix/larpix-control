@@ -283,7 +283,6 @@ class Controller(object):
     '''
     start_byte = b'\x73'
     stop_byte = b'\x71'
-    comma_byte = b'\x0D'
     def __init__(self, port):
         self.chips = []
         self.port = port
@@ -354,20 +353,19 @@ class Controller(object):
                 daisy_chain_byte + Controller.stop_byte)
         return formatted_packet
 
-    def format_UART_for_input(self, chip, packet):
-        packet_bytes = packet.bytes()
-        daisy_chain_byte = (4 + Bits('uint:4=' + str(chip.io_chain))).bytes
-        formatted_packet = packet_bytes + Controller.comma_byte
-        return formatted_packet
-
     def parse_input(self, bytestream):
+        packet_size = 10
+        start_byte = Controller.start_byte[0]
+        stop_byte = Controller.stop_byte[0]
+        metadata_byte_index = 8
+        data_bytes = slice(1,8)
         # parse the bytestream into Packets + metadata
         byte_packets = []
         current_stream = bytestream
-        comma = Controller.comma_byte[0]
-        while len(current_stream) >= 8:  # remember to collect the remainder
-            if current_stream[7] == comma:
-                metadata = b'\x00'[0]  # TODO revise when interface improves
+        while len(current_stream) >= packet_size:
+            if (current_stream[0] == start_byte and
+                    current_stream[packet_size-1] == stop_byte):
+                metadata = current_stream[metadata_byte_index]
                 # This is necessary because of differences between
                 # Python 2 and Python 3
                 if isinstance(metadata, int):  # Python 3
@@ -375,12 +373,14 @@ class Controller(object):
                 elif isinstance(metadata, str):  # Python 2
                     code = 'bytes:1='
                 byte_packets.append((Bits(code + str(metadata)),
-                    Packet(current_stream[0:7])))
-                current_stream = current_stream[8:]
+                    Packet(current_stream[data_bytes])))
+                current_stream = current_stream[packet_size:]
             else:
-                # Throw out everything between here and the next comma
-                next_comma_index = current_stream.find(comma)
-                current_stream = current_stream[next_comma_index+1:]
+                # Throw out everything between here and the next start byte.
+                # Note: start searching after byte 0 in case it's
+                # already a start byte
+                next_start_index = current_stream[1:].find(start_byte)
+                current_stream = current_stream[1:][next_start_index:]
         # assign each packet to the corresponding Chip
         for byte_packet in byte_packets:
             io_chain = byte_packet[0][4:].uint
