@@ -379,9 +379,9 @@ class Controller(object):
                     Packet(current_stream[1:8])))
                 current_stream = current_stream[9:]
             else:
-            # TODO: deal with "else" (partial packet or other error)
-                raise ValueError('Unable to parse first 9 bits: %s' %
-                    str(current_stream[:9]))
+                # Throw out everything between here and the next comma
+                next_comma_index = current_stream.find(comma)
+                current_stream = current_stream[next_comma_index+1:]
         # assign each packet to the corresponding Chip
         for byte_packet in byte_packets:
             io_chain = byte_packet[0][4:].uint
