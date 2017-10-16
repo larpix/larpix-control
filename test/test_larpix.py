@@ -280,15 +280,15 @@ def test_controller_format_UART():
     chip = Chip(2, 4)
     packet = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)[10]
     result = controller.format_UART(chip, packet)
-    expected = b'\x73\x04' + packet.bytes() + b'\x71'
+    expected = b'\x73' + packet.bytes() + b'\x04\x71'
     assert result == expected
 
 def test_controller_format_UART_for_input():
     controller = Controller(None)
-    chip = Chip(2, 4)
+    chip = Chip(2, 0)
     packet = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)[10]
     result = controller.format_UART_for_input(chip, packet)
-    expected = b'\x04' + packet.bytes() + b'\x0D'
+    expected = packet.bytes() + b'\x0D'
     assert result == expected
 
 def test_controller_format_bytestream():
@@ -318,7 +318,7 @@ def test_controller_write_configuration():
 
 def test_controller_parse_input():
     controller = Controller(None)
-    chip = Chip(2, 4)
+    chip = Chip(2, 0)
     controller.chips.append(chip)
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
     fpackets = [controller.format_UART_for_input(chip, p) for p in packets]
@@ -333,7 +333,7 @@ def test_controller_parse_input():
 def test_controller_parse_input_dropped_data_byte():
     # Test whether the parser can recover from dropped bytes
     controller = Controller(None)
-    chip = Chip(2, 4)
+    chip = Chip(2, 0)
     controller.chips.append(chip)
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
     fpackets = [controller.format_UART_for_input(chip, p) for p in packets]
@@ -349,13 +349,13 @@ def test_controller_parse_input_dropped_data_byte():
 
 def test_controller_parse_input_dropped_comma_byte():
     controller = Controller(None)
-    chip = Chip(2, 4)
+    chip = Chip(2, 0)
     controller.chips.append(chip)
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
     fpackets = [controller.format_UART_for_input(chip, p) for p in packets]
     bytestream = b''.join(controller.format_bytestream(fpackets))
     # Drop the first comma byte
-    bytestream_faulty = bytestream[:8] + bytestream[9:]
+    bytestream_faulty = bytestream[:7] + bytestream[8:]
     remainder_bytes = controller.parse_input(bytestream_faulty)
     expected_remainder_bytes = b''
     assert remainder_bytes == expected_remainder_bytes

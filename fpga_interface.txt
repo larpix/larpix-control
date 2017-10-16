@@ -11,21 +11,17 @@ structure:
 
 Byte 0: Start byte 0x73 (aka 's')
 
-Byte 1: FPGA metadata. Bits [3:0] give the I/O line ID (aka daisy
-chain ID). For data sent to the FPGA, this tells the FPGA which line
-(group of chips) to write to. For data sent from the FPGA, this tells
-larpix-control which line (group of chips) the FPGA read from. Bits
-[7:4] are reserved.
-
-Bytes 2-8: LArPix UART data, aka the data payload to/from LArPix, with
+Bytes 1-7: LArPix UART data, aka the data payload to/from LArPix, with
 the following structure:
 
-  Byte 2: UART[7:0]
-  Byte 3: UART[15:8]
+  Byte 1: UART[7:0]
+  Byte 2: UART[15:8]
   .
   .
-  Byte 7: UART[47:40]
-  Byte 8: Bits [5:0] contain UART[53:48]. Bits [7:6] are reserved.
+  Byte 6: UART[47:40]
+  Byte 7: Bits [5:0] contain UART[53:48]. Bits [7:6] are reserved.
+
+Byte 8: Reserved
 
 Byte 9: Quit byte 0x71 (aka 'q')
 
@@ -43,19 +39,17 @@ There is currently no error correction or acknowledgement of receipt.
 
 # FPGA to larpix-control
 
-Communications will consist of 9-byte packets with the following
+Communications will consist of 8-byte packets with the following
 structure:
 
-Byte 0: FPGA metadata, in the same form as above.
+Bytes 0-6: LArPix UART data, in the same form as above.
 
-Bytes 1-7: LArPix UART data, in the same form as above.
-
-Byte 8: Comma byte 0x0D (aka '\r' aka CR)
+Byte 7: Comma byte 0x0D (aka '\r' aka CR)
 
 ## Error cases
 
-1. Byte 8 is not the quit byte
+1. Byte 7 is not the quit byte
 
-In this case, ignore all incoming data until a comma byte followed by 8
+In this case, ignore all incoming data until a comma byte followed by 7
 bytes followed by a comma byte is received. Ignore the first comma byte,
-and then the 8 + 1 bytes constitute a complete packet.
+and then the 7 + 1 bytes constitute a complete packet.
