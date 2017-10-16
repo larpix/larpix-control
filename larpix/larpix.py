@@ -350,15 +350,14 @@ class Controller(object):
     def format_UART(self, chip, packet):
         packet_bytes = packet.bytes()
         daisy_chain_byte = (4 + Bits('uint:4=' + str(chip.io_chain))).bytes
-        formatted_packet = (Controller.start_byte + daisy_chain_byte +
-                packet_bytes + Controller.stop_byte)
+        formatted_packet = (Controller.start_byte + packet_bytes +
+                daisy_chain_byte + Controller.stop_byte)
         return formatted_packet
 
     def format_UART_for_input(self, chip, packet):
         packet_bytes = packet.bytes()
         daisy_chain_byte = (4 + Bits('uint:4=' + str(chip.io_chain))).bytes
-        formatted_packet = (daisy_chain_byte + packet_bytes +
-                Controller.comma_byte)
+        formatted_packet = packet_bytes + Controller.comma_byte
         return formatted_packet
 
     def parse_input(self, bytestream):
@@ -366,18 +365,18 @@ class Controller(object):
         byte_packets = []
         current_stream = bytestream
         comma = Controller.comma_byte[0]
-        while len(current_stream) >= 9:  # remember to collect the remainder
-            if current_stream[8] == comma:
-                metadata = current_stream[0]
+        while len(current_stream) >= 8:  # remember to collect the remainder
+            if current_stream[7] == comma:
+                metadata = b'\x00'[0]  # TODO revise when interface improves
                 # This is necessary because of differences between
                 # Python 2 and Python 3
                 if isinstance(metadata, int):  # Python 3
                     code = 'uint:8='
                 elif isinstance(metadata, str):  # Python 2
                     code = 'bytes:1='
-                byte_packets.append((Bits(code + str(current_stream[0])),
-                    Packet(current_stream[1:8])))
-                current_stream = current_stream[9:]
+                byte_packets.append((Bits(code + str(metadata)),
+                    Packet(current_stream[0:7])))
+                current_stream = current_stream[8:]
             else:
                 # Throw out everything between here and the next comma
                 next_comma_index = current_stream.find(comma)
