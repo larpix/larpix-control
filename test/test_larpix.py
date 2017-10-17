@@ -303,6 +303,16 @@ def test_controller_write_configuration():
     controller = Controller(None)
     controller._test_mode = True
     chip = Chip(2, 4)
+    result = controller.write_configuration(chip)
+    conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
+    expected = controller.format_bytestream([controller.format_UART(chip, conf_data_i) for
+            conf_data_i in conf_data])
+    assert result == expected
+
+def test_controller_write_configuration_one_reg():
+    controller = Controller(None)
+    controller._test_mode = True
+    chip = Chip(2, 4)
     result = controller.write_configuration(chip, 0)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[0]
     expected = [controller.format_UART(chip, conf_data)]
