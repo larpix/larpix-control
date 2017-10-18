@@ -133,13 +133,13 @@ def test_packet_get_channel_id():
 
 def test_packet_set_timestamp():
     p = Packet()
-    p.timestamp = 0x1327ab6f
-    expected = BitArray('0x1327ab6f')
+    p.timestamp = 0x1327ab
+    expected = BitArray('0x1327ab')
     assert p.bits[Packet.timestamp_bits] == expected
 
 def test_packet_get_timestamp():
     p = Packet()
-    expected = 0xa82b6ed1
+    expected = 0xa82b6e
     p.timestamp = expected
     assert p.timestamp == expected
 
