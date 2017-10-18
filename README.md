@@ -77,15 +77,8 @@ ensure that the packet reaches the correct chip. And other objects use
 the ID values to ensure that received data from the physical chip makes
 its way to the right Chip object.
 
-### Configuring the Chip
-
-To update the configuration register in the LArPix chip, first you must
-set the appropriate values in the Chip object. These values are stored
-in the `Chip.configuration` attribute. An assortment of helper
-methods will make it much easier to set many options, especially those
-operating per channel. For full access to the chip's configuration, read
-the next section on the `Configuration` object, of which
-`chip.configuration` is an instance.
+The chip's configuration register is represented by the `myChip.config`
+attribute, which is an instance of the `Configuration` object.
 
 ### The Configuration object
 
@@ -99,6 +92,24 @@ currently no type checking or range checking on these values. Using
 values outside the expected range will lead to undefined behavior,
 including the possibility that Python will crash _or_ that LArPix will
 be sent bad commands.
+
+`Configuration` objects also have some helper methods for enabling and
+disabling per-channel settings (such as `csa_testpulse_enable` or
+`channel_mask`). The relevant methods are listed here and should be
+prefixed with either `enable_` or `disable_`:
+
+ - `channels` enables/disables the `channel_mask` register
+ - `external_trigger` enables/disables the `external_trigger_mask`
+    register
+ - `testpulse` enables/disables the `csa_testpulse_enable` register
+ - `analog_monitor` enables/disables the `csa_monitor_select` register
+
+Most of these methods accept an optional list of channels to enable or
+disable (and with no list specified acts on all channels). The exception
+is `enable_analog_monitor` (and its `disable` counterpart): the `enable`
+method requires a particular channel to be specified, and the `disable`
+method does not require any argument at all. This is because at most one
+channel is allowed to have the analog monitor enabled.
 
 The machinery of the `Configuration` object ensures that each value is
 converted to the appropriate set of bits when it comes time to send
