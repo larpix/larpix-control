@@ -58,25 +58,25 @@ class Configuration(object):
     TEST_UART = 0x1
     TEST_FIFO = 0x2
     def __init__(self):
-        self.pixel_trim_thresholds = [0x10] * Chip.num_channels
-        self.global_threshold = 0x10
-        self.csa_gain = 1
-        self.csa_bypass = 0
-        self.internal_bypass = 1
-        self.csa_bypass_select = [0] * Chip.num_channels
-        self.csa_monitor_select = [1] * Chip.num_channels
-        self.csa_testpulse_enable = [0] * Chip.num_channels
-        self.csa_testpulse_dac_amplitude = 0
-        self.test_mode = Configuration.TEST_OFF
-        self.cross_trigger_mode = 0
-        self.periodic_reset = 0
-        self.fifo_diagnostic = 0
-        self.sample_cycles = 1
-        self.test_burst_length = 0x00FF
-        self.adc_burst_length = 0
-        self.channel_mask = [0] * Chip.num_channels
-        self.external_trigger_mask = [1] * Chip.num_channels
-        self.reset_cycles = 0x001000
+        self._pixel_trim_thresholds = [0x10] * Chip.num_channels
+        self._global_threshold = 0x10
+        self._csa_gain = 1
+        self._csa_bypass = 0
+        self._internal_bypass = 1
+        self._csa_bypass_select = [0] * Chip.num_channels
+        self._csa_monitor_select = [1] * Chip.num_channels
+        self._csa_testpulse_enable = [0] * Chip.num_channels
+        self._csa_testpulse_dac_amplitude = 0
+        self._test_mode = Configuration.TEST_OFF
+        self._cross_trigger_mode = 0
+        self._periodic_reset = 0
+        self._fifo_diagnostic = 0
+        self._sample_cycles = 1
+        self._test_burst_length = 0x00FF
+        self._adc_burst_length = 0
+        self._channel_mask = [0] * Chip.num_channels
+        self._external_trigger_mask = [1] * Chip.num_channels
+        self._reset_cycles = 0x001000
 
     def enable_channels(self, list_of_channels=None):
         if list_of_channels is None:
