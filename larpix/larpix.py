@@ -118,17 +118,11 @@ class Configuration(object):
         for channel in list_of_channels:
             self.csa_testpulse_enable[channel] = 0
 
-    def enable_analog_monitor(self, list_of_channels=None):
-        if list_of_channels is None:
-            list_of_channels = range(Chip.num_channels)
-        for channel in list_of_channels:
-            self.csa_monitor_select[channel] = 0
+    def enable_analog_monitor(self, channel):
+        self.csa_monitor_select[channel] = 0
 
-    def disable_analog_monitor(self, list_of_channels=None):
-        if list_of_channels is None:
-            list_of_channels = range(Chip.num_channels)
-        for channel in list_of_channels:
-            self.csa_monitor_select[channel] = 1
+    def disable_analog_monitor(self):
+        self.csa_monitor_select = [1] * Chip.num_channels
 
     def all_data(self):
         bits = []
