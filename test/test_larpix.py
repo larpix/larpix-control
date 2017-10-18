@@ -28,13 +28,13 @@ def test_packet_bits_bytes():
 
 def test_packet_init_default():
     p = Packet()
-    expected = BitArray(Packet.size)
+    expected = BitArray([0] * Packet.size)
     assert p.bits == expected
 
 def test_packet_init_bytestream():
     bytestream = b'\x3f' + b'\x00' * (Packet.num_bytes-2) + b'\x3e'
     p = Packet(bytestream)
-    expected = BitArray(Packet.size)
+    expected = BitArray([0] * Packet.size)
     expected[-6:] = [1]*6
     expected[:5] = [1]*5
     assert p.bits == expected
