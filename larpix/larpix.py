@@ -394,8 +394,8 @@ class Packet(object):
     register_address_bits = slice(36, 44)
     register_data_bits = slice(28, 36)
     config_unused_bits = slice(1, 28)
-    test_bits_11_0 = slice(1, 13)
-    test_bits_15_12 = slice(41, 44)
+    test_counter_bits_11_0 = slice(1, 13)
+    test_counter_bits_15_12 = slice(40, 44)
 
     TEST_PACKET = Bits('0b00')
     DATA_PACKET = Bits('0b01')
@@ -470,6 +470,46 @@ class Packet(object):
         return self.parity_bit_value == self.compute_parity()
 
     @property
+    def channel_id(self):
+        return self.bits[Packet.channel_id_bits].uint
+
+    @channel_id.setter
+    def channel_id(self, value):
+        self.bits[Packet.channel_id_bits] = value
+
+    @property
+    def timestamp(self):
+        return self.bits[Packet.timestamp_bits].uint
+
+    @timestamp.setter
+    def timestamp(self, value):
+        self.bits[Packet.timestamp_bits] = value
+
+    @property
+    def dataword(self):
+        return self.bits[Packet.dataword_bits].uint
+
+    @dataword.setter
+    def dataword(self, value):
+        self.bits[Packet.dataword_bits] = value
+
+    @property
+    def fifo_half_flag(self):
+        return int(self.bits[Packet.fifo_half_bit])
+
+    @fifo_half_flag.setter
+    def fifo_half_flag(self, value):
+        self.bits[Packet.fifo_half_bit] = bool(value)
+
+    @property
+    def fifo_full_flag(self):
+        return int(self.bits[Packet.fifo_full_bit])
+
+    @fifo_full_flag.setter
+    def fifo_full_flag(self, value):
+        self.bits[Packet.fifo_full_bit] = bool(value)
+
+    @property
     def register_address(self):
         return self.bits[Packet.register_address_bits].uint
 
@@ -485,3 +525,13 @@ class Packet(object):
     def register_data(self, value):
         self.bits[Packet.register_data_bits] = value
 
+    @property
+    def test_counter(self):
+        return (self.bits[Packet.test_counter_bits_15_12] +
+                self.bits[Packet.test_counter_bits_11_0]).uint
+
+    @test_counter.setter
+    def test_counter(self, value):
+        allbits = BitArray('uint:16=' + str(value))
+        self.bits[Packet.test_counter_bits_15_12] = allbits[:4]
+        self.bits[Packet.test_counter_bits_11_0] = allbits[4:]
