@@ -23,22 +23,22 @@ for chip in chips:
     # General
     chip.config.disable_all_channels()
     # CSA configuration
-    chip.config.internal_bypass = True
-    chip.config.analog_monitor = False
+    chip.config.internal_bypass = 1
+    chip.config.disable_analog_monitor()
     chip.config.csa_gain = 1
     # ADC configuration
     chip.config.sample_cycles = 1
     chip.config.adc_burst_length = 1
-    chip.config.csa_bypass = False
+    chip.config.csa_bypass = 0
     # Self-trigger configuration
-    chip.config.cross_trigger_mode = False
+    chip.config.cross_trigger_mode = 0
     # Discriminator configuration
     chip.config.reset_cycles = 0xA00 # 1024 us @ 10 MHz master clock
-    chip.config.periodic_reset = True
+    chip.config.periodic_reset = 1
     chip.config.global_threshold = 16
     chip.config.pixel_trim_thresholds = [16]*32
     # General
-    chip.config.fifo_diagnostic = False
+    chip.config.fifo_diagnostic = 0
     chip.enable_normal_operation()
 
 
@@ -68,7 +68,7 @@ for chip in chips:
 ############################################################################
 # CSA Test pulse mode:
 for chip in chips:
-    chip.config.testpulse_dac = 124
+    chip.config.csa_testpulse_dac_amplitude = 124
     chip.config.enable_testpulse() #Accept optional channel map
 
 controller.run_testpulse() # run long enough to collect all test pulse data
