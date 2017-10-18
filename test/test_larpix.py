@@ -119,6 +119,66 @@ def test_packet_assign_parity():
     expected = 1
     assert p.parity_bit_value == expected
 
+def test_packet_set_channel_id():
+    p = Packet()
+    p.channel_id = 100
+    expected = BitArray('uint:7=100')
+    assert p.bits[Packet.channel_id_bits] == expected
+
+def test_packet_get_channel_id():
+    p = Packet()
+    expected = 101
+    p.channel_id = expected
+    assert p.channel_id == expected
+
+def test_packet_set_timestamp():
+    p = Packet()
+    p.timestamp = 0x1327ab6f
+    expected = BitArray('0x1327ab6f')
+    assert p.bits[Packet.timestamp_bits] == expected
+
+def test_packet_get_timestamp():
+    p = Packet()
+    expected = 0xa82b6ed1
+    p.timestamp = expected
+    assert p.timestamp == expected
+
+def test_packet_set_dataword():
+    p = Packet()
+    p.dataword = 75
+    expected = BitArray('uint:10=75')
+    assert p.bits[Packet.dataword_bits] == expected
+
+def test_packet_get_dataword():
+    p = Packet()
+    expected = 75
+    p.dataword = expected
+    assert p.dataword == expected
+
+def test_packet_set_fifo_half_flag():
+    p = Packet()
+    p.fifo_half_flag = 1
+    expected = BitArray('0b1')
+    assert p.bits[Packet.fifo_half_bit] == expected
+
+def test_packet_get_fifo_half_flag():
+    p = Packet()
+    expected = 1
+    p.fifo_half_flag = expected
+    assert p.fifo_half_flag == expected
+
+def test_packet_set_fifo_full_flag():
+    p = Packet()
+    p.fifo_full_flag = 1
+    expected = BitArray('0b1')
+    assert p.bits[Packet.fifo_full_bit] == expected
+
+def test_packet_get_fifo_full_flag():
+    p = Packet()
+    expected = 1
+    p.fifo_full_flag = expected
+    assert p.fifo_full_flag == expected
+
 def test_packet_set_register_address():
     p = Packet()
     p.register_address = 121
@@ -142,6 +202,20 @@ def test_packet_get_register_data():
     p.register_data = 18
     expected = 18
     assert p.register_data == expected
+
+def test_packet_set_test_counter():
+    p = Packet()
+    p.test_counter = 18376
+    expected = BitArray('uint:16=18376')
+    result = (p.bits[Packet.test_counter_bits_15_12] +
+            p.bits[Packet.test_counter_bits_11_0])
+    assert result == expected
+
+def test_packet_get_test_counter():
+    p = Packet()
+    expected = 19831
+    p.test_counter = expected
+    assert p.test_counter == expected
 
 def test_configuration_disable_channels():
     c = Configuration()
