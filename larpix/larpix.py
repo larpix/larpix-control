@@ -78,6 +78,265 @@ class Configuration(object):
         self._external_trigger_mask = [1] * Chip.num_channels
         self._reset_cycles = 0x001000
 
+    @property
+    def pixel_trim_thresholds(self):
+        return self._pixel_trim_thresholds
+
+    @pixel_trim_thresholds.setter
+    def pixel_trim_thresholds(self, values):
+        if not len(values) == Chip.num_channels:
+            raise ValueError("pixel_trim_threshold length is not %d" % Chip.num_channels)
+        if not all(isinstance(value, int) for value in values):
+            raise ValueError("pixel_trim_threshold is not int")
+        if not all(value < 32 and value > -1 for value in values):
+            raise ValueError("pixel_trim_threshold out of bounds")
+
+        self._pixel_trim_thresholds = values
+
+    @property
+    def global_threshold(self):
+        return self._global_threshold
+
+    @global_threshold.setter
+    def global_threshold(self, value):
+        if not isinstance(value, int):
+            raise ValueError("global_threshold is not int")
+        if not (value < 256 and value > -1):
+            raise ValueError("global_threshold out of bounds")
+
+        self._global_threshold = value
+
+    @property
+    def csa_gain(self):
+        return self._csa_gain
+
+    @csa_gain.setter
+    def csa_gain(self, value):
+        if not isinstance(value, int):
+            raise ValueError("csa_gain is not int")
+        if not (value < 2 and value > -1):
+            raise ValueError("csa_gain out of bounds")
+
+        self._csa_gain = value
+
+    @property
+    def csa_bypass(self):
+        return self._csa_bypass
+
+    @csa_bypass.setter
+    def csa_bypass(self, value):
+        if not isinstance(value, int):
+            raise ValueError("csa_bypass is not int")
+        if not (value < 2 and value > -1):
+            raise ValueError("csa_bypass out of bounds")
+
+        self._csa_bypass = value
+
+    @property
+    def internal_bypass(self):
+        return self._internal_bypass
+
+    @internal_bypass.setter
+    def internal_bypass(self, value):
+        if not isinstance(value, int):
+            raise ValueError("internal_bypass is not int")
+        if not (value < 2 and value > -1):
+            raise ValueError("internal_bypass out of bounds")
+
+        self._internal_bypass = value
+
+    @property
+    def csa_bypass_select(self):
+        return self._csa_bypass_select
+
+    @csa_bypass_select.setter
+    def csa_bypass_select(self, values):
+        if not len(values) == Chip.num_channels:
+            raise ValueError("csa_bypass_select length is not %d" % Chip.num_channels)
+        if not all(isinstance(value, int) for value in values):
+            raise ValueError("csa_bypass_select is not int")
+        if not all(value < 2 and value > -1 for value in values):
+            raise ValueError("csa_bypass_select out of bounds")
+
+        self._csa_bypass_select = values
+
+    @property
+    def csa_monitor_select(self):
+        return self._csa_monitor_select
+
+    @csa_monitor_select
+    def csa_monitor_select(self, values):
+        if not len(values) == Chip.num_channels:
+            raise ValueError("csa_monitor_select length is not %d" % Chip.num_channels)
+        if not all(isinstance(value, int) for value in values):
+            raise ValueError("csa_monitor_select is not int")
+        if not all(value < 2 and value > -1 for value in values):
+            raise ValueError("csa_monitor_select out of bounds")
+
+        self._csa_monitor_select = values
+
+    @property
+    def csa_testpulse_enable(self):
+        return self._csa_testpulse_enable
+
+    @csa_testpulse_enable.setter
+    def csa_testpulse_enable(self, values):
+        if not len(values) == Chip.num_channels:
+            raise ValueError("csa_testpulse_enable length is not %d" % Chip.num_channels)
+        if not all(isinstance(value, int) for value in values):
+            raise ValueError("csa_testpulse_enable is not int")
+        if not all(value < 2 and value > -1 for value in values):
+            raise ValueError("csa_testpulse_enable out of bounds")
+
+        self._csa_testpulse_enable = values
+
+    @property
+    def csa_testpulse_dac_amplitude(self):
+        return self._csa_testpulse_dac_amplitude
+
+    @csa_testpulse_dac_amplitude.setter
+    def csa_testpulse_dac_amplitude(self, value):
+        if not isinstance(value, int):
+            raise ValueError("csa_testpulse_dac_amplitude is not int")
+        if not (value < 256 and value > -1):
+            raise ValueError("csa_testpulse_dac_amplitude out of bounds")
+
+        self._csa_testpulse_dac_amplitude = value
+
+    @property
+    def test_mode(self):
+        return self._test_mode
+
+    @test_mode.setter
+    def test_mode(self, value):
+        valid_values = [Configuration.TEST_OFF, Configuration.TEST_UART,
+                        Configuration.TEST_FIFO]
+        if not value in valid_values:
+            raise ValueError("test_mode is not valid")
+
+        self._test_mode = value
+
+    @property
+    def cross_trigger_mode(self):
+        return self._cross_trigger_mode
+
+    @cross_trigger_mode.setter
+    def cross_trigger_mode(self, value):
+        if not isinstance(value, int):
+            raise ValueError("cross_trigger_mode is not int")
+        if not (value < 2 and value > -1):
+            raise ValueError("cross_trigger_mode out of bounds")
+
+        self._cross_trigger_mode = value
+
+    @property
+    def periodic_reset(self):
+        return self._periodic_reset
+
+    @periodic_reset.setter
+    def periodic_reset(self, value):
+        if not isinstance(value, int):
+            raise ValueError("periodic_reset is not int")
+        if not (value < 2 and value > -1):
+            raise ValueError("periodic_reset out of bounds")
+
+        self._periodic_reset = value
+
+    @property
+    def fifo_diagnostic(self):
+        return self._fifo_diagnostic
+
+    @fifo_diagnostic.setter
+    def fifo_diagnostic(self, value):
+        if not isinstance(value, int):
+            raise ValueError("fifo_diagnostic is not int")
+        if not (value < 2 and value > -1):
+            raise ValueError("fifo_diagnostic out of bounds")
+
+        self._fifo_diagnostic = value
+
+    @property
+    def sample_cycles(self):
+        return self._sample_cycles
+
+    @sample_cycles.setter
+    def sample_cycles(self, value):
+        if not isinstance(value, int):
+            raise ValueError("sample_cycles is not int")
+        if not (value < 256 and value > -1):
+            raise ValueError("sample_cycles out of bounds")
+
+        self._sample_cycles = value
+
+    @property
+    def test_burst_length(self):
+        return self._test_burst_length
+
+    @test_burst_length.setter
+    def test_burst_length(self, value):
+        if not isinstance(value, int):
+            raise ValueError("test_burst_length is not int")
+        if not (value < 65536 and value > -1):
+            raise ValueError("test_burst_length out of bounds")
+
+        self._test_burst_length = value
+
+    @property
+    def adc_burst_length(self):
+        return self._adc_burst_length
+
+    @adc_burst_length.setter
+    def adc_burst_length(self, value):
+        if not isinstance(value, int):
+            raise ValueError("adc_burst_length is not int")
+        if not (value < 256 and value > -1):
+            raise ValueError("adc_burst_length out of bounds")
+
+        self._adc_burst_length = value
+
+    @property
+    def channel_mask(self):
+        return self._channel_mask
+
+    @channel_mask.setter
+    def channel_mask(self, values):
+        if not len(values) == Chip.num_channels:
+            raise ValueError("channel_mask length is not %d" % Chip.num_channels)
+        if not all(isinstance(value, int) for value in values):
+            raise ValueError("channel_mask is not int")
+        if not all(value < 2 and value > -1 for value in values):
+            raise ValueError("channel_mask out of bounds")
+
+        self._channel_mask = values
+
+    @property
+    def external_trigger_mask(self):
+        return self._external_trigger_mask
+
+    @external_trigger_mask.setter
+    def external_trigger_mask(self, values):
+        if not len(values) == Chip.num_channels:
+            raise ValueError("external_trigger_mask length is not %d" % Chip.num_channels)
+        if not all(isinstance(value, int) for value in values):
+            raise ValueError("external_trigger_mask is not int")
+        if not all(value < 2 and value > -1 for value in values):
+            raise ValueError("external_trigger_mask out of bounds")
+
+        self._external_trigger_mask = values
+
+    @property
+    def reset_cycles(self):
+        return self._reset_cycles
+
+    @reset_cycles.setter
+    def reset_cycles(self, value):
+        if not isinstance(value, int):
+            raise ValueError("reset_cycles is not int")
+        if not (value < 16777216 and value > -1):
+            raise ValueError("reset_cycles out of bounds")
+
+        self._reset_cycles = value
+
     def enable_channels(self, list_of_channels=None):
         if list_of_channels is None:
             list_of_channels = range(Chip.num_channels)
