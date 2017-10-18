@@ -18,22 +18,11 @@ class Chip(object):
         self.chip_id = chip_id
         self.io_chain = io_chain
         self.data_to_send = []
-        self.configuration = Configuration()
+        self.config = Configuration()
         self.reads = []
 
-    def set_pixel_trim_thresholds(self, thresholds):
-        if len(thresholds) != Chip.num_channels:
-            return 1
-        for i,value in enumerate(thresholds):
-            self.configuration.pixel_trim_thresholds[i] = value
-        return 0
-
-    def set_global_threshold(self, threshold):
-        self.configuration.global_threshold = threshold
-        return 0
-
     def get_configuration_packets(self, packet_type):
-        conf = self.configuration
+        conf = self.config
         packets = [Packet() for _ in range(Configuration.num_registers)]
         packet_register_data = conf.all_data()
         for i, (packet, data) in enumerate(zip(packets, packet_register_data)):
@@ -43,83 +32,6 @@ class Chip(object):
             packet.register_data = data
             packet.assign_parity()
         return packets
-
-    def set_csa_gain(self, gain):
-        self.configuration.csa_gain = gain
-        return 0
-
-    def enable_channels(self, list_of_channels):
-        for channel in list_of_channels:
-            self.configuration.channel_mask[channel] = 0
-        return 0
-
-    def disable_channels(self, list_of_channels):
-        for channel in list_of_channels:
-            self.configuration.channel_mask[channel] = 1
-        return 0
-
-    def enable_all_channels(self):
-        return self.enable_channels(range(Chip.num_channels))
-
-    def disable_all_channels(self):
-        return self.disable_channels(range(Chip.num_channels))
-
-    def enable_normal_operation(self):
-        return
-
-    def enable_external_trigger(self, list_of_channels):
-        for channel in list_of_channels:
-            self.configuration.external_trigger_mask[channel] = 0
-        return 0
-
-    def disable_external_trigger(self, list_of_channels):
-        for channel in list_of_channels:
-            self.configuration.external_trigger_mask[channel] = 1
-        return 0
-
-    def set_testpulse_dac(self, value):
-        self.configuration.csa_testpulse_dac_amplitude = value
-        return 0
-
-    def enable_testpulse(self, list_of_channels):
-        for channel in list_of_channels:
-            self.configuration.csa_testpulse_enable[channel] = 1
-        return 0
-
-    def disable_testpulse(self, list_of_channels):
-        for channel in list_of_channels:
-            self.configuration.csa_testpulse_enable[channel] = 0
-        return 0
-
-    def enable_fifo_diagnostic(self):
-        self.configuration.fifo_diagnostic = 1
-        return 0
-
-    def diable_fifo_diagnostic(self):
-        self.configuration.fifo_diagnostic = 0
-        return 0
-
-    def set_fifo_test_burst_length(self, value):
-        self.configuration.test_burst_length = value
-        return 0
-
-    def enable_fifo_test_mode(self):
-        self.configuration.test_mode = 0x10
-        return 0
-
-    def disable_fifo_test_mode(self):
-        self.configuration.test_mode = 0x0;
-        return 0
-
-    def enable_analog_monitor(self, list_of_channels):
-        for channel in list_of_channels:
-            self.configuration.csa_monitor_select[channel] = 0
-        return 0
-
-    def disable_analog_monitor(self, list_of_channels):
-        for channel in list_of_channels:
-            self.configuration.csa_monitor_select[channel] = 1
-        return
 
 class Configuration(object):
     '''
@@ -141,6 +53,10 @@ class Configuration(object):
     channel_mask_addresses = list(range(52, 56))
     external_trigger_mask_addresses = list(range(56, 60))
     reset_cycles_addresses = [60, 61, 62]
+
+    TEST_OFF = 0x0
+    TEST_UART = 0x1
+    TEST_FIFO = 0x2
     def __init__(self):
         self.pixel_trim_thresholds = [0x10] * Chip.num_channels
         self.global_threshold = 0x10
@@ -151,7 +67,7 @@ class Configuration(object):
         self.csa_monitor_select = [1] * Chip.num_channels
         self.csa_testpulse_enable = [0] * Chip.num_channels
         self.csa_testpulse_dac_amplitude = 0
-        self.test_mode = 0
+        self.test_mode = Configuration.TEST_OFF
         self.cross_trigger_mode = 0
         self.periodic_reset = 0
         self.fifo_diagnostic = 0
@@ -161,6 +77,64 @@ class Configuration(object):
         self.channel_mask = [0] * Chip.num_channels
         self.external_trigger_mask = [1] * Chip.num_channels
         self.reset_cycles = 0x001000
+
+    def enable_channels(self, list_of_channels=None):
+        if list_of_channels is None:
+            list_of_channels = range(Chip.num_channels)
+        for channel in list_of_channels:
+            self.channel_mask[channel] = 0
+
+    def disable_channels(self, list_of_channels=None):
+        if list_of_channels is None:
+            list_of_channels = range(Chip.num_channels)
+        for channel in list_of_channels:
+            self.channel_mask[channel] = 1
+
+    def enable_all_channels(self):
+        self.channel_mask = [0] * Chip.num_channels
+
+    def disable_all_channels(self):
+        self.channel_mask = [1] * Chip.num_channels
+
+    def enable_normal_operation(self):
+        #TODO Ask Dan what this means
+        pass
+
+    def enable_external_trigger(self, list_of_channels=None):
+        if list_of_channels is None:
+            list_of_channels = range(Chip.num_channels)
+        for channel in list_of_channels:
+            self.external_trigger_mask[channel] = 0
+
+    def disable_external_trigger(self, list_of_channels=None):
+        if list_of_channels is None:
+            list_of_channels = range(Chip.num_channels)
+        for channel in list_of_channels:
+            self.external_trigger_mask[channel] = 1
+
+    def enable_testpulse(self, list_of_channels=None):
+        if list_of_channels is None:
+            list_of_channels = range(Chip.num_channels)
+        for channel in list_of_channels:
+            self.csa_testpulse_enable[channel] = 1
+
+    def disable_testpulse(self, list_of_channels=None):
+        if list_of_channels is None:
+            list_of_channels = range(Chip.num_channels)
+        for channel in list_of_channels:
+            self.csa_testpulse_enable[channel] = 0
+
+    def enable_analog_monitor(self, list_of_channels=None):
+        if list_of_channels is None:
+            list_of_channels = range(Chip.num_channels)
+        for channel in list_of_channels:
+            self.csa_monitor_select[channel] = 0
+
+    def disable_analog_monitor(self, list_of_channels=None):
+        if list_of_channels is None:
+            list_of_channels = range(Chip.num_channels)
+        for channel in list_of_channels:
+            self.csa_monitor_select[channel] = 1
 
     def all_data(self):
         bits = []
