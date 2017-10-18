@@ -385,6 +385,7 @@ class Packet(object):
     packet_type_bits = slice(52, 54)
     chipid_bits = slice(44, 52)
     parity_bit = 0
+    parity_calc_bits = slice(1, 53)
     channel_id_bits = slice(37, 44)
     timestamp_bits = slice(13, 37)
     dataword_bits = slice(3, 13)
@@ -460,7 +461,7 @@ class Packet(object):
         self.bits[Packet.parity_bit] = value
 
     def compute_parity(self):
-        return 1 - (self.bits[1:].count(True) % 2)
+        return 1 - (self.bits[Packet.parity_calc_bits].count(True) % 2)
 
     def assign_parity(self):
         self.parity_bit_value = self.compute_parity()
