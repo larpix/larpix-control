@@ -90,12 +90,6 @@ class Configuration(object):
         for channel in list_of_channels:
             self.channel_mask[channel] = 1
 
-    def enable_all_channels(self):
-        self.channel_mask = [0] * Chip.num_channels
-
-    def disable_all_channels(self):
-        self.channel_mask = [1] * Chip.num_channels
-
     def enable_normal_operation(self):
         #TODO Ask Dan what this means
         pass
