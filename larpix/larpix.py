@@ -153,6 +153,8 @@ class Configuration(object):
 
     @csa_bypass_select.setter
     def csa_bypass_select(self, values):
+        if not isinstance(values, list):
+            raise ValueError("csa_bypass_select is not list")
         if not len(values) == Chip.num_channels:
             raise ValueError("csa_bypass_select length is not %d" % Chip.num_channels)
         if not all(isinstance(value, int) for value in values):
@@ -168,6 +170,8 @@ class Configuration(object):
 
     @csa_monitor_select.setter
     def csa_monitor_select(self, values):
+        if not isinstance(values, list):
+            raise ValueError("csa_monitor_select is not list")
         if not len(values) == Chip.num_channels:
             raise ValueError("csa_monitor_select length is not %d" % Chip.num_channels)
         if not all(isinstance(value, int) for value in values):
@@ -183,6 +187,8 @@ class Configuration(object):
 
     @csa_testpulse_enable.setter
     def csa_testpulse_enable(self, values):
+        if not isinstance(values, list):
+            raise ValueError("csa_testpulse_enable is not list")
         if not len(values) == Chip.num_channels:
             raise ValueError("csa_testpulse_enable length is not %d" % Chip.num_channels)
         if not all(isinstance(value, int) for value in values):
@@ -302,6 +308,8 @@ class Configuration(object):
 
     @channel_mask.setter
     def channel_mask(self, values):
+        if not isinstance(values, list):
+            raise ValueError("channel_mask is not list")
         if not len(values) == Chip.num_channels:
             raise ValueError("channel_mask length is not %d" % Chip.num_channels)
         if not all(isinstance(value, int) for value in values):
@@ -317,6 +325,8 @@ class Configuration(object):
 
     @external_trigger_mask.setter
     def external_trigger_mask(self, values):
+        if not isinstance(values, list):
+            raise ValueError("external_trigger_mask is not list")
         if not len(values) == Chip.num_channels:
             raise ValueError("external_trigger_mask length is not %d" % Chip.num_channels)
         if not all(isinstance(value, int) for value in values):
