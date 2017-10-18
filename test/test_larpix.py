@@ -158,7 +158,7 @@ def test_packet_get_dataword():
 def test_packet_set_fifo_half_flag():
     p = Packet()
     p.fifo_half_flag = 1
-    expected = BitArray('0b1')
+    expected = True
     assert p.bits[Packet.fifo_half_bit] == expected
 
 def test_packet_get_fifo_half_flag():
@@ -170,7 +170,7 @@ def test_packet_get_fifo_half_flag():
 def test_packet_set_fifo_full_flag():
     p = Packet()
     p.fifo_full_flag = 1
-    expected = BitArray('0b1')
+    expected = True
     assert p.bits[Packet.fifo_full_bit] == expected
 
 def test_packet_get_fifo_full_flag():
