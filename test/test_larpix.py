@@ -143,6 +143,94 @@ def test_packet_get_register_data():
     expected = 18
     assert p.register_data == expected
 
+def test_configuration_disable_channels():
+    c = Configuration()
+    expected = [0, 1] * 16
+    c.disable_channels(range(1, 32, 2))
+    assert c.channel_mask == expected
+
+def test_configuration_disable_channels_default():
+    c = Configuration()
+    expected = [1] * 32
+    c.disable_channels()
+    assert c.channel_mask == expected
+
+def test_configuration_enable_channels():
+    c = Configuration()
+    expected = [0, 1] * 16
+    c.disable_channels()
+    c.enable_channels(range(0, 32, 2))
+    assert c.channel_mask == expected
+
+def test_configuration_enable_channels_default():
+    c = Configuration()
+    expected = [0] * 32
+    c.disable_channels()
+    c.enable_channels()
+    assert c.channel_mask == expected
+
+@pytest.mark.xfail
+def test_configuration_enable_normal_operation():
+    assert 1 == 0
+
+def test_configuration_enable_external_trigger():
+    c = Configuration()
+    expected = [0, 1] * 16
+    c.enable_external_trigger(range(0, 32, 2))
+    assert c.external_trigger_mask == expected
+
+def test_configuration_enable_external_trigger_default():
+    c = Configuration()
+    expected = [0] * 32
+    c.enable_external_trigger()
+    assert c.external_trigger_mask == expected
+
+def test_configuration_disable_external_trigger():
+    c = Configuration()
+    expected = [0, 1] * 16
+    c.enable_external_trigger()
+    c.disable_external_trigger(range(1, 32, 2))
+    assert c.external_trigger_mask == expected
+
+def test_configuration_enable_testpulse():
+    c = Configuration()
+    expected = [0, 1] * 16
+    c.enable_testpulse(range(1, 32, 2))
+    assert c.csa_testpulse_enable == expected
+
+def test_configuration_enable_testpulse_default():
+    c = Configuration()
+    expected = [1] * 32
+    c.enable_testpulse()
+    assert c.csa_testpulse_enable == expected
+
+def test_configuration_disable_testpulse():
+    c = Configuration()
+    expected = [0, 1] * 16
+    c.enable_testpulse()
+    c.disable_testpulse(range(0, 32, 2))
+    assert c.csa_testpulse_enable == expected
+
+def test_configuration_disable_testpulse_default():
+    c = Configuration()
+    expected = [0] * 32
+    c.enable_testpulse()
+    c.disable_testpulse()
+    assert c.csa_testpulse_enable == expected
+
+def test_configuration_enable_analog_monitor():
+    c = Configuration()
+    expected = [1, 1, 0] + [1] * 29
+    c.enable_analog_monitor(2)
+    assert c.csa_monitor_select == expected
+
+def test_configuration_disable_analog_monitor():
+    c = Configuration()
+    expected = [1] * 32
+    c.enable_analog_monitor(5)
+    c.disable_analog_monitor()
+    assert c.csa_monitor_select == expected
+
 def test_configuration_trim_threshold_data():
     c = Configuration()
     expected = BitArray('0x10')
