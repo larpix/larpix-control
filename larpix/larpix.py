@@ -84,6 +84,8 @@ class Configuration(object):
 
     @pixel_trim_thresholds.setter
     def pixel_trim_thresholds(self, values):
+        if not isinstance(values, list):
+            raise ValueError("pixel_trim_threshold is not list")
         if not len(values) == Chip.num_channels:
             raise ValueError("pixel_trim_threshold length is not %d" % Chip.num_channels)
         if not all(isinstance(value, int) for value in values):
@@ -164,7 +166,7 @@ class Configuration(object):
     def csa_monitor_select(self):
         return self._csa_monitor_select
 
-    @csa_monitor_select
+    @csa_monitor_select.setter
     def csa_monitor_select(self, values):
         if not len(values) == Chip.num_channels:
             raise ValueError("csa_monitor_select length is not %d" % Chip.num_channels)

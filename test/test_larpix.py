@@ -261,7 +261,7 @@ def test_configuration_set_global_threshold_errors():
 def test_configuration_get_global_threshold():
     c = Configuration()
     expected = 0x50
-    c.global_threshold = expectted
+    c.global_threshold = expected
     assert c.global_threshold == expected
 
 def test_configuration_set_csa_gain():
@@ -417,7 +417,7 @@ def test_configuration_set_csa_testpulse_dac_amplitude_errors():
 def test_configuration_get_csa_testpulse_dac_amplitude():
     c = Configuration()
     expected = 0x50
-    c.csa_testpulse_dac_amplitude = expectted
+    c.csa_testpulse_dac_amplitude = expected
     assert c.csa_testpulse_dac_amplitude == expected
 
 def test_configuration_set_test_mode():
@@ -514,7 +514,7 @@ def test_configuration_set_test_burst_length_errors():
 def test_configuration_get_test_burst_length():
     c = Configuration()
     expected = 0x502e
-    c.test_burst_length = expectted
+    c.test_burst_length = expected
     assert c.test_burst_length == expected
 
 def test_configuration_set_adc_burst_length():
@@ -535,7 +535,7 @@ def test_configuration_set_adc_burst_length_errors():
 def test_configuration_get_adc_burst_length():
     c = Configuration()
     expected = 0x50
-    c.adc_burst_length = expectted
+    c.adc_burst_length = expected
     assert c.adc_burst_length == expected
 
 def test_configuration_set_channel_mask():
@@ -608,7 +608,7 @@ def test_configuration_set_reset_cycles_errors():
 def test_configuration_get_reset_cycles():
     c = Configuration()
     expected = 0x502ef2
-    c.reset_cycles = expectted
+    c.reset_cycles = expected
     assert c.reset_cycles == expected
 
 def test_configuration_disable_channels():
