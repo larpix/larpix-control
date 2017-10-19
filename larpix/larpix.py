@@ -457,7 +457,32 @@ class Packet(object):
         return not (self == other)
 
     def __str__(self):
-        return 'Packet: bit 53->' + self.bits.bin + '<-bit 0'
+        string = '[ '
+        ptype = self.packet_type
+        if ptype == Packet.TEST_PACKET:
+            string += 'Test | '
+            string += 'Counter: %d | ' % self.test_counter
+        elif ptype == Packet.DATA_PACKET:
+            string += 'Data | '
+            string += 'Channel: %d | ' % self.channel_id
+            string += 'Timestamp: %d | ' % self.timestamp
+            string += 'ADC data: %d | ' % self.dataword
+            string += 'FIFO Half: %s | ' % bool(self.fifo_half_flag)
+            string += 'FIFO Full: %s | ' % bool(self.fifo_full_flag)
+        elif (ptype == Packet.CONFIG_READ_PACKET or ptype ==
+                Packet.CONFIG_WRITE_PACKET):
+            if ptype == Packet.CONFIG_READ_PACKET:
+                string += 'Config read | '
+            else:
+                string += 'Config write | '
+            string += 'Register: %d | ' % self.register_address
+            string += 'Value: % d | ' % self.register_data
+        first_splitter = string.find('|')
+        string = (string[:first_splitter] + '| Chip: %d ' % self.chipid +
+                string[first_splitter:])
+        string += ('Parity: %d (valid: %s) ] ' %
+                (self.parity_bit_value, self.has_valid_parity()))
+        return string
 
     def __repr__(self):
         return 'Packet(' + str(self.bytes()) + ')'
