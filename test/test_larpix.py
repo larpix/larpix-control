@@ -221,10 +221,10 @@ def test_configuration_set_pixel_trim_thresholds():
     c = Configuration()
     expected = [0x05] * Chip.num_channels
     c.pixel_trim_thresholds = expected
-    assert c.pixel_trim_thresholds == expected
+    assert c._pixel_trim_thresholds == expected
     expected[5] = 0x10
     c.pixel_trim_thresholds[5] = 0x10
-    assert c.pixel_trim_thresholds == expected
+    assert c._pixel_trim_thresholds == expected
 
 def test_configuration_set_pixel_trim_thresholds_errors():
     c = Configuration()
@@ -238,16 +238,16 @@ def test_configuration_set_pixel_trim_thresholds_errors():
         c.pixel_trim_thresholds = 5
 
 def test_configuration_get_pixel_trim_thresholds():
-    c = Configuration
+    c = Configuration()
     expected = [0x10] * Chip.num_channels
-    c.pixel_trim_thresholds = expected
+    c._pixel_trim_thresholds = expected
     assert c.pixel_trim_thresholds == expected
 
 def test_configuration_set_global_threshold():
     c = Configuration()
     expected = 0x5a
     c.global_threshold = expected
-    assert c.global_threshold == expected
+    assert c._global_threshold == expected
 
 def test_configuration_set_global_threshold_errors():
     c = Configuration()
@@ -261,14 +261,14 @@ def test_configuration_set_global_threshold_errors():
 def test_configuration_get_global_threshold():
     c = Configuration()
     expected = 0x50
-    c.global_threshold = expected
+    c._global_threshold = expected
     assert c.global_threshold == expected
 
 def test_configuration_set_csa_gain():
-    c = Configuration
+    c = Configuration()
     expected = 0
     c.csa_gain = expected
-    assert c.csa_gain == expected
+    assert c._csa_gain == expected
 
 def test_configuration_set_csa_gain_errors():
     c = Configuration()
@@ -280,14 +280,14 @@ def test_configuration_set_csa_gain_errors():
 def test_configuration_get_csa_gain():
     c = Configuration()
     expected = 0
-    c.csa_gain = expected
+    c._csa_gain = expected
     assert c.csa_gain == expected
 
 def test_configuration_set_csa_bypass():
-    c = Configuration
+    c = Configuration()
     expected = 0
     c.csa_bypass = expected
-    assert c.csa_bypass == expected
+    assert c._csa_bypass == expected
 
 def test_configuration_set_csa_bypass_errors():
     c = Configuration()
@@ -299,14 +299,14 @@ def test_configuration_set_csa_bypass_errors():
 def test_configuration_get_csa_bypass():
     c = Configuration()
     expected = 0
-    c.csa_bypass = expected
+    c._csa_bypass = expected
     assert c.csa_bypass == expected
 
 def test_configuration_set_internal_bypass():
-    c = Configuration
+    c = Configuration()
     expected = 0
     c.internal_bypass = expected
-    assert c.internal_bypass == expected
+    assert c._internal_bypass == expected
 
 def test_configuration_set_internal_bypass_errors():
     c = Configuration()
@@ -318,17 +318,17 @@ def test_configuration_set_internal_bypass_errors():
 def test_configuration_get_internal_bypass():
     c = Configuration()
     expected = 0
-    c.internal_bypass = expected
+    c._internal_bypass = expected
     assert c.internal_bypass == expected
 
 def test_configuration_set_csa_bypass_select():
     c = Configuration()
     expected = [0x1] * Chip.num_channels
     c.csa_bypass_select = expected
-    assert c.csa_bypass_select == expected
+    assert c._csa_bypass_select == expected
     expected[5] = 0x0
     c.csa_bypass_select[5] = expected[5]
-    assert c.csa_bypass_select == expected
+    assert c._csa_bypass_select == expected
 
 def test_configuration_set_csa_bypass_select_errors():
     c = Configuration()
@@ -342,19 +342,19 @@ def test_configuration_set_csa_bypass_select_errors():
         c.csa_bypass_select = 5
 
 def test_configuration_get_csa_bypass_select():
-    c = Configuration
+    c = Configuration()
     expected = [0x1] * Chip.num_channels
-    c.csa_bypass_select = expected
+    c._csa_bypass_select = expected
     assert c.csa_bypass_select == expected
 
 def test_configuration_set_csa_monitor_select():
     c = Configuration()
     expected = [0x0] * Chip.num_channels
     c.csa_monitor_select = expected
-    assert c.csa_monitor_select == expected
+    assert c._csa_monitor_select == expected
     expected[5] = 0x1
     c.csa_monitor_select[5] = expected[5]
-    assert c.csa_monitor_select == expected
+    assert c._csa_monitor_select == expected
 
 def test_configuration_set_csa_monitor_select_errors():
     c = Configuration()
@@ -368,19 +368,19 @@ def test_configuration_set_csa_monitor_select_errors():
         c.csa_monitor_select = 5
 
 def test_configuration_get_csa_monitor_select():
-    c = Configuration
+    c = Configuration()
     expected = [0x0] * Chip.num_channels
-    c.csa_monitor_select = expected
+    c._csa_monitor_select = expected
     assert c.csa_monitor_select == expected
 
 def test_configuration_set_csa_testpulse_enable():
     c = Configuration()
     expected = [0x1] * Chip.num_channels
     c.csa_testpulse_enable = expected
-    assert c.csa_testpulse_enable == expected
+    assert c._csa_testpulse_enable == expected
     expected[5] = 0x0
     c.csa_testpulse_enable[5] = expected[5]
-    assert c.csa_testpulse_enable == expected
+    assert c._csa_testpulse_enable == expected
 
 def test_configuration_set_csa_testpulse_enable_errors():
     c = Configuration()
@@ -394,16 +394,16 @@ def test_configuration_set_csa_testpulse_enable_errors():
         c.csa_testpulse_enable = 5
 
 def test_configuration_get_csa_testpulse_enable():
-    c = Configuration
+    c = Configuration()
     expected = [0x1] * Chip.num_channels
-    c.csa_testpulse_enable = expected
+    c._csa_testpulse_enable = expected
     assert c.csa_testpulse_enable == expected
 
 def test_configuration_set_csa_testpulse_dac_amplitude():
     c = Configuration()
     expected = 0x5a
     c.csa_testpulse_dac_amplitude = expected
-    assert c.csa_testpulse_dac_amplitude == expected
+    assert c._csa_testpulse_dac_amplitude == expected
 
 def test_configuration_set_csa_testpulse_dac_amplitude_errors():
     c = Configuration()
@@ -417,14 +417,14 @@ def test_configuration_set_csa_testpulse_dac_amplitude_errors():
 def test_configuration_get_csa_testpulse_dac_amplitude():
     c = Configuration()
     expected = 0x50
-    c.csa_testpulse_dac_amplitude = expected
+    c._csa_testpulse_dac_amplitude = expected
     assert c.csa_testpulse_dac_amplitude == expected
 
 def test_configuration_set_test_mode():
     c = Configuration()
     expected = Configuration.TEST_UART
     c.test_mode = expected
-    assert c.test_mode == expected
+    assert c._test_mode == expected
 
 def test_configuration_set_test_mode_errors():
     c = Configuration()
@@ -436,14 +436,14 @@ def test_configuration_set_test_mode_errors():
 def test_configuration_get_test_mode():
     c = Configuration()
     expected = Configuration.TEST_FIFO
-    c.test_mode = expected
+    c._test_mode = expected
     assert c.test_mode == expected
 
 def test_configuration_set_cross_trigger_mode():
-    c = Configuration
+    c = Configuration()
     expected = 0
     c.cross_trigger_mode = expected
-    assert c.cross_trigger_mode == expected
+    assert c._cross_trigger_mode == expected
 
 def test_configuration_set_cross_trigger_mode_errors():
     c = Configuration()
@@ -455,14 +455,14 @@ def test_configuration_set_cross_trigger_mode_errors():
 def test_configuration_get_cross_trigger_mode():
     c = Configuration()
     expected = 0
-    c.cross_trigger_mode = expected
+    c._cross_trigger_mode = expected
     assert c.cross_trigger_mode == expected
 
 def test_configuration_set_periodic_reset():
-    c = Configuration
+    c = Configuration()
     expected = 0
     c.periodic_reset = expected
-    assert c.periodic_reset == expected
+    assert c._periodic_reset == expected
 
 def test_configuration_set_periodic_reset_errors():
     c = Configuration()
@@ -474,14 +474,14 @@ def test_configuration_set_periodic_reset_errors():
 def test_configuration_get_periodic_reset():
     c = Configuration()
     expected = 0
-    c.periodic_reset = expected
+    c._periodic_reset = expected
     assert c.periodic_reset == expected
 
 def test_configuration_set_fifo_diagnostic():
-    c = Configuration
+    c = Configuration()
     expected = 0
     c.fifo_diagnostic = expected
-    assert c.fifo_diagnostic == expected
+    assert c._fifo_diagnostic == expected
 
 def test_configuration_set_fifo_diagnostic_errors():
     c = Configuration()
@@ -493,14 +493,14 @@ def test_configuration_set_fifo_diagnostic_errors():
 def test_configuration_get_fifo_diagnostic():
     c = Configuration()
     expected = 0
-    c.fifo_diagnostic = expected
+    c._fifo_diagnostic = expected
     assert c.fifo_diagnostic == expected
 
 def test_configuration_set_test_burst_length():
     c = Configuration()
     expected = 0x125a
     c.test_burst_length = expected
-    assert c.test_burst_length == expected
+    assert c._test_burst_length == expected
 
 def test_configuration_set_test_burst_length_errors():
     c = Configuration()
@@ -514,14 +514,14 @@ def test_configuration_set_test_burst_length_errors():
 def test_configuration_get_test_burst_length():
     c = Configuration()
     expected = 0x502e
-    c.test_burst_length = expected
+    c._test_burst_length = expected
     assert c.test_burst_length == expected
 
 def test_configuration_set_adc_burst_length():
     c = Configuration()
     expected = 0x5a
     c.adc_burst_length = expected
-    assert c.adc_burst_length == expected
+    assert c._adc_burst_length == expected
 
 def test_configuration_set_adc_burst_length_errors():
     c = Configuration()
@@ -535,17 +535,17 @@ def test_configuration_set_adc_burst_length_errors():
 def test_configuration_get_adc_burst_length():
     c = Configuration()
     expected = 0x50
-    c.adc_burst_length = expected
+    c._adc_burst_length = expected
     assert c.adc_burst_length == expected
 
 def test_configuration_set_channel_mask():
     c = Configuration()
     expected = [0x1] * Chip.num_channels
     c.channel_mask = expected
-    assert c.channel_mask == expected
+    assert c._channel_mask == expected
     expected[5] = 0x0
     c.channel_mask[5] = expected[5]
-    assert c.channel_mask == expected
+    assert c._channel_mask == expected
 
 def test_configuration_set_channel_mask_errors():
     c = Configuration()
@@ -559,19 +559,19 @@ def test_configuration_set_channel_mask_errors():
         c.channel_mask = 5
 
 def test_configuration_get_channel_mask():
-    c = Configuration
+    c = Configuration()
     expected = [0x1] * Chip.num_channels
-    c.channel_mask = expected
+    c._channel_mask = expected
     assert c.channel_mask == expected
 
 def test_configuration_set_external_trigger_mask():
     c = Configuration()
     expected = [0x0] * Chip.num_channels
     c.external_trigger_mask = expected
-    assert c.external_trigger_mask == expected
+    assert c._external_trigger_mask == expected
     expected[5] = 0x1
     c.external_trigger_mask[5] = expected[5]
-    assert c.external_trigger_mask == expected
+    assert c._external_trigger_mask == expected
 
 def test_configuration_set_external_trigger_mask_errors():
     c = Configuration()
@@ -585,16 +585,16 @@ def test_configuration_set_external_trigger_mask_errors():
         c.external_trigger_mask = 5
 
 def test_configuration_get_external_trigger_mask():
-    c = Configuration
+    c = Configuration()
     expected = [0x0] * Chip.num_channels
-    c.external_trigger_mask = expected
+    c._external_trigger_mask = expected
     assert c.external_trigger_mask == expected
 
 def test_configuration_set_reset_cycles():
     c = Configuration()
     expected = 0x125abc
     c.reset_cycles = expected
-    assert c.reset_cycles == expected
+    assert c._reset_cycles == expected
 
 def test_configuration_set_reset_cycles_errors():
     c = Configuration()
@@ -608,7 +608,7 @@ def test_configuration_set_reset_cycles_errors():
 def test_configuration_get_reset_cycles():
     c = Configuration()
     expected = 0x502ef2
-    c.reset_cycles = expected
+    c._reset_cycles = expected
     assert c.reset_cycles == expected
 
 def test_configuration_disable_channels():

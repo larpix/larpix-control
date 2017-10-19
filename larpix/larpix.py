@@ -217,6 +217,8 @@ class Configuration(object):
 
     @test_mode.setter
     def test_mode(self, value):
+        if not type(value) == int:
+            raise ValueError("test_mode is not int")
         valid_values = [Configuration.TEST_OFF, Configuration.TEST_UART,
                         Configuration.TEST_FIFO]
         if not value in valid_values:
