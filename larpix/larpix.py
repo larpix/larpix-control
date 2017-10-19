@@ -605,6 +605,10 @@ class Controller(object):
         bytestreams = self.format_bytestream(formatted_packets)
         return bytestreams
 
+    def run(self, timelimit):
+        data = self.serial_read(timelimit)
+        self.parse_input(data)
+
     def run_testpulse(self, list_of_channels):
         return
 
