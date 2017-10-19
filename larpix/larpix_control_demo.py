@@ -21,7 +21,7 @@ controller.chips = chips
 # Configure chips
 for chip in chips:
     # General
-    chip.config.disable_all_channels()
+    chip.config.disable_channels()
     # CSA configuration
     chip.config.internal_bypass = 1
     chip.config.disable_analog_monitor()
@@ -39,19 +39,20 @@ for chip in chips:
     chip.config.pixel_trim_thresholds = [16]*32
     # General
     chip.config.fifo_diagnostic = 0
-    chip.enable_normal_operation()
+    chip.config.enable_normal_operation()
 
 
 
 ############################################################################
 # Regular data acquisition
 for chip in chips:
-    chip.config.enable_all_channels()
+    chip.config.enable_channels()
 
-controller.run(time=60) # run for fixed time, in seconds
+controller.run(timelimit=1) # run for fixed time, in seconds
+print('ran normal operation for 1 second')
 
 for chip in chips:
-    chip.config.disable_all_channels()
+    chip.config.disable_channels()
 
 
 ############################################################################
@@ -59,7 +60,8 @@ for chip in chips:
 for chip in chips:
     chip.config.enable_external_trigger()  #Accept optional channel map
 
-controller.run(time=60) # run for fixed time, in seconds
+controller.run(timelimit=1) # run for fixed time, in seconds
+print('ran in external trigger mode for 1 second')
 
 for chip in chips:
     chip.config.disable_external_trigger()
@@ -71,7 +73,7 @@ for chip in chips:
     chip.config.csa_testpulse_dac_amplitude = 124
     chip.config.enable_testpulse() #Accept optional channel map
 
-controller.run_testpulse() # run long enough to collect all test pulse data
+controller.run_testpulse(range(32)) # run long enough to collect all test pulse data
 
 for chip in chips:
     chip.config.disable_testpulse()
@@ -80,23 +82,23 @@ for chip in chips:
 ############################################################################
 # FIFO Test mode:
 for chip in chips:
-    chip.config.enable_fifo_diagnostic()
+    chip.config.fifo_diagnostic = 1
     chip.config.fifo_test_burst_length = 0x00FF
-    chip.config.test_mode = Configuration.TEST_FIFO
+    chip.config.test_mode = larpix.Configuration.TEST_FIFO
 
 controller.run_fifo_test()
 
 for chip in chips:
-    chip.config.test_mode = Configuration.TEST_OFF
-    chip.config.disable_fifo_diagnostic()
+    chip.config.test_mode = larpix.Configuration.TEST_OFF
+    chip.config.fifo_diagnostic = 0
 
 
 ############################################################################
 # CSA Analog Monitor mode:
 for chan_num in range(32):
     for chip in chips:
-        chip.config.enable_external_trigger(channel_number = chan_num)
-        chip.config.enable_analog_monitor(channel_number = chan_num)
+        chip.config.enable_external_trigger([chan_num])
+        chip.config.enable_analog_monitor(chan_num)
     controller.run_analog_monitor_test()
 for chip in chips:
     chip.config.disable_analog_monitor()
