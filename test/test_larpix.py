@@ -6,6 +6,59 @@ import pytest
 from larpix.larpix import Chip, Packet, Configuration, Controller
 from bitstring import BitArray
 
+class MockSerialPort(object):
+    '''
+    This class implements the interface of the pyserial Serial class so
+    that we can test the serial_read, serial_write, etc. methods of the
+    Controller class.
+
+    '''
+    data_to_mock_read = None
+    def __init__(self, port=None, baudrate=9600, timeout=None):
+        self.port = port
+        self.baudrate = baudrate
+        self.timeout = timeout
+        self.read_index = 0
+
+    def write(self, data):
+        print(data, sep='', end='')
+
+    def read(self, nbytes):
+        read_index = self.read_index
+        data = MockSerialPort.data_to_mock_read[read_index:read_index+nbytes]
+        self.read_index = read_index+nbytes
+        return data
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        pass
+
+def test_MockSerialPort_write(capfd):
+    serial = MockSerialPort()
+    to_write = b'Hello'
+    serial.write(b'Hello')
+    out, err = capfd.readouterr()
+    expected = str(to_write)
+    assert out == expected
+
+def test_MockSerialPort_read():
+    serial = MockSerialPort()
+    expected = bytes(bytearray(10))
+    MockSerialPort.data_to_mock_read = expected
+    data = serial.read(10)
+    assert data == expected
+
+def test_MockSerialPort_read_multi():
+    serial = MockSerialPort()
+    expected = bytes(bytearray(range(10)))
+    MockSerialPort.data_to_mock_read = expected
+    data = serial.read(5)
+    data += serial.read(5)
+    data += serial.read(5)
+    assert data == expected
+
 def test_chip_get_configuration_packets():
     chip = Chip(3, 1)
     packet_type = Packet.CONFIG_WRITE_PACKET
