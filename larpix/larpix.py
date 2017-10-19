@@ -550,6 +550,25 @@ class Controller(object):
             for bytestream in bytestreams:
                 output.write(bytestream)
 
+    def serial_write_read(self, bytestreams, timelimit):
+        data_in = b''
+        start = time.time()
+        with serial.Serial(self.port, baudrate=self.baudrate) as serial_port:
+            # First do a fast write-read loop until everything is
+            # written out, then just read
+            serial_port.timeout = 0  # Return whatever's already waiting
+            for bytestream in bytestreams:
+                serial_port.write(bytestream)
+                stream = serial_port.read(self.max_write)
+                if len(stream) > 0:
+                    data_in += stream
+            serial_port.timeout = self.timeout
+            while time.time() - start < timelimit:
+                stream = serial_port.read(self.max_write)
+                if len(stream) > 0:
+                    data_in += stream
+        return data_in
+
     def write_configuration(self, chip, registers=None):
         if registers is None:
             registers = list(range(Configuration.num_registers))
@@ -557,20 +576,34 @@ class Controller(object):
             registers = [registers]
         else:
             pass
+        bytestreams = self.get_configuration_bytestreams(chip,
+                Packet.CONFIG_WRITE_PACKET, registers)
+        self.serial_write(bytestreams)
+
+    def read_configuration(self, chip, registers=None):
+        if registers is None:
+            registers = list(range(Configuration.num_registers))
+        elif isinstance(registers, int):
+            registers = [registers]
+        else:
+            pass
+        bytestreams = self.get_configuration_bytestreams(chip,
+                Packet.CONFIG_READ_PACKET, registers)
+        data = self.serial_write_read(bytestreams, 1)
+        unprocessed = self.parse_input(data)
+        return unprocessed
+
+    def get_configuration_bytestreams(self, chip, packet_type, registers):
         # The configuration must be sent one register at a time
         configuration_packets = \
-            chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET);
+            chip.get_configuration_packets(packet_type);
         for i in range(len(configuration_packets)-1, -1, -1):
             if i not in registers:
                 del configuration_packets[i]
         formatted_packets = [self.format_UART(chip, p) for p in
                 configuration_packets]
         bytestreams = self.format_bytestream(formatted_packets)
-        if self._test_mode:
-            return bytestreams
-        else:
-            self.serial_write(bytestreams)
-            return
+        return bytestreams
 
     def run_testpulse(self, list_of_channels):
         return
