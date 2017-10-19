@@ -884,6 +884,50 @@ def test_configuration_reset_cycles_data():
     expected = BitArray('0xab')
     assert c.reset_cycles_data(2) == expected
 
+def test_controller_get_chip():
+    controller = Controller(None)
+    chip = Chip(1, 3)
+    controller.chips.append(chip)
+    assert controller.get_chip(1, 3) == chip
+
+def test_controller_get_chip_error():
+    controller = Controller(None)
+    chip = Chip(1, 3)
+    controller.chips.append(chip)
+    with pytest.raises(ValueError, message='Should fail: bad chipid'):
+        controller.get_chip(0, 3)
+    with pytest.raises(ValueError, message='Should fail: bad chainid'):
+        controller.get_chip(1, 1)
+
+def test_controller_serial_read_mock():
+    controller = Controller(None)
+    controller._serial = MockSerialPort
+    MockSerialPort.data_to_mock_read = bytes(bytearray(10))
+    result = controller.serial_read(0.1)
+    expected = bytes(bytearray(10))
+    assert result == expected
+
+def test_controller_serial_write_mock(capfd):
+    controller = Controller(None)
+    controller._serial = MockSerialPort
+    to_write = [b's12345678q', b's87654321q']
+    controller.serial_write(to_write)
+    result, err = capfd.readouterr()
+    expected = ''.join(map(str, to_write))
+    assert result == expected
+
+def test_controller_serial_write_read_mock(capfd):
+    controller = Controller(None)
+    controller._serial = MockSerialPort
+    to_write = [b's12345678q', b's9862983aq']
+    MockSerialPort.data_to_mock_read = bytes(bytearray(range(256)))
+    read_result = controller.serial_write_read(to_write, 0.1)
+    write_result, err = capfd.readouterr()
+    read_expected = bytes(bytearray(range(256)))
+    write_expected = ''.join(map(str, to_write))
+    assert read_result == read_expected
+    assert write_result == write_expected
+
 def test_controller_format_UART():
     controller = Controller(None)
     chip = Chip(2, 4)
@@ -908,23 +952,27 @@ def test_controller_format_bytestream():
     expected.append(b''.join(fpackets[:1]*362))
     assert result == expected
 
-def test_controller_write_configuration():
+def test_controller_write_configuration(capfd):
     controller = Controller(None)
     controller._test_mode = True
+    controller._serial = MockSerialPort
     chip = Chip(2, 4)
-    result = controller.write_configuration(chip)
+    controller.write_configuration(chip)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
-    expected = controller.format_bytestream([controller.format_UART(chip, conf_data_i) for
-            conf_data_i in conf_data])
+    expected = str(b''.join([controller.format_UART(chip, conf_data_i) for
+            conf_data_i in conf_data]))
+    result, err = capfd.readouterr()
     assert result == expected
 
-def test_controller_write_configuration_one_reg():
+def test_controller_write_configuration_one_reg(capfd):
     controller = Controller(None)
     controller._test_mode = True
+    controller._serial = MockSerialPort
     chip = Chip(2, 4)
     result = controller.write_configuration(chip, 0)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[0]
-    expected = [controller.format_UART(chip, conf_data)]
+    expected = str(controller.format_UART(chip, conf_data))
+    result, err = capfd.readouterr()
     assert result == expected
 
 def test_controller_parse_input():

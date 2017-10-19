@@ -524,7 +524,7 @@ class Controller(object):
         self.baudrate = 1000000
         self.timeout = 1
         self.max_write = 8192
-        self._test_mode = False
+        self._serial = serial.Serial
 
     def get_chip(self, chip_id, io_chain):
         for chip in self.chips:
@@ -534,18 +534,18 @@ class Controller(object):
             io_chain))
 
     def serial_read(self, timelimit):
-        data_in = []
+        data_in = b''
         start = time.time()
-        with serial.Serial(self.port, baudrate=self.baudrate,
+        with self._serial(self.port, baudrate=self.baudrate,
                 timeout=self.timeout) as serial_in:
             while time.time() - start < timelimit:
                 stream = serial_in.read(self.max_write)
                 if len(stream) > 0:
-                    data_in.append(stream)
+                    data_in += stream
         return data_in
 
     def serial_write(self, bytestreams):
-        with serial.Serial(self.port, baudrate=self.baudrate,
+        with self._serial(self.port, baudrate=self.baudrate,
                 timeout=self.timeout) as output:
             for bytestream in bytestreams:
                 output.write(bytestream)
@@ -553,7 +553,7 @@ class Controller(object):
     def serial_write_read(self, bytestreams, timelimit):
         data_in = b''
         start = time.time()
-        with serial.Serial(self.port, baudrate=self.baudrate) as serial_port:
+        with self._serial(self.port, baudrate=self.baudrate) as serial_port:
             # First do a fast write-read loop until everything is
             # written out, then just read
             serial_port.timeout = 0  # Return whatever's already waiting
