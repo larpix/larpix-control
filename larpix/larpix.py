@@ -518,7 +518,7 @@ class Controller(object):
     '''
     start_byte = b'\x73'
     stop_byte = b'\x71'
-    def __init__(self, port):
+    def __init__(self, port='/dev/ttyUSB1'):
         self.chips = []
         self.port = port
         self.baudrate = 1000000
@@ -611,7 +611,7 @@ class Controller(object):
     def run_fifo_test(self):
         return
 
-    def run_analog_monitor_teest(self):
+    def run_analog_monitor_test(self):
         return
 
     def format_UART(self, chip, packet):
