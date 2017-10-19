@@ -2,6 +2,7 @@
 Use the pytest framework to write tests for the larpix module.
 
 '''
+from __future__ import print_function
 import pytest
 from larpix.larpix import Chip, Packet, Configuration, Controller
 from bitstring import BitArray
@@ -21,7 +22,7 @@ class MockSerialPort(object):
         self.read_index = 0
 
     def write(self, data):
-        print(data, sep='', end='')
+        print(bytes2str(data), sep='', end='')
 
     def read(self, nbytes):
         read_index = self.read_index
@@ -35,12 +36,16 @@ class MockSerialPort(object):
     def __exit__(self, type, value, traceback):
         pass
 
+def bytes2str(bytestream):
+    return ' '.join('{:02x}'.format(byte) for byte in
+            bytearray(bytestream))
+
 def test_MockSerialPort_write(capfd):
     serial = MockSerialPort()
     to_write = b'Hello'
     serial.write(b'Hello')
     out, err = capfd.readouterr()
-    expected = str(to_write)
+    expected = bytes2str(to_write)
     assert out == expected
 
 def test_MockSerialPort_read():
@@ -519,7 +524,7 @@ def test_controller_serial_write_mock(capfd):
     to_write = [b's12345678q', b's87654321q']
     controller.serial_write(to_write)
     result, err = capfd.readouterr()
-    expected = ''.join(map(str, to_write))
+    expected = ''.join(map(bytes2str, to_write))
     assert result == expected
 
 def test_controller_serial_write_read_mock(capfd):
@@ -530,7 +535,7 @@ def test_controller_serial_write_read_mock(capfd):
     read_result = controller.serial_write_read(to_write, 0.1)
     write_result, err = capfd.readouterr()
     read_expected = bytes(bytearray(range(256)))
-    write_expected = ''.join(map(str, to_write))
+    write_expected = ''.join(map(bytes2str, to_write))
     assert read_result == read_expected
     assert write_result == write_expected
 
@@ -565,7 +570,7 @@ def test_controller_write_configuration(capfd):
     chip = Chip(2, 4)
     controller.write_configuration(chip)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
-    expected = str(b''.join([controller.format_UART(chip, conf_data_i) for
+    expected = ' '.join(map(bytes2str, [controller.format_UART(chip, conf_data_i) for
             conf_data_i in conf_data]))
     result, err = capfd.readouterr()
     assert result == expected
@@ -577,7 +582,7 @@ def test_controller_write_configuration_one_reg(capfd):
     chip = Chip(2, 4)
     result = controller.write_configuration(chip, 0)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[0]
-    expected = str(controller.format_UART(chip, conf_data))
+    expected = bytes2str(controller.format_UART(chip, conf_data))
     result, err = capfd.readouterr()
     assert result == expected
 
