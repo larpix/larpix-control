@@ -8,21 +8,22 @@ This code is intended to work on both Python 2.7+ and Python 3.6+,
 but it was designed in Python 3 and is not guaranteed to work in
 Python 2.
 
-Download this repository. From the root directory, run
+Install larpix-control from pip with
 
 ```
-pip install -e .
+pip install larpix-control
 ```
 
-to download the dependencies and install the `larpix` package in your
-Python namespace. To return your namespace to the pre-larpix state, just
-run `pip uninstall larpix-control`.
+To return your namespace to the pre-larpix state, just
+run `pip uninstall larpix-control`. If you'd prefer to download the code
+yourself, you can. Just run `pip install .` from the root directory of
+the repository.
 
 ### Tests
 
 You can run tests to convince yourself that the software works as
 expected. After `pip install`ing this package, you can run the tests
-with the simple command `pytest`.
+from the repository root directory with the simple command `pytest`.
 
 You can read the tests to see examples of how to call all of the common
 functions. I imagine they will also come in handy when you're confused
