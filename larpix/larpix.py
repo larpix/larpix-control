@@ -567,7 +567,8 @@ class Configuration(object):
                 print 'Overwriting file.'
 
         with open(filename, 'w') as outfile:
-            json.dump(self.to_dict(), outfile, indent=4)
+            json.dump(self.to_dict(), outfile, indent=4,
+                      separators=(',',':'), sort_keys=True)
         return 0
 
     def load(self, filename):
