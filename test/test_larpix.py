@@ -6,6 +6,7 @@ from __future__ import print_function
 import pytest
 from larpix.larpix import Chip, Packet, Configuration, Controller
 from bitstring import BitArray
+import json
 
 class MockSerialPort(object):
     '''
@@ -888,6 +889,108 @@ def test_configuration_reset_cycles_data():
     assert c.reset_cycles_data(1) == expected
     expected = BitArray('0xab')
     assert c.reset_cycles_data(2) == expected
+
+@pytest.mark.xfail
+def test_configuration_to_dict():
+    c = Configuration()
+    attrs = [
+            'pixel_trim_thresholds',
+            'global_threshold',
+            'csa_gain',
+            'csa_bypass',
+            'internal_bypass',
+            'csa_bypass_select',
+            'csa_monitor_select',
+            'csa_testpulse_enable',
+            'csa_testpulse_dac_amplitude',
+            'test_mode',
+            'cross_trigger_mode',
+            'periodic_reset',
+            'fifo_diagnostic',
+            'sample_cycles',
+            'test_burst_length',
+            'adc_burst_length',
+            'channel_mask',
+            'external_trigger_mask',
+            'reset_cycles']
+    expected = {}
+    for attr in attrs:
+        expected[attr] = getattr(c, attr)
+    result = c.to_dict()
+    assert result == expected
+
+@pytest.mark.xfail
+def test_configuration_from_dict():
+    c = Configuration()
+    attrs = [
+            'pixel_trim_thresholds',
+            'global_threshold',
+            'csa_gain',
+            'csa_bypass',
+            'internal_bypass',
+            'csa_bypass_select',
+            'csa_monitor_select',
+            'csa_testpulse_enable',
+            'csa_testpulse_dac_amplitude',
+            'test_mode',
+            'cross_trigger_mode',
+            'periodic_reset',
+            'fifo_diagnostic',
+            'sample_cycles',
+            'test_burst_length',
+            'adc_burst_length',
+            'channel_mask',
+            'external_trigger_mask',
+            'reset_cycles']
+    expected = {}
+    for attr in attrs:
+        expected[attr] = getattr(c, attr)
+    expected['global_threshold'] = 50
+    c.from_dict(expected)
+    result = c.to_dict()
+    assert result == expected
+
+@pytest.mark.xfail
+def test_configuration_write(tmpdir):
+    c = Configuration()
+    f = str(tmpdir.join('test_config.json'))
+    c.write(f)
+    with open(f, 'r') as output:
+        result = json.load(output)
+    expected = c.to_dict()
+    assert result == expected
+
+@pytest.mark.xfail
+def test_configuration_write_errors(tmpdir):
+    c = Configuration()
+    f = tmpdir.join('test_config.json')
+    f.write("Test data.....")
+    with pytest.raises(IOError, message='Should fail: force fails'):
+        c.write(str(f))
+
+@pytest.mark.xfail
+def test_configuration_write_force(tmpdir):
+    c = Configuration()
+    f = tmpdir.join('test_config.json')
+    f.write("Test data.....")
+    c.write(str(f), force=True)
+    with open(str(f), 'r') as output:
+        result = json.load(output)
+    expected = c.to_dict()
+    assert result == expected
+
+@pytest.mark.xfail
+def test_configuration_read(tmpdir):
+    c = Configuration()
+    c.pixel_trim_thresholds[0] = 30
+    c.reset_cycles = 0x100010
+    f = str(tmpdir.join('test_config.json'))
+    c.write(f)
+    c2 = Configuration()
+    c2.load(f)
+    expected = c.to_dict()
+    result = c2.to_dict()
+    assert result == expected
 
 def test_controller_get_chip():
     controller = Controller(None)
