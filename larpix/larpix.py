@@ -6,6 +6,9 @@ A module to control the LArPix chip.
 import time
 import serial
 from bitstring import BitArray, Bits
+import json
+import os
+import errno
 
 class Chip(object):
     '''
@@ -510,6 +513,70 @@ class Configuration(object):
         elif chunk == 2:
             return bits[:8]
 
+    def to_dict(self):
+        d = {}
+        d['pixel_trim_thresholds'] = self.pixel_trim_thresholds
+        d['global_threshold'] = self.global_threshold
+        d['csa_gain'] = self.csa_gain
+        d['csa_bypass'] = self.csa_bypass
+        d['internal_bypass'] = self.internal_bypass
+        d['csa_bypass_select'] = self.csa_bypass_select
+        d['csa_monitor_select'] = self.csa_monitor_select
+        d['csa_testpulse_enable'] = self.csa_testpulse_enable
+        d['csa_testpulse_dac_amplitude'] = self.csa_testpulse_dac_amplitude
+        d['test_mode'] = self.test_mode
+        d['cross_trigger_mode'] = self.cross_trigger_mode
+        d['periodic_reset'] = self.periodic_reset
+        d['fifo_diagnostic'] = self.fifo_diagnostic
+        d['sample_cycles'] = self.sample_cycles
+        d['test_burst_length'] = self.test_burst_length
+        d['adc_burst_length'] = self.adc_burst_length
+        d['channel_mask'] = self.channel_mask
+        d['external_trigger_mask'] = self.external_trigger_mask
+        d['reset_cycles'] = self.reset_cycles
+        return d
+
+    def from_dict(self, d):
+        self.pixel_trim_thresholds = d['pixel_trim_thresholds']
+        self.global_threshold = d['global_threshold']
+        self.csa_gain = d['csa_gain']
+        self.csa_bypass = d['csa_bypass']
+        self.internal_bypass = d['internal_bypass']
+        self.csa_bypass_select = d['csa_bypass_select']
+        self.csa_monitor_select = d['csa_monitor_select']
+        self.csa_testpulse_enable = d['csa_testpulse_enable']
+        self.csa_testpulse_dac_amplitude = d['csa_testpulse_dac_amplitude']
+        self.test_mode = d['test_mode']
+        self.cross_trigger_mode = d['cross_trigger_mode']
+        self.periodic_reset = d['periodic_reset']
+        self.fifo_diagnostic = d['fifo_diagnostic']
+        self.sample_cycles = d['sample_cycles']
+        self.test_burst_length = d['test_burst_length']
+        self.adc_burst_length = d['adc_burst_length']
+        self.channel_mask = d['channel_mask']
+        self.external_trigger_mask = d['external_trigger_mask']
+        self.reset_cycles = d['reset_cycles']
+
+    def write(self, filename, force=False):
+        if os.path.isfile(filename):
+            if not force:
+                raise IOError(errno.EEXIST,
+                              'File %s exists. Use force=True to overwrite'
+                              % filename)
+            else:
+                print 'Overwriting file.'
+
+        with open(filename, 'w') as outfile:
+            json.dump(self.to_dict(), outfile, indent=4)
+        return 0
+
+    def load(self, filename):
+        if not os.path.isfile(filename):
+            raise IOError(errno.ENOENT, 'File not found.')
+
+        with open(filename, 'r') as infile:
+            data = json.load(infile)
+        self.from_dict(data)
 
 class Controller(object):
     '''
