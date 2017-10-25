@@ -1,0 +1,77 @@
+#!/env/python
+# This script checks to see if the ftdi_sio module is present on your
+# computer.
+from __future__ import print_function
+import argparse
+
+parser = argparse.ArgumentParser(description='Check to see if you need'
+        ' to install the FTDI driver. Only use on Ubuntu and similar'
+        ' computers.')
+args = parser.parse_args()
+
+import subprocess
+import os
+import sys
+
+p1 = subprocess.Popen(['lsmod'], stdout=subprocess.PIPE)
+p2 = subprocess.Popen(['grep', '-c','ftdi_sio'], stdin=p1.stdout,
+        stdout=subprocess.PIPE)
+p1.stdout.close()
+result_ftdi_sio = p2.communicate()[0]
+
+p1 = subprocess.Popen(['lsmod'], stdout=subprocess.PIPE)
+p2 = subprocess.Popen(['grep', '-c','usbserial'], stdin=p1.stdout,
+        stdout=subprocess.PIPE)
+p1.stdout.close()
+result_usbserial = p2.communicate()[0]
+has_ftdi = int(result_ftdi_sio) > 0
+has_usbserial = int(result_usbserial) > 0
+if not has_ftdi:
+    print('Could not find the ftdi_sio driver.')
+if not has_usbserial:
+    print('Could not find the usbserial driver.')
+if has_ftdi and has_usbserial:
+    print('Found all required modules. Try restarting your computer'
+            ' if you are still having issues finding the FTDI device.')
+    sys.exit(0)
+
+print('Could not find at least one of the appropriate drivers.\n')
+if not has_usbserial:
+    print("To install usbserial, you're on your own. Sorry.")
+if not has_ftdi:
+    webpage = 'http://www.ftdichip.com/Drivers/VCP.htm'
+    dmg_url = 'http://www.ftdichip.com/Drivers/VCP/Linux/ftdi_sio.tar.gz'
+    download_location = os.path.expanduser('~/Downloads')
+    should_download = 'A'
+    while should_download not in 'YyNn' and should_download != '':
+        should_download = input('Should I download the driver to ' +
+                 download_location + '? [y/N] ')
+    if should_download in 'Nn' or should_download == '':
+        print('\nOK. You can download the driver yourself at ' + webpage +
+                '. You should most likely pick the 64-bit version.')
+    elif should_download in 'Yy':
+        print('OK, downloading from ' + dmg_url + '.')
+        try:
+            subprocess.check_call(['wget', '--version'], stdout=open('/dev/null'))
+            has_wget = True
+        except subprocess.CalledProcessError:
+            has_wget = False
+        if has_wget:
+            subprocess.call(['wget', '-P' + download_location,
+                dmg_url])
+        else:
+            subprocess.call(['curl', dmg_url],
+                    stdout=open(download_location, 'w'))
+
+print('''
+
+Once the .dmg is downloaded, open it up and run the installer. You will
+likely have to restart your computer before the driver will load
+correctly. You will know it works when, after plugging in an FTDI device
+(e.g. the FPGA board), you see at least one "file" named something like
+
+cu.usbserial-xxxxxxx
+
+in the /dev directory of your computer. You can check for this by
+yourself or by running the larpix-find-device-mac command.\
+''')
