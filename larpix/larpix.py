@@ -36,6 +36,15 @@ class Chip(object):
             packet.assign_parity()
         return packets
 
+    def export_reads(self):
+        data = {}
+        data['unix_timestamp'] = time.time()
+        data['timestamp'] = time.ctime()
+        data['chipid'] = self.chip_id
+        data['io_chain'] = self.io_chain
+        data['packets'] = list(map(lambda x:x.export(), self.reads))
+        return data
+
 class Configuration(object):
     '''
     Represents the desired configuration state of a LArPix chip.
@@ -741,6 +750,16 @@ class Controller(object):
         bytestreams.append(current_bytestream)
         return bytestreams
 
+    def save_output(self, filename):
+        '''Save the data read by each chip to the specified file.'''
+        data = {}
+        data['unix_timestamp'] = time.time()
+        data['timestamp'] = time.ctime()
+        data['chips'] = list(map(lambda x:x.export_reads(), self.chips))
+        with open(filename, 'w') as outfile:
+            json.dump(data, outfile, indent=4,
+                    separators=(',',':'), sort_keys=True)
+
 
 
 class Packet(object):
@@ -837,6 +856,31 @@ class Packet(object):
         padded_output = self._bit_padding + self.bits
         bytes_output = padded_output.bytes
         return bytes_output[::-1]
+
+    def export(self):
+        '''Return a dict representation of this Packet.'''
+        type_map = {'00': 'test', '01': 'data', '10': 'config write',
+                '11': 'config read'}
+        d = {}
+        d['bits'] = self.bits.bin
+        d['type'] = type_map[self.packet_type.bin]
+        d['chipid'] = self.chipid
+        d['parity'] = self.parity_bit_value
+        d['valid_parity'] = self.has_valid_parity()
+        ptype = self.packet_type
+        if ptype == Packet.TEST_PACKET:
+            d['counter'] = self.test_counter
+        elif ptype == Packet.DATA_PACKET:
+            d['channel'] = self.channel_id
+            d['timestamp'] = self.timestamp
+            d['adc_counts'] = self.dataword
+            d['fifo_half'] = bool(self.fifo_half_flag)
+            d['fifo_full'] = bool(self.fifo_full_flag)
+        elif (ptype == Packet.CONFIG_READ_PACKET or ptype ==
+                Packet.CONFIG_WRITE_PACKET):
+            d['register'] = self.register_address
+            d['value'] = self.register_data
+        return d
 
     @property
     def packet_type(self):
