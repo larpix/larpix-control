@@ -13,7 +13,7 @@ import os
 import sys
 
 # Check to see if the FTDI kext file is located in the correct place
-expected_location = '/System/Library/Extensions/FTDIUSBSerialDriver.kext'
+expected_location = '/Library/Extensions/FTDIUSBSerialDriver.kext'
 webpage = 'http://www.ftdichip.com/Drivers/VCP.htm'
 dmg_url = 'http://www.ftdichip.com/Drivers/VCP/MacOSX/FTDIUSBSerialDriver_v2_4_2.dmg'
 download_location = os.path.expanduser('~/Downloads')
