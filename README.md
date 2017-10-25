@@ -147,6 +147,11 @@ be something like `/dev/ttyUSB0`.
 controller = Controller('/dev/ttyUSB0')
 ```
 
+An important attribute of the Controller object is `chips`, which is a
+list of Chip objects controlled by the particular Controller. Add a
+single Chip object to the list with `controller.chips.append(myChip)`,
+or add a whole list with `controller.chips.extend(list_of_chips)`.
+
 You might want to change the following
 attributes at some point, but their defaults should work in most cases:
 
@@ -189,7 +194,8 @@ passing a string or other way of identifying the register by name.
 Similar functionality exists to read the configuration data. This
 requires both sending data to and receiving data from the LArPix chip.
 To send the "read configuration" commands, call `read_configuration`
-exactly the same way you would call `write_configuration`.
+exactly the same way you would call `write_configuration`. Read on to
+learn about receiving data from LArPix in more detail.
 
 #### Receiving data
 
@@ -197,3 +203,30 @@ There are 3 reasons to receive data from LArPix: because it's real data
 (ADC counts, etc.), because it's configuration data that has been
 requested, or because it's test data from either the UART test or the
 FIFO test.
+
+The simplest way to receive data from LArPix is to just listen for a
+certain amount of time and save all the packets received. This is
+accomplished with the `run` method:
+
+```python
+myController.run(10)  # listens for 10 seconds
+```
+
+This method makes sense for physics runs or any special runs that aren't
+provided by the following other methods.
+
+To read configuration data, call `read_configuration`, as mentioned
+earlier.
+
+To make it easy to run tests, the following methods will configure the
+chip, run the test, and record the data received: `run_testpulse`,
+`run_fifo_test`, and `run_analog_monitor_test`.
+
+#### Accessing received data
+
+Every method that reads data processes the data from a bytestream into a
+Packet object. The Packet objects are appended to the list stored in the
+`reads` attribute of the correct Chip object, as defined by the `chipid`
+returned by the Packet. It's worth noting here that the Controller
+object is only aware of Chip objects listed in the `controller.chips`
+attribute.
