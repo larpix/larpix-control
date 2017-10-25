@@ -50,7 +50,7 @@ if not has_ftdi:
         print('\nOK. You can download the driver yourself at ' + webpage +
                 '. You should most likely pick the 64-bit version.')
     elif should_download in 'Yy':
-        print('OK, downloading from ' + dmg_url + '.')
+        print('OK, downloading from ' + dmg_url + '.\n')
         try:
             subprocess.check_call(['wget', '--version'], stdout=open('/dev/null'))
             has_wget = True

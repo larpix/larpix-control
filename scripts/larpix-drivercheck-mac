@@ -20,7 +20,7 @@ download_location = os.path.expanduser('~/Downloads')
 if os.path.isdir(expected_location):
     print('The driver is installed at ' + expected_location + '.')
     print('Try restarting your computer if you are still'
-            'having issues finding the FTDI device.')
+            ' having issues finding the FTDI device.')
     sys.exit(0)
 
 print('Could not find the FTDI driver at ' + expected_location +
@@ -35,7 +35,7 @@ if should_download in 'Nn' or should_download == '':
             '. You should most likely pick the Mac OS X 10.9 and above'
             ' version.')
 elif should_download in 'Yy':
-    print('OK, downloading from ' + dmg_url + '.')
+    print('OK, downloading from ' + dmg_url + '.\n')
     try:
         subprocess.check_call(['wget', '--version'], stdout=open('/dev/null'))
         has_wget = True
