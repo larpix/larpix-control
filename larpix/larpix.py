@@ -762,7 +762,7 @@ class Packet(object):
     packet_type_bits = slice(52, 54)
     chipid_bits = slice(44, 52)
     parity_bit = 0
-    parity_calc_bits = slice(1, 53)
+    parity_calc_bits = slice(1, 54)
     channel_id_bits = slice(37, 44)
     timestamp_bits = slice(13, 37)
     dataword_bits = slice(3, 13)

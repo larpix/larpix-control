@@ -166,6 +166,14 @@ def test_packet_compute_parity():
     parity = p.compute_parity()
     expected = 0
     assert parity == expected
+    p.bits = BitArray([0]*54)
+    parity = p.compute_parity()
+    expected = 1
+    assert parity == expected
+    p.bits = BitArray([1]*54)
+    parity = p.compute_parity()
+    expected = 0
+    assert parity == expected
 
 def test_packet_assign_parity():
     p = Packet()
@@ -177,6 +185,24 @@ def test_packet_assign_parity():
     p.assign_parity()
     expected = 1
     assert p.parity_bit_value == expected
+
+def test_packet_has_valid_parity():
+    p = Packet()
+    result = p.has_valid_parity()
+    expected = False
+    assert result == expected
+    p.assign_parity()
+    result = p.has_valid_parity()
+    expected = True
+    assert result == expected
+    p.bits = BitArray([1]*54)
+    result = p.has_valid_parity()
+    expected = False
+    assert result == expected
+    p.assign_parity()
+    result = p.has_valid_parity()
+    expected = True
+    assert result == expected
 
 def test_packet_set_channel_id():
     p = Packet()
