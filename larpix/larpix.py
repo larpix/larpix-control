@@ -564,8 +564,6 @@ class Configuration(object):
                 raise IOError(errno.EEXIST,
                               'File %s exists. Use force=True to overwrite'
                               % filename)
-            else:
-                print 'Overwriting file.'
 
         with open(filename, 'w') as outfile:
             json.dump(self.to_dict(), outfile, indent=4,
