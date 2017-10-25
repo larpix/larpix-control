@@ -2,6 +2,8 @@
 
 Control the LArPix chip
 
+[![Documentation Status](https://readthedocs.org/projects/larpix-control/badge/?version=latest)](http://larpix-control.readthedocs.io/en/latest/?badge=latest)
+
 ## Setup and installation
 
 This code is intended to work on both Python 2.7+ and Python 3.6+,
