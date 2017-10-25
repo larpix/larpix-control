@@ -1,0 +1,23 @@
+#!/env/python
+# This script will look for devices in /dev that look like the correct
+# FTDI device.
+from __future__ import print_function
+import argparse
+
+parser = argparse.ArgumentParser(description='Look for devices in'
+        ' /dev that look like the correct FTDI device for larpix.'
+        ' This version works on Ubuntu and related computers only.'
+        ' For Macs, use larpix-find-device-mac.')
+args = parser.parse_args()
+
+import os
+import re
+
+# This is the pattern we're looking for
+pattern = re.compile(r'^ttyUSB.*$')
+
+# Get the list of files in the /dev directory
+files = os.listdir('/dev')
+for filename in files:
+    if pattern.match(filename):
+        print(filename)

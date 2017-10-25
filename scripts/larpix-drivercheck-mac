@@ -1,0 +1,61 @@
+#!/env/python
+# This script checks to see if your Mac computer has the correct driver
+# installed.
+from __future__ import print_function
+import argparse
+
+parser = argparse.ArgumentParser(description='Check to see if you need'
+        ' to install the FTDI driver. Only use on Mac computers.')
+args = parser.parse_args()
+
+import subprocess
+import os
+import sys
+
+# Check to see if the FTDI kext file is located in the correct place
+expected_location = '/Library/Extensions/FTDIUSBSerialDriver.kext'
+webpage = 'http://www.ftdichip.com/Drivers/VCP.htm'
+dmg_url = 'http://www.ftdichip.com/Drivers/VCP/MacOSX/FTDIUSBSerialDriver_v2_4_2.dmg'
+download_location = os.path.expanduser('~/Downloads')
+if os.path.isdir(expected_location):
+    print('The driver is installed at ' + expected_location + '.')
+    print('Try restarting your computer if you are still'
+            ' having issues finding the FTDI device.')
+    sys.exit(0)
+
+print('Could not find the FTDI driver at ' + expected_location +
+        ', which is the expected install location. I can download'
+        ' the driver for you to install.\n')
+should_download = 'A'
+while should_download not in 'YyNn' and should_download != '':
+    should_download = input('Should I download the driver to ' +
+             download_location + '? [y/N] ')
+if should_download in 'Nn' or should_download == '':
+    print('\nOK. You can download the driver yourself at ' + webpage +
+            '. You should most likely pick the Mac OS X 10.9 and above'
+            ' version.')
+elif should_download in 'Yy':
+    print('OK, downloading from ' + dmg_url + '.\n')
+    try:
+        subprocess.check_call(['wget', '--version'], stdout=open('/dev/null'))
+        has_wget = True
+    except subprocess.CalledProcessError:
+        has_wget = False
+    if has_wget:
+        subprocess.call(['wget', '-P' + download_location,
+            dmg_url])
+    else:
+        subprocess.call(['curl', dmg_url],
+                stdout=open(download_location, 'w'))
+print('''
+
+Once the .dmg is downloaded, open it up and run the installer. You will
+likely have to restart your computer before the driver will load
+correctly. You will know it works when, after plugging in an FTDI device
+(e.g. the FPGA board), you see at least one "file" named something like
+
+cu.usbserial-xxxxxxx
+
+in the /dev directory of your computer. You can check for this by
+yourself or by running the larpix-find-device-mac command.\
+''')

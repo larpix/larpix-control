@@ -14,7 +14,7 @@ with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
         name='larpix-control',
-        version='0.3.1.dev0',
+        version='0.4.1.dev0',
         description='Control the LArPix chip',
         long_description=long_description,
         url='https://github.com/samkohn/larpix-control',
@@ -29,4 +29,8 @@ setup(
         keywords='dune physics',
         packages=['larpix'],
         install_requires=['pyserial','bitstring','pytest'],
+        scripts=['scripts/larpix-drivercheck-ubuntu',
+                 'scripts/larpix-drivercheck-mac',
+                 'scripts/larpix-find-device-ubuntu',
+                 'scripts/larpix-find-device-mac'],
 )
