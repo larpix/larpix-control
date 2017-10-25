@@ -365,6 +365,7 @@ class Configuration(object):
 
     def enable_normal_operation(self):
         #TODO Ask Dan what this means
+        # Load configuration for a normal physics run
         pass
 
     def enable_external_trigger(self, list_of_channels=None):
