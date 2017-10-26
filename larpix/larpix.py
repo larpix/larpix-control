@@ -23,6 +23,7 @@ class Chip(object):
         self.data_to_send = []
         self.config = Configuration()
         self.reads = []
+        self.new_reads_index = 0
 
     def get_configuration_packets(self, packet_type):
         conf = self.config
@@ -36,13 +37,18 @@ class Chip(object):
             packet.assign_parity()
         return packets
 
-    def export_reads(self):
+    def export_reads(self, only_new_reads=True):
         data = {}
         data['unix_timestamp'] = time.time()
         data['timestamp'] = time.ctime()
         data['chipid'] = self.chip_id
         data['io_chain'] = self.io_chain
-        data['packets'] = list(map(lambda x:x.export(), self.reads))
+        if only_new_reads:
+            packets = self.reads[self.new_reads_index:]
+        else:
+            packets = self.reads
+        data['packets'] = list(map(lambda x:x.export(), packets))
+        self.new_reads_index = len(self.reads)
         return data
 
 class Configuration(object):
