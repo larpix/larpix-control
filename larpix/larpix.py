@@ -24,6 +24,9 @@ class Chip(object):
         self.config = Configuration()
         self.reads = []
 
+    def __str__(self):
+        return 'Chip (id: %d, chain: %d' % (self.chip_id, self.io_chain)
+
     def get_configuration_packets(self, packet_type):
         conf = self.config
         packets = [Packet() for _ in range(Configuration.num_registers)]
@@ -829,7 +832,7 @@ class Packet(object):
         first_splitter = string.find('|')
         string = (string[:first_splitter] + '| Chip: %d ' % self.chipid +
                 string[first_splitter:])
-        string += ('Parity: %d (valid: %s) ] ' %
+        string += ('Parity: %d (valid: %s) ]' %
                 (self.parity_bit_value, self.has_valid_parity()))
         return string
 
