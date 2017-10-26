@@ -76,7 +76,7 @@ def read_register_test(settings):
 
     '''
     logger = logging.getLogger(__name__)
-    logger.info('Performing io_loopback_test')
+    logger.info('Performing read_register_test')
     port = settings['port']
     controller = larpix.Controller(port)
     chipset = settings['chipset']
