@@ -149,6 +149,21 @@ def test_chip_export_reads_all():
     assert result == expected
     assert chip.new_reads_index == 1
 
+def test_controller_save_output(tmpdir):
+    controller = Controller(None)
+    chip = Chip(1, 0)
+    p = Packet()
+    chip.reads.append(p)
+    controller.chips.append(chip)
+    name = str(tmpdir.join('test.json'))
+    controller.save_output(name)
+    with open(name) as f:
+        result = json.load(f)
+    expected = {
+            'chips': [chip.export_reads(only_new_reads=False)]
+            }
+    assert result == expected
+
 def test_packet_bits_bytes():
     assert Packet.num_bytes == Packet.size // 8 + 1
 

@@ -766,8 +766,6 @@ class Controller(object):
     def save_output(self, filename):
         '''Save the data read by each chip to the specified file.'''
         data = {}
-        data['unix_timestamp'] = time.time()
-        data['timestamp'] = time.ctime()
         data['chips'] = list(map(lambda x:x.export_reads(), self.chips))
         with open(filename, 'w') as outfile:
             json.dump(data, outfile, indent=4,
