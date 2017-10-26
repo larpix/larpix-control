@@ -38,6 +38,15 @@ class Chip(object):
         return packets
 
     def export_reads(self, only_new_reads=True):
+        '''
+        Return a dict of the packets this Chip has received.
+
+        If ``only_new_reads`` is ``True`` (default), then only the
+        packets since the last time this method was called will be in
+        the dict. Otherwise, all of the packets stored in ``self.reads``
+        will be in the dict.
+
+        '''
         data = {}
         data['unix_timestamp'] = time.time()
         data['timestamp'] = time.ctime()
