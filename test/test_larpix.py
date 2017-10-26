@@ -82,6 +82,73 @@ def test_chip_get_configuration_packets():
     assert packet.register_address == 40
     assert packet.register_data == 255
 
+def test_chip_export_reads():
+    chip = Chip(1, 2)
+    packet = Packet()
+    packet.packet_type = Packet.CONFIG_WRITE_PACKET
+    packet.chipid = 1
+    packet.register_address = 10
+    packet.register_data = 20
+    packet.assign_parity()
+    chip.reads.append(packet)
+    result = chip.export_reads()
+    expected = {
+            'chipid': 1,
+            'io_chain': 2,
+            'packets': [
+                {
+                    'bits': packet.bits.bin,
+                    'type': 'config write',
+                    'chipid': 1,
+                    'parity': 1,
+                    'valid_parity': True,
+                    'register': 10,
+                    'value': 20
+                    }
+                ]
+            }
+    assert result == expected
+    assert chip.new_reads_index == 1
+
+def test_chip_export_reads_no_new_reads():
+    chip = Chip(1, 2)
+    result = chip.export_reads()
+    expected = {'chipid': 1, 'io_chain': 2, 'packets': []}
+    assert result == expected
+    assert chip.new_reads_index == 0
+    packet = Packet()
+    packet.packet_type = Packet.CONFIG_WRITE_PACKET
+    chip.reads.append(packet)
+    chip.export_reads()
+    result = chip.export_reads()
+    assert result == expected
+    assert chip.new_reads_index == 1
+
+def test_chip_export_reads_all():
+    chip = Chip(1, 2)
+    packet = Packet()
+    packet.packet_type = Packet.CONFIG_WRITE_PACKET
+    chip.reads.append(packet)
+    chip.export_reads()
+    result = chip.export_reads(only_new_reads=False)
+    expected = {
+            'chipid': 1,
+            'io_chain': 2,
+            'packets': [
+                {
+                    'bits': packet.bits.bin,
+                    'type': 'config write',
+                    'chipid': 0,
+                    'parity': 0,
+                    'valid_parity': True,
+                    'register': 0,
+                    'value': 0
+                    }
+                ]
+            }
+    assert result == expected
+    assert chip.new_reads_index == 1
+
 def test_packet_bits_bytes():
     assert Packet.num_bytes == Packet.size // 8 + 1
 

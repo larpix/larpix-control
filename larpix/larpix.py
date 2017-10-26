@@ -48,8 +48,6 @@ class Chip(object):
 
         '''
         data = {}
-        data['unix_timestamp'] = time.time()
-        data['timestamp'] = time.ctime()
         data['chipid'] = self.chip_id
         data['io_chain'] = self.io_chain
         if only_new_reads:
