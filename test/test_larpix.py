@@ -916,7 +916,6 @@ def test_configuration_reset_cycles_data():
     expected = BitArray('0xab')
     assert c.reset_cycles_data(2) == expected
 
-@pytest.mark.xfail
 def test_configuration_to_dict():
     c = Configuration()
     attrs = [
@@ -945,7 +944,6 @@ def test_configuration_to_dict():
     result = c.to_dict()
     assert result == expected
 
-@pytest.mark.xfail
 def test_configuration_from_dict():
     c = Configuration()
     attrs = [
@@ -976,7 +974,6 @@ def test_configuration_from_dict():
     result = c.to_dict()
     assert result == expected
 
-@pytest.mark.xfail
 def test_configuration_write(tmpdir):
     c = Configuration()
     f = str(tmpdir.join('test_config.json'))
@@ -986,7 +983,6 @@ def test_configuration_write(tmpdir):
     expected = c.to_dict()
     assert result == expected
 
-@pytest.mark.xfail
 def test_configuration_write_errors(tmpdir):
     c = Configuration()
     f = tmpdir.join('test_config.json')
@@ -994,7 +990,6 @@ def test_configuration_write_errors(tmpdir):
     with pytest.raises(IOError, message='Should fail: force fails'):
         c.write(str(f))
 
-@pytest.mark.xfail
 def test_configuration_write_force(tmpdir):
     c = Configuration()
     f = tmpdir.join('test_config.json')
@@ -1005,7 +1000,6 @@ def test_configuration_write_force(tmpdir):
     expected = c.to_dict()
     assert result == expected
 
-@pytest.mark.xfail
 def test_configuration_read(tmpdir):
     c = Configuration()
     c.pixel_trim_thresholds[0] = 30
