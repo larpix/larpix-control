@@ -191,9 +191,8 @@ def uart_test(settings):
         first = True
         for packet in chip.reads:
             if packet.packet_type != larpix.Packet.TEST_PACKET:
-                logger.warning(' - %s returned a packet of type %s:\n
-                        %s', str(chip), str(packet.packet_type),
-                        str(packet))
+                logger.warning(' - %s returned a packet of type %s:\n    %s',
+                        str(chip), str(packet.packet_type), str(packet))
                 continue
             if first:
                 if packet.test_counter == counter:
