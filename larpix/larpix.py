@@ -10,6 +10,8 @@ import json
 import os
 import errno
 
+import larpix.configs as configs
+
 class Chip(object):
     '''
     Represents one LArPix chip and helps with configuration and packet
@@ -571,11 +573,7 @@ class Configuration(object):
         return 0
 
     def load(self, filename):
-        if not os.path.isfile(filename):
-            raise IOError(errno.ENOENT, 'File not found.')
-
-        with open(filename, 'r') as infile:
-            data = json.load(infile)
+        data = configs.load(filename)
         self.from_dict(data)
 
 class Controller(object):

@@ -1012,6 +1012,14 @@ def test_configuration_read(tmpdir):
     result = c2.to_dict()
     assert result == expected
 
+def test_configuration_read_default():
+    c = Configuration()
+    expected = c.to_dict()
+    c.global_threshold = 100
+    c.load('default.json')
+    result = c.to_dict()
+    assert result == expected
+
 def test_controller_get_chip():
     controller = Controller(None)
     chip = Chip(1, 3)
