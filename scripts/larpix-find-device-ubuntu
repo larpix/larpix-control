@@ -1,4 +1,4 @@
-#!/env/python
+#!/usr/bin/env python
 # This script will look for devices in /dev that look like the correct
 # FTDI device.
 from __future__ import print_function

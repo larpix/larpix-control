@@ -1,4 +1,4 @@
-#!/env/python
+#!/usr/bin/env python
 # This script checks to see if your Mac computer has the correct driver
 # installed.
 from __future__ import print_function

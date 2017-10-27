@@ -1,4 +1,4 @@
-#!/env/python
+#!/usr/bin/env python
 # This script checks to see if the ftdi_sio module is present on your
 # computer.
 from __future__ import print_function
