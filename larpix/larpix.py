@@ -636,7 +636,7 @@ class Controller(object):
                     data_in += stream
         return data_in
 
-    def write_configuration(self, chip, registers=None):
+    def write_configuration(self, chip, registers=None, write_read=0):
         if registers is None:
             registers = list(range(Configuration.num_registers))
         elif isinstance(registers, int):
@@ -645,7 +645,12 @@ class Controller(object):
             pass
         bytestreams = self.get_configuration_bytestreams(chip,
                 Packet.CONFIG_WRITE_PACKET, registers)
-        self.serial_write(bytestreams)
+        if write_read == 0:
+            self.serial_write(bytestreams)
+            return b''
+        else:
+            return self.serial_write_read(bytestreams,
+                    timelimit=write_read)
 
     def read_configuration(self, chip, registers=None):
         if registers is None:

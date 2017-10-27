@@ -1085,7 +1085,8 @@ def test_controller_write_configuration(capfd):
     controller._test_mode = True
     controller._serial = MockSerialPort
     chip = Chip(2, 4)
-    controller.write_configuration(chip)
+    result = controller.write_configuration(chip)
+    assert result == b''
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
     expected = ' '.join(map(bytes2str, [controller.format_UART(chip, conf_data_i) for
             conf_data_i in conf_data]))
@@ -1098,7 +1099,22 @@ def test_controller_write_configuration_one_reg(capfd):
     controller._serial = MockSerialPort
     chip = Chip(2, 4)
     result = controller.write_configuration(chip, 0)
+    assert result == b''
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[0]
+    expected = bytes2str(controller.format_UART(chip, conf_data))
+    result, err = capfd.readouterr()
+    assert result == expected
+
+def test_controller_write_configuration_write_read(capfd):
+    controller = Controller(None)
+    controller._serial = MockSerialPort
+    controller.timeout=0.01
+    chip = Chip(2, 4)
+    to_read = b's12345678q'
+    MockSerialPort.data_to_mock_read = to_read
+    result = controller.write_configuration(chip, registers=5, write_read=0.1)
+    assert result == to_read
+    conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[5]
     expected = bytes2str(controller.format_UART(chip, conf_data))
     result, err = capfd.readouterr()
     assert result == expected
