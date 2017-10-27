@@ -105,6 +105,64 @@ def read_register_test(settings):
             logger.warning(' - %s has extra packets: \n    %s',
                     str(chip), '\n    '.join(map(str, extra_packets)))
 
+def write_register_test(settings):
+    '''
+    Send "config write" packet, then read the new configuration.
+
+    Verify that:
+      - no "config write" packet is returned
+      - the configuration on the chip is updated to the new value(s)
+
+    Repeat for every register on every chip.
+
+    Will produce warnings when:
+      - a "config write" packet is returned
+      - the expected "config read" packet was not returned
+
+    '''
+    logger = logging.getLogger(__name__)
+    logger.info('Performing write_register_test')
+    port = settings['port']
+    controller = larpix.Controller(port)
+    controller.timeout = 0.1
+    chipset = settings['chipset']
+    for chipargs in chipset:
+        chip = larpix.Chip(*chipargs)
+        controller.chips.append(chip)
+    # This new config will be written one register at a time
+    new_config = larpix.Configuration()
+    new_config.load('benchtest-non-defaults.json')
+    for chip in controller.chips:
+        chip.reads = []
+        old_config = chip.config
+        chip.config = new_config
+        new_config_write_packets = chip.get_configuration_packets(
+                larpix.Packet.CONFIG_WRITE_PACKET)
+        new_config_read_packets = chip.get_configuration_packets(
+                larpix.Packet.CONFIG_READ_PACKET)
+        for register in range(chip.config.num_registers):
+            chip.config = new_config
+            # Normally I would use write_configuration but
+            # I want to use serial_write_read
+            bytestream = controller.get_configuration_bytestreams(chip,
+                    larpix.Packet.CONFIG_WRITE_PACKET, [register])
+            data = controller.serial_write_read(bytestream, 0.2)
+            controller.parse_input(data)
+            new_packet = new_config_write_packets[register]
+            if new_packet in chip.reads:
+                logger.warning(' - %s returned a config write '
+                        'packet:\n    %s', str(chip), str(new_packet))
+            controller.read_configuration(chip, register)
+            new_packet = new_config_read_packets[register]
+            if new_packet not in chip.reads:
+                logger.warning(' - %s did not return the expected '
+                        'config read packet.\n    Expected packet: %s'
+                        '\n    chip.reads: %s', str(chip),
+                        str(new_packet), str(chip.reads))
+            # Return the configuration back to the default
+            chip.config = old_config
+            controller.write_configuration(chip)
+
 
 if __name__ == '__main__':
     setup_logger({})
@@ -113,5 +171,6 @@ if __name__ == '__main__':
         pcb_io_test({'port':'/dev/ttyUSB1'})
         io_loopback_test({'port':'/dev/ttyUSB1', 'chipid':1,'io_chain':0})
         read_register_test({'port':'/dev/ttyUSB1', 'chipset':[(1,0)]})
+        write_register_test({'port':'/dev/ttyUSB1', 'chipset':[(1,0)]})
     except Exception as e:
         logger.error('Error during test', exc_info=True)
