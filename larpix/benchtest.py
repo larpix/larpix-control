@@ -163,6 +163,52 @@ def write_register_test(settings):
             chip.config = old_config
             controller.write_configuration(chip)
 
+def uart_test(settings):
+    '''
+    Execute the UART test on the chip.
+
+    Check to make sure the packets are returned with no dropped packets
+    and no flipped bits.
+
+    '''
+    logger = logging.getLogger(__name__)
+    logger.info('Performing uart_test')
+    port = settings['port']
+    controller = larpix.Controller(port)
+    chipset = settings['chipset']
+    test_register = 47
+    for chipargs in chipset:
+        chip = larpix.Chip(*chipargs)
+        controller.chips.append(chip)
+    for chip in controller.chips:
+        chip.config.test_mode = larpix.Configuration.TEST_UART
+        result = controller.write_configuration(chip, registers=47, write_read=2)
+        unprocessed = controller.parse_input(result)
+        if unprocessed:
+            logger.warning(' - %s returned garbled output: %s',
+                    str(chip), str(unprocessed))
+        counter = 0
+        first = True
+        for packet in chip.reads:
+            if packet.packet_type != larpix.Packet.TEST_PACKET:
+                logger.warning(' - %s returned a packet of type %s:\n
+                        %s', str(chip), str(packet.packet_type),
+                        str(packet))
+                continue
+            if first:
+                if packet.test_counter == counter:
+                    pass
+                else:
+                    logger.warning(' - %s first packet has counter %d',
+                            str(chip), packet.test_counter)
+                    counter = packet.test_counter
+                    first = False
+                continue
+            # This line skips every third counter as per spec
+            counter = counter + 1 if counter % 3 != 1 else counter + 2
+            if packet.test_counter != counter:
+                logger.warning(' - %s packet has counter %d, expected %d',
+                        str(chip), packet.test_counter, expected_counter)
 
 if __name__ == '__main__':
     setup_logger({})
