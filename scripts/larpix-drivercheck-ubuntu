@@ -42,6 +42,8 @@ if not has_ftdi:
     webpage = 'http://www.ftdichip.com/Drivers/VCP.htm'
     dmg_url = 'http://www.ftdichip.com/Drivers/VCP/Linux/ftdi_sio.tar.gz'
     download_location = os.path.expanduser('~/Downloads')
+    download_filename = 'ftdi_sio.tar.gz'
+    download_path = os.path.join(download_location, download_filename)
     should_download = 'A'
     while should_download not in 'YyNn' and should_download != '':
         should_download = input('Should I download the driver to ' +
@@ -54,14 +56,14 @@ if not has_ftdi:
         try:
             subprocess.check_call(['wget', '--version'], stdout=open('/dev/null'))
             has_wget = True
-        except subprocess.CalledProcessError:
+        except Exception:
             has_wget = False
         if has_wget:
             subprocess.call(['wget', '-P' + download_location,
                 dmg_url])
         else:
             subprocess.call(['curl', dmg_url],
-                    stdout=open(download_location, 'w'))
+                    stdout=open(download_path, 'w'))
 
 print('''
 

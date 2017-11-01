@@ -17,6 +17,8 @@ expected_location = '/Library/Extensions/FTDIUSBSerialDriver.kext'
 webpage = 'http://www.ftdichip.com/Drivers/VCP.htm'
 dmg_url = 'http://www.ftdichip.com/Drivers/VCP/MacOSX/FTDIUSBSerialDriver_v2_4_2.dmg'
 download_location = os.path.expanduser('~/Downloads')
+download_filename = 'FTDIUSBSerialDriver_v2_4_2.dmg'
+download_path = os.path.join(download_location, download_filename)
 if os.path.isdir(expected_location):
     print('The driver is installed at ' + expected_location + '.')
     print('Try restarting your computer if you are still'
@@ -43,14 +45,14 @@ elif should_download in 'Yy':
     try:
         subprocess.check_call(['wget', '--version'], stdout=open('/dev/null'))
         has_wget = True
-    except subprocess.CalledProcessError:
+    except Exception:
         has_wget = False
     if has_wget:
         subprocess.call(['wget', '-P' + download_location,
             dmg_url])
     else:
         subprocess.call(['curl', dmg_url],
-                stdout=open(download_location, 'w'))
+                stdout=open(download_path, 'w'))
 print('''
 
 Once the .dmg is downloaded, open it up and run the installer. You will
