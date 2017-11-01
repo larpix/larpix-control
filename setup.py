@@ -14,7 +14,7 @@ with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
         name='larpix-control',
-        version='0.4.1.dev2',
+        version='0.4.1.dev3',
         description='Control the LArPix chip',
         long_description=long_description,
         url='https://github.com/samkohn/larpix-control',
