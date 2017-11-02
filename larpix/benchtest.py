@@ -142,11 +142,7 @@ def write_register_test(settings):
                 larpix.Packet.CONFIG_READ_PACKET)
         for register in range(chip.config.num_registers):
             chip.config = new_config
-            # Normally I would use write_configuration but
-            # I want to use serial_write_read
-            bytestream = controller.get_configuration_bytestreams(chip,
-                    larpix.Packet.CONFIG_WRITE_PACKET, [register])
-            data = controller.serial_write_read(bytestream, 0.2)
+            data = controller.write_configuration(chip, register, 0.1)
             controller.parse_input(data)
             new_packet = new_config_write_packets[register]
             if new_packet in chip.reads:
