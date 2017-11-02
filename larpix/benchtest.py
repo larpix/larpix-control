@@ -210,12 +210,16 @@ def uart_test(settings):
                         str(chip), packet.test_counter, expected_counter)
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-p', '--port', default='/dev/ttyUSB1', help='the serial port')
+    args = parser.parse_args()
     setup_logger({})
     logger = logging.getLogger(__name__)
     try:
-        pcb_io_test({'port':'/dev/ttyUSB1'})
-        io_loopback_test({'port':'/dev/ttyUSB1', 'chipid':1,'io_chain':0})
-        read_register_test({'port':'/dev/ttyUSB1', 'chipset':[(1,0)]})
-        write_register_test({'port':'/dev/ttyUSB1', 'chipset':[(1,0)]})
+        pcb_io_test({'port':args.port})
+        io_loopback_test({'port':args.port, 'chipid':1,'io_chain':0})
+        read_register_test({'port':args.port, 'chipset':[(1,0)]})
+        write_register_test({'port':args.port, 'chipset':[(1,0)]})
     except Exception as e:
         logger.error('Error during test', exc_info=True)
