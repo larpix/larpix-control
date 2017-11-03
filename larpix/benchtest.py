@@ -3,7 +3,7 @@ This module contains a set of bench test scripts for the LArPix chip.
 
 '''
 import logging
-import larpix
+import larpix.larpix as larpix
 from bitstring import BitArray
 
 def setup_logger(settings):
