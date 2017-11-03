@@ -61,6 +61,25 @@ class Configuration(object):
     TEST_UART = 0x1
     TEST_FIFO = 0x2
     def __init__(self):
+        self.register_names = ['pixel_trim_thresholds',
+                               'global_threshold',
+                               'csa_gain',
+                               'csa_bypass',
+                               'internal_bypass',
+                               'csa_bypass_select',
+                               'csa_monitor_select',
+                               'csa_testpulse_enable',
+                               'csa_testpulse_dac_amplitude',
+                               'test_mode',
+                               'cross_trigger_mode',
+                               'periodic_reset',
+                               'fifo_diagnostic',
+                               'sample_cycles',
+                               'test_burst_length',
+                               'adc_burst_length',
+                               'channel_mask',
+                               'external_trigger_mask',
+                               'reset_cycles']
         self._pixel_trim_thresholds = [0x10] * Chip.num_channels
         self._global_threshold = 0x10
         self._csa_gain = 1
@@ -516,47 +535,14 @@ class Configuration(object):
 
     def to_dict(self):
         d = {}
-        d['pixel_trim_thresholds'] = self.pixel_trim_thresholds
-        d['global_threshold'] = self.global_threshold
-        d['csa_gain'] = self.csa_gain
-        d['csa_bypass'] = self.csa_bypass
-        d['internal_bypass'] = self.internal_bypass
-        d['csa_bypass_select'] = self.csa_bypass_select
-        d['csa_monitor_select'] = self.csa_monitor_select
-        d['csa_testpulse_enable'] = self.csa_testpulse_enable
-        d['csa_testpulse_dac_amplitude'] = self.csa_testpulse_dac_amplitude
-        d['test_mode'] = self.test_mode
-        d['cross_trigger_mode'] = self.cross_trigger_mode
-        d['periodic_reset'] = self.periodic_reset
-        d['fifo_diagnostic'] = self.fifo_diagnostic
-        d['sample_cycles'] = self.sample_cycles
-        d['test_burst_length'] = self.test_burst_length
-        d['adc_burst_length'] = self.adc_burst_length
-        d['channel_mask'] = self.channel_mask
-        d['external_trigger_mask'] = self.external_trigger_mask
-        d['reset_cycles'] = self.reset_cycles
+        for register_name in self.register_names:
+            d[register_name] = getattr(self, register_name)
         return d
 
     def from_dict(self, d):
-        self.pixel_trim_thresholds = d['pixel_trim_thresholds']
-        self.global_threshold = d['global_threshold']
-        self.csa_gain = d['csa_gain']
-        self.csa_bypass = d['csa_bypass']
-        self.internal_bypass = d['internal_bypass']
-        self.csa_bypass_select = d['csa_bypass_select']
-        self.csa_monitor_select = d['csa_monitor_select']
-        self.csa_testpulse_enable = d['csa_testpulse_enable']
-        self.csa_testpulse_dac_amplitude = d['csa_testpulse_dac_amplitude']
-        self.test_mode = d['test_mode']
-        self.cross_trigger_mode = d['cross_trigger_mode']
-        self.periodic_reset = d['periodic_reset']
-        self.fifo_diagnostic = d['fifo_diagnostic']
-        self.sample_cycles = d['sample_cycles']
-        self.test_burst_length = d['test_burst_length']
-        self.adc_burst_length = d['adc_burst_length']
-        self.channel_mask = d['channel_mask']
-        self.external_trigger_mask = d['external_trigger_mask']
-        self.reset_cycles = d['reset_cycles']
+        for register_name in self.register_name:
+            if register_name in d:
+                setattr(self, register_name, d[register_name])
 
     def write(self, filename, force=False):
         if os.path.isfile(filename):
