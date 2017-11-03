@@ -3,7 +3,8 @@ This module contains a set of bench test scripts for the LArPix chip.
 
 '''
 import logging
-import larpix.larpix as larpix
+import larpix
+import json
 from bitstring import BitArray
 
 def setup_logger(settings):
@@ -205,6 +206,58 @@ def uart_test(settings):
                 logger.warning(' - %s packet has counter %d, expected %d',
                         str(chip), packet.test_counter, expected_counter)
 
+def threshold_scan_test(settings):
+    '''
+    Execute the threshold scan as part of CSA noise level test.
+
+    Steps through all of the global thresholds, with the trim
+    thresholds set to 0x10 (default). Performs this scan for each
+    channel individually. Saves the number of triggers per second to
+    the filename specified in settings.
+
+    '''
+    logger = logging.getLogger(__name__)
+    logger.info('Performing threshold_scan_test')
+    controller = larpix.Controller(settings['port'])
+    controller.timeout = 0.1
+    scan_data = {}
+    try:
+        for chip_description in settings['chipset']:
+            chip = larpix.Chip(*chip_description)
+            controller.chips.append(chip)
+            chip.config.disable_channels()
+            scan_data[str(chip_description)] = {}
+            scan_data['thresholds'] = list(range(250, -1, -10))
+        for chip, description in zip(controller.chips, settings['chipset']):
+            for channel in [20, 30]:
+                logger.info('Starting chip %s, channel %d' %
+                        (str(chip), channel))
+                scan_data[str(description)][channel] = []
+                channel_thresholds = scan_data[str(description)][channel]
+                chip.config.disable_channels()
+                chip.config.enable_channels([channel])
+                chip.config.global_threshold = 255
+                controller.write_configuration(chip, range(52, 56))
+                for threshold in range(250, -1, -10):
+                    chip.reads = []
+                    chip.config.global_threshold = threshold
+                    controller.write_configuration(chip, 32)
+                    controller.serial_read(0.1)
+                    controller.run(1)
+                    nreads = len(chip.reads)
+                    channel_thresholds.append(nreads)
+                    logger.info(nreads)
+                logger.info('Chip %s, channel %d: %s', str(chip),
+                    channel, str(scan_data))
+        with open(settings['filename'], 'w') as outfile:
+            json.dump(scan_data, outfile, indent=4)
+    except:
+        logger.error('Unable to save threshold scan data. '
+                'Dumping it here in the log so you can salvage it...')
+        logger.error(str(scan_data))
+        raise
+
+
 if __name__ == '__main__':
     import argparse
     import sys
@@ -214,6 +267,7 @@ if __name__ == '__main__':
             'read_register_test': read_register_test,
             'write_register_test': write_register_test,
             'uart_test': uart_test,
+            'threshold_scan_test': threshold_scan_test,
             }
     parser = argparse.ArgumentParser()
     parser.add_argument('--logfile', default='benchtest.log',
@@ -228,6 +282,8 @@ if __name__ == '__main__':
             help='list of chip IDs to test')
     parser.add_argument('--iochain', nargs='*', type=int,
             help='list of IO chain IDs (corresponding to chipids')
+    parser.add_argument('-f', '--filename', default='out.txt',
+            help='filename to save data to')
     args = parser.parse_args()
     if args.list:
         print('\n'.join(tests.keys()))
@@ -240,8 +296,9 @@ if __name__ == '__main__':
             'port': args.port,
             'chipset': chipset,
             'logfile': args.logfile,
+            'filename': args.filename,
             }
-    setup_logger({})
+    setup_logger(settings)
     logger = logging.getLogger(__name__)
     try:
         for test in args.test:
