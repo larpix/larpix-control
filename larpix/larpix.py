@@ -620,12 +620,23 @@ class Controller(object):
     def serial_read(self, timelimit):
         data_in = b''
         start = time.time()
-        with self._serial(self.port, baudrate=self.baudrate,
-                timeout=self.timeout) as serial_in:
-            while time.time() - start < timelimit:
-                stream = serial_in.read(self.max_write)
-                if len(stream) > 0:
-                    data_in += stream
+        try:
+            with self._serial(self.port, baudrate=self.baudrate,
+                    timeout=self.timeout) as serial_in:
+                while time.time() - start < timelimit:
+                    stream = serial_in.read(self.max_write)
+                    if len(stream) > 0:
+                        data_in += stream
+        except Exception as e:
+            if getattr(self, '_read_tries_left', None) is None:
+                self._read_tries_left = 3
+                self.serial_read(timelimit)
+            elif self._read_tries_left > 0:
+                self._read_tries_left -= 1
+                self.serial_read(timelimit)
+            else:
+                del self._read_tries_left
+                raise
         return data_in
 
     def serial_write(self, bytestreams):
