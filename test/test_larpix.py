@@ -202,6 +202,86 @@ def test_packet_bytes_properties():
     b = p.bytes()
     assert b == expected
 
+def test_packet_export_test():
+    p = Packet()
+    p.packet_type = Packet.TEST_PACKET
+    p.chipid = 5
+    p.test_counter = 32838
+    p.assign_parity()
+    result = p.export()
+    expected = {
+            'bits': p.bits.bin,
+            'type': 'test',
+            'chipid': 5,
+            'counter': 32838,
+            'parity': p.parity_bit_value,
+            'valid_parity': True,
+            }
+    assert result == expected
+
+def test_packet_export_data():
+    p = Packet()
+    p.packet_type = Packet.DATA_PACKET
+    p.chipid = 2
+    p.channel_id = 10
+    p.timestamp = 123456
+    p.dataword = 180
+    p.fifo_half_flag = True
+    p.fifo_full_flag = False
+    p.assign_parity()
+    result = p.export()
+    expected = {
+            'bits': p.bits.bin,
+            'type': 'data',
+            'chipid': 2,
+            'channel': 10,
+            'timestamp': 123456,
+            'adc_counts': 180,
+            'fifo_half': True,
+            'fifo_full': False,
+            'parity': p.parity_bit_value,
+            'valid_parity': True,
+            }
+    assert result == expected
+
+def test_packet_export_config_read():
+    p = Packet()
+    p.packet_type = Packet.CONFIG_READ_PACKET
+    p.chipid = 10
+    p.register_address = 51
+    p.register_data = 2
+    p.assign_parity()
+    result = p.export()
+    expected = {
+            'bits': p.bits.bin,
+            'type': 'config read',
+            'chipid': 10,
+            'register': 51,
+            'value': 2,
+            'parity': p.parity_bit_value,
+            'valid_parity': True,
+            }
+    assert result == expected
+
+def test_packet_export_config_write():
+    p = Packet()
+    p.packet_type = Packet.CONFIG_WRITE_PACKET
+    p.chipid = 10
+    p.register_address = 51
+    p.register_data = 2
+    p.assign_parity()
+    result = p.export()
+    expected = {
+            'bits': p.bits.bin,
+            'type': 'config write',
+            'chipid': 10,
+            'register': 51,
+            'value': 2,
+            'parity': p.parity_bit_value,
+            'valid_parity': True,
+            }
+    assert result == expected
+
 def test_packet_set_packet_type():
     p = Packet()
     p.packet_type = Packet.DATA_PACKET
