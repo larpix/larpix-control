@@ -540,7 +540,7 @@ class Configuration(object):
         return d
 
     def from_dict(self, d):
-        for register_name in self.register_name:
+        for register_name in self.register_names:
             if register_name in d:
                 setattr(self, register_name, d[register_name])
 
