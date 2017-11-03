@@ -208,18 +208,6 @@ def uart_test(settings):
 if __name__ == '__main__':
     import argparse
     import sys
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-p', '--port', default='/dev/ttyUSB1',
-            help='the serial port')
-    parser.add_argument('-l', '--list', action='store_true',
-            help='list available tests')
-    parser.add_argument('-t', '--test', nargs='+',
-            help='specify test(s) to run')
-    parser.add_argument('--chipid', nargs='*', type=int,
-            help='list of chip IDs to test')
-    parser.add_argument('--iochain', nargs='*', type=int,
-            help='list of IO chain IDs (corresponding to chipids')
-    args = parser.parse_args()
     tests = {
             'pcb_io_test': pcb_io_test,
             'io_loopback_test': io_loopback_test,
@@ -227,6 +215,18 @@ if __name__ == '__main__':
             'write_register_test': write_register_test,
             'uart_test': uart_test,
             }
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-p', '--port', default='/dev/ttyUSB1',
+            help='the serial port')
+    parser.add_argument('-l', '--list', action='store_true',
+            help='list available tests')
+    parser.add_argument('-t', '--test', nargs='+', default=tests.keys(),
+            help='specify test(s) to run')
+    parser.add_argument('--chipid', nargs='*', type=int,
+            help='list of chip IDs to test')
+    parser.add_argument('--iochain', nargs='*', type=int,
+            help='list of IO chain IDs (corresponding to chipids')
+    args = parser.parse_args()
     if args.list:
         print('\n'.join(tests.keys()))
         sys.exit(0)
