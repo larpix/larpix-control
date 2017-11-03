@@ -27,6 +27,17 @@ class Chip(object):
     def __str__(self):
         return 'Chip (id: %d, chain: %d' % (self.chip_id, self.io_chain)
 
+    def show_reads(self, start=0, stop=None, step=1):
+        if stop is None:
+            stop = len(self.reads)
+        return list(map(str, self.reads[start:stop:step]))
+
+    def show_reads_bits(self, start=0, stop=None, step=1):
+        if stop is None:
+            stop = len(self.reads)
+        return list(map(lambda x:' '.join(x.bits.bin[i:i+8] for i in range(0,
+            len(x.bits.bin), 8)), self.reads[start:stop:step]))
+
     def get_configuration_packets(self, packet_type):
         conf = self.config
         packets = [Packet() for _ in range(Configuration.num_registers)]
@@ -595,6 +606,9 @@ class Controller(object):
         self.timeout = 1
         self.max_write = 8192
         self._serial = serial.Serial
+
+    def init_chips(self, nchips = 256, iochain = 0):
+        self.chips = [Chip(i, iochain) for i in range(256)]
 
     def get_chip(self, chip_id, io_chain):
         for chip in self.chips:
