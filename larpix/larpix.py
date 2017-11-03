@@ -79,10 +79,11 @@ class Configuration(object):
         self._global_threshold = 0x10
         self._csa_gain = 1
         self._csa_bypass = 0
-        self._internal_bypass = 1
+        self._internal_bias = 1
+        self._internal_bypass = 0
         self._csa_bypass_select = [0] * Chip.num_channels
-        self._csa_monitor_select = [1] * Chip.num_channels
-        self._csa_testpulse_enable = [0] * Chip.num_channels
+        self._csa_monitor_select = [0] * Chip.num_channels
+        self._csa_testpulse_enable = [1] * Chip.num_channels
         self._csa_testpulse_dac_amplitude = 0
         self._test_mode = Configuration.TEST_OFF
         self._cross_trigger_mode = 0
@@ -93,7 +94,7 @@ class Configuration(object):
         self._adc_burst_length = 0
         self._channel_mask = [0] * Chip.num_channels
         self._external_trigger_mask = [1] * Chip.num_channels
-        self._reset_cycles = 0x001000
+        self._reset_cycles = 0x000100
 
     @property
     def pixel_trim_thresholds(self):
