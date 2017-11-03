@@ -9,7 +9,7 @@ from bitstring import BitArray
 def setup_logger(settings):
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
-    logfile = settings.get('logfile', 'benchtest.log')
+    logfile = settings['logfile']
     handler = logging.FileHandler(logfile)
     handler.setLevel(logging.INFO)
     formatter = logging.Formatter('[%(asctime)s] %(levelname)s: '
@@ -216,6 +216,8 @@ if __name__ == '__main__':
             'uart_test': uart_test,
             }
     parser = argparse.ArgumentParser()
+    parser.add_argument('--logfile', default='benchtest.log',
+            help='the logfile to save')
     parser.add_argument('-p', '--port', default='/dev/ttyUSB1',
             help='the serial port')
     parser.add_argument('-l', '--list', action='store_true',
@@ -236,7 +238,8 @@ if __name__ == '__main__':
         chipset = None
     settings = {
             'port': args.port,
-            'chipset': chipset
+            'chipset': chipset,
+            'logfile': args.logfile,
             }
     setup_logger({})
     logger = logging.getLogger(__name__)
