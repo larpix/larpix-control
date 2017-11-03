@@ -544,14 +544,17 @@ class Configuration(object):
             if register_name in d:
                 setattr(self, register_name, d[register_name])
 
-    def write(self, filename, force=False):
+    def write(self, filename, force=False, append=False):
         if os.path.isfile(filename):
             if not force:
                 raise IOError(errno.EEXIST,
                               'File %s exists. Use force=True to overwrite'
                               % filename)
-
-        with open(filename, 'w') as outfile:
+        if append:
+            writeopt = 'a+'
+        else:
+            writeopt = 'w+'
+        with open(filename, writeopt) as outfile:
             json.dump(self.to_dict(), outfile, indent=4,
                       separators=(',',':'), sort_keys=True)
         return 0
