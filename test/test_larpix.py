@@ -65,6 +65,12 @@ def test_MockSerialPort_read_multi():
     data += serial.read(5)
     assert data == expected
 
+def test_chip_str():
+    chip = Chip(1, 2)
+    result = str(chip)
+    expected = 'Chip (id: 1, chain: 2)'
+    assert result == expected
+
 def test_chip_show_reads():
     chip = Chip(1, 2)
     packet = Packet()

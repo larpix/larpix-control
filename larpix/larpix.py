@@ -25,7 +25,7 @@ class Chip(object):
         self.reads = []
 
     def __str__(self):
-        return 'Chip (id: %d, chain: %d' % (self.chip_id, self.io_chain)
+        return 'Chip (id: %d, chain: %d)' % (self.chip_id, self.io_chain)
 
     def show_reads(self, start=0, stop=None, step=1):
         if stop is None:
