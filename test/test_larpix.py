@@ -107,6 +107,88 @@ def test_chip_get_configuration_packets():
     assert packet.register_address == 40
     assert packet.register_data == 255
 
+def test_chip_export_reads():
+    chip = Chip(1, 2)
+    packet = Packet()
+    packet.packet_type = Packet.CONFIG_WRITE_PACKET
+    packet.chipid = 1
+    packet.register_address = 10
+    packet.register_data = 20
+    packet.assign_parity()
+    chip.reads.append(packet)
+    result = chip.export_reads()
+    expected = {
+            'chipid': 1,
+            'io_chain': 2,
+            'packets': [
+                {
+                    'bits': packet.bits.bin,
+                    'type': 'config write',
+                    'chipid': 1,
+                    'parity': 1,
+                    'valid_parity': True,
+                    'register': 10,
+                    'value': 20
+                    }
+                ]
+            }
+    assert result == expected
+    assert chip.new_reads_index == 1
+
+def test_chip_export_reads_no_new_reads():
+    chip = Chip(1, 2)
+    result = chip.export_reads()
+    expected = {'chipid': 1, 'io_chain': 2, 'packets': []}
+    assert result == expected
+    assert chip.new_reads_index == 0
+    packet = Packet()
+    packet.packet_type = Packet.CONFIG_WRITE_PACKET
+    chip.reads.append(packet)
+    chip.export_reads()
+    result = chip.export_reads()
+    assert result == expected
+    assert chip.new_reads_index == 1
+
+def test_chip_export_reads_all():
+    chip = Chip(1, 2)
+    packet = Packet()
+    packet.packet_type = Packet.CONFIG_WRITE_PACKET
+    chip.reads.append(packet)
+    chip.export_reads()
+    result = chip.export_reads(only_new_reads=False)
+    expected = {
+            'chipid': 1,
+            'io_chain': 2,
+            'packets': [
+                {
+                    'bits': packet.bits.bin,
+                    'type': 'config write',
+                    'chipid': 0,
+                    'parity': 0,
+                    'valid_parity': True,
+                    'register': 0,
+                    'value': 0
+                    }
+                ]
+            }
+    assert result == expected
+    assert chip.new_reads_index == 1
+
+def test_controller_save_output(tmpdir):
+    controller = Controller(None)
+    chip = Chip(1, 0)
+    p = Packet()
+    chip.reads.append(p)
+    controller.chips.append(chip)
+    name = str(tmpdir.join('test.json'))
+    controller.save_output(name)
+    with open(name) as f:
+        result = json.load(f)
+    expected = {
+            'chips': [chip.export_reads(only_new_reads=False)]
+            }
+    assert result == expected
+
 def test_packet_bits_bytes():
     assert Packet.num_bytes == Packet.size // 8 + 1
 
@@ -144,6 +226,86 @@ def test_packet_bytes_properties():
     expected = b'\x91\x01' + b'\x00' * (Packet.size//8-1)
     b = p.bytes()
     assert b == expected
+
+def test_packet_export_test():
+    p = Packet()
+    p.packet_type = Packet.TEST_PACKET
+    p.chipid = 5
+    p.test_counter = 32838
+    p.assign_parity()
+    result = p.export()
+    expected = {
+            'bits': p.bits.bin,
+            'type': 'test',
+            'chipid': 5,
+            'counter': 32838,
+            'parity': p.parity_bit_value,
+            'valid_parity': True,
+            }
+    assert result == expected
+
+def test_packet_export_data():
+    p = Packet()
+    p.packet_type = Packet.DATA_PACKET
+    p.chipid = 2
+    p.channel_id = 10
+    p.timestamp = 123456
+    p.dataword = 180
+    p.fifo_half_flag = True
+    p.fifo_full_flag = False
+    p.assign_parity()
+    result = p.export()
+    expected = {
+            'bits': p.bits.bin,
+            'type': 'data',
+            'chipid': 2,
+            'channel': 10,
+            'timestamp': 123456,
+            'adc_counts': 180,
+            'fifo_half': True,
+            'fifo_full': False,
+            'parity': p.parity_bit_value,
+            'valid_parity': True,
+            }
+    assert result == expected
+
+def test_packet_export_config_read():
+    p = Packet()
+    p.packet_type = Packet.CONFIG_READ_PACKET
+    p.chipid = 10
+    p.register_address = 51
+    p.register_data = 2
+    p.assign_parity()
+    result = p.export()
+    expected = {
+            'bits': p.bits.bin,
+            'type': 'config read',
+            'chipid': 10,
+            'register': 51,
+            'value': 2,
+            'parity': p.parity_bit_value,
+            'valid_parity': True,
+            }
+    assert result == expected
+
+def test_packet_export_config_write():
+    p = Packet()
+    p.packet_type = Packet.CONFIG_WRITE_PACKET
+    p.chipid = 10
+    p.register_address = 51
+    p.register_data = 2
+    p.assign_parity()
+    result = p.export()
+    expected = {
+            'bits': p.bits.bin,
+            'type': 'config write',
+            'chipid': 10,
+            'register': 51,
+            'value': 2,
+            'parity': p.parity_bit_value,
+            'valid_parity': True,
+            }
+    assert result == expected
 
 def test_packet_set_packet_type():
     p = Packet()

@@ -23,6 +23,7 @@ class Chip(object):
         self.data_to_send = []
         self.config = Configuration()
         self.reads = []
+        self.new_reads_index = 0
 
     def __str__(self):
         return 'Chip (id: %d, chain: %d)' % (self.chip_id, self.io_chain)
@@ -49,6 +50,27 @@ class Chip(object):
             packet.register_data = data
             packet.assign_parity()
         return packets
+
+    def export_reads(self, only_new_reads=True):
+        '''
+        Return a dict of the packets this Chip has received.
+
+        If ``only_new_reads`` is ``True`` (default), then only the
+        packets since the last time this method was called will be in
+        the dict. Otherwise, all of the packets stored in ``self.reads``
+        will be in the dict.
+
+        '''
+        data = {}
+        data['chipid'] = self.chip_id
+        data['io_chain'] = self.io_chain
+        if only_new_reads:
+            packets = self.reads[self.new_reads_index:]
+        else:
+            packets = self.reads
+        data['packets'] = list(map(lambda x:x.export(), packets))
+        self.new_reads_index = len(self.reads)
+        return data
 
 class Configuration(object):
     '''
@@ -757,6 +779,14 @@ class Controller(object):
         bytestreams.append(current_bytestream)
         return bytestreams
 
+    def save_output(self, filename):
+        '''Save the data read by each chip to the specified file.'''
+        data = {}
+        data['chips'] = list(map(lambda x:x.export_reads(), self.chips))
+        with open(filename, 'w') as outfile:
+            json.dump(data, outfile, indent=4,
+                    separators=(',',':'), sort_keys=True)
+
 
 
 class Packet(object):
@@ -853,6 +883,31 @@ class Packet(object):
         padded_output = self._bit_padding + self.bits
         bytes_output = padded_output.bytes
         return bytes_output[::-1]
+
+    def export(self):
+        '''Return a dict representation of this Packet.'''
+        type_map = {'00': 'test', '01': 'data', '10': 'config write',
+                '11': 'config read'}
+        d = {}
+        d['bits'] = self.bits.bin
+        d['type'] = type_map[self.packet_type.bin]
+        d['chipid'] = self.chipid
+        d['parity'] = self.parity_bit_value
+        d['valid_parity'] = self.has_valid_parity()
+        ptype = self.packet_type
+        if ptype == Packet.TEST_PACKET:
+            d['counter'] = self.test_counter
+        elif ptype == Packet.DATA_PACKET:
+            d['channel'] = self.channel_id
+            d['timestamp'] = self.timestamp
+            d['adc_counts'] = self.dataword
+            d['fifo_half'] = bool(self.fifo_half_flag)
+            d['fifo_full'] = bool(self.fifo_full_flag)
+        elif (ptype == Packet.CONFIG_READ_PACKET or ptype ==
+                Packet.CONFIG_WRITE_PACKET):
+            d['register'] = self.register_address
+            d['value'] = self.register_data
+        return d
 
     @property
     def packet_type(self):
