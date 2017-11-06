@@ -75,26 +75,8 @@ class Configuration(object):
     TEST_UART = 0x1
     TEST_FIFO = 0x2
     def __init__(self):
-        self._pixel_trim_thresholds = [0x10] * Chip.num_channels
-        self._global_threshold = 0x10
-        self._csa_gain = 1
-        self._csa_bypass = 0
-        self._internal_bias = 1
-        self._internal_bypass = 0
-        self._csa_bypass_select = [0] * Chip.num_channels
-        self._csa_monitor_select = [0] * Chip.num_channels
-        self._csa_testpulse_enable = [1] * Chip.num_channels
-        self._csa_testpulse_dac_amplitude = 0
-        self._test_mode = Configuration.TEST_OFF
-        self._cross_trigger_mode = 0
-        self._periodic_reset = 0
-        self._fifo_diagnostic = 0
-        self._sample_cycles = 1
-        self._test_burst_length = 0x00FF
-        self._adc_burst_length = 0
-        self._channel_mask = [0] * Chip.num_channels
-        self._external_trigger_mask = [1] * Chip.num_channels
-        self._reset_cycles = 0x000100
+        module_directory = os.path.dirname(os.path.abspath(__file__))
+        self.load(os.path.join(module_directory, 'default.json'))
 
     @property
     def pixel_trim_thresholds(self):
