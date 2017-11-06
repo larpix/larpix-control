@@ -24,6 +24,20 @@ class Chip(object):
         self.config = Configuration()
         self.reads = []
 
+    def __str__(self):
+        return 'Chip (id: %d, chain: %d)' % (self.chip_id, self.io_chain)
+
+    def show_reads(self, start=0, stop=None, step=1):
+        if stop is None:
+            stop = len(self.reads)
+        return list(map(str, self.reads[start:stop:step]))
+
+    def show_reads_bits(self, start=0, stop=None, step=1):
+        if stop is None:
+            stop = len(self.reads)
+        return list(map(lambda x:' '.join(x.bits.bin[i:i+8] for i in range(0,
+            len(x.bits.bin), 8)), self.reads[start:stop:step]))
+
     def get_configuration_packets(self, packet_type):
         conf = self.config
         packets = [Packet() for _ in range(Configuration.num_registers)]
@@ -61,25 +75,8 @@ class Configuration(object):
     TEST_UART = 0x1
     TEST_FIFO = 0x2
     def __init__(self):
-        self._pixel_trim_thresholds = [0x10] * Chip.num_channels
-        self._global_threshold = 0x10
-        self._csa_gain = 1
-        self._csa_bypass = 0
-        self._internal_bypass = 1
-        self._csa_bypass_select = [0] * Chip.num_channels
-        self._csa_monitor_select = [1] * Chip.num_channels
-        self._csa_testpulse_enable = [0] * Chip.num_channels
-        self._csa_testpulse_dac_amplitude = 0
-        self._test_mode = Configuration.TEST_OFF
-        self._cross_trigger_mode = 0
-        self._periodic_reset = 0
-        self._fifo_diagnostic = 0
-        self._sample_cycles = 1
-        self._test_burst_length = 0x00FF
-        self._adc_burst_length = 0
-        self._channel_mask = [0] * Chip.num_channels
-        self._external_trigger_mask = [1] * Chip.num_channels
-        self._reset_cycles = 0x001000
+        module_directory = os.path.dirname(os.path.abspath(__file__))
+        self.load(os.path.join(module_directory, 'default.json'))
 
     @property
     def pixel_trim_thresholds(self):
@@ -593,6 +590,9 @@ class Controller(object):
         self.max_write = 8192
         self._serial = serial.Serial
 
+    def init_chips(self, nchips = 256, iochain = 0):
+        self.chips = [Chip(i, iochain) for i in range(256)]
+
     def get_chip(self, chip_id, io_chain):
         for chip in self.chips:
             if chip.chip_id == chip_id and chip.io_chain == io_chain:
@@ -603,12 +603,23 @@ class Controller(object):
     def serial_read(self, timelimit):
         data_in = b''
         start = time.time()
-        with self._serial(self.port, baudrate=self.baudrate,
-                timeout=self.timeout) as serial_in:
-            while time.time() - start < timelimit:
-                stream = serial_in.read(self.max_write)
-                if len(stream) > 0:
-                    data_in += stream
+        try:
+            with self._serial(self.port, baudrate=self.baudrate,
+                    timeout=self.timeout) as serial_in:
+                while time.time() - start < timelimit:
+                    stream = serial_in.read(self.max_write)
+                    if len(stream) > 0:
+                        data_in += stream
+        except Exception as e:
+            if getattr(self, '_read_tries_left', None) is None:
+                self._read_tries_left = 3
+                self.serial_read(timelimit)
+            elif self._read_tries_left > 0:
+                self._read_tries_left -= 1
+                self.serial_read(timelimit)
+            else:
+                del self._read_tries_left
+                raise
         return data_in
 
     def serial_write(self, bytestreams):
@@ -829,7 +840,7 @@ class Packet(object):
         first_splitter = string.find('|')
         string = (string[:first_splitter] + '| Chip: %d ' % self.chipid +
                 string[first_splitter:])
-        string += ('Parity: %d (valid: %s) ] ' %
+        string += ('Parity: %d (valid: %s) ]' %
                 (self.parity_bit_value, self.has_valid_parity()))
         return string
 

@@ -2,6 +2,7 @@ bin
 *.swp
 __*
 *.pyc
+*.log
 .cache
 build
 dist

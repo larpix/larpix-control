@@ -65,6 +65,31 @@ def test_MockSerialPort_read_multi():
     data += serial.read(5)
     assert data == expected
 
+def test_chip_str():
+    chip = Chip(1, 2)
+    result = str(chip)
+    expected = 'Chip (id: 1, chain: 2)'
+    assert result == expected
+
+def test_chip_show_reads():
+    chip = Chip(1, 2)
+    packet = Packet()
+    packet.packet_type = Packet.TEST_PACKET
+    packet.test_counter = 12345
+    chip.reads.append(packet)
+    result = chip.show_reads()
+    expected = [str(packet)]
+    assert result == expected
+
+def test_chip_show_reads_bits():
+    chip = Chip(1, 2)
+    packet = Packet()
+    chip.reads.append(packet)
+    result = chip.show_reads_bits()
+    expected = ['00000000 00000000 00000000 00000000 00000000 00000000'
+            ' 000000']
+    assert result == expected
+
 def test_chip_get_configuration_packets():
     chip = Chip(3, 1)
     packet_type = Packet.CONFIG_WRITE_PACKET
@@ -1010,6 +1035,13 @@ def test_configuration_read(tmpdir):
     c2.load(f)
     expected = c.to_dict()
     result = c2.to_dict()
+    assert result == expected
+
+def test_controller_init_chips():
+    controller = Controller(None)
+    controller.init_chips()
+    result = list(map(str, controller.chips))
+    expected = list(map(str, (Chip(i, 0) for i in range(256))))
     assert result == expected
 
 def test_controller_get_chip():
