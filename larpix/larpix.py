@@ -550,11 +550,8 @@ class Configuration(object):
                 raise IOError(errno.EEXIST,
                               'File %s exists. Use force=True to overwrite'
                               % filename)
-        if append:
-            writeopt = 'a+'
-        else:
-            writeopt = 'w+'
-        with open(filename, writeopt) as outfile:
+
+        with open(filename, 'w+') as outfile:
             json.dump(self.to_dict(), outfile, indent=4,
                       separators=(',',':'), sort_keys=True)
         return 0
