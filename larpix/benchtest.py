@@ -3,7 +3,7 @@ This module contains a set of bench test scripts for the LArPix chip.
 
 '''
 import logging
-import larpix
+import larpix.larpix as larpix
 import json
 from bitstring import BitArray
 
@@ -221,15 +221,18 @@ def threshold_scan_test(settings):
     controller = larpix.Controller(settings['port'])
     controller.timeout = 0.1
     scan_data = {}
+    thresholds = list(range(250, -1, -5))
     try:
         for chip_description in settings['chipset']:
             chip = larpix.Chip(*chip_description)
             controller.chips.append(chip)
             chip.config.disable_channels()
+            chip.config.periodic_reset = 1
+            controller.write_configuration(chip, [47, 52, 53, 54, 55])
             scan_data[str(chip_description)] = {}
-            scan_data['thresholds'] = list(range(250, -1, -10))
+            scan_data['thresholds'] = thresholds
         for chip, description in zip(controller.chips, settings['chipset']):
-            for channel in [20, 30]:
+            for channel in range(32):
                 logger.info('Starting chip %s, channel %d' %
                         (str(chip), channel))
                 scan_data[str(description)][channel] = []
@@ -238,12 +241,12 @@ def threshold_scan_test(settings):
                 chip.config.enable_channels([channel])
                 chip.config.global_threshold = 255
                 controller.write_configuration(chip, range(52, 56))
-                for threshold in range(250, -1, -10):
+                for threshold in thresholds:
                     chip.reads = []
                     chip.config.global_threshold = threshold
                     controller.write_configuration(chip, 32)
                     controller.serial_read(0.1)
-                    controller.run(1)
+                    controller.run(0.5)
                     nreads = len(chip.reads)
                     channel_thresholds.append(nreads)
                     logger.info(nreads)
