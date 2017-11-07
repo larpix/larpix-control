@@ -57,6 +57,21 @@ class Chip(object):
             packet.assign_parity()
         return packets
 
+    def sync_configuration(self):
+        '''
+        Adjust self.config to match whatever config read packets are in
+        self.reads.
+
+        Later packets in the list will overwrite earlier packets.
+
+        '''
+        updates = {}
+        for packet in self.reads:
+            if packet.packet_type == Packet.CONFIG_READ_PACKET:
+                updates[packet.register_address] = packet.register_data
+
+        self.config.from_dict(updates)
+
     def export_reads(self, only_new_reads=True):
         '''
         Return a dict of the packets this Chip has received.
@@ -584,6 +599,14 @@ class Configuration(object):
         for register_name in self.register_names:
             if register_name in d:
                 setattr(self, register_name, d[register_name])
+
+    def from_dict_registers(self, d):
+        '''
+        Load in the configuration specified by a dict of (register,
+        value) pairs.
+
+        '''
+
 
     def write(self, filename, force=False, append=False):
         if os.path.isfile(filename):
