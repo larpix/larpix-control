@@ -289,6 +289,8 @@ if __name__ == '__main__':
             help='list of IO chain IDs (corresponding to chipids')
     parser.add_argument('-f', '--filename', default='out.txt',
             help='filename to save data to')
+    parser.add_argument('-m', '--message', default='',
+            help='message to save to the logfile')
     args = parser.parse_args()
     if args.list:
         print('\n'.join(tests.keys()))
@@ -305,6 +307,8 @@ if __name__ == '__main__':
             }
     setup_logger(settings)
     logger = logging.getLogger(__name__)
+    logger.info('-'*60)
+    logger.info(args.message)
     try:
         for test in args.test:
             tests[test](settings)
