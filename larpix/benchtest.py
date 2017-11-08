@@ -266,6 +266,71 @@ def threshold_scan_test(settings):
         logger.error(str(scan_data))
         raise
 
+def periodic_reset_test(settings):
+    '''
+    Iterate through different periods for the periodic reset, taking
+    data with an external trigger.
+
+    Saves all the readout to the specified file.
+
+    '''
+    logger = logging.getLogger(__name__)
+    logger.info('Performing periodic_reset_test')
+    controller = larpix.Controller(settings['port'])
+    controller.timeout = 0.1
+    data = {}
+    reset_periods = list(map(int, [1, 1, 1, 1, 1, 10, 100,
+            1000, 2000, 4000, 8000,
+            1e4, 2e4, 4e4, 8e4,
+            1e5, 2e5, 4e5, 8e5,
+            1e6, 2e6, 4e6, 8e6, 16e6]))
+    try:
+        for chip_description in settings['chipset']:
+            chip = larpix.Chip(*chip_description)
+            controller.chips.append(chip)
+            chip.config.disable_channels()
+            chip.config.periodic_reset = 1
+            chip.config.global_threshold = 255
+            controller.write_configuration(chip)
+            data[str(chip_description)] = {}
+            data['reset_periods'] = reset_periods
+        for chip, description in zip(controller.chips, settings['chipset']):
+            for channel in range(32):
+                logger.debug('Starting chip %s, channel %d' %
+                        (str(chip), channel))
+                data[str(description)][channel] = []
+                adc_data = data[str(description)][channel]
+                chip.config.disable_channels()
+                chip.config.enable_channels([channel])
+                chip.config.external_trigger_mask = [1] * 32
+                chip.config.external_trigger_mask[channel] = 0
+                controller.write_configuration(chip)
+                for period in reset_periods:
+                    chip.reads = []
+                    chip.config.reset_cycles = period
+                    controller.write_configuration(chip, [60, 61, 62])
+                    controller.serial_read(1.5)
+                    controller.run(0.5)
+                    nreads = len(chip.reads)
+                    if nreads == 0:
+                        adc_data.append(0)
+                    else:
+                        adcs = list(map(lambda p:p.dataword,
+                            chip.reads))
+                        adc_data.append(float(sum(adcs))/nreads)
+                    logger.debug(adc_data[-1])
+                logger.debug('Chip %s, channel %d: %s', str(chip),
+                    channel, str(data))
+    except:
+        logger.error('Unable to save threshold scan data. '
+                'Dumping it here in the log so you can salvage it...')
+        logger.error(str(data))
+        raise
+    finally:
+        logger.info('Saving file to %s', settings['filename'])
+        with open(settings['filename'], 'w') as outfile:
+            json.dump(data, outfile, indent=4)
+
 
 if __name__ == '__main__':
     import argparse
@@ -277,6 +342,7 @@ if __name__ == '__main__':
             'write_register_test': write_register_test,
             'uart_test': uart_test,
             'threshold_scan_test': threshold_scan_test,
+            'periodic_reset_test': periodic_reset_test,
             }
     parser = argparse.ArgumentParser()
     parser.add_argument('--logfile', default='benchtest.log',
