@@ -11,10 +11,14 @@ from bitstring import BitArray
 
 def setup_logger(settings):
     logger = logging.getLogger(__name__)
-    logger.setLevel(logging.INFO)
+    if settings['verbose']:
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
+    logger.setLevel(level)
     logfile = settings['logfile']
     handler = logging.FileHandler(logfile)
-    handler.setLevel(logging.INFO)
+    handler.setLevel(level)
     formatter = logging.Formatter('[%(asctime)s] %(levelname)s: '
             '%(message)s')
     handler.setFormatter(formatter)
@@ -291,6 +295,8 @@ if __name__ == '__main__':
             help='filename to save data to')
     parser.add_argument('-m', '--message', default='',
             help='message to save to the logfile')
+    parser.add_argument('-v', '--verbose', action='store_true',
+            help='print debug messages as well')
     args = parser.parse_args()
     if args.list:
         print('\n'.join(tests.keys()))
@@ -304,6 +310,7 @@ if __name__ == '__main__':
             'chipset': chipset,
             'logfile': args.logfile,
             'filename': args.filename,
+            'verbose': args.verbose
             }
     setup_logger(settings)
     logger = logging.getLogger(__name__)
