@@ -806,8 +806,8 @@ class Packet(object):
     test_counter_bits_11_0 = slice(1, 13)
     test_counter_bits_15_12 = slice(40, 44)
 
-    TEST_PACKET = Bits('0b00')
-    DATA_PACKET = Bits('0b01')
+    DATA_PACKET = Bits('0b00')
+    TEST_PACKET = Bits('0b01')
     CONFIG_WRITE_PACKET = Bits('0b10')
     CONFIG_READ_PACKET = Bits('0b11')
 
