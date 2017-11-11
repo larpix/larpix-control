@@ -119,6 +119,18 @@ class Configuration(object):
         module_directory = os.path.dirname(os.path.abspath(__file__))
         self.load(os.path.join(module_directory, 'default.json'))
 
+    def __str__(self):
+        return json.dumps(self.to_dict(),sort_keys=True,indent=4,
+                        separators=(',',':'))
+
+    def get_nondefault_registers(self):
+        d = {}
+        default_config = Configuration()
+        for register_name in self.register_names:
+            if getattr(self, register_name) != getattr(default_config, register_name):
+                d[register_name] = getattr(self, register_name)
+        return d
+
     @property
     def pixel_trim_thresholds(self):
         return self._pixel_trim_thresholds
