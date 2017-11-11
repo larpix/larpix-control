@@ -489,6 +489,14 @@ def test_packet_get_test_counter():
     p.test_counter = expected
     assert p.test_counter == expected
 
+def test_configuration_get_nondefault_registers():
+    c = Configuration()
+    expected = {}
+    assert c.get_nondefault_registers() == expected
+    c.adc_burst_length += 1
+    expected['adc_burst_length'] = c.adc_burst_length
+    assert c.get_nondefault_registers() == expected
+
 def test_configuration_set_pixel_trim_thresholds():
     c = Configuration()
     expected = [0x05] * Chip.num_channels
