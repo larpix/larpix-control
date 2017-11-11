@@ -434,10 +434,10 @@ class Configuration(object):
             self.csa_testpulse_enable[channel] = 0
 
     def enable_analog_monitor(self, channel):
-        self.csa_monitor_select[channel] = 0
+        self.csa_monitor_select[channel] = 1
 
     def disable_analog_monitor(self):
-        self.csa_monitor_select = [1] * Chip.num_channels
+        self.csa_monitor_select = [0] * Chip.num_channels
 
     def all_data(self):
         bits = []
@@ -872,11 +872,15 @@ class Packet(object):
 
     def export(self):
         '''Return a dict representation of this Packet.'''
-        type_map = {'00': 'test', '01': 'data', '10': 'config write',
-                '11': 'config read'}
+        type_map = {
+                Bits(self.TEST_PACKET): 'test',
+                Bits(self.DATA_PACKET): 'data',
+                Bits(self.CONFIG_WRITE_PACKET): 'config write',
+                Bits(self.CONFIG_READ_PACKET): 'config read'
+                }
         d = {}
         d['bits'] = self.bits.bin
-        d['type'] = type_map[self.packet_type.bin]
+        d['type'] = type_map[Bits(self.packet_type)]
         d['chipid'] = self.chipid
         d['parity'] = self.parity_bit_value
         d['valid_parity'] = self.has_valid_parity()
