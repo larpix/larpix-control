@@ -7,6 +7,7 @@ import pytest
 from larpix.larpix import Chip, Packet, Configuration, Controller
 from bitstring import BitArray
 import json
+import time
 
 class MockSerialPort(object):
     '''
@@ -196,6 +197,21 @@ def test_packet_init_default():
     p = Packet()
     expected = BitArray([0] * Packet.size)
     assert p.bits == expected
+
+def test_packet_cpu_timestamp():
+    p = Packet()
+    now = time.time()
+    p.cpu_timestamp = now
+    assert p.cpu_timestamp == now
+
+def test_packet_cpu_timestamp_error():
+    p = Packet()
+    with pytest.raises(ValueError, message='Should fail: invalid type'):
+        p.timestamp = 'a'
+    with pytest.raises(ValueError, message='Should fail: invalid value'):
+        p.timestamp = -10
+    with pytest.raises(ValueError, message='Should fail: invalid type'):
+        p.timestamp = None
 
 def test_packet_init_bytestream():
     bytestream = b'\x3f' + b'\x00' * (Packet.num_bytes-2) + b'\x3e'

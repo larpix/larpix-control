@@ -825,6 +825,7 @@ class Packet(object):
 
     def __init__(self, bytestream=None):
         self._bit_padding = Bits('0b00')
+        self._cpu_timestamp = time.time()
         if bytestream is None:
             self.bits = BitArray(Packet.size)
             return
@@ -926,6 +927,18 @@ class Packet(object):
     @chipid.setter
     def chipid(self, value):
         self.bits[Packet.chipid_bits] = value
+
+    @property
+    def cpu_timestamp(self):
+        return self._cpu_timestamp
+
+    @cpu_timestamp.setter
+    def cpu_timestamp(self, value):
+        if not isinstance(value, (int, long, float)):
+            raise ValueError("cpu_timestamp is not a number")
+        elif value < 0:
+            raise ValueError("cpu_timestamp is not a valid time")
+        self._cpu_timestamp = value
 
     @property
     def parity_bit_value(self):
