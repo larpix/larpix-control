@@ -22,6 +22,7 @@ class Chip(object):
         self.io_chain = io_chain
         self.data_to_send = []
         self.config = Configuration()
+        self.read_data = []
         self.reads = []
         self.new_reads_index = 0
 
@@ -768,11 +769,21 @@ class Controller(object):
                 next_start_index = current_stream[1:].find(start_byte)
                 current_byte += next_start_index
                 current_stream = current_stream[1:][next_start_index:]
+
+        for chip in self.chips:
+            read_data = {}
+            read_data['cpu_timestamp'] = self.last_read_time
+            read_data['read_id'] = self.read_counter
+            read_data['config'] = chip.config.get_nondefault_registers()
+            read_data['log_message'] = ''
+            read_data['packets'] = []
+            chip.read_data.append(read_data)
         # assign each packet to the corresponding Chip
         for byte_packet in byte_packets:
             io_chain = byte_packet[0][4:].uint
             packet = byte_packet[1]
             chip_id = packet.chipid
+            self.get_chip(chip_id, io_chain).read_data[-1]['packets'].append(packet)
             self.get_chip(chip_id, io_chain).reads.append(packet)
         return current_stream  # (the remainder that wasn't read in)
 
