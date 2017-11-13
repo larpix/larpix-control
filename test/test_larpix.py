@@ -113,6 +113,10 @@ def test_chip_export_reads():
     packet = Packet()
     packet.packet_type = Packet.CONFIG_WRITE_PACKET
     packet.chipid = 1
+    now = time.time()
+    packet.cpu_timestamp = now
+    packet.bytestream_id = 10
+    packet.read_id = 1
     packet.register_address = 10
     packet.register_data = 20
     packet.assign_parity()
@@ -129,7 +133,10 @@ def test_chip_export_reads():
                     'parity': 1,
                     'valid_parity': True,
                     'register': 10,
-                    'value': 20
+                    'value': 20,
+                    'cpu_timestamp': now,
+                    'bytestream_id': 10,
+                    'read_id': 1
                     }
                 ]
             }
@@ -153,6 +160,10 @@ def test_chip_export_reads_no_new_reads():
 def test_chip_export_reads_all():
     chip = Chip(1, 2)
     packet = Packet()
+    now = time.time()
+    packet.cpu_timestamp = now
+    packet.bytestream_id = 10
+    packet.read_id = 1
     packet.packet_type = Packet.CONFIG_WRITE_PACKET
     chip.reads.append(packet)
     chip.export_reads()
@@ -168,7 +179,10 @@ def test_chip_export_reads_all():
                     'parity': 0,
                     'valid_parity': True,
                     'register': 0,
-                    'value': 0
+                    'value': 0,
+                    'cpu_timestamp': now,
+                    'bytestream_id': 10,
+                    'read_id': 1
                     }
                 ]
             }
@@ -207,11 +221,11 @@ def test_packet_cpu_timestamp():
 def test_packet_cpu_timestamp_error():
     p = Packet()
     with pytest.raises(ValueError, message='Should fail: invalid type'):
-        p.timestamp = 'a'
+        p.cpu_timestamp = 'a'
     with pytest.raises(ValueError, message='Should fail: invalid value'):
-        p.timestamp = -10
+        p.cpu_timestamp = -10
     with pytest.raises(ValueError, message='Should fail: invalid type'):
-        p.timestamp = None
+        p.cpu_timestamp = None
 
 def test_packet_init_bytestream():
     bytestream = b'\x3f' + b'\x00' * (Packet.num_bytes-2) + b'\x3e'
@@ -245,6 +259,10 @@ def test_packet_bytes_properties():
 
 def test_packet_export_test():
     p = Packet()
+    now = time.time()
+    p.cpu_timestamp = now
+    p.read_id = 0
+    p.bytestream_id = 0
     p.packet_type = Packet.TEST_PACKET
     p.chipid = 5
     p.test_counter = 32838
@@ -257,11 +275,18 @@ def test_packet_export_test():
             'counter': 32838,
             'parity': p.parity_bit_value,
             'valid_parity': True,
+            'cpu_timestamp': now,
+            'read_id': 0,
+            'bytestream_id': 0
             }
     assert result == expected
 
 def test_packet_export_data():
     p = Packet()
+    now = time.time()
+    p.cpu_timestamp = now
+    p.read_id = 0
+    p.bytestream_id = 0
     p.packet_type = Packet.DATA_PACKET
     p.chipid = 2
     p.channel_id = 10
@@ -282,11 +307,18 @@ def test_packet_export_data():
             'fifo_full': False,
             'parity': p.parity_bit_value,
             'valid_parity': True,
+            'cpu_timestamp': now,
+            'read_id': 0,
+            'bytestream_id': 0
             }
     assert result == expected
 
 def test_packet_export_config_read():
     p = Packet()
+    now = time.time()
+    p.cpu_timestamp = now
+    p.read_id = 0
+    p.bytestream_id = 0
     p.packet_type = Packet.CONFIG_READ_PACKET
     p.chipid = 10
     p.register_address = 51
@@ -301,11 +333,18 @@ def test_packet_export_config_read():
             'value': 2,
             'parity': p.parity_bit_value,
             'valid_parity': True,
+            'cpu_timestamp': now,
+            'read_id': 0,
+            'bytestream_id': 0
             }
     assert result == expected
 
 def test_packet_export_config_write():
     p = Packet()
+    now = time.time()
+    p.cpu_timestamp = now
+    p.read_id = 0
+    p.bytestream_id = 0
     p.packet_type = Packet.CONFIG_WRITE_PACKET
     p.chipid = 10
     p.register_address = 51
@@ -320,6 +359,9 @@ def test_packet_export_config_write():
             'value': 2,
             'parity': p.parity_bit_value,
             'valid_parity': True,
+            'cpu_timestamp': now,
+            'read_id': 0,
+            'bytestream_id': 0
             }
     assert result == expected
 

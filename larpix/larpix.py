@@ -756,9 +756,9 @@ class Controller(object):
                     code = 'bytes:1='
                 byte_packets.append((Bits(code + str(metadata)),
                     Packet(current_stream[data_bytes])))
-                byte_packets[-1].cpu_timestamp = self.last_read_time
-                byte_packets[-1].read_id = self.read_counter
-                byte_packets[-1].bytestream_id = current_byte
+                byte_packets[-1][1].cpu_timestamp = self.last_read_time
+                byte_packets[-1][1].read_id = self.read_counter
+                byte_packets[-1][1].bytestream_id = current_byte
                         # store postion in bytestream of packet
                 current_stream = current_stream[packet_size:]
             else:
