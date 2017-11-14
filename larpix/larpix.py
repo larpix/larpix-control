@@ -973,10 +973,6 @@ class Packet(object):
 
     @cpu_timestamp.setter
     def cpu_timestamp(self, value):
-        if not isinstance(value, (int, long, float)):
-            raise ValueError("cpu_timestamp is not a number")
-        elif value < 0:
-            raise ValueError("cpu_timestamp is not a valid time")
         self._cpu_timestamp = value
 
     @property
