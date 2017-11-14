@@ -696,7 +696,7 @@ class Controller(object):
             unprocessed = self.parse_input(miso_bytestream)
             return unprocessed
 
-    def read_configuration(self, chip, registers=None):
+    def read_configuration(self, chip, registers=None, timeout=1):
         if registers is None:
             registers = list(range(Configuration.num_registers))
         elif isinstance(registers, int):
@@ -705,7 +705,7 @@ class Controller(object):
             pass
         bytestreams = self.get_configuration_bytestreams(chip,
                 Packet.CONFIG_READ_PACKET, registers)
-        data = self.serial_write_read(bytestreams, 1)
+        data = self.serial_write_read(bytestreams, timeout)
         unprocessed = self.parse_input(data)
         return unprocessed
 
