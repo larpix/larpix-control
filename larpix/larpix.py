@@ -2,6 +2,7 @@
 A module to control the LArPix chip.
 
 '''
+from __future__ import absolute_import
 
 import time
 import serial
