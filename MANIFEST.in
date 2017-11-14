@@ -1,1 +1,2 @@
 include fpga_interface.txt
+include larpix/configs/*.json
