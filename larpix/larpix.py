@@ -50,7 +50,10 @@ class Chip(object):
             packet.packet_type = packet_type
             packet.chipid = self.chip_id
             packet.register_address = i
-            packet.register_data = data
+            if packet_type == Packet.CONFIG_WRITE_PACKET:
+                packet.register_data = data
+            else:
+                packet.register_data = 0
             packet.assign_parity()
         return packets
 
