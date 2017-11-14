@@ -3,7 +3,7 @@ The setup.py file for larpix-control.
 
 '''
 
-from setuptools import setup
+from setuptools import setup, find_packages
 from codecs import open
 import os
 
@@ -14,7 +14,7 @@ with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
         name='larpix-control',
-        version='0.5.0',
+        version='0.5.1',
         description='Control the LArPix chip',
         long_description=long_description,
         url='https://github.com/samkohn/larpix-control',
@@ -27,7 +27,7 @@ setup(
             'Programming Language :: Python :: 3',
         ],
         keywords='dune physics',
-        packages=['larpix'],
+        packages=find_packages(),
         install_requires=['pyserial','bitstring','pytest'],
         scripts=['scripts/larpix-drivercheck-ubuntu',
                  'scripts/larpix-drivercheck-mac',
