@@ -25,7 +25,6 @@ class Chip(object):
         self.io_chain = io_chain
         self.data_to_send = []
         self.config = Configuration()
-        self.read_data = []
         self.reads = []
         self.new_reads_index = 0
 
@@ -35,13 +34,52 @@ class Chip(object):
     def show_reads(self, start=0, stop=None, step=1):
         if stop is None:
             stop = len(self.reads)
-        return list(map(str, self.reads[start:stop:step]))
+        packets = []
+        for read in self.reads:
+            for packet in read['packets'][start:stop:step]:
+                packets.append(str(packet))
+        return packets
 
     def show_reads_bits(self, start=0, stop=None, step=1):
         if stop is None:
             stop = len(self.reads)
-        return list(map(lambda x:' '.join(x.bits.bin[i:i+8] for i in range(0,
-            len(x.bits.bin), 8)), self.reads[start:stop:step]))
+        packet_bits = []
+        for read in self.reads:
+            for packet in read['packets'][start:stop:step]:
+                packet_bits.append(' '.join(packet.bits.bin[i:i+8] for i in range(0,
+                        len(packet.bits.bin), 8)))
+        return packet_bits
+
+    def append_packet(self, packet):
+        '''
+        Adds a packet to the specified read
+
+        '''
+        read = {}
+        if len(self.reads) == 0:
+            # no reads yet - create a new read for packet
+            read['cpu_timestamp'] = packet.cpu_timestamp
+            read['read_id'] = packet.read_id
+            read['config'] = self.config.get_nondefault_registers()
+            read['log_message'] = ''
+            read['packets'] = [packet]
+            self.reads.append(read)
+        else:
+            read_matches = [data for data in self.reads if data['read_id'] == packet.read_id]
+            if len(read_matches) == 0:
+                # no reads match read id - create a new read for packet
+                read['cpu_timestamp'] = packet.cpu_timestamp
+                read['read_id'] = packet.read_id
+                read['config'] = self.config.get_nondefault_registers()
+                read['log_message'] = ''
+                read['packets'] = [packet]
+                self.reads.append(read)
+            elif len(read_matches) != 1:
+                raise ValueError('This should not happen - multiple read ids found')
+            else:
+                # a read exists with read id - add packet to read
+                read = read_matches[0]
+                read['packets'].append(packet)
 
     def get_configuration_packets(self, packet_type):
         conf = self.config
@@ -69,10 +107,18 @@ class Chip(object):
         data['chipid'] = self.chip_id
         data['io_chain'] = self.io_chain
         if only_new_reads:
-            packets = self.reads[self.new_reads_index:]
+            return_reads = self.reads[self.new_reads_index:]
         else:
-            packets = self.reads
-        data['packets'] = list(map(lambda x:x.export(), packets))
+            return_reads = self.reads
+        data['data'] = []
+        for read in return_reads:
+            read_dict = {}
+            read_dict['cpu_timestamp'] = read['cpu_timestamp']
+            read_dict['read_id'] = read['read_id']
+            read_dict['config'] = read['config']
+            read_dict['log_message'] = read['log_message']
+            read_dict['packets'] = list(map(lambda x: x.export(), read['packets']))
+            data['data'].append(read_dict)
         self.new_reads_index = len(self.reads)
         return data
 
@@ -785,14 +831,13 @@ class Controller(object):
             read_data['config'] = chip.config.get_nondefault_registers()
             read_data['log_message'] = ''
             read_data['packets'] = []
-            chip.read_data.append(read_data)
+            chip.reads.append(read_data)
         # assign each packet to the corresponding Chip
         for byte_packet in byte_packets:
             io_chain = byte_packet[0][4:].uint
             packet = byte_packet[1]
             chip_id = packet.chipid
-            self.get_chip(chip_id, io_chain).read_data[-1]['packets'].append(packet)
-            self.get_chip(chip_id, io_chain).reads.append(packet)
+            self.get_chip(chip_id, io_chain).reads[-1]['packets'].append(packet)
         return current_stream  # (the remainder that wasn't read in)
 
     def format_bytestream(self, formatted_packets):

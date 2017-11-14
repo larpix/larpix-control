@@ -78,7 +78,7 @@ def test_chip_show_reads():
     packet = Packet()
     packet.packet_type = Packet.TEST_PACKET
     packet.test_counter = 12345
-    chip.reads.append(packet)
+    chip.append_packet(packet)
     result = chip.show_reads()
     expected = [str(packet)]
     assert result == expected
@@ -86,7 +86,7 @@ def test_chip_show_reads():
 def test_chip_show_reads_bits():
     chip = Chip(1, 2)
     packet = Packet()
-    chip.reads.append(packet)
+    chip.append_packet(packet)
     result = chip.show_reads_bits()
     expected = ['00000000 00000000 00000000 00000000 00000000 00000000'
             ' 000000']
@@ -121,25 +121,31 @@ def test_chip_export_reads():
     packet.register_address = 10
     packet.register_data = 20
     packet.assign_parity()
-    chip.reads.append(packet)
+    chip.append_packet(packet)
     result = chip.export_reads()
     expected = {
             'chipid': 1,
             'io_chain': 2,
-            'packets': [
-                {
-                    'bits': packet.bits.bin,
-                    'type': 'config write',
-                    'chipid': 1,
-                    'parity': 1,
-                    'valid_parity': True,
-                    'register': 10,
-                    'value': 20,
-                    'cpu_timestamp': now,
-                    'bytestream_id': 10,
-                    'read_id': 1
-                    }
-                ]
+            'data': [{
+                'cpu_timestamp': now,
+                'read_id': 1,
+                'config': chip.config.get_nondefault_registers(),
+                'log_message': '',
+                'packets': [
+                        {
+                            'bits': packet.bits.bin,
+                            'type': 'config write',
+                            'chipid': 1,
+                            'parity': 1,
+                            'valid_parity': True,
+                            'register': 10,
+                            'value': 20,
+                            'cpu_timestamp': now,
+                            'bytestream_id': 10,
+                            'read_id': 1
+                        }
+                    ]
+                }]
             }
     assert result == expected
     assert chip.new_reads_index == 1
@@ -147,12 +153,12 @@ def test_chip_export_reads():
 def test_chip_export_reads_no_new_reads():
     chip = Chip(1, 2)
     result = chip.export_reads()
-    expected = {'chipid': 1, 'io_chain': 2, 'packets': []}
+    expected = {'chipid': 1, 'io_chain': 2, 'data': []}
     assert result == expected
     assert chip.new_reads_index == 0
     packet = Packet()
     packet.packet_type = Packet.CONFIG_WRITE_PACKET
-    chip.reads.append(packet)
+    chip.append_packet(packet)
     chip.export_reads()
     result = chip.export_reads()
     assert result == expected
@@ -166,26 +172,32 @@ def test_chip_export_reads_all():
     packet.bytestream_id = 10
     packet.read_id = 1
     packet.packet_type = Packet.CONFIG_WRITE_PACKET
-    chip.reads.append(packet)
+    chip.append_packet(packet)
     chip.export_reads()
     result = chip.export_reads(only_new_reads=False)
     expected = {
             'chipid': 1,
             'io_chain': 2,
-            'packets': [
-                {
-                    'bits': packet.bits.bin,
-                    'type': 'config write',
-                    'chipid': 0,
-                    'parity': 0,
-                    'valid_parity': True,
-                    'register': 0,
-                    'value': 0,
-                    'cpu_timestamp': now,
-                    'bytestream_id': 10,
-                    'read_id': 1
-                    }
-                ]
+            'data': [{
+                'cpu_timestamp': now,
+                'read_id': 1,
+                'config': chip.config.get_nondefault_registers(),
+                'log_message': '',
+                'packets': [
+                        {
+                            'bits': packet.bits.bin,
+                            'type': 'config write',
+                            'chipid': 0,
+                            'parity': 0,
+                            'valid_parity': True,
+                            'register': 0,
+                            'value': 0,
+                            'cpu_timestamp': now,
+                            'bytestream_id': 10,
+                            'read_id': 1
+                        }
+                    ]
+                }]
             }
     assert result == expected
     assert chip.new_reads_index == 1
@@ -194,7 +206,7 @@ def test_controller_save_output(tmpdir):
     controller = Controller(None)
     chip = Chip(1, 0)
     p = Packet()
-    chip.reads.append(p)
+    chip.append_packet(p)
     controller.chips.append(chip)
     name = str(tmpdir.join('test.json'))
     controller.save_output(name)
@@ -218,15 +230,6 @@ def test_packet_cpu_timestamp():
     now = time.time()
     p.cpu_timestamp = now
     assert p.cpu_timestamp == now
-
-def test_packet_cpu_timestamp_error():
-    p = Packet()
-    with pytest.raises(ValueError, message='Should fail: invalid type'):
-        p.cpu_timestamp = 'a'
-    with pytest.raises(ValueError, message='Should fail: invalid value'):
-        p.cpu_timestamp = -10
-    with pytest.raises(ValueError, message='Should fail: invalid type'):
-        p.cpu_timestamp = None
 
 def test_packet_init_bytestream():
     bytestream = b'\x3f' + b'\x00' * (Packet.num_bytes-2) + b'\x3e'
@@ -1410,7 +1413,7 @@ def test_controller_parse_input():
     remainder_bytes = controller.parse_input(bytestream)
     expected_remainder_bytes = b''
     assert remainder_bytes == expected_remainder_bytes
-    result = chip.reads
+    result = chip.reads[-1]['packets']
     expected = packets
     assert result == expected
 
@@ -1427,7 +1430,7 @@ def test_controller_parse_input_dropped_data_byte():
     remainder_bytes = controller.parse_input(bytestream_faulty)
     expected_remainder_bytes = b''
     assert remainder_bytes == expected_remainder_bytes
-    result = chip.reads
+    result = chip.reads[-1]['packets']
     expected = packets[1:]
     assert result == expected
 
@@ -1443,7 +1446,7 @@ def test_controller_parse_input_dropped_start_byte():
     remainder_bytes = controller.parse_input(bytestream_faulty)
     expected_remainder_bytes = b''
     assert remainder_bytes == expected_remainder_bytes
-    result = chip.reads
+    result = chip.reads[-1]['packets']
     expected = packets[1:]
     assert result == expected
 
@@ -1459,7 +1462,7 @@ def test_controller_parse_input_dropped_stop_byte():
     remainder_bytes = controller.parse_input(bytestream_faulty)
     expected_remainder_bytes = b''
     assert remainder_bytes == expected_remainder_bytes
-    result = chip.reads
+    result = chip.reads[-1]['packets']
     expected = packets[1:]
     assert result == expected
 
@@ -1475,6 +1478,7 @@ def test_controller_parse_input_dropped_stopstart_bytes():
     remainder_bytes = controller.parse_input(bytestream_faulty)
     expected_remainder_bytes = b''
     assert remainder_bytes == expected_remainder_bytes
-    result = chip.reads
+    result = chip.reads[-1]['packets']
     expected = packets[2:]
-    assert result == expected
+    assert expected == result
+
