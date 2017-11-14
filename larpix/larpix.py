@@ -120,8 +120,13 @@ class Configuration(object):
         self.load(os.path.join(module_directory, 'default.json'))
 
     def __str__(self):
-        return json.dumps(self.to_dict(),sort_keys=True,indent=4,
-                        separators=(',',':'))
+        '''
+        Converts configuration to a nicely formatted json string
+
+        '''
+        d = self.to_dict()
+        l = ['\"{}\": {}'.format(key,value) for key,value in d.items()]
+        return '{\n    ' + ',\n    '.join(l) + '\n}'
 
     def get_nondefault_registers(self):
         d = {}
@@ -583,8 +588,7 @@ class Configuration(object):
                               % filename)
 
         with open(filename, 'w+') as outfile:
-            json.dump(self.to_dict(), outfile, indent=4,
-                      separators=(',',':'), sort_keys=True)
+            outfile.write(str(self))
         return 0
 
     def load(self, filename):
