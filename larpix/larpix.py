@@ -26,6 +26,21 @@ class Chip(object):
         self.data_to_send = []
         self.config = Configuration()
         self.reads = []
+        self.new_reads_index = 0
+
+    def __str__(self):
+        return 'Chip (id: %d, chain: %d)' % (self.chip_id, self.io_chain)
+
+    def show_reads(self, start=0, stop=None, step=1):
+        if stop is None:
+            stop = len(self.reads)
+        return list(map(str, self.reads[start:stop:step]))
+
+    def show_reads_bits(self, start=0, stop=None, step=1):
+        if stop is None:
+            stop = len(self.reads)
+        return list(map(lambda x:' '.join(x.bits.bin[i:i+8] for i in range(0,
+            len(x.bits.bin), 8)), self.reads[start:stop:step]))
 
     def get_configuration_packets(self, packet_type):
         conf = self.config
@@ -38,6 +53,27 @@ class Chip(object):
             packet.register_data = data
             packet.assign_parity()
         return packets
+
+    def export_reads(self, only_new_reads=True):
+        '''
+        Return a dict of the packets this Chip has received.
+
+        If ``only_new_reads`` is ``True`` (default), then only the
+        packets since the last time this method was called will be in
+        the dict. Otherwise, all of the packets stored in ``self.reads``
+        will be in the dict.
+
+        '''
+        data = {}
+        data['chipid'] = self.chip_id
+        data['io_chain'] = self.io_chain
+        if only_new_reads:
+            packets = self.reads[self.new_reads_index:]
+        else:
+            packets = self.reads
+        data['packets'] = list(map(lambda x:x.export(), packets))
+        self.new_reads_index = len(self.reads)
+        return data
 
 class Configuration(object):
     '''
@@ -64,25 +100,44 @@ class Configuration(object):
     TEST_UART = 0x1
     TEST_FIFO = 0x2
     def __init__(self):
-        self._pixel_trim_thresholds = [0x10] * Chip.num_channels
-        self._global_threshold = 0x10
-        self._csa_gain = 1
-        self._csa_bypass = 0
-        self._internal_bypass = 1
-        self._csa_bypass_select = [0] * Chip.num_channels
-        self._csa_monitor_select = [1] * Chip.num_channels
-        self._csa_testpulse_enable = [0] * Chip.num_channels
-        self._csa_testpulse_dac_amplitude = 0
-        self._test_mode = Configuration.TEST_OFF
-        self._cross_trigger_mode = 0
-        self._periodic_reset = 0
-        self._fifo_diagnostic = 0
-        self._sample_cycles = 1
-        self._test_burst_length = 0x00FF
-        self._adc_burst_length = 0
-        self._channel_mask = [0] * Chip.num_channels
-        self._external_trigger_mask = [1] * Chip.num_channels
-        self._reset_cycles = 0x001000
+        self.register_names = ['pixel_trim_thresholds',
+                               'global_threshold',
+                               'csa_gain',
+                               'csa_bypass',
+                               'internal_bypass',
+                               'csa_bypass_select',
+                               'csa_monitor_select',
+                               'csa_testpulse_enable',
+                               'csa_testpulse_dac_amplitude',
+                               'test_mode',
+                               'cross_trigger_mode',
+                               'periodic_reset',
+                               'fifo_diagnostic',
+                               'sample_cycles',
+                               'test_burst_length',
+                               'adc_burst_length',
+                               'channel_mask',
+                               'external_trigger_mask',
+                               'reset_cycles']
+        module_directory = os.path.dirname(os.path.abspath(__file__))
+        self.load(os.path.join(module_directory, 'default.json'))
+
+    def __str__(self):
+        '''
+        Converts configuration to a nicely formatted json string
+
+        '''
+        d = self.to_dict()
+        l = ['\"{}\": {}'.format(key,value) for key,value in d.items()]
+        return '{\n    ' + ',\n    '.join(l) + '\n}'
+
+    def get_nondefault_registers(self):
+        d = {}
+        default_config = Configuration()
+        for register_name in self.register_names:
+            if getattr(self, register_name) != getattr(default_config, register_name):
+                d[register_name] = getattr(self, register_name)
+        return d
 
     @property
     def pixel_trim_thresholds(self):
@@ -399,10 +454,10 @@ class Configuration(object):
             self.csa_testpulse_enable[channel] = 0
 
     def enable_analog_monitor(self, channel):
-        self.csa_monitor_select[channel] = 0
+        self.csa_monitor_select[channel] = 1
 
     def disable_analog_monitor(self):
-        self.csa_monitor_select = [1] * Chip.num_channels
+        self.csa_monitor_select = [0] * Chip.num_channels
 
     def all_data(self):
         bits = []
@@ -519,58 +574,24 @@ class Configuration(object):
 
     def to_dict(self):
         d = {}
-        d['pixel_trim_thresholds'] = self.pixel_trim_thresholds
-        d['global_threshold'] = self.global_threshold
-        d['csa_gain'] = self.csa_gain
-        d['csa_bypass'] = self.csa_bypass
-        d['internal_bypass'] = self.internal_bypass
-        d['csa_bypass_select'] = self.csa_bypass_select
-        d['csa_monitor_select'] = self.csa_monitor_select
-        d['csa_testpulse_enable'] = self.csa_testpulse_enable
-        d['csa_testpulse_dac_amplitude'] = self.csa_testpulse_dac_amplitude
-        d['test_mode'] = self.test_mode
-        d['cross_trigger_mode'] = self.cross_trigger_mode
-        d['periodic_reset'] = self.periodic_reset
-        d['fifo_diagnostic'] = self.fifo_diagnostic
-        d['sample_cycles'] = self.sample_cycles
-        d['test_burst_length'] = self.test_burst_length
-        d['adc_burst_length'] = self.adc_burst_length
-        d['channel_mask'] = self.channel_mask
-        d['external_trigger_mask'] = self.external_trigger_mask
-        d['reset_cycles'] = self.reset_cycles
+        for register_name in self.register_names:
+            d[register_name] = getattr(self, register_name)
         return d
 
     def from_dict(self, d):
-        self.pixel_trim_thresholds = d['pixel_trim_thresholds']
-        self.global_threshold = d['global_threshold']
-        self.csa_gain = d['csa_gain']
-        self.csa_bypass = d['csa_bypass']
-        self.internal_bypass = d['internal_bypass']
-        self.csa_bypass_select = d['csa_bypass_select']
-        self.csa_monitor_select = d['csa_monitor_select']
-        self.csa_testpulse_enable = d['csa_testpulse_enable']
-        self.csa_testpulse_dac_amplitude = d['csa_testpulse_dac_amplitude']
-        self.test_mode = d['test_mode']
-        self.cross_trigger_mode = d['cross_trigger_mode']
-        self.periodic_reset = d['periodic_reset']
-        self.fifo_diagnostic = d['fifo_diagnostic']
-        self.sample_cycles = d['sample_cycles']
-        self.test_burst_length = d['test_burst_length']
-        self.adc_burst_length = d['adc_burst_length']
-        self.channel_mask = d['channel_mask']
-        self.external_trigger_mask = d['external_trigger_mask']
-        self.reset_cycles = d['reset_cycles']
+        for register_name in self.register_names:
+            if register_name in d:
+                setattr(self, register_name, d[register_name])
 
-    def write(self, filename, force=False):
+    def write(self, filename, force=False, append=False):
         if os.path.isfile(filename):
             if not force:
                 raise IOError(errno.EEXIST,
                               'File %s exists. Use force=True to overwrite'
                               % filename)
 
-        with open(filename, 'w') as outfile:
-            json.dump(self.to_dict(), outfile, indent=4,
-                      separators=(',',':'), sort_keys=True)
+        with open(filename, 'w+') as outfile:
+            outfile.write(str(self))
         return 0
 
     def load(self, filename):
@@ -592,6 +613,9 @@ class Controller(object):
         self.max_write = 8192
         self._serial = serial.Serial
 
+    def init_chips(self, nchips = 256, iochain = 0):
+        self.chips = [Chip(i, iochain) for i in range(256)]
+
     def get_chip(self, chip_id, io_chain):
         for chip in self.chips:
             if chip.chip_id == chip_id and chip.io_chain == io_chain:
@@ -599,15 +623,32 @@ class Controller(object):
         raise ValueError('Could not find chip (%d, %d)' % (chip_id,
             io_chain))
 
+    def serial_flush(self):
+        with self._serial(self.port, baudrate=self.baudrate,
+                timeout=self.timeout) as serial:
+            serial.reset_output_buffer()
+            serial.reset_input_buffer()
+
     def serial_read(self, timelimit):
         data_in = b''
         start = time.time()
-        with self._serial(self.port, baudrate=self.baudrate,
-                timeout=self.timeout) as serial_in:
-            while time.time() - start < timelimit:
-                stream = serial_in.read(self.max_write)
-                if len(stream) > 0:
-                    data_in += stream
+        try:
+            with self._serial(self.port, baudrate=self.baudrate,
+                    timeout=self.timeout) as serial_in:
+                while time.time() - start < timelimit:
+                    stream = serial_in.read(self.max_write)
+                    if len(stream) > 0:
+                        data_in += stream
+        except Exception as e:
+            if getattr(self, '_read_tries_left', None) is None:
+                self._read_tries_left = 3
+                self.serial_read(timelimit)
+            elif self._read_tries_left > 0:
+                self._read_tries_left -= 1
+                self.serial_read(timelimit)
+            else:
+                del self._read_tries_left
+                raise
         return data_in
 
     def serial_write(self, bytestreams):
@@ -745,6 +786,14 @@ class Controller(object):
         bytestreams.append(current_bytestream)
         return bytestreams
 
+    def save_output(self, filename):
+        '''Save the data read by each chip to the specified file.'''
+        data = {}
+        data['chips'] = list(map(lambda x:x.export_reads(), self.chips))
+        with open(filename, 'w') as outfile:
+            json.dump(data, outfile, indent=4,
+                    separators=(',',':'), sort_keys=True)
+
 
 
 class Packet(object):
@@ -778,8 +827,8 @@ class Packet(object):
     test_counter_bits_11_0 = slice(1, 13)
     test_counter_bits_15_12 = slice(40, 44)
 
-    TEST_PACKET = Bits('0b00')
-    DATA_PACKET = Bits('0b01')
+    DATA_PACKET = Bits('0b00')
+    TEST_PACKET = Bits('0b01')
     CONFIG_WRITE_PACKET = Bits('0b10')
     CONFIG_READ_PACKET = Bits('0b11')
 
@@ -828,7 +877,7 @@ class Packet(object):
         first_splitter = string.find('|')
         string = (string[:first_splitter] + '| Chip: %d ' % self.chipid +
                 string[first_splitter:])
-        string += ('Parity: %d (valid: %s) ] ' %
+        string += ('Parity: %d (valid: %s) ]' %
                 (self.parity_bit_value, self.has_valid_parity()))
         return string
 
@@ -841,6 +890,35 @@ class Packet(object):
         padded_output = self._bit_padding + self.bits
         bytes_output = padded_output.bytes
         return bytes_output[::-1]
+
+    def export(self):
+        '''Return a dict representation of this Packet.'''
+        type_map = {
+                Bits(self.TEST_PACKET): 'test',
+                Bits(self.DATA_PACKET): 'data',
+                Bits(self.CONFIG_WRITE_PACKET): 'config write',
+                Bits(self.CONFIG_READ_PACKET): 'config read'
+                }
+        d = {}
+        d['bits'] = self.bits.bin
+        d['type'] = type_map[Bits(self.packet_type)]
+        d['chipid'] = self.chipid
+        d['parity'] = self.parity_bit_value
+        d['valid_parity'] = self.has_valid_parity()
+        ptype = self.packet_type
+        if ptype == Packet.TEST_PACKET:
+            d['counter'] = self.test_counter
+        elif ptype == Packet.DATA_PACKET:
+            d['channel'] = self.channel_id
+            d['timestamp'] = self.timestamp
+            d['adc_counts'] = self.dataword
+            d['fifo_half'] = bool(self.fifo_half_flag)
+            d['fifo_full'] = bool(self.fifo_full_flag)
+        elif (ptype == Packet.CONFIG_READ_PACKET or ptype ==
+                Packet.CONFIG_WRITE_PACKET):
+            d['register'] = self.register_address
+            d['value'] = self.register_data
+        return d
 
     @property
     def packet_type(self):

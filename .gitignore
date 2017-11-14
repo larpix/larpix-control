@@ -2,8 +2,10 @@ bin
 *.swp
 __*
 *.pyc
+*.log
 .cache
 build
 dist
 *.egg-info
 docs/_build
+*.json

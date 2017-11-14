@@ -66,6 +66,31 @@ def test_MockSerialPort_read_multi():
     data += serial.read(5)
     assert data == expected
 
+def test_chip_str():
+    chip = Chip(1, 2)
+    result = str(chip)
+    expected = 'Chip (id: 1, chain: 2)'
+    assert result == expected
+
+def test_chip_show_reads():
+    chip = Chip(1, 2)
+    packet = Packet()
+    packet.packet_type = Packet.TEST_PACKET
+    packet.test_counter = 12345
+    chip.reads.append(packet)
+    result = chip.show_reads()
+    expected = [str(packet)]
+    assert result == expected
+
+def test_chip_show_reads_bits():
+    chip = Chip(1, 2)
+    packet = Packet()
+    chip.reads.append(packet)
+    result = chip.show_reads_bits()
+    expected = ['00000000 00000000 00000000 00000000 00000000 00000000'
+            ' 000000']
+    assert result == expected
+
 def test_chip_get_configuration_packets():
     chip = Chip(3, 1)
     packet_type = Packet.CONFIG_WRITE_PACKET
@@ -81,7 +106,89 @@ def test_chip_get_configuration_packets():
     assert packet.packet_type == packet_type
     assert packet.chipid == chip.chip_id
     assert packet.register_address == 40
-    assert packet.register_data == 255
+    assert packet.register_data == 0
+
+def test_chip_export_reads():
+    chip = Chip(1, 2)
+    packet = Packet()
+    packet.packet_type = Packet.CONFIG_WRITE_PACKET
+    packet.chipid = 1
+    packet.register_address = 10
+    packet.register_data = 20
+    packet.assign_parity()
+    chip.reads.append(packet)
+    result = chip.export_reads()
+    expected = {
+            'chipid': 1,
+            'io_chain': 2,
+            'packets': [
+                {
+                    'bits': packet.bits.bin,
+                    'type': 'config write',
+                    'chipid': 1,
+                    'parity': 1,
+                    'valid_parity': True,
+                    'register': 10,
+                    'value': 20
+                    }
+                ]
+            }
+    assert result == expected
+    assert chip.new_reads_index == 1
+
+def test_chip_export_reads_no_new_reads():
+    chip = Chip(1, 2)
+    result = chip.export_reads()
+    expected = {'chipid': 1, 'io_chain': 2, 'packets': []}
+    assert result == expected
+    assert chip.new_reads_index == 0
+    packet = Packet()
+    packet.packet_type = Packet.CONFIG_WRITE_PACKET
+    chip.reads.append(packet)
+    chip.export_reads()
+    result = chip.export_reads()
+    assert result == expected
+    assert chip.new_reads_index == 1
+
+def test_chip_export_reads_all():
+    chip = Chip(1, 2)
+    packet = Packet()
+    packet.packet_type = Packet.CONFIG_WRITE_PACKET
+    chip.reads.append(packet)
+    chip.export_reads()
+    result = chip.export_reads(only_new_reads=False)
+    expected = {
+            'chipid': 1,
+            'io_chain': 2,
+            'packets': [
+                {
+                    'bits': packet.bits.bin,
+                    'type': 'config write',
+                    'chipid': 0,
+                    'parity': 0,
+                    'valid_parity': True,
+                    'register': 0,
+                    'value': 0
+                    }
+                ]
+            }
+    assert result == expected
+    assert chip.new_reads_index == 1
+
+def test_controller_save_output(tmpdir):
+    controller = Controller(None)
+    chip = Chip(1, 0)
+    p = Packet()
+    chip.reads.append(p)
+    controller.chips.append(chip)
+    name = str(tmpdir.join('test.json'))
+    controller.save_output(name)
+    with open(name) as f:
+        result = json.load(f)
+    expected = {
+            'chips': [chip.export_reads(only_new_reads=False)]
+            }
+    assert result == expected
 
 def test_packet_bits_bytes():
     assert Packet.num_bytes == Packet.size // 8 + 1
@@ -117,9 +224,89 @@ def test_packet_bytes_properties():
     p = Packet()
     p.packet_type = Packet.DATA_PACKET
     p.chipid = 100
-    expected = b'\x91\x01' + b'\x00' * (Packet.size//8-1)
+    expected = b'\x90\x01' + b'\x00' * (Packet.size//8-1)
     b = p.bytes()
     assert b == expected
+
+def test_packet_export_test():
+    p = Packet()
+    p.packet_type = Packet.TEST_PACKET
+    p.chipid = 5
+    p.test_counter = 32838
+    p.assign_parity()
+    result = p.export()
+    expected = {
+            'bits': p.bits.bin,
+            'type': 'test',
+            'chipid': 5,
+            'counter': 32838,
+            'parity': p.parity_bit_value,
+            'valid_parity': True,
+            }
+    assert result == expected
+
+def test_packet_export_data():
+    p = Packet()
+    p.packet_type = Packet.DATA_PACKET
+    p.chipid = 2
+    p.channel_id = 10
+    p.timestamp = 123456
+    p.dataword = 180
+    p.fifo_half_flag = True
+    p.fifo_full_flag = False
+    p.assign_parity()
+    result = p.export()
+    expected = {
+            'bits': p.bits.bin,
+            'type': 'data',
+            'chipid': 2,
+            'channel': 10,
+            'timestamp': 123456,
+            'adc_counts': 180,
+            'fifo_half': True,
+            'fifo_full': False,
+            'parity': p.parity_bit_value,
+            'valid_parity': True,
+            }
+    assert result == expected
+
+def test_packet_export_config_read():
+    p = Packet()
+    p.packet_type = Packet.CONFIG_READ_PACKET
+    p.chipid = 10
+    p.register_address = 51
+    p.register_data = 2
+    p.assign_parity()
+    result = p.export()
+    expected = {
+            'bits': p.bits.bin,
+            'type': 'config read',
+            'chipid': 10,
+            'register': 51,
+            'value': 2,
+            'parity': p.parity_bit_value,
+            'valid_parity': True,
+            }
+    assert result == expected
+
+def test_packet_export_config_write():
+    p = Packet()
+    p.packet_type = Packet.CONFIG_WRITE_PACKET
+    p.chipid = 10
+    p.register_address = 51
+    p.register_data = 2
+    p.assign_parity()
+    result = p.export()
+    expected = {
+            'bits': p.bits.bin,
+            'type': 'config write',
+            'chipid': 10,
+            'register': 51,
+            'value': 2,
+            'parity': p.parity_bit_value,
+            'valid_parity': True,
+            }
+    assert result == expected
 
 def test_packet_set_packet_type():
     p = Packet()
@@ -302,6 +489,14 @@ def test_packet_get_test_counter():
     expected = 19831
     p.test_counter = expected
     assert p.test_counter == expected
+
+def test_configuration_get_nondefault_registers():
+    c = Configuration()
+    expected = {}
+    assert c.get_nondefault_registers() == expected
+    c.adc_burst_length += 1
+    expected['adc_burst_length'] = c.adc_burst_length
+    assert c.get_nondefault_registers() == expected
 
 def test_configuration_set_pixel_trim_thresholds():
     c = Configuration()
@@ -749,38 +944,38 @@ def test_configuration_disable_external_trigger():
 def test_configuration_enable_testpulse():
     c = Configuration()
     expected = [0, 1] * 16
+    c.disable_testpulse()
     c.enable_testpulse(range(1, 32, 2))
     assert c.csa_testpulse_enable == expected
 
 def test_configuration_enable_testpulse_default():
     c = Configuration()
     expected = [1] * 32
+    c.disable_testpulse()
     c.enable_testpulse()
     assert c.csa_testpulse_enable == expected
 
 def test_configuration_disable_testpulse():
     c = Configuration()
     expected = [0, 1] * 16
-    c.enable_testpulse()
     c.disable_testpulse(range(0, 32, 2))
     assert c.csa_testpulse_enable == expected
 
 def test_configuration_disable_testpulse_default():
     c = Configuration()
     expected = [0] * 32
-    c.enable_testpulse()
     c.disable_testpulse()
     assert c.csa_testpulse_enable == expected
 
 def test_configuration_enable_analog_monitor():
     c = Configuration()
-    expected = [1, 1, 0] + [1] * 29
+    expected = [0, 0, 1] + [0] * 29
     c.enable_analog_monitor(2)
     assert c.csa_monitor_select == expected
 
 def test_configuration_disable_analog_monitor():
     c = Configuration()
-    expected = [1] * 32
+    expected = [0] * 32
     c.enable_analog_monitor(5)
     c.disable_analog_monitor()
     assert c.csa_monitor_select == expected
@@ -797,7 +992,7 @@ def test_configuration_global_threshold_data():
 
 def test_configuration_csa_gain_and_bypasses_data():
     c = Configuration()
-    expected = BitArray('0b00001001')
+    expected = BitArray('0b00000001')
     assert c.csa_gain_and_bypasses_data() == expected
 
 def test_configuration_csa_bypass_select_data():
@@ -817,32 +1012,32 @@ def test_configuration_csa_bypass_select_data():
 
 def test_configuration_csa_monitor_select_data():
     c = Configuration()
-    c.csa_monitor_select[4] = 0
-    expected = BitArray('0b11101111')
+    c.csa_monitor_select[4] = 1
+    expected = BitArray('0b00010000')
     assert c.csa_monitor_select_data(0) == expected
-    c.csa_monitor_select[10] = 0
-    expected = BitArray('0b11111011')
+    c.csa_monitor_select[10] = 1
+    expected = BitArray('0b00000100')
     assert c.csa_monitor_select_data(1) == expected
-    c.csa_monitor_select[20] = 0
-    expected = BitArray('0b11101111')
+    c.csa_monitor_select[20] = 1
+    expected = BitArray('0b00010000')
     assert c.csa_monitor_select_data(2) == expected
-    c.csa_monitor_select[30] = 0
-    expected = BitArray('0b10111111')
+    c.csa_monitor_select[30] = 1
+    expected = BitArray('0b01000000')
     assert c.csa_monitor_select_data(3) == expected
 
 def test_configuration_csa_testpulse_enable_data():
     c = Configuration()
-    c.csa_testpulse_enable[4] = 1
-    expected = BitArray('0b00010000')
+    c.csa_testpulse_enable[4] = 0
+    expected = BitArray('0b11101111')
     assert c.csa_testpulse_enable_data(0) == expected
-    c.csa_testpulse_enable[10] = 1
-    expected = BitArray('0b00000100')
+    c.csa_testpulse_enable[10] = 0
+    expected = BitArray('0b11111011')
     assert c.csa_testpulse_enable_data(1) == expected
-    c.csa_testpulse_enable[20] = 1
-    expected = BitArray('0b00010000')
+    c.csa_testpulse_enable[20] = 0
+    expected = BitArray('0b11101111')
     assert c.csa_testpulse_enable_data(2) == expected
-    c.csa_testpulse_enable[30] = 1
-    expected = BitArray('0b01000000')
+    c.csa_testpulse_enable[30] = 0
+    expected = BitArray('0b10111111')
     assert c.csa_testpulse_enable_data(3) == expected
 
 def test_configuration_csa_testpulse_dac_amplitude_data():
@@ -1031,6 +1226,13 @@ def test_configuration_read_local():
     c.load('test_config.json')
     result = c.to_dict()
     os.remove(abspath)
+    assert result == expected
+
+def test_controller_init_chips():
+    controller = Controller(None)
+    controller.init_chips()
+    result = list(map(str, controller.chips))
+    expected = list(map(str, (Chip(i, 0) for i in range(256))))
     assert result == expected
 
 def test_controller_get_chip():

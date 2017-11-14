@@ -1,4 +1,4 @@
-#!/env/python
+#!/usr/bin/env python
 # This script checks to see if your Mac computer has the correct driver
 # installed.
 from __future__ import print_function
@@ -17,6 +17,8 @@ expected_location = '/Library/Extensions/FTDIUSBSerialDriver.kext'
 webpage = 'http://www.ftdichip.com/Drivers/VCP.htm'
 dmg_url = 'http://www.ftdichip.com/Drivers/VCP/MacOSX/FTDIUSBSerialDriver_v2_4_2.dmg'
 download_location = os.path.expanduser('~/Downloads')
+download_filename = 'FTDIUSBSerialDriver_v2_4_2.dmg'
+download_path = os.path.join(download_location, download_filename)
 if os.path.isdir(expected_location):
     print('The driver is installed at ' + expected_location + '.')
     print('Try restarting your computer if you are still'
@@ -28,8 +30,12 @@ print('Could not find the FTDI driver at ' + expected_location +
         ' the driver for you to install.\n')
 should_download = 'A'
 while should_download not in 'YyNn' and should_download != '':
-    should_download = input('Should I download the driver to ' +
-             download_location + '? [y/N] ')
+    try:
+        should_download = raw_input('Should I download the driver to ' +
+                 download_location + '? [y/N] ')
+    except NameError:  # this happens in Python 3 (no raw_input)
+        should_download = input('Should I download the driver to ' +
+                download_location + '? [y/N] ')
 if should_download in 'Nn' or should_download == '':
     print('\nOK. You can download the driver yourself at ' + webpage +
             '. You should most likely pick the Mac OS X 10.9 and above'
@@ -39,14 +45,14 @@ elif should_download in 'Yy':
     try:
         subprocess.check_call(['wget', '--version'], stdout=open('/dev/null'))
         has_wget = True
-    except subprocess.CalledProcessError:
+    except Exception:
         has_wget = False
     if has_wget:
         subprocess.call(['wget', '-P' + download_location,
             dmg_url])
     else:
         subprocess.call(['curl', dmg_url],
-                stdout=open(download_location, 'w'))
+                stdout=open(download_path, 'w'))
 print('''
 
 Once the .dmg is downloaded, open it up and run the installer. You will
