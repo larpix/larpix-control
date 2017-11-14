@@ -119,8 +119,7 @@ class Configuration(object):
                                'channel_mask',
                                'external_trigger_mask',
                                'reset_cycles']
-        module_directory = os.path.dirname(os.path.abspath(__file__))
-        self.load(os.path.join(module_directory, 'default.json'))
+        self.load('default.json')
 
     def __str__(self):
         '''
