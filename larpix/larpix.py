@@ -624,6 +624,12 @@ class Controller(object):
         raise ValueError('Could not find chip (%d, %d)' % (chip_id,
             io_chain))
 
+    def serial_flush(self):
+        with self._serial(self.port, baudrate=self.baudrate,
+                timeout=self.timeout) as serial:
+            serial.reset_output_buffer()
+            serial.reset_input_buffer()
+
     def serial_read(self, timelimit):
         data_in = b''
         start = time.time()
