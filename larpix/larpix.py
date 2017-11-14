@@ -2,6 +2,7 @@
 A module to control the LArPix chip.
 
 '''
+from __future__ import absolute_import
 
 import time
 import serial
@@ -9,6 +10,8 @@ from bitstring import BitArray, Bits
 import json
 import os
 import errno
+
+import larpix.configs as configs
 
 class Chip(object):
     '''
@@ -116,8 +119,7 @@ class Configuration(object):
                                'channel_mask',
                                'external_trigger_mask',
                                'reset_cycles']
-        module_directory = os.path.dirname(os.path.abspath(__file__))
-        self.load(os.path.join(module_directory, 'default.json'))
+        self.load('default.json')
 
     def __str__(self):
         '''
@@ -592,11 +594,7 @@ class Configuration(object):
         return 0
 
     def load(self, filename):
-        if not os.path.isfile(filename):
-            raise IOError(errno.ENOENT, 'File not found.')
-
-        with open(filename, 'r') as infile:
-            data = json.load(infile)
+        data = configs.load(filename)
         self.from_dict(data)
 
 class Controller(object):
