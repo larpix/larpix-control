@@ -1318,6 +1318,7 @@ def test_controller_serial_read_mock():
     result = controller.serial_read(0.1)
     expected = bytes(bytearray(10))
     assert result == expected
+    assert controller.read_counter == 1
 
 def test_controller_serial_write_mock(capfd):
     controller = Controller(None)
@@ -1339,6 +1340,7 @@ def test_controller_serial_write_read_mock(capfd):
     write_expected = ''.join(map(bytes2str, to_write))
     assert read_result == read_expected
     assert write_result == write_expected
+    assert controller.read_counter == 1
 
 def test_controller_format_UART():
     controller = Controller(None)
