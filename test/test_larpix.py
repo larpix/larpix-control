@@ -8,6 +8,7 @@ from larpix.larpix import Chip, Packet, Configuration, Controller
 from bitstring import BitArray
 import json
 import time
+import os
 
 class MockSerialPort(object):
     '''
@@ -1253,7 +1254,7 @@ def test_configuration_write_force(tmpdir):
     expected = c.to_dict()
     assert result == expected
 
-def test_configuration_read(tmpdir):
+def test_configuration_read_absolute(tmpdir):
     c = Configuration()
     c.pixel_trim_thresholds[0] = 30
     c.reset_cycles = 0x100010
@@ -1263,6 +1264,26 @@ def test_configuration_read(tmpdir):
     c2.load(f)
     expected = c.to_dict()
     result = c2.to_dict()
+    assert result == expected
+
+def test_configuration_read_default():
+    c = Configuration()
+    expected = c.to_dict()
+    c.global_threshold = 100
+    c.load('default.json')
+    result = c.to_dict()
+    assert result == expected
+
+def test_configuration_read_local():
+    c = Configuration()
+    c.global_threshold = 104
+    expected = c.to_dict()
+    abspath = os.path.join(os.getcwd(), 'test_config.json')
+    c.write(abspath)
+    c.global_threshold = 0x10
+    c.load('test_config.json')
+    result = c.to_dict()
+    os.remove(abspath)
     assert result == expected
 
 def test_controller_init_chips():

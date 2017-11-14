@@ -131,6 +131,15 @@ packet:
 Similarly, all of the per-channel options (except for the pixel trim
 thresholds) are sent in 4 groups of 8 channels.
 
+Configurations can be loaded by importing `larpix.configs` and running
+the `load` function. This function searches for a configuration with the
+given filename relative to the current directory before searching the
+"system" location (secretly it's in the larpix/configs/ folder). This is
+similar to `#include "header.h"` behavior in C.
+
+Configurations can be saved by calling `chip.config.write` with the
+desired filename.
+
 Once the Chip object has been configured, the configuration must be sent
 to the physical chip. This is accomplished with the `Controller` object,
 which we'll discuss next.

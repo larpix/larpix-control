@@ -1,0 +1,21 @@
+{
+    "test_burst_length": 255,
+    "csa_testpulse_dac_amplitude": 0,
+    "pixel_trim_thresholds": [16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16],
+    "periodic_reset": 0,
+    "adc_burst_length": 0,
+    "global_threshold": 16,
+    "external_trigger_mask": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    "csa_bypass": 0,
+    "internal_bypass": 0,
+    "cross_trigger_mode": 0,
+    "channel_mask": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    "csa_testpulse_enable": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    "reset_cycles": 4096,
+    "test_mode": 0,
+    "sample_cycles": 1,
+    "csa_gain": 1,
+    "csa_bypass_select": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    "csa_monitor_select": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    "fifo_diagnostic": 0
+}

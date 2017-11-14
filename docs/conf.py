@@ -50,7 +50,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'larpix-control'
-copyright = '2017, Sam Kohn and Peter Madigan'
+copyright = '2017, Sam Kohn and Peter Madigan, LBNL Neutrino Group'
 author = 'Sam Kohn and Peter Madigan'
 
 # The version info for the project you're documenting, acts as replacement for

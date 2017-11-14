@@ -2,6 +2,7 @@
 A module to control the LArPix chip.
 
 '''
+from __future__ import absolute_import
 
 import time
 import serial
@@ -9,6 +10,8 @@ from bitstring import BitArray, Bits
 import json
 import os
 import errno
+
+import larpix.configs as configs
 
 class Chip(object):
     '''
@@ -117,12 +120,16 @@ class Configuration(object):
                                'channel_mask',
                                'external_trigger_mask',
                                'reset_cycles']
-        module_directory = os.path.dirname(os.path.abspath(__file__))
-        self.load(os.path.join(module_directory, 'default.json'))
+        self.load('default.json')
 
     def __str__(self):
-        return json.dumps(self.to_dict(),sort_keys=True,indent=4,
-                        separators=(',',':'))
+        '''
+        Converts configuration to a nicely formatted json string
+
+        '''
+        d = self.to_dict()
+        l = ['\"{}\": {}'.format(key,value) for key,value in d.items()]
+        return '{\n    ' + ',\n    '.join(l) + '\n}'
 
     def get_nondefault_registers(self):
         d = {}
@@ -584,16 +591,11 @@ class Configuration(object):
                               % filename)
 
         with open(filename, 'w+') as outfile:
-            json.dump(self.to_dict(), outfile, indent=4,
-                      separators=(',',':'), sort_keys=True)
+            outfile.write(str(self))
         return 0
 
     def load(self, filename):
-        if not os.path.isfile(filename):
-            raise IOError(errno.ENOENT, 'File not found.')
-
-        with open(filename, 'r') as infile:
-            data = json.load(infile)
+        data = configs.load(filename)
         self.from_dict(data)
 
 class Controller(object):
@@ -622,6 +624,12 @@ class Controller(object):
                 return chip
         raise ValueError('Could not find chip (%d, %d)' % (chip_id,
             io_chain))
+
+    def serial_flush(self):
+        with self._serial(self.port, baudrate=self.baudrate,
+                timeout=self.timeout) as serial:
+            serial.reset_output_buffer()
+            serial.reset_input_buffer()
 
     def serial_read(self, timelimit):
         data_in = b''
