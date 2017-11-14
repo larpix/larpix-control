@@ -109,6 +109,59 @@ def test_chip_get_configuration_packets():
     assert packet.register_address == 40
     assert packet.register_data == 0
 
+def test_chip_append_packet():
+    chip = Chip(1, 2)
+    packet = Packet()
+    packet.packet_type = Packet.CONFIG_WRITE_PACKET
+    packet.chipid = 1
+    now = time.time()
+    packet.cpu_timestamp = now
+    packet.bytestream_id = 10
+    packet.read_id = 1
+    packet.register_address = 10
+    packet.register_data = 20
+    packet.assign_parity()
+    chip.append_packet(packet)
+    result = chip.reads
+    expected = [{
+                'cpu_timestamp': now,
+                'read_id': 1,
+                'config': chip.config.get_nondefault_registers(),
+                'log_message': '',
+                'packets': [packet]
+                }]
+    assert result == expected
+    packet2 = Packet()
+    packet2.packet_type = Packet.CONFIG_READ_PACKET
+    packet2.chipid = 1
+    now2 = time.time()
+    packet2.cpu_timestamp = now2
+    packet2.bytestream_id = 6
+    packet2.read_id = 2
+    packet2.register_address = 5
+    packet2.register_data = 10
+    packet2.assign_parity()
+    chip.append_packet(packet2)
+    chip.append_packet(packet2)
+    result = chip.reads
+    expected = [
+                    {
+                        'cpu_timestamp': now,
+                        'read_id': 1,
+                        'config': chip.config.get_nondefault_registers(),
+                        'log_message': '',
+                        'packets': [packet]
+                    },
+                    {
+                        'cpu_timestamp': now2,
+                        'read_id': 2,
+                        'config': chip.config.get_nondefault_registers(),
+                        'log_message': '',
+                        'packets': [packet2, packet2]
+                    },
+                ]
+    assert result == expected
+
 def test_chip_export_reads():
     chip = Chip(1, 2)
     packet = Packet()
