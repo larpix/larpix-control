@@ -18,6 +18,51 @@ def setup_logger(settings):
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
+def write_configuration(controller, config):
+    '''
+    Loops over chips in a controller writing the specified configuration to each
+
+    '''
+    for chip in controller.chips:
+        chip.config = config
+        controller.write_configuration(chip,
+                larpix.Configuration.global_threshold_address)
+
+def set_high_threshold(controller):
+    '''
+    Loops over chips in a controller setting the global threshold to 255
+
+    '''
+    high_threshold = 255
+    for chip in controller.chips:
+        chip.config.global_threshold = 255
+        controller.write_configuration(chip,
+                larpix.Configuration.global_threshold_address)
+
+def get_chip_ids(controller):
+    '''
+    Loops over all chips identifying which chips repond to setting global threshold
+        to 0
+    Returns a list of Chips
+
+    '''
+    set_high_threshold(controller)
+    controller.run(0.1) # flush the serial/fpga buffer
+    chips = []
+    for chip in controller.chips:
+        chip.config.global_threshold = 0
+        controller.write_configuration(chip,
+                larpix.Configuration.global_threshold_address)
+        controller.run(0.01)
+        read_data = chip.export_reads(only_new_reads)
+        if not(read_data['packets'] is []):
+            chips.append(chip)
+        chip.config.global_threshold = 255
+        controller.write_configuration(chip,
+                larpix.Configuration.global_threshold_address)
+        controller.serial_flush()
+    return chips
+
 def simple_stats(settings):
     '''
     Read in data from LArPix and report some simple stats.

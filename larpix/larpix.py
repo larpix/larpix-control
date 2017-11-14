@@ -119,6 +119,18 @@ class Configuration(object):
         module_directory = os.path.dirname(os.path.abspath(__file__))
         self.load(os.path.join(module_directory, 'default.json'))
 
+    def __str__(self):
+        return json.dumps(self.to_dict(),sort_keys=True,indent=4,
+                        separators=(',',':'))
+
+    def get_nondefault_registers(self):
+        d = {}
+        default_config = Configuration()
+        for register_name in self.register_names:
+            if getattr(self, register_name) != getattr(default_config, register_name):
+                d[register_name] = getattr(self, register_name)
+        return d
+
     @property
     def pixel_trim_thresholds(self):
         return self._pixel_trim_thresholds
@@ -434,10 +446,10 @@ class Configuration(object):
             self.csa_testpulse_enable[channel] = 0
 
     def enable_analog_monitor(self, channel):
-        self.csa_monitor_select[channel] = 0
+        self.csa_monitor_select[channel] = 1
 
     def disable_analog_monitor(self):
-        self.csa_monitor_select = [1] * Chip.num_channels
+        self.csa_monitor_select = [0] * Chip.num_channels
 
     def all_data(self):
         bits = []
@@ -607,6 +619,12 @@ class Controller(object):
                 return chip
         raise ValueError('Could not find chip (%d, %d)' % (chip_id,
             io_chain))
+
+    def serial_flush(self):
+        with self._serial(self.port, baudrate=self.baudrate,
+                timeout=self.timeout) as serial:
+            serial.reset_output_buffer()
+            serial.reset_input_buffer()
 
     def serial_read(self, timelimit):
         data_in = b''
@@ -872,11 +890,15 @@ class Packet(object):
 
     def export(self):
         '''Return a dict representation of this Packet.'''
-        type_map = {'00': 'test', '01': 'data', '10': 'config write',
-                '11': 'config read'}
+        type_map = {
+                Bits(self.TEST_PACKET): 'test',
+                Bits(self.DATA_PACKET): 'data',
+                Bits(self.CONFIG_WRITE_PACKET): 'config write',
+                Bits(self.CONFIG_READ_PACKET): 'config read'
+                }
         d = {}
         d['bits'] = self.bits.bin
-        d['type'] = type_map[self.packet_type.bin]
+        d['type'] = type_map[Bits(self.packet_type)]
         d['chipid'] = self.chipid
         d['parity'] = self.parity_bit_value
         d['valid_parity'] = self.has_valid_parity()

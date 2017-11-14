@@ -105,7 +105,7 @@ def test_chip_get_configuration_packets():
     assert packet.packet_type == packet_type
     assert packet.chipid == chip.chip_id
     assert packet.register_address == 40
-    assert packet.register_data == 255
+    assert packet.register_data == 0
 
 def test_chip_export_reads():
     chip = Chip(1, 2)
@@ -223,7 +223,7 @@ def test_packet_bytes_properties():
     p = Packet()
     p.packet_type = Packet.DATA_PACKET
     p.chipid = 100
-    expected = b'\x91\x01' + b'\x00' * (Packet.size//8-1)
+    expected = b'\x90\x01' + b'\x00' * (Packet.size//8-1)
     b = p.bytes()
     assert b == expected
 
@@ -488,6 +488,14 @@ def test_packet_get_test_counter():
     expected = 19831
     p.test_counter = expected
     assert p.test_counter == expected
+
+def test_configuration_get_nondefault_registers():
+    c = Configuration()
+    expected = {}
+    assert c.get_nondefault_registers() == expected
+    c.adc_burst_length += 1
+    expected['adc_burst_length'] = c.adc_burst_length
+    assert c.get_nondefault_registers() == expected
 
 def test_configuration_set_pixel_trim_thresholds():
     c = Configuration()
@@ -935,38 +943,38 @@ def test_configuration_disable_external_trigger():
 def test_configuration_enable_testpulse():
     c = Configuration()
     expected = [0, 1] * 16
+    c.disable_testpulse()
     c.enable_testpulse(range(1, 32, 2))
     assert c.csa_testpulse_enable == expected
 
 def test_configuration_enable_testpulse_default():
     c = Configuration()
     expected = [1] * 32
+    c.disable_testpulse()
     c.enable_testpulse()
     assert c.csa_testpulse_enable == expected
 
 def test_configuration_disable_testpulse():
     c = Configuration()
     expected = [0, 1] * 16
-    c.enable_testpulse()
     c.disable_testpulse(range(0, 32, 2))
     assert c.csa_testpulse_enable == expected
 
 def test_configuration_disable_testpulse_default():
     c = Configuration()
     expected = [0] * 32
-    c.enable_testpulse()
     c.disable_testpulse()
     assert c.csa_testpulse_enable == expected
 
 def test_configuration_enable_analog_monitor():
     c = Configuration()
-    expected = [1, 1, 0] + [1] * 29
+    expected = [0, 0, 1] + [0] * 29
     c.enable_analog_monitor(2)
     assert c.csa_monitor_select == expected
 
 def test_configuration_disable_analog_monitor():
     c = Configuration()
-    expected = [1] * 32
+    expected = [0] * 32
     c.enable_analog_monitor(5)
     c.disable_analog_monitor()
     assert c.csa_monitor_select == expected
@@ -983,7 +991,7 @@ def test_configuration_global_threshold_data():
 
 def test_configuration_csa_gain_and_bypasses_data():
     c = Configuration()
-    expected = BitArray('0b00001001')
+    expected = BitArray('0b00000001')
     assert c.csa_gain_and_bypasses_data() == expected
 
 def test_configuration_csa_bypass_select_data():
@@ -1003,32 +1011,32 @@ def test_configuration_csa_bypass_select_data():
 
 def test_configuration_csa_monitor_select_data():
     c = Configuration()
-    c.csa_monitor_select[4] = 0
-    expected = BitArray('0b11101111')
+    c.csa_monitor_select[4] = 1
+    expected = BitArray('0b00010000')
     assert c.csa_monitor_select_data(0) == expected
-    c.csa_monitor_select[10] = 0
-    expected = BitArray('0b11111011')
+    c.csa_monitor_select[10] = 1
+    expected = BitArray('0b00000100')
     assert c.csa_monitor_select_data(1) == expected
-    c.csa_monitor_select[20] = 0
-    expected = BitArray('0b11101111')
+    c.csa_monitor_select[20] = 1
+    expected = BitArray('0b00010000')
     assert c.csa_monitor_select_data(2) == expected
-    c.csa_monitor_select[30] = 0
-    expected = BitArray('0b10111111')
+    c.csa_monitor_select[30] = 1
+    expected = BitArray('0b01000000')
     assert c.csa_monitor_select_data(3) == expected
 
 def test_configuration_csa_testpulse_enable_data():
     c = Configuration()
-    c.csa_testpulse_enable[4] = 1
-    expected = BitArray('0b00010000')
+    c.csa_testpulse_enable[4] = 0
+    expected = BitArray('0b11101111')
     assert c.csa_testpulse_enable_data(0) == expected
-    c.csa_testpulse_enable[10] = 1
-    expected = BitArray('0b00000100')
+    c.csa_testpulse_enable[10] = 0
+    expected = BitArray('0b11111011')
     assert c.csa_testpulse_enable_data(1) == expected
-    c.csa_testpulse_enable[20] = 1
-    expected = BitArray('0b00010000')
+    c.csa_testpulse_enable[20] = 0
+    expected = BitArray('0b11101111')
     assert c.csa_testpulse_enable_data(2) == expected
-    c.csa_testpulse_enable[30] = 1
-    expected = BitArray('0b01000000')
+    c.csa_testpulse_enable[30] = 0
+    expected = BitArray('0b10111111')
     assert c.csa_testpulse_enable_data(3) == expected
 
 def test_configuration_csa_testpulse_dac_amplitude_data():
