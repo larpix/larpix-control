@@ -2,6 +2,8 @@
 This module contains a set of bench test scripts for the LArPix chip.
 
 '''
+from __future__ import absolute_import
+
 import logging
 import larpix.larpix as larpix
 import json

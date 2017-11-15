@@ -2,6 +2,8 @@
 This module contains useful tasks for working with LArPix.
 
 '''
+from __future__ import absolute_import
+
 import logging
 import larpix.larpix as larpix
 import json
