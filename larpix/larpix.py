@@ -156,11 +156,11 @@ class Configuration(object):
         self._complex_modify_data = {
                 33: [('csa_gain', lambda data:data % 2),
                      ('csa_bypass', lambda data:(data//2) % 2),
-                     ('internal_bypass', lambda data:(data//8) % 2)]
+                     ('internal_bypass', lambda data:(data//8) % 2)],
                 47: [('test_mode', lambda data:data % 4),
                      ('cross_trigger_mode', lambda data:(data//4) % 2),
                      ('periodic_reset', lambda data:(data//8) % 2),
-                     ('fifo_diagnostic', lambda data(data//16) % 2)]
+                     ('fifo_diagnostic', lambda data:(data//16) % 2)]
                 }
         # These registers combine the register data with the existing
         # attribute value to get the new attribute value.
@@ -183,7 +183,7 @@ class Configuration(object):
         self._complex_array = {}
         for addresses, label in complex_array_spec:
             for i, address in enumerate(addresses):
-                complex_array[address] = (label, i)
+                self._complex_array[address] = (label, i)
         # These registers each correspond to an entry in an array
         self._trim_registers = list(range(32))
 
@@ -662,8 +662,9 @@ class Configuration(object):
             if address in self._simple_registers:
                 setattr(self, self._simple_registers[address], value)
             elif address in self._complex_modify_data:
-                name, extract = self._complex_modify_data[address]
-                setattr(self, name, extract(value))
+                attributes = self._complex_modify_data[address]
+                for name, extract in attributes:
+                    setattr(self, name, extract(value))
             elif address in self._complex_modify_attr:
                 name, combine = self._complex_modify_attr[address]
                 current_value = getattr(self, name)
