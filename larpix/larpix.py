@@ -688,8 +688,10 @@ class Controller(object):
             self.serial_write(bytestreams)
             return b''
         else:
-            return self.serial_write_read(bytestreams,
+            miso_bytestream = self.serial_write_read(bytestreams,
                     timelimit=write_read)
+            unprocessed = self.parse_input(miso_bytestream)
+            return unprocessed
 
     def read_configuration(self, chip, registers=None):
         if registers is None:
