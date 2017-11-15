@@ -25,7 +25,7 @@ def startup(settings):
     Set the chips' configurations to a standard, quiet state.
 
     The configuration used is specified by the "quiet.json" file. This
-    file specifies values for all configuratoin registers.
+    file specifies values for all configuration registers.
     '''
     logger = logging.getLogger(__name__)
     logger.info('Executing startup')
