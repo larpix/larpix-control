@@ -113,6 +113,25 @@ class Configuration(object):
     channel_mask_addresses = list(range(52, 56))
     external_trigger_mask_addresses = list(range(56, 60))
     reset_cycles_addresses = [60, 61, 62]
+    register_names = ['pixel_trim_thresholds',
+                           'global_threshold',
+                           'csa_gain',
+                           'csa_bypass',
+                           'internal_bypass',
+                           'csa_bypass_select',
+                           'csa_monitor_select',
+                           'csa_testpulse_enable',
+                           'csa_testpulse_dac_amplitude',
+                           'test_mode',
+                           'cross_trigger_mode',
+                           'periodic_reset',
+                           'fifo_diagnostic',
+                           'sample_cycles',
+                           'test_burst_length',
+                           'adc_burst_length',
+                           'channel_mask',
+                           'external_trigger_mask',
+                           'reset_cycles']
 
     TEST_OFF = 0x0
     TEST_UART = 0x1
@@ -122,26 +141,7 @@ class Configuration(object):
         self.load('default.json')
 
         # Annoying things we have to do because the configuration
-        # register follows complex semantics
-        self.register_names = ['pixel_trim_thresholds',
-                               'global_threshold',
-                               'csa_gain',
-                               'csa_bypass',
-                               'internal_bypass',
-                               'csa_bypass_select',
-                               'csa_monitor_select',
-                               'csa_testpulse_enable',
-                               'csa_testpulse_dac_amplitude',
-                               'test_mode',
-                               'cross_trigger_mode',
-                               'periodic_reset',
-                               'fifo_diagnostic',
-                               'sample_cycles',
-                               'test_burst_length',
-                               'adc_burst_length',
-                               'channel_mask',
-                               'external_trigger_mask',
-                               'reset_cycles']
+        # register follows complex semantics:
         # The following dicts/lists specify how to translate a register
         # address into a sensible update to the Configuration object.
         # Simple registers are just the value stored in the register.
