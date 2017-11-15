@@ -50,7 +50,10 @@ class Chip(object):
             packet.packet_type = packet_type
             packet.chipid = self.chip_id
             packet.register_address = i
-            packet.register_data = data
+            if packet_type == Packet.CONFIG_WRITE_PACKET:
+                packet.register_data = data
+            else:
+                packet.register_data = 0
             packet.assign_parity()
         return packets
 
@@ -693,7 +696,7 @@ class Controller(object):
             unprocessed = self.parse_input(miso_bytestream)
             return unprocessed
 
-    def read_configuration(self, chip, registers=None):
+    def read_configuration(self, chip, registers=None, timeout=1):
         if registers is None:
             registers = list(range(Configuration.num_registers))
         elif isinstance(registers, int):
@@ -702,7 +705,7 @@ class Controller(object):
             pass
         bytestreams = self.get_configuration_bytestreams(chip,
                 Packet.CONFIG_READ_PACKET, registers)
-        data = self.serial_write_read(bytestreams, 1)
+        data = self.serial_write_read(bytestreams, timeout)
         unprocessed = self.parse_input(data)
         return unprocessed
 

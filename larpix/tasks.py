@@ -20,49 +20,43 @@ def setup_logger(settings):
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-def write_configuration(controller, config):
+def startup(settings):
     '''
-    Loops over chips in a controller writing the specified configuration to each
+    Set the chips' configurations to a standard, quiet state.
 
+    The configuration used is specified by the "quiet.json" file. This
+    file specifies values for all configuration registers.
     '''
-    for chip in controller.chips:
-        chip.config = config
-        controller.write_configuration(chip,
-                larpix.Configuration.global_threshold_address)
+    logger = logging.getLogger(__name__)
+    logger.info('Executing startup')
+    controller = larpix.Controller(settings['port'])
+    controller.init_chips()
+    nchips = settings['nchips']
+    for _ in range(nchips):
+        for chip in controller.chips:
+            chip.config.load("quiet.json")
+            controller.write_configuration(chip)
 
-def set_high_threshold(controller):
+def get_chip_ids(settings):
     '''
-    Loops over chips in a controller setting the global threshold to 255
+    Return a list of Chip objects representing the chips on the board.
 
+    Checks if a chip is present by adjusting one channel's pixel trim
+    threshold and checking to see that the correct configuration is read
+    back in.
     '''
-    high_threshold = 255
-    for chip in controller.chips:
-        chip.config.global_threshold = 255
-        controller.write_configuration(chip,
-                larpix.Configuration.global_threshold_address)
-
-def get_chip_ids(controller):
-    '''
-    Loops over all chips identifying which chips repond to setting global threshold
-        to 0
-    Returns a list of Chips
-
-    '''
-    set_high_threshold(controller)
-    controller.run(0.1) # flush the serial/fpga buffer
+    logger = logging.getLogger(__name__)
+    logger.info('Executing get_chip_ids')
+    controller = larpix.Controller(settings['port'])
+    controller.timeout=0.1
+    controller.init_chips()
     chips = []
     for chip in controller.chips:
-        chip.config.global_threshold = 0
-        controller.write_configuration(chip,
-                larpix.Configuration.global_threshold_address)
-        controller.run(0.01)
-        read_data = chip.export_reads(only_new_reads)
-        if not(read_data['packets'] is []):
+        controller.read_configuration(chip, 0, timeout=0.1)
+        read_packet = chip.reads[-1]
+        if read_packet.register_data != 0:
             chips.append(chip)
-        chip.config.global_threshold = 255
-        controller.write_configuration(chip,
-                larpix.Configuration.global_threshold_address)
-        controller.serial_flush()
+            logger.info('Found chip %s' % chip)
     return chips
 
 def simple_stats(settings):
@@ -101,6 +95,8 @@ if __name__ == '__main__':
     import sys
     tasks = {
             'simple_stats': simple_stats,
+            'get_chip_ids': get_chip_ids,
+            'startup': startup,
             }
     parser = argparse.ArgumentParser()
     parser.add_argument('--logfile', default='tasks.log',
@@ -115,6 +111,8 @@ if __name__ == '__main__':
             help='list of chip IDs')
     parser.add_argument('--iochain', nargs='*', type=int,
             help='list of IO chain IDs (corresponding to chipids')
+    parser.add_argument('-n', '--nchips', type=int,
+            help='number of chips on the board')
     parser.add_argument('-f', '--filename', default='out.txt',
             help='filename to save data to')
     parser.add_argument('-m', '--message', default='',
@@ -137,6 +135,7 @@ if __name__ == '__main__':
             'logfile': args.logfile,
             'filename': args.filename,
             'config': args.config,
+            'nchips': args.nchips,
             'runtime': args.runtime,
             }
     setup_logger(settings)
