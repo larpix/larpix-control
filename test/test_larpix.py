@@ -1228,6 +1228,186 @@ def test_configuration_read_local():
     os.remove(abspath)
     assert result == expected
 
+def test_configuration_from_dict_reg_pixel_trim():
+    c = Configuration()
+    register_dict = { 0: 5, 15: 100 }
+    c.from_dict_registers(register_dict)
+    result_1 = c.pixel_trim_thresholds[0]
+    expected_1 = register_dict[0]
+    assert result_1 == expected_1
+    result_2 = c.pixel_trim_thresholds[15]
+    expected_2 = register_dict[15]
+    assert result_2 == expected_2
+
+def test_configuration_from_dict_reg_global_threshold():
+    c = Configuration()
+    register_dict = { 32: 182 }
+    c.from_dict_registers(register_dict)
+    result = c.global_threshold
+    expected = register_dict[32]
+    assert result == expected
+
+def test_configuration_from_dict_reg_csa_gain():
+    c = Configuration()
+    register_dict = { 33: 0 }
+    c.from_dict_registers(register_dict)
+    result = c.csa_gain
+    expected = 0
+    assert result == expected
+
+def test_configuration_from_dict_reg_csa_bypass():
+    c = Configuration()
+    register_dict = { 33: 2 }
+    c.from_dict_registers(register_dict)
+    result = c.csa_bypass
+    expected = 1
+    assert result == expected
+
+def test_configuration_from_dict_reg_internal_bypass():
+    c = Configuration()
+    register_dict = { 33: 8 }
+    c.from_dict_registers(register_dict)
+    result = c.internal_bypass
+    expected = 1
+    assert result == expected
+
+def test_configuration_from_dict_reg_csa_bypass_select():
+    c = Configuration()
+    register_dict = { 34: 0x12, 35: 0x34, 36: 0x56, 37: 0x78 }
+    c.from_dict_registers(register_dict)
+    result = c.csa_bypass_select
+    expected = [
+            0, 1, 0, 0, 1, 0, 0, 0,
+            0, 0, 1, 0, 1, 1, 0, 0,
+            0, 1, 1, 0, 1, 0, 1, 0,
+            0, 0, 0, 1, 1, 1, 1, 0
+            ]
+    assert result == expected
+
+def test_configuration_from_dict_reg_csa_monitor_select():
+    c = Configuration()
+    register_dict = { 38: 0x12, 39: 0x34, 40: 0x56, 41: 0x78 }
+    c.from_dict_registers(register_dict)
+    result = c.csa_monitor_select
+    expected = [
+            0, 1, 0, 0, 1, 0, 0, 0,
+            0, 0, 1, 0, 1, 1, 0, 0,
+            0, 1, 1, 0, 1, 0, 1, 0,
+            0, 0, 0, 1, 1, 1, 1, 0
+            ]
+    assert result == expected
+
+def test_configuration_from_dict_reg_csa_testpulse_enable():
+    c = Configuration()
+    register_dict = { 42: 0x12, 43: 0x34, 44: 0x56, 45: 0x78 }
+    c.from_dict_registers(register_dict)
+    result = c.csa_testpulse_enable
+    expected = [
+            0, 1, 0, 0, 1, 0, 0, 0,
+            0, 0, 1, 0, 1, 1, 0, 0,
+            0, 1, 1, 0, 1, 0, 1, 0,
+            0, 0, 0, 1, 1, 1, 1, 0
+            ]
+    assert result == expected
+
+def test_configuration_from_dict_reg_csa_testpulse_dac_amplitude():
+    c = Configuration()
+    register_dict = { 46: 193 }
+    c.from_dict_registers(register_dict)
+    result = c.csa_testpulse_dac_amplitude
+    expected = 193
+    assert result == expected
+
+def test_configuration_from_dict_reg_test_mode():
+    c = Configuration()
+    register_dict = { 47: 2 }
+    c.from_dict_registers(register_dict)
+    result = c.test_mode
+    expected = 2
+    assert result == expected
+
+def test_configuration_from_dict_reg_cross_trigger_mode():
+    c = Configuration()
+    register_dict = { 47: 4 }
+    c.from_dict_registers(register_dict)
+    result = c.cross_trigger_mode
+    expected = 1
+    assert result == expected
+
+def test_configuration_from_dict_reg_periodic_reset():
+    c = Configuration()
+    register_dict = { 47: 8 }
+    c.from_dict_registers(register_dict)
+    result = c.periodic_reset
+    expected = 1
+    assert result == expected
+
+def test_configuration_from_dict_reg_fifo_diagnostic():
+    c = Configuration()
+    register_dict = { 47: 16 }
+    c.from_dict_registers(register_dict)
+    result = c.fifo_diagnostic
+    expected = 1
+    assert result == expected
+
+def test_configuration_from_dict_reg_sample_cycles():
+    c = Configuration()
+    register_dict = { 48: 111 }
+    c.from_dict_registers(register_dict)
+    result = c.sample_cycles
+    expected = 111
+    assert result == expected
+
+def test_configuration_from_dict_reg_test_burst_length():
+    c = Configuration()
+    register_dict = { 49: 5, 50: 2}
+    c.from_dict_registers(register_dict)
+    result = c.test_burst_length
+    expected = 517  # = 256 * 2 + 1 * 5
+    assert result == expected
+
+def test_configuration_from_dict_reg_adc_burst_length():
+    c = Configuration()
+    register_dict = { 51: 83 }
+    c.from_dict_registers(register_dict)
+    result = c.adc_burst_length
+    expected = 83
+    assert result == expected
+
+def test_configuration_from_dict_reg_channel_mask():
+    c = Configuration()
+    register_dict = { 52: 0x12, 53: 0x34, 54: 0x56, 55: 0x78 }
+    c.from_dict_registers(register_dict)
+    result = c.channel_mask
+    expected = [
+            0, 1, 0, 0, 1, 0, 0, 0,
+            0, 0, 1, 0, 1, 1, 0, 0,
+            0, 1, 1, 0, 1, 0, 1, 0,
+            0, 0, 0, 1, 1, 1, 1, 0
+            ]
+    assert result == expected
+
+def test_configuration_from_dict_reg_external_trigger_mask():
+    c = Configuration()
+    register_dict = { 56: 0x12, 57: 0x34, 58: 0x56, 59: 0x78 }
+    c.from_dict_registers(register_dict)
+    result = c.external_trigger_mask
+    expected = [
+            0, 1, 0, 0, 1, 0, 0, 0,
+            0, 0, 1, 0, 1, 1, 0, 0,
+            0, 1, 1, 0, 1, 0, 1, 0,
+            0, 0, 0, 1, 1, 1, 1, 0
+            ]
+    assert result == expected
+
+def test_configuration_from_dict_reg_reset_cycles():
+    c = Configuration()
+    register_dict = { 60: 0x12, 61: 0x34, 62: 0x56 }
+    c.from_dict_registers(register_dict)
+    result = c.reset_cycles
+    expected = 0x563412
+    assert result == expected
+
 def test_controller_init_chips():
     controller = Controller(None)
     controller.init_chips()
