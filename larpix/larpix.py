@@ -57,6 +57,21 @@ class Chip(object):
             packet.assign_parity()
         return packets
 
+    def sync_configuration(self):
+        '''
+        Adjust self.config to match whatever config read packets are in
+        self.reads.
+
+        Later packets in the list will overwrite earlier packets.
+
+        '''
+        updates = {}
+        for packet in self.reads:
+            if packet.packet_type == Packet.CONFIG_READ_PACKET:
+                updates[packet.register_address] = packet.register_data
+
+        self.config.from_dict_registers(updates)
+
     def export_reads(self, only_new_reads=True):
         '''
         Return a dict of the packets this Chip has received.
@@ -98,31 +113,79 @@ class Configuration(object):
     channel_mask_addresses = list(range(52, 56))
     external_trigger_mask_addresses = list(range(56, 60))
     reset_cycles_addresses = [60, 61, 62]
+    register_names = ['pixel_trim_thresholds',
+                           'global_threshold',
+                           'csa_gain',
+                           'csa_bypass',
+                           'internal_bypass',
+                           'csa_bypass_select',
+                           'csa_monitor_select',
+                           'csa_testpulse_enable',
+                           'csa_testpulse_dac_amplitude',
+                           'test_mode',
+                           'cross_trigger_mode',
+                           'periodic_reset',
+                           'fifo_diagnostic',
+                           'sample_cycles',
+                           'test_burst_length',
+                           'adc_burst_length',
+                           'channel_mask',
+                           'external_trigger_mask',
+                           'reset_cycles']
 
     TEST_OFF = 0x0
     TEST_UART = 0x1
     TEST_FIFO = 0x2
     def __init__(self):
-        self.register_names = ['pixel_trim_thresholds',
-                               'global_threshold',
-                               'csa_gain',
-                               'csa_bypass',
-                               'internal_bypass',
-                               'csa_bypass_select',
-                               'csa_monitor_select',
-                               'csa_testpulse_enable',
-                               'csa_testpulse_dac_amplitude',
-                               'test_mode',
-                               'cross_trigger_mode',
-                               'periodic_reset',
-                               'fifo_diagnostic',
-                               'sample_cycles',
-                               'test_burst_length',
-                               'adc_burst_length',
-                               'channel_mask',
-                               'external_trigger_mask',
-                               'reset_cycles']
+        # Actual setup
         self.load('default.json')
+
+        # Annoying things we have to do because the configuration
+        # register follows complex semantics:
+        # The following dicts/lists specify how to translate a register
+        # address into a sensible update to the Configuration object.
+        # Simple registers are just the value stored in the register.
+        self._simple_registers = {
+                32: 'global_threshold',
+                46: 'csa_testpulse_dac_amplitude',
+                48: 'sample_cycles',
+                51: 'adc_burst_length',
+                }
+        # These registers need the attribute extracted from the register
+        # data.
+        self._complex_modify_data = {
+                33: [('csa_gain', lambda data:data % 2),
+                     ('csa_bypass', lambda data:(data//2) % 2),
+                     ('internal_bypass', lambda data:(data//8) % 2)],
+                47: [('test_mode', lambda data:data % 4),
+                     ('cross_trigger_mode', lambda data:(data//4) % 2),
+                     ('periodic_reset', lambda data:(data//8) % 2),
+                     ('fifo_diagnostic', lambda data:(data//16) % 2)]
+                }
+        # These registers combine the register data with the existing
+        # attribute value to get the new attribute value.
+        self._complex_modify_attr = {
+                49: ('test_burst_length', lambda val,data:(val//256)*256+data),
+                50: ('test_burst_length', lambda val,data:(val%256)+data*256),
+                60: ('reset_cycles', lambda val,data:(val//256)*256+data),
+                61: ('reset_cycles',
+                    lambda val,data:(val//0x10000)*0x10000+data*256+val%256),
+                62: ('reset_cycles', lambda val,data:(val%0x10000)+data*0x10000)
+                }
+        # These registers store 32 bits over 4 registers each, and those
+        # 32 bits correspond to entries in a 32-entry list.
+        complex_array_spec = [
+                (range(34, 38), 'csa_bypass_select'),
+                (range(38, 42), 'csa_monitor_select'),
+                (range(42, 46), 'csa_testpulse_enable'),
+                (range(52, 56), 'channel_mask'),
+                (range(56, 60), 'external_trigger_mask')]
+        self._complex_array = {}
+        for addresses, label in complex_array_spec:
+            for i, address in enumerate(addresses):
+                self._complex_array[address] = (label, i)
+        # These registers each correspond to an entry in an array
+        self._trim_registers = list(range(32))
 
     def __str__(self):
         '''
@@ -584,6 +647,36 @@ class Configuration(object):
         for register_name in self.register_names:
             if register_name in d:
                 setattr(self, register_name, d[register_name])
+
+    def from_dict_registers(self, d):
+        '''
+        Load in the configuration specified by a dict of (register,
+        value) pairs.
+
+        '''
+        def bits_to_array(data):
+            bits = Bits('uint:8=%d' % data)
+            return [int(bit) for bit in bits][::-1]
+
+        for address, value in d.items():
+            if address in self._simple_registers:
+                setattr(self, self._simple_registers[address], value)
+            elif address in self._complex_modify_data:
+                attributes = self._complex_modify_data[address]
+                for name, extract in attributes:
+                    setattr(self, name, extract(value))
+            elif address in self._complex_modify_attr:
+                name, combine = self._complex_modify_attr[address]
+                current_value = getattr(self, name)
+                setattr(self, name, combine(current_value, value))
+            elif address in self._complex_array:
+                name, index = self._complex_array[address]
+                affected = slice(index*8, (index+1)*8)
+                attr_list = getattr(self, name)
+                attr_list[affected] = bits_to_array(value)
+            elif address in self._trim_registers:
+                self.pixel_trim_thresholds[address] = value
+        return  #phew
 
     def write(self, filename, force=False, append=False):
         if os.path.isfile(filename):
