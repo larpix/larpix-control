@@ -70,7 +70,7 @@ class Chip(object):
             if packet.packet_type == Packet.CONFIG_READ_PACKET:
                 updates[packet.register_address] = packet.register_data
 
-        self.config.from_dict(updates)
+        self.config.from_dict_registers(updates)
 
     def export_reads(self, only_new_reads=True):
         '''
