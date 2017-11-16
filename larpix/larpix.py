@@ -34,13 +34,52 @@ class Chip(object):
     def show_reads(self, start=0, stop=None, step=1):
         if stop is None:
             stop = len(self.reads)
-        return list(map(str, self.reads[start:stop:step]))
+        packets = []
+        for read in self.reads:
+            for packet in read['packets'][start:stop:step]:
+                packets.append(str(packet))
+        return packets
 
     def show_reads_bits(self, start=0, stop=None, step=1):
         if stop is None:
             stop = len(self.reads)
-        return list(map(lambda x:' '.join(x.bits.bin[i:i+8] for i in range(0,
-            len(x.bits.bin), 8)), self.reads[start:stop:step]))
+        packet_bits = []
+        for read in self.reads:
+            for packet in read['packets'][start:stop:step]:
+                packet_bits.append(' '.join(packet.bits.bin[i:i+8] for i in range(0,
+                        len(packet.bits.bin), 8)))
+        return packet_bits
+
+    def append_packet(self, packet):
+        '''
+        Adds a packet to the specified read
+
+        '''
+        read = {}
+        if len(self.reads) == 0:
+            # no reads yet - create a new read for packet
+            read['cpu_timestamp'] = packet.cpu_timestamp
+            read['read_id'] = packet.read_id
+            read['config'] = self.config.get_nondefault_registers()
+            read['log_message'] = ''
+            read['packets'] = [packet]
+            self.reads.append(read)
+        else:
+            read_matches = [data for data in self.reads if data['read_id'] == packet.read_id]
+            if len(read_matches) == 0:
+                # no reads match read id - create a new read for packet
+                read['cpu_timestamp'] = packet.cpu_timestamp
+                read['read_id'] = packet.read_id
+                read['config'] = self.config.get_nondefault_registers()
+                read['log_message'] = ''
+                read['packets'] = [packet]
+                self.reads.append(read)
+            elif len(read_matches) != 1:
+                raise ValueError('This should not happen - multiple read ids found')
+            else:
+                # a read exists with read id - add packet to read
+                read = read_matches[0]
+                read['packets'].append(packet)
 
     def get_configuration_packets(self, packet_type):
         conf = self.config
@@ -71,10 +110,18 @@ class Chip(object):
         data['chipid'] = self.chip_id
         data['io_chain'] = self.io_chain
         if only_new_reads:
-            packets = self.reads[self.new_reads_index:]
+            return_reads = self.reads[self.new_reads_index:]
         else:
-            packets = self.reads
-        data['packets'] = list(map(lambda x:x.export(), packets))
+            return_reads = self.reads
+        data['data'] = []
+        for read in return_reads:
+            read_dict = {}
+            read_dict['cpu_timestamp'] = read['cpu_timestamp']
+            read_dict['read_id'] = read['read_id']
+            read_dict['config'] = read['config']
+            read_dict['log_message'] = read['log_message']
+            read_dict['packets'] = list(map(lambda x: x.export(), read['packets']))
+            data['data'].append(read_dict)
         self.new_reads_index = len(self.reads)
         return data
 
@@ -613,6 +660,8 @@ class Controller(object):
         self.baudrate = 1000000
         self.timeout = 1
         self.max_write = 8192
+        self.read_counter = 0
+        self.last_read_time = 0
         self._serial = serial.Serial
 
     def init_chips(self, nchips = 256, iochain = 0):
@@ -634,6 +683,8 @@ class Controller(object):
     def serial_read(self, timelimit):
         data_in = b''
         start = time.time()
+        self.last_read_time = start
+        self.read_counter += 1
         try:
             with self._serial(self.port, baudrate=self.baudrate,
                     timeout=self.timeout) as serial_in:
@@ -662,6 +713,8 @@ class Controller(object):
     def serial_write_read(self, bytestreams, timelimit):
         data_in = b''
         start = time.time()
+        self.last_read_time = start
+        self.read_counter += 1
         with self._serial(self.port, baudrate=self.baudrate) as serial_port:
             # First do a fast write-read loop until everything is
             # written out, then just read
@@ -750,6 +803,7 @@ class Controller(object):
         # parse the bytestream into Packets + metadata
         byte_packets = []
         current_stream = bytestream
+        current_byte = 0
         while len(current_stream) >= packet_size:
             if (current_stream[0] == start_byte and
                     current_stream[packet_size-1] == stop_byte):
@@ -762,19 +816,33 @@ class Controller(object):
                     code = 'bytes:1='
                 byte_packets.append((Bits(code + str(metadata)),
                     Packet(current_stream[data_bytes])))
+                byte_packets[-1][1].cpu_timestamp = self.last_read_time
+                byte_packets[-1][1].read_id = self.read_counter
+                byte_packets[-1][1].bytestream_id = current_byte
+                        # store postion in bytestream of packet
                 current_stream = current_stream[packet_size:]
             else:
                 # Throw out everything between here and the next start byte.
                 # Note: start searching after byte 0 in case it's
                 # already a start byte
                 next_start_index = current_stream[1:].find(start_byte)
+                current_byte += next_start_index
                 current_stream = current_stream[1:][next_start_index:]
+
+        for chip in self.chips:
+            read_data = {}
+            read_data['cpu_timestamp'] = self.last_read_time
+            read_data['read_id'] = self.read_counter
+            read_data['config'] = chip.config.get_nondefault_registers()
+            read_data['log_message'] = ''
+            read_data['packets'] = []
+            chip.reads.append(read_data)
         # assign each packet to the corresponding Chip
         for byte_packet in byte_packets:
             io_chain = byte_packet[0][4:].uint
             packet = byte_packet[1]
             chip_id = packet.chipid
-            self.get_chip(chip_id, io_chain).reads.append(packet)
+            self.get_chip(chip_id, io_chain).reads[-1]['packets'].append(packet)
         return current_stream  # (the remainder that wasn't read in)
 
     def format_bytestream(self, formatted_packets):
@@ -838,6 +906,9 @@ class Packet(object):
 
     def __init__(self, bytestream=None):
         self._bit_padding = Bits('0b00')
+        self._cpu_timestamp = time.time()
+        self._read_id = 0
+        self._bytestream_id = 0
         if bytestream is None:
             self.bits = BitArray(Packet.size)
             return
@@ -878,6 +949,9 @@ class Packet(object):
                 string += 'Config write | '
             string += 'Register: %d | ' % self.register_address
             string += 'Value: % d | ' % self.register_data
+        string += 'CPU Time: %d | ' % self.cpu_timestamp
+        string += 'Read id: %d | ' % self.read_id
+        string += 'Bytestream id: %d | ' % self.bytestream_id
         first_splitter = string.find('|')
         string = (string[:first_splitter] + '| Chip: %d ' % self.chipid +
                 string[first_splitter:])
@@ -907,6 +981,9 @@ class Packet(object):
         d['bits'] = self.bits.bin
         d['type'] = type_map[Bits(self.packet_type)]
         d['chipid'] = self.chipid
+        d['cpu_timestamp'] = self.cpu_timestamp
+        d['read_id'] = self.read_id
+        d['bytestream_id'] = self.bytestream_id
         d['parity'] = self.parity_bit_value
         d['valid_parity'] = self.has_valid_parity()
         ptype = self.packet_type
@@ -939,6 +1016,30 @@ class Packet(object):
     @chipid.setter
     def chipid(self, value):
         self.bits[Packet.chipid_bits] = value
+
+    @property
+    def cpu_timestamp(self):
+        return self._cpu_timestamp
+
+    @cpu_timestamp.setter
+    def cpu_timestamp(self, value):
+        self._cpu_timestamp = value
+
+    @property
+    def read_id(self):
+        return self._read_id
+
+    @read_id.setter
+    def read_id(self, value):
+        self._read_id = value
+
+    @property
+    def bytestream_id(self):
+        return self._bytestream_id
+
+    @bytestream_id.setter
+    def bytestream_id(self, value):
+        self._bytestream_id = value
 
     @property
     def parity_bit_value(self):
