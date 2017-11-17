@@ -20,7 +20,7 @@ def setup_logger(settings):
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-def startup(settings):
+def startup(settings,**kwargs):
     '''
     Set the chips' configurations to a standard, quiet state.
 
@@ -29,15 +29,20 @@ def startup(settings):
     '''
     logger = logging.getLogger(__name__)
     logger.info('Executing startup')
-    controller = larpix.Controller(settings['port'])
-    controller.init_chips()
-    nchips = settings['nchips']
+    if 'controller' in kwargs:
+        controller = kwargs['controller']
+        nchips = len(controller.chips)
+    else:
+        controller = larpix.Controller(settings['port'])
+        controller.init_chips()
+        nchips = settings['nchips']
+
     for _ in range(nchips):
         for chip in controller.chips:
             chip.config.load("quiet.json")
             controller.write_configuration(chip)
 
-def get_chip_ids(settings):
+def get_chip_ids(settings,**kwargs):
     '''
     Return a list of Chip objects representing the chips on the board.
 
@@ -47,9 +52,13 @@ def get_chip_ids(settings):
     '''
     logger = logging.getLogger(__name__)
     logger.info('Executing get_chip_ids')
-    controller = larpix.Controller(settings['port'])
+    if 'controller' in kwargs:
+        controller = kwargs['controller']
+    else:
+        controller = larpix.Controller(settings['port'])
+        controller.init_chips()
+    stored_timeout = controller.timeout
     controller.timeout=0.1
-    controller.init_chips()
     chips = []
     for chip in controller.chips:
         controller.read_configuration(chip, 0, timeout=0.1)
@@ -57,9 +66,10 @@ def get_chip_ids(settings):
         if read_packet.register_data != 0:
             chips.append(chip)
             logger.info('Found chip %s' % chip)
+    controller.timeout = stored_timeout
     return chips
 
-def simple_stats(settings):
+def simple_stats(settings,**kwargs):
     '''
     Read in data from LArPix and report some simple stats.
 
@@ -72,13 +82,17 @@ def simple_stats(settings):
     '''
     logger = logging.getLogger(__name__)
     logger.info('Executing simple_stats')
-    controller = larpix.Controller(settings['port'])
+    if 'controller' in kwargs:
+        controller = kwargs['controller']
+    else:
+        controller = larpix.Controller(settings['port'])
+        for chip_description in settings['chipset']:
+            chip = larpix.Chip(*chip_description)
+            chip.config.load(settings['config'])
+            controller.chips.append(chip)
+            controller.write_configuration(chip)
+    stored_timeout = controller.timeout
     controller.timeout = 0.1
-    for chip_description in settings['chipset']:
-        chip = larpix.Chip(*chip_description)
-        chip.config.load(settings['config'])
-        controller.chips.append(chip)
-        controller.write_configuration(chip)
     controller.run(settings['runtime'])
     for chip in controller.chips:
         logger.info(chip)
@@ -88,7 +102,7 @@ def simple_stats(settings):
         logger.info('mean: %f', float(sum(adcs))/len(adcs))
         logger.info('min: %d', min(adcs))
         logger.info('max: %d', max(adcs))
-
+    controller.timeout = stored_timeout
 
 if __name__ == '__main__':
     import argparse
