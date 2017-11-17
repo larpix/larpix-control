@@ -9,7 +9,7 @@ import larpix.larpix as larpix
 import json
 from bitstring import BitArray
 
-def setup_logger(settings):
+def setup_logger(**settings):
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
     logfile = settings['logfile']
@@ -20,7 +20,7 @@ def setup_logger(settings):
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-def startup(settings,**kwargs):
+def startup(**settings):
     '''
     Set the chips' configurations to a standard, quiet state.
 
@@ -29,8 +29,8 @@ def startup(settings,**kwargs):
     '''
     logger = logging.getLogger(__name__)
     logger.info('Executing startup')
-    if 'controller' in kwargs:
-        controller = kwargs['controller']
+    if 'controller' in settings:
+        controller = settings['controller']
         nchips = len(controller.chips)
     else:
         controller = larpix.Controller(settings['port'])
@@ -42,7 +42,7 @@ def startup(settings,**kwargs):
             chip.config.load("quiet.json")
             controller.write_configuration(chip)
 
-def get_chip_ids(settings,**kwargs):
+def get_chip_ids(**settings):
     '''
     Return a list of Chip objects representing the chips on the board.
 
@@ -52,8 +52,8 @@ def get_chip_ids(settings,**kwargs):
     '''
     logger = logging.getLogger(__name__)
     logger.info('Executing get_chip_ids')
-    if 'controller' in kwargs:
-        controller = kwargs['controller']
+    if 'controller' in settings:
+        controller = settings['controller']
     else:
         controller = larpix.Controller(settings['port'])
         controller.init_chips()
@@ -69,7 +69,7 @@ def get_chip_ids(settings,**kwargs):
     controller.timeout = stored_timeout
     return chips
 
-def simple_stats(settings,**kwargs):
+def simple_stats(**settings):
     '''
     Read in data from LArPix and report some simple stats.
 
@@ -82,8 +82,8 @@ def simple_stats(settings,**kwargs):
     '''
     logger = logging.getLogger(__name__)
     logger.info('Executing simple_stats')
-    if 'controller' in kwargs:
-        controller = kwargs['controller']
+    if 'controller' in settings:
+        controller = settings['controller']
     else:
         controller = larpix.Controller(settings['port'])
         for chip_description in settings['chipset']:
@@ -158,6 +158,6 @@ if __name__ == '__main__':
     logger.info(args.message)
     try:
         for task in args.task:
-            tasks[task](settings)
+            tasks[task](**settings)
     except Exception as e:
         logger.error('Error during task', exc_info=True)
