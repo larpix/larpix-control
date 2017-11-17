@@ -7,8 +7,7 @@ from __future__ import absolute_import
 import logging
 import larpix.larpix as larpix
 
-from tasks import setup_logger, write_configuration,
-from tasks import set_high_threshold, get_chip_ids
+from larpix.tasks import startup, get_chip_ids
 
 # Add a useful static class property
 larpix.Controller.max_chip_id = 255
@@ -191,7 +190,7 @@ if '__main__' == __name__:
     controller.timeout = 0.1
 
     # Silence chips
-    silence_chips(controller)
+    startup(settings)
     # Scan and autoload chips
     autoload_chips(controller)
     # Initialize to 'improved' default configuration
