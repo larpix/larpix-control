@@ -192,9 +192,12 @@ if '__main__' == __name__:
     # Silence chips
     startup(settings)
     # Scan and autoload chips
-    autoload_chips(controller)
+    controller.chips = tasks.get_chip_ids(settings)
     # Initialize to 'improved' default configuration
-    initialize_chips(controller)
+    for chip in controller.chips:
+        chip.config.load('physics.json')
+        controller.write_configuration(chip)
+
 
     ##########################################################################
     # Everything to this point should be a standard procedure before any test.
