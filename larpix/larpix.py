@@ -34,17 +34,6 @@ class Chip(object):
     def __repr__(self):
         return 'Chip(%d, %d)' % (self.chip_id, self.io_chain)
 
-    def show_reads(self, start=0, stop=None, step=1):
-        if stop is None:
-            stop = len(self.reads)
-        return list(map(str, self.reads[start:stop:step]))
-
-    def show_reads_bits(self, start=0, stop=None, step=1):
-        if stop is None:
-            stop = len(self.reads)
-        return list(map(lambda x:' '.join(x.bits.bin[i:i+8] for i in range(0,
-            len(x.bits.bin), 8)), self.reads[start:stop:step]))
-
     def get_configuration_packets(self, packet_type):
         conf = self.config
         packets = [Packet() for _ in range(Configuration.num_registers)]
@@ -1131,6 +1120,27 @@ class PacketCollection(object):
     Represents a group of packets that were sent to or received from
     LArPix.
 
+    Index into the PacketCollection as if it were a list:
+
+        >>> collection[0]
+        Packet(b'\x07\x00\x00\x00\x00\x00\x00')
+        >>> first_ten = collection[:10]
+        >>> len(first_ten)
+        10
+        >>> type(first_ten)
+        larpix.larpix.PacketCollection
+        >>> first_ten.message
+        'my packets | subset slice(None, 10, None)'
+
+    To view the bits representation, add 'bits' to the index:
+
+        >>> collection[0, 'bits']
+        '00000000 00000000 00000000 00000000 00000000 00000000 000111'
+        >>> bits_format_first_10 = collection[:10, 'bits']
+        >>> type(bits_format_first_10[0])
+        str
+
+
     '''
     def __init__(self, packets, bytestream=None, message=''):
         self.packets = packets
@@ -1151,16 +1161,54 @@ class PacketCollection(object):
             end = '\n'.join(str(packet) for packet in self.packets[-10:])
             return '\n'.join([beginning, middle, end])
 
-    def show_reads(self, start=0, stop=None, step=1):
-        if stop is None:
-            stop = len(self.packets)
-        return list(map(str, self.packets[start:stop:step]))
+    def __len__(self):
+        return len(self.packets)
 
-    def show_reads_bits(self, start=0, stop=None, step=1):
-        if stop is None:
-            stop = len(self.packets)
-        return list(map(lambda x:' '.join(x.bits.bin[i:i+8] for i in range(0,
-            len(x.bits.bin), 8)), self.packets[start:stop:step]))
+    def __getitem__(self, key):
+        '''
+        Get the specified item(s).
+
+        If key is an int, return the packet object at that index in
+        self.packets.
+
+        If key is a slice, return a PacketCollection with the specified
+        packets, and with a message inherited from self.message.
+
+        If key is (slice or int, 'str'), use the behavior as if setting
+        key = key[0].
+
+        If key is (int, 'bits'), return a string representation of the
+        bits of the specified packet, as determined by
+        self._bits_getitem.
+
+        If key is (slice, 'bits'), return a list of string
+        representations of the packets specified by the slice.
+
+        '''
+        if isinstance(key, slice):
+            items = PacketCollection([p for p in self.packets[key]])
+            items.message = '%s | subset %s' % (self.message, key)
+            return items
+        elif isinstance(key, tuple):
+            if key[1] == 'bits':
+                return self._bits_getitem(key[0])
+            elif key[1] == 'str':
+                return self[key[0]]
+        else:
+            return self.packets[key]
+
+    def _bits_getitem(self, key):
+        '''
+        Replace each packet with a string of the packet bits grouped 8
+        bits at a time.
+
+        '''
+        if isinstance(key, slice):
+            return [' '.join(p.bits.bin[i:i+8] for i in
+                range(0, Packet.size, 8)) for p in self.packets[key]]
+        else:
+            return ' '.join(self.packets[key].bits.bin[i:i+8] for i in
+                    range(0, Packet.size, 8))
 
     def with_chipid(self, chipid):
         '''
