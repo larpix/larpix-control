@@ -1147,6 +1147,15 @@ class PacketCollection(object):
         self.bytestream = bytestream
         self.message = message
 
+    def __eq__(self, other):
+        '''
+        Return True if the packets, message and bytestream compare equal.
+
+        '''
+        return (self.packets == other.packets and
+                self.message == other.message and
+                self.bytestream == other.bytestream)
+
     def __repr__(self):
         return '<%s with %d packets>' % (self.__class__.__name__,
                 len(self.packets))
