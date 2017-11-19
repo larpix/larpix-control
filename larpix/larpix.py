@@ -818,15 +818,18 @@ class Controller(object):
         bytestreams = self.format_bytestream(formatted_packets)
         return bytestreams
 
-    def run(self, timelimit):
+    def run(self, timelimit, message):
         data = self.serial_read(timelimit)
         packets = self.parse_input(data)
-        new_packets = PacketCollection(packets, data)
+        new_packets = PacketCollection(packets, data, message)
         self.packets.append(new_packets)
         by_chipid = new_packets.by_chipid()
         for chip in self.chips:
             if chip.chip_id in by_chipid:
-                chip.reads.append(PacketCollection(by_chipid[chip.chip_id]))
+                message = new_packets.message + ' | chip %d' % chip.chipid
+                chip_packets = PacketCollection(by_chipid[chip.chip_id],
+                        message=message)
+                chip.reads.append(chip_packets)
 
     def run_testpulse(self, list_of_channels):
         return
