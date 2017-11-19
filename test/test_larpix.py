@@ -4,7 +4,8 @@ Use the pytest framework to write tests for the larpix module.
 '''
 from __future__ import print_function
 import pytest
-from larpix.larpix import Chip, Packet, Configuration, Controller
+from larpix.larpix import (Chip, Packet, Configuration, Controller,
+        PacketCollection)
 from bitstring import BitArray
 import json
 import os
@@ -1618,4 +1619,21 @@ def test_controller_parse_input_dropped_stopstart_bytes():
     assert remainder_bytes == expected_remainder_bytes
     result = chip.reads
     expected = packets[2:]
+    assert result == expected
+
+def test_packetcollection_show_reads():
+    packet = Packet()
+    packet.packet_type = Packet.TEST_PACKET
+    packet.test_counter = 12345
+    pc = PacketCollection([packet], packet.bytes())
+    result = pc.show_reads()
+    expected = [str(packet)]
+    assert result == expected
+
+def test_packetcollection_show_reads_bits():
+    packet = Packet()
+    pc = PacketCollection([packet], packet.bytes())
+    result = pc.show_reads_bits()
+    expected = ['00000000 00000000 00000000 00000000 00000000 00000000'
+            ' 000000']
     assert result == expected
