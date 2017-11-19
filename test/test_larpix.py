@@ -73,25 +73,6 @@ def test_chip_str():
     expected = 'Chip (id: 1, chain: 2)'
     assert result == expected
 
-def test_chip_show_reads():
-    chip = Chip(1, 2)
-    packet = Packet()
-    packet.packet_type = Packet.TEST_PACKET
-    packet.test_counter = 12345
-    chip.reads.append(packet)
-    result = chip.show_reads()
-    expected = [str(packet)]
-    assert result == expected
-
-def test_chip_show_reads_bits():
-    chip = Chip(1, 2)
-    packet = Packet()
-    chip.reads.append(packet)
-    result = chip.show_reads_bits()
-    expected = ['00000000 00000000 00000000 00000000 00000000 00000000'
-            ' 000000']
-    assert result == expected
-
 def test_chip_get_configuration_packets():
     chip = Chip(3, 1)
     packet_type = Packet.CONFIG_WRITE_PACKET
@@ -1604,19 +1585,33 @@ def test_controller_parse_input_dropped_stopstart_bytes():
     expected = packets[2:]
     assert result == expected
 
-def test_packetcollection_show_reads():
-    packet = Packet()
-    packet.packet_type = Packet.TEST_PACKET
-    packet.test_counter = 12345
-    pc = PacketCollection([packet], packet.bytes())
-    result = pc.show_reads()
-    expected = [str(packet)]
+def test_packetcollection_getitem_int():
+    expected = Packet()
+    collection = PacketCollection([expected])
+    result = collection[0]
     assert result == expected
 
-def test_packetcollection_show_reads_bits():
+def test_packetcollection_getitem_int_bits():
     packet = Packet()
-    pc = PacketCollection([packet], packet.bytes())
-    result = pc.show_reads_bits()
-    expected = ['00000000 00000000 00000000 00000000 00000000 00000000'
-            ' 000000']
+    collection = PacketCollection([packet])
+    result = collection[0, 'bits']
+    expected = ' '.join(packet.bits.bin[i:i+8] for i in range(0, Packet.size, 8))
+    assert result == expected
+
+def test_packetcollection_getitem_slice():
+    chip = Chip(0, 0)
+    packets = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
+    collection = PacketCollection(packets, message='hello')
+    result = collection[:10]
+    expected = PacketCollection(packets[:10], message='hello'
+        ' | subset slice(None, 10, None)')
+    assert result == expected
+
+def test_packetcollection_getitem_slice_bits():
+    chip = Chip(0, 0)
+    packets = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
+    collection = PacketCollection(packets, message='hello')
+    result = collection[:10, 'bits']
+    expected = [' '.join(p.bits.bin[i:i+8] for i in range(0,
+        Packet.size, 8)) for p in packets[:10]]
     assert result == expected
