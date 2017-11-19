@@ -705,6 +705,7 @@ class Controller(object):
     stop_byte = b'\x71'
     def __init__(self, port='/dev/ttyUSB1'):
         self.chips = []
+        self.reads = []
         self.port = port
         self.baudrate = 1000000
         self.timeout = 1
@@ -819,7 +820,8 @@ class Controller(object):
 
     def run(self, timelimit):
         data = self.serial_read(timelimit)
-        self.parse_input(data)
+        packets = self.parse_input(data)
+        self.packets.append(PacketCollection(packets, data))
 
     def run_testpulse(self, list_of_channels):
         return
@@ -871,7 +873,7 @@ class Controller(object):
             packet = byte_packet[1]
             chip_id = packet.chipid
             self.get_chip(chip_id, io_chain).reads.append(packet)
-        return current_stream  # (the remainder that wasn't read in)
+        return [x[1] for x in byte_packets]
 
     def format_bytestream(self, formatted_packets):
         bytestreams = []
@@ -1121,3 +1123,24 @@ class Packet(object):
         allbits = BitArray('uint:16=' + str(value))
         self.bits[Packet.test_counter_bits_15_12] = allbits[:4]
         self.bits[Packet.test_counter_bits_11_0] = allbits[4:]
+
+class PacketCollection(object):
+    '''
+    Represents a group of packets that were sent to or received from
+    LArPix.
+
+    '''
+    def __init__(self, packets, bytestream):
+        self.packets = packets
+        self.bytestream = bytestream
+
+    def show_reads(self, start=0, stop=None, step=1):
+        if stop is None:
+            stop = len(self.packets)
+        return list(map(str, self.packets[start:stop:step]))
+
+    def show_reads_bits(self, start=0, stop=None, step=1):
+        if stop is None:
+            stop = len(self.packets)
+        return list(map(lambda x:' '.join(x.bits.bin[i:i+8] for i in range(0,
+            len(x.bits.bin), 8)), self.packets[start:stop:step]))
