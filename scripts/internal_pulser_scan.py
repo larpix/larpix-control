@@ -7,7 +7,7 @@ from __future__ import absolute_import
 import logging
 import larpix.larpix as larpix
 
-from larpix.tasks import startup, get_chip_ids
+from larpix.tasks import startup, get_chip_ids, setup_logger
 
 # Add a useful static class property
 larpix.Controller.max_chip_id = 255
@@ -55,58 +55,42 @@ def autoload_chips(controller, iochains=[0,]):
     return
 
 
-def initialize_chips(controller):
-    '''Set improved defaults for general chip operation'''
-    # FIXME: convert to load standard json config file instead?
-    for chip in controller.chips:
-        # reset_cycles
-        chip.config.enable_periodic_reset = 1
-        # internal bypass
-        chip.config.internal_bypass = 1
-        # global threshold
-        chip.config.global_threshold = 60
-        addresses = [
-            # Note: order matters!
-            chip.Configuration.test_mode_xtrig_reset_diag_address,
-            chip.Configuration.csa_gain_and_bypasses_address,
-            chip.Configuration.global_threshold_address,
-        ]
-        controller.write_configuration(chip,addresses)
-    return
-
-def pulse_channel(controller, chip, dac_value):
+def pulse_chip(controller, chip, dac_value):
     '''Send a single pulse to chip'''
     # Assumes internal pulse mode has already been enabled for this chip
-    address = chip.Configuration.csa_testpulse_dac_amplitude_address
-    chip.config.csa_testpulse_dac = dac_value
+    address = chip.config.csa_testpulse_dac_amplitude_address
+    chip.config.csa_testpulse_dac_amplitude = dac_value
     controller.write_configuration(chip,address)
     # Pulse occurs on DAC return to zero.
-    chip.config.csa_testpulse_dac = 0
-    controller.write_configuration(chip,address)
+    chip.config.csa_testpulse_dac_amplitude = 0
+    controller.write_configuration(chip,address, write_read=0.01)
     return
 
 def scan_pulser(controller,
-                select_chips=None,
-                channel_enable=[0,]*32, # Active low
-                dac_values=range(0,256,8)+[255,],
-                n_pulses = 10,
-                monitor_channel=None):
+        select_chips=None,
+        channel_enable=[0,]*32, # Active low
+        dac_values=list(range(0,256,8))+[255,],
+        n_pulses = 10,
+        monitor_channel=None):
     '''Scan internal pulser with a range of DAC values'''
     # Set configuration and pulse
     for chip in controller.chips:
+        chip.config.adc_burst_length = 255
+        controller.write_configuration(chip,
+                chip.config.adc_burst_length_address)
         if select_chips:
             # Filter based on request
-            if (chip.iochain, chip.chip_id) not in select_chips:
+            if (chip.io_chain, chip.chip_id) not in select_chips:
                 continue
         # Enable test pulse
         chip.config.csa_testpulse_enable = channel_enable
-        controller.write(chip,
-                         chip.Configuration.csa_testpulse_enable_addresses)
+        controller.write_configuration(chip,
+                         chip.config.csa_testpulse_enable_addresses)
         # Enable analog monitor
-        if monitor_channel:
+        if monitor_channel is not None:
             chip.config.csa_monitor_select[monitor_channel]=1
-            controller.write(chip,
-                             chip.Configuration.csa_monitor_select_addresses)
+            controller.write_configuration(chip,
+                             chip.config.csa_monitor_select_addresses)
         # Loop over pulse amplitudes
         for dac_value in dac_values:
             # Pulse this chip n times
@@ -115,14 +99,15 @@ def scan_pulser(controller,
                 # FIXME: Add wait time between pulses?
         # Disable test pulse
         chip.config.csa_testpulse_enable = [1,]*32 # Active low
-        controller.write(chip,
-                         chip.Configuration.csa_testpulse_enable_addresses)
+        controller.write_configuration(chip,
+                         chip.config.csa_testpulse_enable_addresses)
         # Disable analog monitor
         if monitor_channel:
             chip.config.csa_monitor_select[monitor_channel]=0
-            controller.write(chip,
-                             chip.Configuration.csa_monitor_select_addresses)
+            controller.write_configuration(chip,
+                             chip.config.csa_monitor_select_addresses)
     # Done with scan
+    controller.save_output(settings['filename'])
     return
 
 
@@ -137,15 +122,11 @@ def parse_larpix_arguments():
             help='the logfile to save')
     parser.add_argument('-p', '--port', default='/dev/ttyUSB1',
             help='the serial port')
-    parser.add_argument('-l', '--list', action='store_true',
-            help='list available tasks')
-    parser.add_argument('-t', '--task', nargs='+', default=tasks.keys(),
-            help='specify tasks(s) to run')
     parser.add_argument('--chipid', nargs='*', type=int,
             help='list of chip IDs')
     parser.add_argument('--iochain', nargs='*', type=int,
             help='list of IO chain IDs (corresponding to chipids')
-    parser.add_argument('-f', '--filename', default='out.txt',
+    parser.add_argument('-f', '--filename', default='out.json',
             help='filename to save data to')
     parser.add_argument('-m', '--message', default='',
             help='message to save to the logfile')
@@ -153,10 +134,8 @@ def parse_larpix_arguments():
             help='configuration file to load')
     parser.add_argument('--runtime', default=1, type=float,
             help='number of seconds to take data for')
+    parser.add_argument('--nchips', type=int, help='number of chips on board')
     args = parser.parse_args()
-    if args.list:
-        print('\n'.join(tasks.keys()))
-        sys.exit(0)
     if args.chipid and args.iochain:
         chipset = list(zip(args.chipid, args.iochain))
     else:
@@ -168,6 +147,8 @@ def parse_larpix_arguments():
             'filename': args.filename,
             'config': args.config,
             'runtime': args.runtime,
+            'message': args.message,
+            'nchips': args.nchips,
             }
     return settings
 
@@ -183,7 +164,7 @@ if '__main__' == __name__:
     setup_logger(settings)
     logger = logging.getLogger(__name__)
     logger.info('-'*60)
-    logger.info(args.message)
+    logger.info(settings['message'])
 
     # Create controller
     controller = larpix.Controller(settings['port'])
@@ -192,7 +173,9 @@ if '__main__' == __name__:
     # Silence chips
     startup(settings)
     # Scan and autoload chips
-    controller.chips = tasks.get_chip_ids(settings)
+    controller.chips = [
+            larpix.Chip(245, 0),
+            larpix.Chip(246, 0)]#get_chip_ids(settings)
     # Initialize to 'improved' default configuration
     for chip in controller.chips:
         chip.config.load('physics.json')
@@ -208,7 +191,7 @@ if '__main__' == __name__:
     # Consider making these optional arguments
     global_chip_ids = [(0,246),] # Shorthand: (iochain, chip_id)
     channel_enable = [0,] + [1,]*31  # First channel only (Active low.)
-    pulser_dac_values = range(0,256,8)+[255,]
+    pulser_dac_values = list(range(0,256,8))+[255,]
     n_pulses_per_value = 10  # Number of pulses at each DAC value
     analog_monitor_channel = 0 # Optionally enable analog monitor by chan num
 
@@ -217,8 +200,8 @@ if '__main__' == __name__:
                 select_chips=global_chip_ids,
                 channel_enable = channel_enable,
                 dac_values=pulser_dac_values,
-                n_pulses=n_pulses_per_value)
-    #           analog_monitor_channel = analog_monitor_channel)
+                n_pulses=n_pulses_per_value,
+                monitor_channel = analog_monitor_channel)
 
     # Consider promoting to class methods:
     # controller.silence_chips()
