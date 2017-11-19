@@ -31,7 +31,11 @@ def startup(**settings):
     logger.info('Executing startup')
     if 'controller' in settings:
         controller = settings['controller']
-        nchips = len(controller.chips)
+        if controller.chips:
+            nchips = len(controller.chips)
+        else:
+            controller.init_chips()
+            nchips = settings['nchips']
     else:
         controller = larpix.Controller(settings['port'])
         controller.init_chips()
@@ -54,6 +58,8 @@ def get_chip_ids(**settings):
     logger.info('Executing get_chip_ids')
     if 'controller' in settings:
         controller = settings['controller']
+        if not controller.chips:
+            controller.init_chips()
     else:
         controller = larpix.Controller(settings['port'])
         controller.init_chips()
@@ -86,6 +92,7 @@ def simple_stats(**settings):
         controller = settings['controller']
     else:
         controller = larpix.Controller(settings['port'])
+    if not controller.chips:
         for chip_description in settings['chipset']:
             chip = larpix.Chip(*chip_description)
             chip.config.load(settings['config'])
