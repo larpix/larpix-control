@@ -821,7 +821,12 @@ class Controller(object):
     def run(self, timelimit):
         data = self.serial_read(timelimit)
         packets = self.parse_input(data)
-        self.packets.append(PacketCollection(packets, data))
+        new_packets = PacketCollection(packets, data)
+        self.packets.append(new_packets)
+        by_chipid = new_packets.by_chipid()
+        for chip in self.chips:
+            if chip.chip_id in by_chipid:
+                chip.reads.append(PacketCollection(by_chipid[chip.chip_id]))
 
     def run_testpulse(self, list_of_channels):
         return
@@ -867,12 +872,6 @@ class Controller(object):
                 # already a start byte
                 next_start_index = current_stream[1:].find(start_byte)
                 current_stream = current_stream[1:][next_start_index:]
-        # assign each packet to the corresponding Chip
-        for byte_packet in byte_packets:
-            io_chain = byte_packet[0][4:].uint
-            packet = byte_packet[1]
-            chip_id = packet.chipid
-            self.get_chip(chip_id, io_chain).reads.append(packet)
         return [x[1] for x in byte_packets]
 
     def format_bytestream(self, formatted_packets):
@@ -1130,9 +1129,10 @@ class PacketCollection(object):
     LArPix.
 
     '''
-    def __init__(self, packets, bytestream):
+    def __init__(self, packets, bytestream=None, message=''):
         self.packets = packets
         self.bytestream = bytestream
+        self.message = message
 
     def __repr__(self):
         return '<%s with %d packets>' % (self.__class__.__name__,
@@ -1158,3 +1158,22 @@ class PacketCollection(object):
             stop = len(self.packets)
         return list(map(lambda x:' '.join(x.bits.bin[i:i+8] for i in range(0,
             len(x.bits.bin), 8)), self.packets[start:stop:step]))
+
+    def with_chipid(self, chipid):
+        '''
+        Return packets with the specified chip ID.
+
+        '''
+        return [packet for packet in self.packets if packet.chipid == chipid]
+
+    def by_chipid(self, chipid):
+        '''
+        Return a dict of { chipid: [packet] }.
+
+        '''
+        to_return = {}
+        for packet in self.packets:
+            # append packet to list if list exists, else append to empty
+            # list as a default
+            to_return.setdefault(packet.chipid, []).append(packet)
+        return to_return
