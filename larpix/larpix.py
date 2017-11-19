@@ -1134,6 +1134,20 @@ class PacketCollection(object):
         self.packets = packets
         self.bytestream = bytestream
 
+    def __repr__(self):
+        return '<%s with %d packets>' % (self.__class__.__name__,
+                len(self.packets))
+
+    def __str__(self):
+        if len(self.packets) < 20:
+            return '\n'.join(str(packet) for packet in self.packets)
+        else:
+            beginning = '\n'.join(str(packet) for packet in self.packets[:10])
+            middle = '\n'.join(['   .', '   . omitted %d packets' %
+                (len(self.packets)-20), '   .'])
+            end = '\n'.join(str(packet) for packet in self.packets[-10:])
+            return '\n'.join([beginning, middle, end])
+
     def show_reads(self, start=0, stop=None, step=1):
         if stop is None:
             stop = len(self.packets)
