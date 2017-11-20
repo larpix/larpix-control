@@ -21,9 +21,21 @@ download_filename = 'FTDIUSBSerialDriver_v2_4_2.dmg'
 download_path = os.path.join(download_location, download_filename)
 if os.path.isdir(expected_location):
     print('The driver is installed at ' + expected_location + '.')
-    print('Try restarting your computer if you are still'
-            ' having issues finding the FTDI device.')
-    sys.exit(0)
+    kextstat_return = subprocess.check_output(['kextstat'])
+    if not 'FTDI' in kextstat_return:
+        print('Driver is not loaded. Run:')
+        print('sudo kextload %s' % expected_location)
+        sys.exit(0)
+    elif 'AppleUSBFTDI' in kextstat_return:
+        print('Apple driver is loaded. Run:')
+        print('sudo kextunload -b com.apple.driver.AppleUSBFTDI')
+        print('sudo kextload %s' % expected_location)
+        print('and try again')
+        sys.exit(0)
+    else:
+        print('Try restarting your computer if you are still'
+              ' having issues finding the FTDI device.')
+        sys.exit(0)
 
 print('Could not find the FTDI driver at ' + expected_location +
         ', which is the expected install location. I can download'
