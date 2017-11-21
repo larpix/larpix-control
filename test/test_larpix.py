@@ -434,8 +434,14 @@ def test_packet_set_dataword():
 
 def test_packet_get_dataword():
     p = Packet()
-    expected = 75
-    p.dataword = expected
+    expected = 74
+    p.dataword = 74
+    assert p.dataword == expected
+
+def test_packet_get_dataword_ADC_bug():
+    p = Packet()
+    expected = 74
+    p.dataword = 75
     assert p.dataword == expected
 
 def test_packet_set_fifo_half_flag():
