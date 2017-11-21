@@ -1614,3 +1614,14 @@ def test_packetcollection_getitem_slice_bits():
     expected = [' '.join(p.bits.bin[i:i+8] for i in range(0,
         Packet.size, 8)) for p in packets[:10]]
     assert result == expected
+
+def test_packetcollection_origin():
+    chip = Chip(0, 0)
+    packets = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
+    collection = PacketCollection(packets, message='hello')
+    first_gen = collection.by_chipid()[0]
+    second_gen = first_gen.by_chipid()[0]
+    assert first_gen.parent is collection
+    assert first_gen.origin() is collection
+    assert second_gen.parent is first_gen
+    assert second_gen.origin() is collection

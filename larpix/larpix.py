@@ -879,10 +879,7 @@ class Controller(object):
         by_chipid = collection.by_chipid()
         for chip in self.chips:
             if chip.chip_id in by_chipid:
-                message = collection.message + ' | chip %d' % chip.chip_id
-                chip_packets = PacketCollection(by_chipid[chip.chip_id],
-                        message=message)
-                chip.reads.append(chip_packets)
+                chip.reads.append(by_chipid[chip.chip_id])
 
 
     def format_bytestream(self, formatted_packets):
@@ -1241,6 +1238,27 @@ class PacketCollection(object):
             return ' '.join(self.packets[key].bits.bin[i:i+8] for i in
                     range(0, Packet.size, 8))
 
+    def origin(self):
+        '''
+        Return the original PacketCollection that this PacketCollection
+        derives from.
+
+        '''
+        child = self
+        parent = self.parent
+        max_generations = 100  # to prevent infinite loops
+        i = 0
+        while parent is not None and i < max_generations:
+            # Move up the family tree one generation
+            child = parent
+            parent = parent.parent
+            i += 1
+        if parent is None:
+            return child
+        else:
+            raise ValueError('Reached limit on generations: %d' %
+                    max_generations)
+
     def with_chipid(self, chipid):
         '''
         Return packets with the specified chip ID.
@@ -1250,12 +1268,19 @@ class PacketCollection(object):
 
     def by_chipid(self):
         '''
-        Return a dict of { chipid: [packet] }.
+        Return a dict of { chipid: PacketCollection }.
 
         '''
-        to_return = {}
+        chip_groups = {}
         for packet in self.packets:
             # append packet to list if list exists, else append to empty
             # list as a default
-            to_return.setdefault(packet.chipid, []).append(packet)
+            chip_groups.setdefault(packet.chipid, []).append(packet)
+        to_return = {}
+        for chipid in chip_groups:
+            new_collection = PacketCollection(chip_groups[chipid])
+            new_collection.message = self.message + ' | chip %s' % chipid
+            new_collection.read_id = self.read_id
+            new_collection.parent = self
+            to_return[chipid] = new_collection
         return to_return
