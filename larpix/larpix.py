@@ -1071,7 +1071,9 @@ class Packet(object):
 
     @property
     def dataword(self):
-        return self.bits[Packet.dataword_bits].uint
+        ostensible_value = self.bits[Packet.dataword_bits].uint
+        # TODO fix in LArPix v2
+        return ostensible_value - (ostensible_value % 2)
 
     @dataword.setter
     def dataword(self, value):
