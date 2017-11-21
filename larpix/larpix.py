@@ -1165,6 +1165,7 @@ class PacketCollection(object):
         self.packets = packets
         self.bytestream = bytestream
         self.message = message
+        self.read_id = read_id
         self.parent = None
 
     def __eq__(self, other):
