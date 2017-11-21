@@ -57,13 +57,21 @@ def autoload_chips(controller, iochains=[0,]):
 
 def pulse_chip(controller, chip, dac_value):
     '''Send a single pulse to chip'''
-    # Assumes internal pulse mode has already been enabled for this chip
-    address = chip.config.csa_testpulse_dac_amplitude_address
+    dac_address = chip.config.csa_testpulse_dac_amplitude_address
+    pulse_enable_addresses = chip.config.csa_testpulse_enable_addresses
+    chip.config.csa_testpulse_enable = [0]*32
+    controller.write_configuration(chip, pulse_enable_addresses)
     chip.config.csa_testpulse_dac_amplitude = dac_value
-    controller.write_configuration(chip,address)
-    # Pulse occurs on DAC return to zero.
+    controller.write_configuration(chip,dac_address)
+    # Disable testpulse mode to return voltage to 0 and get the pulse
+    chip.config.csa_testpulse_enable = [0]*32
+    controller.write_configuration(chip, pulse_enable_addresses,
+            write_read=0.01)
+    # Reset DAC value
     chip.config.csa_testpulse_dac_amplitude = 0
-    controller.write_configuration(chip,address, write_read=0.01)
+    controller.write_configuration(chip,dac_address, write_read=0.01)
+    chip.config.csa_testpulse_enable = [1]*32
+    controller.write_configuration(chip, pulse_enable_addresses)
     return
 
 def scan_pulser(controller,
@@ -83,9 +91,9 @@ def scan_pulser(controller,
             if (chip.io_chain, chip.chip_id) not in select_chips:
                 continue
         # Enable test pulse
-        chip.config.csa_testpulse_enable = channel_enable
-        controller.write_configuration(chip,
-                         chip.config.csa_testpulse_enable_addresses)
+        # chip.config.csa_testpulse_enable = channel_enable
+        # controller.write_configuration(chip,
+                         # chip.config.csa_testpulse_enable_addresses)
         # Enable analog monitor
         if monitor_channel is not None:
             chip.config.csa_monitor_select[monitor_channel]=1
