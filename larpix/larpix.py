@@ -1165,6 +1165,7 @@ class PacketCollection(object):
         self.packets = packets
         self.bytestream = bytestream
         self.message = message
+        self.parent = None
 
     def __eq__(self, other):
         '''
@@ -1216,6 +1217,7 @@ class PacketCollection(object):
         if isinstance(key, slice):
             items = PacketCollection([p for p in self.packets[key]])
             items.message = '%s | subset %s' % (self.message, key)
+            items.parent = self
             return items
         elif isinstance(key, tuple):
             if key[1] == 'bits':
