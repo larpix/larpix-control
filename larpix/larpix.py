@@ -1240,7 +1240,7 @@ class PacketCollection(object):
         '''
         return [packet for packet in self.packets if packet.chipid == chipid]
 
-    def by_chipid(self, chipid):
+    def by_chipid(self):
         '''
         Return a dict of { chipid: [packet] }.
 
