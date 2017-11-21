@@ -895,14 +895,15 @@ class Controller(object):
         bytestreams.append(current_bytestream)
         return bytestreams
 
-    def save_output(self, filename):
+    def save_output(self, filename, message):
         '''Save the data read by each chip to the specified file.'''
         data = {}
-        data['chips'] = list(map(lambda x:x.export_reads(), self.chips))
+        data['reads'] = [collection.to_dict() for collection in self.reads]
+        data['chips'] = [repr(chip) for chip in self.chips]
+        data['message'] = message
         with open(filename, 'w') as outfile:
             json.dump(data, outfile, indent=4,
                     separators=(',',':'), sort_keys=True)
-
 
 
 class Packet(object):
@@ -1237,6 +1238,20 @@ class PacketCollection(object):
         else:
             return ' '.join(self.packets[key].bits.bin[i:i+8] for i in
                     range(0, Packet.size, 8))
+
+    def to_dict(self):
+        '''
+        Export the information in this PacketCollection to a dict.
+
+        '''
+        d = {}
+        d['packets'] = [packet.export() for packet in self.packets]
+        d['id'] = id(self)
+        d['parent'] = 'None' if self.parent is None else id(self.parent)
+        d['message'] = self.message
+        d['read_id'] = self.read_id
+        d['bytestream'] = str(self.bytestream)
+        return d
 
     def origin(self):
         '''

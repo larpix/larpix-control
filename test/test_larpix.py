@@ -173,12 +173,25 @@ def test_controller_save_output(tmpdir):
     p = Packet()
     chip.reads.append(p)
     controller.chips.append(chip)
+    collection = PacketCollection([p], p.bytes(), 'hi', 0)
+    controller.reads.append(collection)
     name = str(tmpdir.join('test.json'))
-    controller.save_output(name)
+    controller.save_output(name, 'this is a test')
     with open(name) as f:
         result = json.load(f)
     expected = {
-            'chips': [chip.export_reads(only_new_reads=False)]
+            'chips': [repr(chip)],
+            'message': 'this is a test',
+            'reads': [
+                {
+                    'packets': [p.export()],
+                    'id': id(collection),
+                    'parent': 'None',
+                    'message': 'hi',
+                    'read_id': 0,
+                    'bytestream': str(p.bytes())
+                    }
+                ]
             }
     assert result == expected
 
