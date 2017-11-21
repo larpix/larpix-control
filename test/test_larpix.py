@@ -1486,8 +1486,7 @@ def test_controller_write_configuration(capfd):
     controller._test_mode = True
     controller._serial = MockSerialPort
     chip = Chip(2, 4)
-    result = controller.write_configuration(chip)
-    assert result == b''
+    controller.write_configuration(chip)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
     expected = ' '.join(map(bytes2str, [controller.format_UART(chip, conf_data_i) for
             conf_data_i in conf_data]))
@@ -1499,8 +1498,7 @@ def test_controller_write_configuration_one_reg(capfd):
     controller._test_mode = True
     controller._serial = MockSerialPort
     chip = Chip(2, 4)
-    result = controller.write_configuration(chip, 0)
-    assert result == b''
+    controller.write_configuration(chip, 0)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[0]
     expected = bytes2str(controller.format_UART(chip, conf_data))
     result, err = capfd.readouterr()
@@ -1514,8 +1512,9 @@ def test_controller_write_configuration_write_read(capfd):
     controller.chips.append(chip)
     to_read = b's\x08\x0034567\x00q'
     MockSerialPort.data_to_mock_read = to_read
-    result = controller.write_configuration(chip, registers=5, write_read=0.1)
-    assert result[0].bytes() == to_read[1:-2]
+    controller.write_configuration(chip, registers=5, write_read=0.1)
+    assert chip.reads[0][0].bytes() == to_read[1:-2]
+    assert controller.reads[0].bytestream == to_read
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[5]
     expected = bytes2str(controller.format_UART(chip, conf_data))
     result, err = capfd.readouterr()

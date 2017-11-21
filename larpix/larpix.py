@@ -775,12 +775,14 @@ class Controller(object):
                 Packet.CONFIG_WRITE_PACKET, registers)
         if write_read == 0:
             self.serial_write(bytestreams)
-            return b''
         else:
             miso_bytestream = self.serial_write_read(bytestreams,
                     timelimit=write_read)
-            unprocessed = self.parse_input(miso_bytestream)
-            return unprocessed
+            packets = self.parse_input(miso_bytestream)
+            new_packets = PacketCollection(packets, miso_bytestream,
+                    'configuration write')
+            self.reads.append(new_packets)
+            self.sort_packets(new_packets)
 
     def read_configuration(self, chip, registers=None, timeout=1):
         if registers is None:
@@ -792,8 +794,11 @@ class Controller(object):
         bytestreams = self.get_configuration_bytestreams(chip,
                 Packet.CONFIG_READ_PACKET, registers)
         data = self.serial_write_read(bytestreams, timeout)
-        unprocessed = self.parse_input(data)
-        return unprocessed
+        packets = self.parse_input(data)
+        new_packets = PacketCollection(packets, data, 'configuration read')
+        self.reads.append(new_packets)
+        self.sort_packets(new_packets)
+        return new_packets
 
     def get_configuration_bytestreams(self, chip, packet_type, registers):
         # The configuration must be sent one register at a time
@@ -811,14 +816,8 @@ class Controller(object):
         data = self.serial_read(timelimit)
         packets = self.parse_input(data)
         new_packets = PacketCollection(packets, data, message)
-        self.packets.append(new_packets)
-        by_chipid = new_packets.by_chipid()
-        for chip in self.chips:
-            if chip.chip_id in by_chipid:
-                message = new_packets.message + ' | chip %d' % chip.chipid
-                chip_packets = PacketCollection(by_chipid[chip.chip_id],
-                        message=message)
-                chip.reads.append(chip_packets)
+        self.reads.append(new_packets)
+        self.sort_packets(new_packets)
 
     def run_testpulse(self, list_of_channels):
         return
@@ -865,6 +864,21 @@ class Controller(object):
                 next_start_index = current_stream[1:].find(start_byte)
                 current_stream = current_stream[1:][next_start_index:]
         return [x[1] for x in byte_packets]
+
+    def sort_packets(self, collection):
+        '''
+        Sort the packets in ``collection`` into each chip in
+        ``self.chips``.
+
+        '''
+        by_chipid = collection.by_chipid()
+        for chip in self.chips:
+            if chip.chip_id in by_chipid:
+                message = collection.message + ' | chip %d' % chip.chip_id
+                chip_packets = PacketCollection(by_chipid[chip.chip_id],
+                        message=message)
+                chip.reads.append(chip_packets)
+
 
     def format_bytestream(self, formatted_packets):
         bytestreams = []
