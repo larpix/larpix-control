@@ -34,17 +34,6 @@ class Chip(object):
     def __repr__(self):
         return 'Chip(%d, %d)' % (self.chip_id, self.io_chain)
 
-    def show_reads(self, start=0, stop=None, step=1):
-        if stop is None:
-            stop = len(self.reads)
-        return list(map(str, self.reads[start:stop:step]))
-
-    def show_reads_bits(self, start=0, stop=None, step=1):
-        if stop is None:
-            stop = len(self.reads)
-        return list(map(lambda x:' '.join(x.bits.bin[i:i+8] for i in range(0,
-            len(x.bits.bin), 8)), self.reads[start:stop:step]))
-
     def get_configuration_packets(self, packet_type):
         conf = self.config
         packets = [Packet() for _ in range(Configuration.num_registers)]
@@ -705,6 +694,8 @@ class Controller(object):
     stop_byte = b'\x71'
     def __init__(self, port='/dev/ttyUSB1'):
         self.chips = []
+        self.reads = []
+        self.nreads = 0
         self.port = port
         self.baudrate = 1000000
         self.timeout = 1
@@ -785,12 +776,11 @@ class Controller(object):
                 Packet.CONFIG_WRITE_PACKET, registers)
         if write_read == 0:
             self.serial_write(bytestreams)
-            return b''
         else:
             miso_bytestream = self.serial_write_read(bytestreams,
                     timelimit=write_read)
-            unprocessed = self.parse_input(miso_bytestream)
-            return unprocessed
+            packets = self.parse_input(miso_bytestream)
+            self.store_packets(packets, miso_bytestream, 'configuration write')
 
     def read_configuration(self, chip, registers=None, timeout=1):
         if registers is None:
@@ -802,8 +792,8 @@ class Controller(object):
         bytestreams = self.get_configuration_bytestreams(chip,
                 Packet.CONFIG_READ_PACKET, registers)
         data = self.serial_write_read(bytestreams, timeout)
-        unprocessed = self.parse_input(data)
-        return unprocessed
+        packets = self.parse_input(data)
+        self.store_packets(packets, data, 'configuration read')
 
     def get_configuration_bytestreams(self, chip, packet_type, registers):
         # The configuration must be sent one register at a time
@@ -817,9 +807,10 @@ class Controller(object):
         bytestreams = self.format_bytestream(formatted_packets)
         return bytestreams
 
-    def run(self, timelimit):
+    def run(self, timelimit, message):
         data = self.serial_read(timelimit)
-        self.parse_input(data)
+        packets = self.parse_input(data)
+        self.store_packets(packets, data, message)
 
     def run_testpulse(self, list_of_channels):
         return
@@ -865,13 +856,31 @@ class Controller(object):
                 # already a start byte
                 next_start_index = current_stream[1:].find(start_byte)
                 current_stream = current_stream[1:][next_start_index:]
-        # assign each packet to the corresponding Chip
-        for byte_packet in byte_packets:
-            io_chain = byte_packet[0][4:].uint
-            packet = byte_packet[1]
-            chip_id = packet.chipid
-            self.get_chip(chip_id, io_chain).reads.append(packet)
-        return current_stream  # (the remainder that wasn't read in)
+        return [x[1] for x in byte_packets]
+
+    def store_packets(self, packets, data, message):
+        '''
+        Store the packets in ``self`` and in ``self.chips``
+
+        '''
+        new_packets = PacketCollection(packets, data, message)
+        new_packets.read_id = self.nreads
+        self.nreads += 1
+        self.reads.append(new_packets)
+        self.sort_packets(new_packets)
+
+
+    def sort_packets(self, collection):
+        '''
+        Sort the packets in ``collection`` into each chip in
+        ``self.chips``.
+
+        '''
+        by_chipid = collection.by_chipid()
+        for chip in self.chips:
+            if chip.chip_id in by_chipid:
+                chip.reads.append(by_chipid[chip.chip_id])
+
 
     def format_bytestream(self, formatted_packets):
         bytestreams = []
@@ -886,14 +895,15 @@ class Controller(object):
         bytestreams.append(current_bytestream)
         return bytestreams
 
-    def save_output(self, filename):
+    def save_output(self, filename, message):
         '''Save the data read by each chip to the specified file.'''
         data = {}
-        data['chips'] = list(map(lambda x:x.export_reads(), self.chips))
+        data['reads'] = [collection.to_dict() for collection in self.reads]
+        data['chips'] = [repr(chip) for chip in self.chips]
+        data['message'] = message
         with open(filename, 'w') as outfile:
             json.dump(data, outfile, indent=4,
                     separators=(',',':'), sort_keys=True)
-
 
 
 class Packet(object):
@@ -1121,3 +1131,171 @@ class Packet(object):
         allbits = BitArray('uint:16=' + str(value))
         self.bits[Packet.test_counter_bits_15_12] = allbits[:4]
         self.bits[Packet.test_counter_bits_11_0] = allbits[4:]
+
+class PacketCollection(object):
+    '''
+    Represents a group of packets that were sent to or received from
+    LArPix.
+
+    Index into the PacketCollection as if it were a list:
+
+        >>> collection[0]
+        Packet(b'\x07\x00\x00\x00\x00\x00\x00')
+        >>> first_ten = collection[:10]
+        >>> len(first_ten)
+        10
+        >>> type(first_ten)
+        larpix.larpix.PacketCollection
+        >>> first_ten.message
+        'my packets | subset slice(None, 10, None)'
+
+    To view the bits representation, add 'bits' to the index:
+
+        >>> collection[0, 'bits']
+        '00000000 00000000 00000000 00000000 00000000 00000000 000111'
+        >>> bits_format_first_10 = collection[:10, 'bits']
+        >>> type(bits_format_first_10[0])
+        str
+
+
+    '''
+    def __init__(self, packets, bytestream=None, message='', read_id=None):
+        self.packets = packets
+        self.bytestream = bytestream
+        self.message = message
+        self.read_id = read_id
+        self.parent = None
+
+    def __eq__(self, other):
+        '''
+        Return True if the packets, message and bytestream compare equal.
+
+        '''
+        return (self.packets == other.packets and
+                self.message == other.message and
+                self.bytestream == other.bytestream)
+
+    def __repr__(self):
+        return '<%s with %d packets, read_id %d, "%s">' % (self.__class__.__name__,
+                len(self.packets), self.read_id, self.message)
+
+    def __str__(self):
+        if len(self.packets) < 20:
+            return '\n'.join(str(packet) for packet in self.packets)
+        else:
+            beginning = '\n'.join(str(packet) for packet in self.packets[:10])
+            middle = '\n'.join(['   .', '   . omitted %d packets' %
+                (len(self.packets)-20), '   .'])
+            end = '\n'.join(str(packet) for packet in self.packets[-10:])
+            return '\n'.join([beginning, middle, end])
+
+    def __len__(self):
+        return len(self.packets)
+
+    def __getitem__(self, key):
+        '''
+        Get the specified item(s).
+
+        If key is an int, return the packet object at that index in
+        self.packets.
+
+        If key is a slice, return a PacketCollection with the specified
+        packets, and with a message inherited from self.message.
+
+        If key is (slice or int, 'str'), use the behavior as if setting
+        key = key[0].
+
+        If key is (int, 'bits'), return a string representation of the
+        bits of the specified packet, as determined by
+        self._bits_getitem.
+
+        If key is (slice, 'bits'), return a list of string
+        representations of the packets specified by the slice.
+
+        '''
+        if isinstance(key, slice):
+            items = PacketCollection([p for p in self.packets[key]])
+            items.message = '%s | subset %s' % (self.message, key)
+            items.parent = self
+            return items
+        elif isinstance(key, tuple):
+            if key[1] == 'bits':
+                return self._bits_getitem(key[0])
+            elif key[1] == 'str':
+                return self[key[0]]
+        else:
+            return self.packets[key]
+
+    def _bits_getitem(self, key):
+        '''
+        Replace each packet with a string of the packet bits grouped 8
+        bits at a time.
+
+        '''
+        if isinstance(key, slice):
+            return [' '.join(p.bits.bin[i:i+8] for i in
+                range(0, Packet.size, 8)) for p in self.packets[key]]
+        else:
+            return ' '.join(self.packets[key].bits.bin[i:i+8] for i in
+                    range(0, Packet.size, 8))
+
+    def to_dict(self):
+        '''
+        Export the information in this PacketCollection to a dict.
+
+        '''
+        d = {}
+        d['packets'] = [packet.export() for packet in self.packets]
+        d['id'] = id(self)
+        d['parent'] = 'None' if self.parent is None else id(self.parent)
+        d['message'] = self.message
+        d['read_id'] = self.read_id
+        d['bytestream'] = str(self.bytestream)
+        return d
+
+    def origin(self):
+        '''
+        Return the original PacketCollection that this PacketCollection
+        derives from.
+
+        '''
+        child = self
+        parent = self.parent
+        max_generations = 100  # to prevent infinite loops
+        i = 0
+        while parent is not None and i < max_generations:
+            # Move up the family tree one generation
+            child = parent
+            parent = parent.parent
+            i += 1
+        if parent is None:
+            return child
+        else:
+            raise ValueError('Reached limit on generations: %d' %
+                    max_generations)
+
+    def with_chipid(self, chipid):
+        '''
+        Return packets with the specified chip ID.
+
+        '''
+        return [packet for packet in self.packets if packet.chipid == chipid]
+
+    def by_chipid(self):
+        '''
+        Return a dict of { chipid: PacketCollection }.
+
+        '''
+        chip_groups = {}
+        for packet in self.packets:
+            # append packet to list if list exists, else append to empty
+            # list as a default
+            chip_groups.setdefault(packet.chipid, []).append(packet)
+        to_return = {}
+        for chipid in chip_groups:
+            new_collection = PacketCollection(chip_groups[chipid])
+            new_collection.message = self.message + ' | chip %s' % chipid
+            new_collection.read_id = self.read_id
+            new_collection.parent = self
+            to_return[chipid] = new_collection
+        return to_return

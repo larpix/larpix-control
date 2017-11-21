@@ -4,7 +4,8 @@ Use the pytest framework to write tests for the larpix module.
 '''
 from __future__ import print_function
 import pytest
-from larpix.larpix import Chip, Packet, Configuration, Controller
+from larpix.larpix import (Chip, Packet, Configuration, Controller,
+        PacketCollection)
 from bitstring import BitArray
 import json
 import os
@@ -70,25 +71,6 @@ def test_chip_str():
     chip = Chip(1, 2)
     result = str(chip)
     expected = 'Chip (id: 1, chain: 2)'
-    assert result == expected
-
-def test_chip_show_reads():
-    chip = Chip(1, 2)
-    packet = Packet()
-    packet.packet_type = Packet.TEST_PACKET
-    packet.test_counter = 12345
-    chip.reads.append(packet)
-    result = chip.show_reads()
-    expected = [str(packet)]
-    assert result == expected
-
-def test_chip_show_reads_bits():
-    chip = Chip(1, 2)
-    packet = Packet()
-    chip.reads.append(packet)
-    result = chip.show_reads_bits()
-    expected = ['00000000 00000000 00000000 00000000 00000000 00000000'
-            ' 000000']
     assert result == expected
 
 def test_chip_get_configuration_packets():
@@ -191,12 +173,25 @@ def test_controller_save_output(tmpdir):
     p = Packet()
     chip.reads.append(p)
     controller.chips.append(chip)
+    collection = PacketCollection([p], p.bytes(), 'hi', 0)
+    controller.reads.append(collection)
     name = str(tmpdir.join('test.json'))
-    controller.save_output(name)
+    controller.save_output(name, 'this is a test')
     with open(name) as f:
         result = json.load(f)
     expected = {
-            'chips': [chip.export_reads(only_new_reads=False)]
+            'chips': [repr(chip)],
+            'message': 'this is a test',
+            'reads': [
+                {
+                    'packets': [p.export()],
+                    'id': id(collection),
+                    'parent': 'None',
+                    'message': 'hi',
+                    'read_id': 0,
+                    'bytestream': str(p.bytes())
+                    }
+                ]
             }
     assert result == expected
 
@@ -1504,8 +1499,7 @@ def test_controller_write_configuration(capfd):
     controller._test_mode = True
     controller._serial = MockSerialPort
     chip = Chip(2, 4)
-    result = controller.write_configuration(chip)
-    assert result == b''
+    controller.write_configuration(chip)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
     expected = ' '.join(map(bytes2str, [controller.format_UART(chip, conf_data_i) for
             conf_data_i in conf_data]))
@@ -1517,8 +1511,7 @@ def test_controller_write_configuration_one_reg(capfd):
     controller._test_mode = True
     controller._serial = MockSerialPort
     chip = Chip(2, 4)
-    result = controller.write_configuration(chip, 0)
-    assert result == b''
+    controller.write_configuration(chip, 0)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[0]
     expected = bytes2str(controller.format_UART(chip, conf_data))
     result, err = capfd.readouterr()
@@ -1532,10 +1525,9 @@ def test_controller_write_configuration_write_read(capfd):
     controller.chips.append(chip)
     to_read = b's\x08\x0034567\x00q'
     MockSerialPort.data_to_mock_read = to_read
-    unprocessed = controller.write_configuration(chip, registers=5, write_read=0.1)
-    assert unprocessed == b''
-    result = chip.reads[0].bytes()
-    assert result == to_read[1:-2]
+    controller.write_configuration(chip, registers=5, write_read=0.1)
+    assert chip.reads[0][0].bytes() == to_read[1:-2]
+    assert controller.reads[0].bytestream == to_read
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[5]
     expected = bytes2str(controller.format_UART(chip, conf_data))
     result, err = capfd.readouterr()
@@ -1548,10 +1540,7 @@ def test_controller_parse_input():
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
     fpackets = [controller.format_UART(chip, p) for p in packets]
     bytestream = b''.join(controller.format_bytestream(fpackets))
-    remainder_bytes = controller.parse_input(bytestream)
-    expected_remainder_bytes = b''
-    assert remainder_bytes == expected_remainder_bytes
-    result = chip.reads
+    result = controller.parse_input(bytestream)
     expected = packets
     assert result == expected
 
@@ -1564,11 +1553,8 @@ def test_controller_parse_input_dropped_data_byte():
     fpackets = [controller.format_UART(chip, p) for p in packets]
     bytestream = b''.join(controller.format_bytestream(fpackets))
     # Drop a byte in the first packet
-    bytestream_faulty = bytestream[1:]
-    remainder_bytes = controller.parse_input(bytestream_faulty)
-    expected_remainder_bytes = b''
-    assert remainder_bytes == expected_remainder_bytes
-    result = chip.reads
+    bytestream_faulty = bytestream[:5] + bytestream[6:]
+    result = controller.parse_input(bytestream_faulty)
     expected = packets[1:]
     assert result == expected
 
@@ -1581,10 +1567,7 @@ def test_controller_parse_input_dropped_start_byte():
     bytestream = b''.join(controller.format_bytestream(fpackets))
     # Drop the first start byte
     bytestream_faulty = bytestream[1:]
-    remainder_bytes = controller.parse_input(bytestream_faulty)
-    expected_remainder_bytes = b''
-    assert remainder_bytes == expected_remainder_bytes
-    result = chip.reads
+    result = controller.parse_input(bytestream_faulty)
     expected = packets[1:]
     assert result == expected
 
@@ -1597,10 +1580,7 @@ def test_controller_parse_input_dropped_stop_byte():
     bytestream = b''.join(controller.format_bytestream(fpackets))
     # Drop the first stop byte
     bytestream_faulty = bytestream[:9] + bytestream[10:]
-    remainder_bytes = controller.parse_input(bytestream_faulty)
-    expected_remainder_bytes = b''
-    assert remainder_bytes == expected_remainder_bytes
-    result = chip.reads
+    result = controller.parse_input(bytestream_faulty)
     expected = packets[1:]
     assert result == expected
 
@@ -1613,9 +1593,48 @@ def test_controller_parse_input_dropped_stopstart_bytes():
     bytestream = b''.join(controller.format_bytestream(fpackets))
     # Drop the first stop byte
     bytestream_faulty = bytestream[:9] + bytestream[11:]
-    remainder_bytes = controller.parse_input(bytestream_faulty)
-    expected_remainder_bytes = b''
-    assert remainder_bytes == expected_remainder_bytes
-    result = chip.reads
+    result = controller.parse_input(bytestream_faulty)
     expected = packets[2:]
     assert result == expected
+
+def test_packetcollection_getitem_int():
+    expected = Packet()
+    collection = PacketCollection([expected])
+    result = collection[0]
+    assert result == expected
+
+def test_packetcollection_getitem_int_bits():
+    packet = Packet()
+    collection = PacketCollection([packet])
+    result = collection[0, 'bits']
+    expected = ' '.join(packet.bits.bin[i:i+8] for i in range(0, Packet.size, 8))
+    assert result == expected
+
+def test_packetcollection_getitem_slice():
+    chip = Chip(0, 0)
+    packets = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
+    collection = PacketCollection(packets, message='hello')
+    result = collection[:10]
+    expected = PacketCollection(packets[:10], message='hello'
+        ' | subset slice(None, 10, None)')
+    assert result == expected
+
+def test_packetcollection_getitem_slice_bits():
+    chip = Chip(0, 0)
+    packets = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
+    collection = PacketCollection(packets, message='hello')
+    result = collection[:10, 'bits']
+    expected = [' '.join(p.bits.bin[i:i+8] for i in range(0,
+        Packet.size, 8)) for p in packets[:10]]
+    assert result == expected
+
+def test_packetcollection_origin():
+    chip = Chip(0, 0)
+    packets = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
+    collection = PacketCollection(packets, message='hello')
+    first_gen = collection.by_chipid()[0]
+    second_gen = first_gen.by_chipid()[0]
+    assert first_gen.parent is collection
+    assert first_gen.origin() is collection
+    assert second_gen.parent is first_gen
+    assert second_gen.origin() is collection
