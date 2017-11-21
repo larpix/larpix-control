@@ -695,6 +695,7 @@ class Controller(object):
     def __init__(self, port='/dev/ttyUSB1'):
         self.chips = []
         self.reads = []
+        self.nreads = 0
         self.port = port
         self.baudrate = 1000000
         self.timeout = 1
@@ -779,10 +780,7 @@ class Controller(object):
             miso_bytestream = self.serial_write_read(bytestreams,
                     timelimit=write_read)
             packets = self.parse_input(miso_bytestream)
-            new_packets = PacketCollection(packets, miso_bytestream,
-                    'configuration write')
-            self.reads.append(new_packets)
-            self.sort_packets(new_packets)
+            self.store_packets(packets, miso_bytestream, 'configuration write')
 
     def read_configuration(self, chip, registers=None, timeout=1):
         if registers is None:
@@ -795,10 +793,7 @@ class Controller(object):
                 Packet.CONFIG_READ_PACKET, registers)
         data = self.serial_write_read(bytestreams, timeout)
         packets = self.parse_input(data)
-        new_packets = PacketCollection(packets, data, 'configuration read')
-        self.reads.append(new_packets)
-        self.sort_packets(new_packets)
-        return new_packets
+        self.store_packets(packets, data, 'configuration read')
 
     def get_configuration_bytestreams(self, chip, packet_type, registers):
         # The configuration must be sent one register at a time
@@ -815,9 +810,7 @@ class Controller(object):
     def run(self, timelimit, message):
         data = self.serial_read(timelimit)
         packets = self.parse_input(data)
-        new_packets = PacketCollection(packets, data, message)
-        self.reads.append(new_packets)
-        self.sort_packets(new_packets)
+        self.store_packets(packets, data, message)
 
     def run_testpulse(self, list_of_channels):
         return
@@ -864,6 +857,18 @@ class Controller(object):
                 next_start_index = current_stream[1:].find(start_byte)
                 current_stream = current_stream[1:][next_start_index:]
         return [x[1] for x in byte_packets]
+
+    def store_packets(self, packets, data, message):
+        '''
+        Store the packets in ``self`` and in ``self.chips``
+
+        '''
+        new_packets = PacketCollection(packets, data, message)
+        new_packets.read_id = self.nreads
+        self.nreads += 1
+        self.reads.append(new_packets)
+        self.sort_packets(new_packets)
+
 
     def sort_packets(self, collection):
         '''
@@ -1156,7 +1161,7 @@ class PacketCollection(object):
 
 
     '''
-    def __init__(self, packets, bytestream=None, message=''):
+    def __init__(self, packets, bytestream=None, message='', read_id=None):
         self.packets = packets
         self.bytestream = bytestream
         self.message = message
@@ -1171,8 +1176,8 @@ class PacketCollection(object):
                 self.bytestream == other.bytestream)
 
     def __repr__(self):
-        return '<%s with %d packets>' % (self.__class__.__name__,
-                len(self.packets))
+        return '<%s with %d packets, read_id %d, "%s">' % (self.__class__.__name__,
+                len(self.packets), self.read_id, self.message)
 
     def __str__(self):
         if len(self.packets) < 20:
