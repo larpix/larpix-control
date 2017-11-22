@@ -6,6 +6,7 @@ from __future__ import absolute_import
 
 import logging
 import larpix.larpix as larpix
+import time
 
 from larpix.tasks import startup, get_chip_ids, setup_logger
 
@@ -64,12 +65,14 @@ def pulse_chip(controller, chip, dac_value):
     chip.config.csa_testpulse_dac_amplitude = dac_value
     controller.write_configuration(chip,dac_address)
     # Disable testpulse mode to return voltage to 0 and get the pulse
-    chip.config.csa_testpulse_enable = [0]*32
+    chip.config.csa_testpulse_enable = [1]*32
     controller.write_configuration(chip, pulse_enable_addresses,
             write_read=0.01)
     # Reset DAC value
     chip.config.csa_testpulse_dac_amplitude = 0
-    controller.write_configuration(chip,dac_address, write_read=0.01)
+    chip.config.csa_testpulse_enable = [0]*32
+    controller.write_configuration(chip,[dac_address] +
+            pulse_enable_addresses)
     chip.config.csa_testpulse_enable = [1]*32
     controller.write_configuration(chip, pulse_enable_addresses)
     return
@@ -83,7 +86,7 @@ def scan_pulser(controller,
     '''Scan internal pulser with a range of DAC values'''
     # Set configuration and pulse
     for chip in controller.chips:
-        chip.config.adc_burst_length = 255
+        chip.config.adc_burst_length = 0
         controller.write_configuration(chip,
                 chip.config.adc_burst_length_address)
         if select_chips:
@@ -94,6 +97,10 @@ def scan_pulser(controller,
         # chip.config.csa_testpulse_enable = channel_enable
         # controller.write_configuration(chip,
                          # chip.config.csa_testpulse_enable_addresses)
+        # Set channel mask
+        chip.config.channel_mask = channel_enable
+        controller.write_configuration(chip,
+                chip.config.channel_mask_addresses)
         # Enable analog monitor
         if monitor_channel is not None:
             chip.config.csa_monitor_select[monitor_channel]=1
@@ -104,7 +111,8 @@ def scan_pulser(controller,
             # Pulse this chip n times
             for idx in range(n_pulses):
                 pulse_chip(controller,chip,dac_value)
-                # FIXME: Add wait time between pulses?
+                time.sleep(0.1)
+        time.sleep(0.3)
         # Disable test pulse
         chip.config.csa_testpulse_enable = [1,]*32 # Active low
         controller.write_configuration(chip,
@@ -200,7 +208,7 @@ if '__main__' == __name__:
     global_chip_ids = [(0,246),] # Shorthand: (iochain, chip_id)
     channel_enable = [0,] + [1,]*31  # First channel only (Active low.)
     pulser_dac_values = list(range(0,256,8))+[255,]
-    n_pulses_per_value = 10  # Number of pulses at each DAC value
+    n_pulses_per_value = 5  # Number of pulses at each DAC value
     analog_monitor_channel = 0 # Optionally enable analog monitor by chan num
 
     # Scan internal pulser
