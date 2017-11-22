@@ -68,6 +68,10 @@ def get_chip_ids(**settings):
     chips = []
     for chip in controller.chips:
         controller.read_configuration(chip, 0, timeout=0.1)
+        if len(chip.reads)<1:
+            print('Chip ID %d: Packet lost in black hole.  No connection?' %
+                  chip.chip_id)
+            continue
         read_packet = chip.reads[-1]
         if read_packet.register_data != 0:
             chips.append(chip)
