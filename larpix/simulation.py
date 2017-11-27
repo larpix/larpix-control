@@ -169,9 +169,7 @@ class MockSerial(object):
         self.formatter.receive_mosi(data)
 
     def read(self, nbytes):
-        if self.timeout is None:
-            pass
-        elif self.timeout > 0:
+        if self.timeout:
             start_time = time.time()
             stop_time = start_time + self.timeout
             while time.time() < stop_time:
@@ -207,7 +205,8 @@ class MockFormatter(object):
         trigger.
 
         '''
-        self.mosi_destination.maybe_trigger()
+        if self.mosi_destination:
+            self.mosi_destination.maybe_trigger()
 
     def receive_mosi(self, data):
         '''
