@@ -10,7 +10,7 @@ from bitstring import BitArray
 import json
 import os
 
-class MockSerialPort(object):
+class FakeSerialPort(object):
     '''
     This class implements the interface of the pyserial Serial class so
     that we can test the serial_read, serial_write, etc. methods of the
@@ -29,7 +29,7 @@ class MockSerialPort(object):
 
     def read(self, nbytes):
         read_index = self.read_index
-        data = MockSerialPort.data_to_mock_read[read_index:read_index+nbytes]
+        data = FakeSerialPort.data_to_mock_read[read_index:read_index+nbytes]
         self.read_index = read_index+nbytes
         return data
 
@@ -43,25 +43,25 @@ def bytes2str(bytestream):
     return ' '.join('{:02x}'.format(byte) for byte in
             bytearray(bytestream))
 
-def test_MockSerialPort_write(capfd):
-    serial = MockSerialPort()
+def test_FakeSerialPort_write(capfd):
+    serial = FakeSerialPort()
     to_write = b'Hello'
     serial.write(b'Hello')
     out, err = capfd.readouterr()
     expected = bytes2str(to_write)
     assert out == expected
 
-def test_MockSerialPort_read():
-    serial = MockSerialPort()
+def test_FakeSerialPort_read():
+    serial = FakeSerialPort()
     expected = bytes(bytearray(10))
-    MockSerialPort.data_to_mock_read = expected
+    FakeSerialPort.data_to_mock_read = expected
     data = serial.read(10)
     assert data == expected
 
-def test_MockSerialPort_read_multi():
-    serial = MockSerialPort()
+def test_FakeSerialPort_read_multi():
+    serial = FakeSerialPort()
     expected = bytes(bytearray(range(10)))
-    MockSerialPort.data_to_mock_read = expected
+    FakeSerialPort.data_to_mock_read = expected
     data = serial.read(5)
     data += serial.read(5)
     data += serial.read(5)
@@ -1443,15 +1443,15 @@ def test_controller_get_chip_error():
 
 def test_controller_serial_read_mock():
     controller = Controller(None)
-    controller._serial = MockSerialPort
-    MockSerialPort.data_to_mock_read = bytes(bytearray(10))
+    controller._serial = FakeSerialPort
+    FakeSerialPort.data_to_mock_read = bytes(bytearray(10))
     result = controller.serial_read(0.1)
     expected = bytes(bytearray(10))
     assert result == expected
 
 def test_controller_serial_write_mock(capfd):
     controller = Controller(None)
-    controller._serial = MockSerialPort
+    controller._serial = FakeSerialPort
     to_write = [b's12345678q', b's87654321q']
     controller.serial_write(to_write)
     result, err = capfd.readouterr()
@@ -1460,9 +1460,9 @@ def test_controller_serial_write_mock(capfd):
 
 def test_controller_serial_write_read_mock(capfd):
     controller = Controller(None)
-    controller._serial = MockSerialPort
+    controller._serial = FakeSerialPort
     to_write = [b's12345678q', b's9862983aq']
-    MockSerialPort.data_to_mock_read = bytes(bytearray(range(256)))
+    FakeSerialPort.data_to_mock_read = bytes(bytearray(range(256)))
     read_result = controller.serial_write_read(to_write, 0.1)
     write_result, err = capfd.readouterr()
     read_expected = bytes(bytearray(range(256)))
@@ -1497,7 +1497,7 @@ def test_controller_format_bytestream():
 def test_controller_write_configuration(capfd):
     controller = Controller(None)
     controller._test_mode = True
-    controller._serial = MockSerialPort
+    controller._serial = FakeSerialPort
     chip = Chip(2, 4)
     controller.write_configuration(chip)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
@@ -1509,7 +1509,7 @@ def test_controller_write_configuration(capfd):
 def test_controller_write_configuration_one_reg(capfd):
     controller = Controller(None)
     controller._test_mode = True
-    controller._serial = MockSerialPort
+    controller._serial = FakeSerialPort
     chip = Chip(2, 4)
     controller.write_configuration(chip, 0)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[0]
@@ -1519,12 +1519,12 @@ def test_controller_write_configuration_one_reg(capfd):
 
 def test_controller_write_configuration_write_read(capfd):
     controller = Controller(None)
-    controller._serial = MockSerialPort
+    controller._serial = FakeSerialPort
     controller.timeout=0.01
     chip = Chip(2, 0)
     controller.chips.append(chip)
     to_read = b's\x08\x0034567\x00q'
-    MockSerialPort.data_to_mock_read = to_read
+    FakeSerialPort.data_to_mock_read = to_read
     controller.write_configuration(chip, registers=5, write_read=0.1)
     assert chip.reads[0][0].bytes() == to_read[1:-2]
     assert controller.reads[0].bytestream == to_read
