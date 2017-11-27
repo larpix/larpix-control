@@ -6,6 +6,7 @@ from __future__ import absolute_import
 
 import larpix.larpix as larpix
 import time
+from collections import deque
 
 class MockLArPix(object):
     '''
@@ -52,11 +53,11 @@ class MockLArPix(object):
         Emit and return the given packet.
 
         '''
-        if self.next is None:
-            print(repr(packet))
-            return packet
-        else:
-            return self.next.receive(packet)
+        if isinstance(self.next, MockLArPix):
+            receive_fn = self.next.receive
+        elif isinstance(self.next, MockFormatter):
+            receive_fn = self.next.receive_miso
+        return receive_fn(packet)
 
     def trigger(self, n_electrons, channel):
         '''
@@ -97,3 +98,94 @@ class MockLArPix(object):
         ratio = max(0, ratio)
         ratio = min(self.adc_bins-1, ratio)
         return ratio
+
+class MockSerial(object):
+    '''
+    A mock serial interface to connect ``larpix.larpix.Controller`` to
+    ``MockLArPix``.
+
+    '''
+    def __init__(self, port=None, baudrate=9600, timeout=None):
+        self.port = port
+        self.baudrate = baudrate
+        self.timeout = timeout
+        self.formatter = None
+
+    def __call__(self, *args, **kwargs):
+        return self
+
+    def write(self, data):
+        self.formatter.receive_mosi(data)
+
+    def read(self, nbytes):
+        return self.formatter.send_miso(nbytes)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        pass
+
+class MockFormatter(object):
+    '''
+    A mock data formatter (i.e. FPGA) to convert serial data into
+    ``larpix.larpix.Packet``s for ``MockLArPix`` consumption.
+
+    '''
+    def __init__(self):
+        self.chips = []
+        self.mosi_destination = None
+        self.miso_source = None
+        self.miso_buffer = deque()
+        ''' Represents all buffers between the FPGA and the serial port.'''
+        self._controller = larpix.Controller(None)
+        '''Used for its parse_input function.'''
+
+    def receive_mosi(self, data):
+        '''
+        Format bytestream data into Packets, and send it on to the daisy
+        chain.
+
+        Note: there is no internal buffer for MOSI data, as per the FPGA
+        spec. This is entirely due to the fact that the RS-232 baudrate
+        is 1Mbaud and the LArPix bitrate is 10MHz, i.e. much faster.
+
+        '''
+        packets = self._controller.parse_input(data)
+        self.send_mosi(packets)
+
+    def receive_miso(self, packet):
+        '''
+        Store the received packets in the internal buffer.
+
+        '''
+        self.miso_buffer.append(packet)
+        return packet
+
+    def send_mosi(self, packets):
+        '''
+        Send the given packets into the daisy chain.
+
+        '''
+        for packet in packets:
+            self.mosi_destination.receive(packet)
+
+    def send_miso(self, nbytes):
+        '''
+        Return a bytestream of length nbytes created from the packets in
+        the MISO buffer.
+
+        Note: if nbytes doesn't line up with the end of a packet, the
+        packet will be split and the part that is not sent out will be
+        discarded. This is **different behavior** compared to the FPGA
+        setup currently in use.
+
+        '''
+        bytestream = b''
+        while len(bytestream) < nbytes and self.miso_buffer:
+            packet_bytes = self.miso_buffer.popleft().bytes()
+            new_bytes = b's' + packet_bytes + b'\x00' + b'q'
+            num_to_append = min(len(new_bytes),
+                    nbytes - len(bytestream))
+            bytestream += new_bytes[:num_to_append]
+        return bytestream
