@@ -5,6 +5,7 @@ Simulate the LArPix chip's behavior.
 from __future__ import absolute_import
 
 import larpix.larpix as larpix
+import random
 import time
 from collections import deque
 
@@ -49,6 +50,7 @@ class MockLArPix(object):
         self.vcm = 0.2
         self.adc_bins = 256
         self.adc_lsb = (self.vref - self.vcm)/self.adc_bins
+        self.trigger_condition = self.condition_random_ten_percent
 
     def receive(self, packet):
         '''
@@ -85,6 +87,18 @@ class MockLArPix(object):
         elif self.next is None:
             receive_fn = lambda x:{'sent': packet}
         return receive_fn(packet)
+
+    def maybe_trigger(self):
+        '''
+        Trigger only if self.trigger_condition(), then call
+        self.next.maybe_trigger().
+
+        '''
+        trigger_condition = self.trigger_condition()
+        if trigger_condition:
+            self.trigger(*trigger_condition)
+        if isinstance(self.next, MockLArPix):
+            self.next.maybe_trigger()
 
     def trigger(self, n_electrons, channel):
         '''
@@ -126,6 +140,16 @@ class MockLArPix(object):
         ratio = min(self.adc_bins-1, ratio)
         return ratio
 
+    def condition_random_ten_percent(self):
+        '''
+        Trigger at random 10% of the time with a fixed charge.
+
+        '''
+        if random.random() < 0.1:
+            return (1e5, random.randint(0, 31))
+        else:
+            return False
+
 class MockSerial(object):
     '''
     A mock serial interface to connect ``larpix.larpix.Controller`` to
@@ -145,6 +169,15 @@ class MockSerial(object):
         self.formatter.receive_mosi(data)
 
     def read(self, nbytes):
+        if self.timeout is None:
+            pass
+        elif self.timeout > 0:
+            start_time = time.time()
+            stop_time = start_time + self.timeout
+            while time.time() < stop_time:
+                self.formatter.activate_chips()
+        else:
+            self.formatter.activate_chips()
         return self.formatter.send_miso(nbytes)
 
     def __enter__(self):
@@ -167,6 +200,14 @@ class MockFormatter(object):
         ''' Represents all buffers between the FPGA and the serial port.'''
         self._controller = larpix.Controller(None)
         '''Used for its parse_input function.'''
+
+    def activate_chips(self):
+        '''
+        Begin the chain of "prompting" the chips in the daisy chain to
+        trigger.
+
+        '''
+        self.mosi_destination.maybe_trigger()
 
     def receive_mosi(self, data):
         '''
