@@ -87,7 +87,7 @@ class MockLArPix(object):
         Return a timestamp for this chip that makes sense.
 
         '''
-        return int(time.time()//100)
+        return int(time.time()*1e6 % 1000000)
 
     def digitize(self, voltage):
         '''

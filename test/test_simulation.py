@@ -72,6 +72,40 @@ def test_MockLArPix_send_to_formatter():
     expected = packet
     assert result == expected
 
+def test_MockLArPix_timestamp():
+    chip = MockLArPix(0, 0)
+    timestamp1 = chip.timestamp()
+    timestamp2 = chip.timestamp()
+    rollover = timestamp2 < timestamp1
+    if rollover:
+        assert timestamp1 - timestamp2 > 9e5
+    else:
+        assert True
+
+def test_MockLArPix_digitize():
+    chip = MockLArPix(0, 0)
+    result = chip.digitize(chip.vcm)
+    expected = 0
+    assert result == expected
+    result = chip.digitize(chip.vref)
+    expected = 255
+    assert result == expected
+    result = chip.digitize(chip.vcm + (chip.vref - chip.vcm)/2)
+    expected = 128
+    assert result == expected
+
+def test_MockLArPix_trigger():
+    chip = MockLArPix(1, 0)
+    result = chip.trigger(1e5, 3)
+    expected_packet = Packet()
+    expected_packet.chipid = 1
+    expected_packet.channel_id = 3
+    expected_packet.dataword = 39  # computed by hand
+    expected_packet.timestamp = result['sent'].timestamp  # have to cheat
+    expected_packet.assign_parity()
+    expected = {'sent': expected_packet}
+    assert result == expected
+
 def test_MockSerial_write():
     serial = MockSerial()
     formatter = MockFormatter()
