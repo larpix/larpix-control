@@ -189,7 +189,7 @@ def test_controller_save_output(tmpdir):
                     'parent': 'None',
                     'message': 'hi',
                     'read_id': 0,
-                    'bytestream': str(p.bytes())
+                    'bytestream': p.bytes().decode('utf-8')
                     }
                 ]
             }
@@ -1638,3 +1638,37 @@ def test_packetcollection_origin():
     assert first_gen.origin() is collection
     assert second_gen.parent is first_gen
     assert second_gen.origin() is collection
+
+def test_packetcollection_to_dict():
+    packet = Packet()
+    packet.packet_type = Packet.TEST_PACKET
+    collection = PacketCollection([packet], bytestream=packet.bytes(),
+            message='hello')
+    result = collection.to_dict()
+    expected = {
+            'id': id(collection),
+            'parent': 'None',
+            'message': 'hello',
+            'read_id': 'None',
+            'bytestream': packet.bytes().decode('utf-8'),
+            'packets': [{
+                'bits': packet.bits.bin,
+                'type': 'test',
+                'chipid': 0,
+                'parity': 0,
+                'valid_parity': True,
+                'counter': 0
+                }]
+            }
+    assert result == expected
+
+def test_packetcollection_from_dict():
+    packet = Packet()
+    packet.packet_type = Packet.TEST_PACKET
+    collection = PacketCollection([packet], bytestream=packet.bytes(),
+            message='hello')
+    d = collection.to_dict()
+    result = PacketCollection([])
+    result.from_dict(d)
+    expected = collection
+    assert result == expected
