@@ -57,6 +57,8 @@ class MockLArPix(object):
             receive_fn = self.next.receive
         elif isinstance(self.next, MockFormatter):
             receive_fn = self.next.receive_miso
+        elif self.next is None:
+            receive_fn = lambda x:{'sent': packet}
         return receive_fn(packet)
 
     def trigger(self, n_electrons, channel):

@@ -13,34 +13,29 @@ from larpix.larpix import (Packet)
 from larpix.simulation import (MockLArPix, MockSerial, MockFormatter)
 
 def test_MockLArPix_receive_not_mine():
-    formatter = MockFormatter()
     chip = MockLArPix(1, 0)
     nextchip = MockLArPix(2, 0)
-    formatter.mosi_destination = chip
     chip.next = nextchip
-    nextchip.next = formatter
-    formatter.miso_source = nextchip
     packet = Packet()
     packet.chipid = 100
     packet.assign_parity()
     result = chip.receive(packet)
-    expected = packet
+    expected = {'sent': packet}
     assert result == expected
 
 def test_MockLArPix_receive_config_read():
-    formatter = MockFormatter()
     chip = MockLArPix(1, 0)
-    chip.next = formatter
     packet = Packet()
     packet.chipid = 1
     packet.packet_type = Packet.CONFIG_READ_PACKET
     packet.assign_parity()
     result = chip.receive(packet)
-    expected = Packet()
-    expected.chipid = 1
-    expected.packet_type = Packet.CONFIG_READ_PACKET
-    expected.register_data = chip.config.pixel_trim_thresholds[0]
-    expected.assign_parity()
+    expected_packet = Packet()
+    expected_packet.chipid = 1
+    expected_packet.packet_type = Packet.CONFIG_READ_PACKET
+    expected_packet.register_data = chip.config.pixel_trim_thresholds[0]
+    expected_packet.assign_parity()
+    expected = {'sent': expected_packet}
     assert result == expected
 
 def test_MockLArPix_receive_config_write():
@@ -55,6 +50,26 @@ def test_MockLArPix_receive_config_write():
     assert result == expected
     result_config = chip.config.pixel_trim_thresholds[0]
     expected_config = 3
+    assert result == expected
+
+def test_MockLArPix_send_to_next_chip():
+    chip = MockLArPix(1, 0)
+    nextchip = MockLArPix(2, 0)
+    chip.next = nextchip
+    packet = Packet()
+    packet.assign_parity()
+    result = chip.send(packet)
+    expected = {'sent': packet}
+    assert result == expected
+
+def test_MockLArPix_send_to_formatter():
+    chip = MockLArPix(1, 0)
+    formatter = MockFormatter()
+    chip.next = formatter
+    packet = Packet()
+    packet.assign_parity()
+    result = chip.send(packet)
+    expected = packet
     assert result == expected
 
 def test_MockSerial_write():
