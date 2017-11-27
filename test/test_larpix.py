@@ -94,7 +94,7 @@ def test_chip_sync_configuration():
     chip = Chip(1, 0)
     packet_type = Packet.CONFIG_READ_PACKET
     packets = chip.get_configuration_packets(packet_type)
-    chip.reads = packets
+    chip.reads.append(PacketCollection(packets))
     chip.sync_configuration()
     result = chip.config.all_data()
     expected = [BitArray([0]*8)] * Configuration.num_registers
