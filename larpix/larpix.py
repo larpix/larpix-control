@@ -49,19 +49,26 @@ class Chip(object):
             packet.assign_parity()
         return packets
 
-    def sync_configuration(self):
+    def sync_configuration(self, index=-1):
         '''
         Adjust self.config to match whatever config read packets are in
-        self.reads.
+        self.reads[index].
 
-        Later packets in the list will overwrite earlier packets.
+        Defaults to the most recently read PacketCollection. Later
+        packets in the list will overwrite earlier packets. The
+        ``index`` parameter could be a slice.
 
         '''
         updates = {}
-        for packet in self.reads:
-            if packet.packet_type == Packet.CONFIG_READ_PACKET:
-                updates[packet.register_address] = packet.register_data
-
+        if isinstance(index, slice):
+            for collection in self.reads[index]:
+                for packet in collection:
+                    if packet.packet_type == Packet.CONFIG_READ_PACKET:
+                        updates[packet.register_address] = packet.register_data
+        else:
+            for packet in self.reads[index]:
+                if packet.packet_type == Packet.CONFIG_READ_PACKET:
+                    updates[packet.register_address] = packet.register_data
         self.config.from_dict_registers(updates)
 
     def export_reads(self, only_new_reads=True):
