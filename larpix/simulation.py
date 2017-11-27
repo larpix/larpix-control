@@ -8,6 +8,31 @@ import larpix.larpix as larpix
 import time
 from collections import deque
 
+def model(chips):
+    '''
+    Return a MockSerial object to communicate with the given daisy chain
+    of chips.
+
+    To install this model, set ``controller._serial = model(...)``. Then
+    just run the code normally.
+
+    '''
+    serial = MockSerial()
+    formatter = MockFormatter()
+    serial.formatter = formatter
+    mock_chips = []
+    for chip in chips:
+        mock_chips.append(MockLArPix(chip.chip_id, chip.io_chain))
+    mock_chips[0].previous = formatter
+    formatter.mosi_destination = mock_chips[0]
+    mock_chips[-1].next = formatter
+    formatter.miso_source = mock_chips[-1]
+    for i, mock in enumerate(mock_chips[1:]):
+        mock.previous = mock_chips[i]
+    for i, mock in enumerate(mock_chips[:-1]):
+        mock.next = mock_chips[i+1]
+    return serial
+
 class MockLArPix(object):
     '''
     A mock/simulation LArPix chip that can interface with the
