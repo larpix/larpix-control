@@ -1552,6 +1552,18 @@ def test_controller_write_configuration_write_read(capfd):
     result, err = capfd.readouterr()
     assert result == expected
 
+def test_controller_get_configuration_bytestreams():
+    controller = Controller(None)
+    chip = Chip(0, 0)
+    controller.chips.append(chip)
+    result = controller.get_configuration_bytestreams(chip,
+            Packet.CONFIG_WRITE_PACKET, [1, 0])
+    all_packets = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
+    bytestream_reg_0 = controller.format_UART(chip, all_packets[0])
+    bytestream_reg_1 = controller.format_UART(chip, all_packets[1])
+    expected = [bytestream_reg_1 + bytestream_reg_0]
+    assert result == expected
+
 def test_controller_parse_input():
     controller = Controller(None)
     chip = Chip(2, 4)
