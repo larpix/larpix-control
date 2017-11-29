@@ -10,6 +10,7 @@ from bitstring import BitArray, Bits
 import json
 import os
 import errno
+import re
 
 import larpix.configs as configs
 
@@ -912,6 +913,27 @@ class Controller(object):
             json.dump(data, outfile, indent=4,
                     separators=(',',':'), sort_keys=True)
 
+    def load(self, filename):
+        '''
+        Load the data in filename into the controller.
+
+        Overwrites all data inside the controller!
+        '''
+        self.__init__(self.port)
+        with open(filename, 'r') as infile:
+            data = json.load(infile)
+        chip_regexp = re.compile(r'Chip\((\d+), ?(\d+)\)')
+        for chip_description in data['chips']:
+            parsed_chip = chip_regexp.match(chip_description)
+            chip_id = int(parsed_chip.group(1))
+            io_chain = int(parsed_chip.group(2))
+            self.chips.append(Chip(chip_id, io_chain))
+        for read in data['reads']:
+            collection = PacketCollection([])
+            collection.from_dict(read)
+            self.reads.append(collection)
+            self.sort_packets(collection)
+        return data['message']
 
 class Packet(object):
     '''
@@ -1256,10 +1278,27 @@ class PacketCollection(object):
         d['packets'] = [packet.export() for packet in self.packets]
         d['id'] = id(self)
         d['parent'] = 'None' if self.parent is None else id(self.parent)
-        d['message'] = self.message
-        d['read_id'] = self.read_id
-        d['bytestream'] = str(self.bytestream)
+        d['message'] = str(self.message)
+        d['read_id'] = 'None' if self.read_id is None else self.read_id
+        d['bytestream'] = ('None' if self.bytestream is None else
+                self.bytestream.decode('utf-8'))
         return d
+
+    def from_dict(self, d):
+        '''
+        Load the information in the dict into this PacketCollection.
+
+        '''
+        self.message = d['message']
+        self.read_id = d['read_id']
+        self.bytestream = d['bytestream'].encode('utf-8')
+        self.parent = None
+        self.packets = []
+        for p in d['packets']:
+            bits = p['bits']
+            packet = Packet()
+            packet.bits = BitArray('0b' + bits)
+            self.packets.append(packet)
 
     def origin(self):
         '''

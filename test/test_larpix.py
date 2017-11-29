@@ -189,11 +189,30 @@ def test_controller_save_output(tmpdir):
                     'parent': 'None',
                     'message': 'hi',
                     'read_id': 0,
-                    'bytestream': str(p.bytes())
+                    'bytestream': p.bytes().decode('utf-8')
                     }
                 ]
             }
     assert result == expected
+
+def test_controller_load(tmpdir):
+    controller = Controller(None)
+    chip = Chip(1, 0)
+    p = Packet()
+    controller.chips.append(chip)
+    collection = PacketCollection([p], p.bytes(), 'hi', 0)
+    controller.reads.append(collection)
+    controller.sort_packets(collection)
+    name = str(tmpdir.join('test.json'))
+    expected_message = 'this is a test'
+    controller.save_output(name, expected_message)
+    new_controller = Controller(None)
+    result_message = new_controller.load(name)
+    assert result_message == expected_message
+    assert new_controller.reads == controller.reads
+    for new_chip, old_chip in zip(new_controller.chips, controller.chips):
+        assert repr(new_chip) == repr(old_chip)
+        assert new_chip.reads == old_chip.reads
 
 def test_packet_bits_bytes():
     assert Packet.num_bytes == Packet.size // 8 + 1
@@ -1638,3 +1657,37 @@ def test_packetcollection_origin():
     assert first_gen.origin() is collection
     assert second_gen.parent is first_gen
     assert second_gen.origin() is collection
+
+def test_packetcollection_to_dict():
+    packet = Packet()
+    packet.packet_type = Packet.TEST_PACKET
+    collection = PacketCollection([packet], bytestream=packet.bytes(),
+            message='hello')
+    result = collection.to_dict()
+    expected = {
+            'id': id(collection),
+            'parent': 'None',
+            'message': 'hello',
+            'read_id': 'None',
+            'bytestream': packet.bytes().decode('utf-8'),
+            'packets': [{
+                'bits': packet.bits.bin,
+                'type': 'test',
+                'chipid': 0,
+                'parity': 0,
+                'valid_parity': True,
+                'counter': 0
+                }]
+            }
+    assert result == expected
+
+def test_packetcollection_from_dict():
+    packet = Packet()
+    packet.packet_type = Packet.TEST_PACKET
+    collection = PacketCollection([packet], bytestream=packet.bytes(),
+            message='hello')
+    d = collection.to_dict()
+    result = PacketCollection([])
+    result.from_dict(d)
+    expected = collection
+    assert result == expected
