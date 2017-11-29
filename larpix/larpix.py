@@ -836,7 +836,8 @@ class Controller(object):
             packets = self.parse_input(miso_bytestream)
             self.store_packets(packets, miso_bytestream, message)
 
-    def read_configuration(self, chip, registers=None, timeout=1):
+    def read_configuration(self, chip, registers=None, timeout=1,
+            message=None):
         if registers is None:
             registers = list(range(Configuration.num_registers))
         elif isinstance(registers, int):
