@@ -58,15 +58,13 @@ def get_chip_ids(**settings):
     logger.info('Executing get_chip_ids')
     if 'controller' in settings:
         controller = settings['controller']
-        if not controller.chips:
-            controller.init_chips()
     else:
         controller = larpix.Controller(settings['port'])
-        controller.init_chips()
+    controller.use_all_chips = True
     stored_timeout = controller.timeout
     controller.timeout=0.1
     chips = []
-    for chip in controller.chips:
+    for chip in controller.all_chips:
         controller.read_configuration(chip, 0, timeout=0.1)
         if len(chip.reads) == 0:
             print('Chip ID %d: Packet lost in black hole.  No connection?' %
@@ -81,6 +79,7 @@ def get_chip_ids(**settings):
             chips.append(chip)
             logger.info('Found chip %s' % chip)
     controller.timeout = stored_timeout
+    controller.use_all_chips = False
     return chips
 
 def simple_stats(**settings):
