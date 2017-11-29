@@ -174,14 +174,14 @@ class Configuration(object):
                 }
         # These registers store 32 bits over 4 registers each, and those
         # 32 bits correspond to entries in a 32-entry list.
-        complex_array_spec = [
+        self._complex_array_spec = [
                 (range(34, 38), 'csa_bypass_select'),
                 (range(38, 42), 'csa_monitor_select'),
                 (range(42, 46), 'csa_testpulse_enable'),
                 (range(52, 56), 'channel_mask'),
                 (range(56, 60), 'external_trigger_mask')]
         self._complex_array = {}
-        for addresses, label in complex_array_spec:
+        for addresses, label in self._complex_array_spec:
             for i, address in enumerate(addresses):
                 self._complex_array[address] = (label, i)
         # These registers each correspond to an entry in an array
@@ -202,6 +202,19 @@ class Configuration(object):
         for register_name in self.register_names:
             if getattr(self, register_name) != getattr(default_config, register_name):
                 d[register_name] = getattr(self, register_name)
+        # Attempt to simplify some of the long values (array values)
+        for (name, value) in d.items():
+            if (name in (label for _, label in self._complex_array_spec)
+                    or name == 'pixel_trim_thresholds'):
+                different_values = []
+                for ch, (val, default_val) in enumerate(zip(value, getattr(
+                    default_config, name))):
+                    if val != default_val:
+                        different_values.append({'channel': ch, 'value': val})
+                if len(different_values) < 5:
+                    d[name] = different_values
+                else:
+                    pass
         return d
 
     @property
