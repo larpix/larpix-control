@@ -38,9 +38,7 @@ def startup(**settings):
     controller.use_all_chips = True
     for chip in controller.all_chips:
         chip.config.load("quiet.json")
-    for _ in range(nchips):
-        for chip in controller.all_chips:
-            controller.write_configuration(chip)
+    controller.multi_write_configuration(controller.all_chips)
     controller.use_all_chips = False
 
 def get_chip_ids(**settings):
@@ -61,8 +59,9 @@ def get_chip_ids(**settings):
     stored_timeout = controller.timeout
     controller.timeout=0.1
     chips = []
-    for chip in controller.all_chips:
-        controller.read_configuration(chip, 0, timeout=0.1)
+    chip_regs = [(c, 0) for c in controller.all_chips]
+    controller.multi_read_configuration(chip_regs, timeout=0.1)
+    for chip in controller.chips:
         if len(chip.reads) == 0:
             print('Chip ID %d: Packet lost in black hole.  No connection?' %
                   chip.chip_id)
