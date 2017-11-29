@@ -714,14 +714,19 @@ class Controller(object):
 
     - ``chips``: the ``Chip`` objects that the controller controls
     - ``all_chip``: all possible ``Chip`` objects (considering there are
-      a finite number of chip IDs).
+      a finite number of chip IDs), initialized on object construction
     - ``port``: the path to the serial port, i.e. "/dev/(whatever)"
-    - ``timeout``: the timeout used for serial commands. This can be
-      changed between calls to the read and write commands.
+      (default: ``'/dev/ttyUSB1'``)
+    - ``timeout``: the timeout used for serial commands, in seconds.
+      This can be changed between calls to the read and write commands.
+      (default: ``1``)
     - ``reads``: list of all the PacketCollections that have been sent
       back to this controller. PacketCollections are created by
       ``run``, ``write_configuration``, and ``read_configuration``, but
       not by any of the ``serial_*`` methods.
+    - ``use_all_chips``: if ``True``, look up chip objects in
+      ``self.all_chips``, else look up in ``self.chips`` (default:
+      ``False``)
 
     '''
     start_byte = b'\x73'
@@ -729,6 +734,7 @@ class Controller(object):
     def __init__(self, port='/dev/ttyUSB1'):
         self.chips = []
         self.all_chips = self._init_chips()
+        self.use_all_chips = False
         self.reads = []
         self.nreads = 0
         self.port = port
@@ -745,11 +751,15 @@ class Controller(object):
         return [Chip(i, iochain) for i in range(256)]
 
     def get_chip(self, chip_id, io_chain):
-        for chip in self.chips:
+        if self.use_all_chips:
+            chip_list = self.all_chips
+        else:
+            chip_list = self.chips
+        for chip in chip_list:
             if chip.chip_id == chip_id and chip.io_chain == io_chain:
                 return chip
-        raise ValueError('Could not find chip (%d, %d)' % (chip_id,
-            io_chain))
+        raise ValueError('Could not find chip (%d, %d) (using all_chips'
+                '? %s)' % (chip_id, io_chain, self.use_all_chips))
 
     def serial_flush(self):
         with self._serial(self.port, baudrate=self.baudrate,

@@ -1471,6 +1471,13 @@ def test_controller_get_chip():
     controller.chips.append(chip)
     assert controller.get_chip(1, 3) == chip
 
+def test_controller_get_chip_all_chips():
+    controller = Controller(None)
+    controller.use_all_chips = True
+    result = controller.get_chip(5, 0)
+    expected = controller.all_chips[5]
+    assert result == expected
+
 def test_controller_get_chip_error():
     controller = Controller(None)
     chip = Chip(1, 3)
