@@ -805,11 +805,11 @@ class Controller(object):
 
     def get_configuration_bytestreams(self, chip, packet_type, registers):
         # The configuration must be sent one register at a time
-        configuration_packets = \
+        all_configuration_packets = \
             chip.get_configuration_packets(packet_type);
-        for i in range(len(configuration_packets)-1, -1, -1):
-            if i not in registers:
-                del configuration_packets[i]
+        configuration_packets = []
+        for register in registers:
+            configuration_packets.append(all_configuration_packets[register])
         formatted_packets = [self.format_UART(chip, p) for p in
                 configuration_packets]
         bytestreams = self.format_bytestream(formatted_packets)
