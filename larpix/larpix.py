@@ -1224,7 +1224,7 @@ class PacketCollection(object):
             items = PacketCollection([p for p in self.packets[key]])
             items.message = '%s | subset %s' % (self.message, key)
             items.parent = self
-            item.read_id = self.read_id
+            items.read_id = self.read_id
             return items
         elif isinstance(key, tuple):
             if key[1] == 'bits':
