@@ -528,6 +528,27 @@ def test_configuration_get_nondefault_registers():
     expected['adc_burst_length'] = c.adc_burst_length
     assert c.get_nondefault_registers() == expected
 
+def test_configuration_get_nondefault_registers_array():
+    c = Configuration()
+    c.channel_mask[1] = 1
+    c.channel_mask[5] = 1
+    result = c.get_nondefault_registers()
+    expected = {
+            'channel_mask': [
+                { 'channel': 1, 'value': 1 },
+                { 'channel': 5, 'value': 1 }
+                ]
+            }
+    assert result == expected
+
+def test_configuration_get_nondefault_registers_many_changes():
+    c = Configuration()
+    c.channel_mask[:20] = [1]*20
+    result = c.get_nondefault_registers()
+    expected = { 'channel_mask': [1]*20 + [0]*12 }
+    assert result == expected
+
+
 def test_configuration_set_pixel_trim_thresholds():
     c = Configuration()
     expected = [0x05] * Chip.num_channels
