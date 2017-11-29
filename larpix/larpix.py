@@ -710,11 +710,25 @@ class Controller(object):
     '''
     Controls a collection of LArPix Chip objects.
 
+    Properties and attributes:
+
+    - ``chips``: the ``Chip`` objects that the controller controls
+    - ``all_chip``: all possible ``Chip`` objects (considering there are
+      a finite number of chip IDs).
+    - ``port``: the path to the serial port, i.e. "/dev/(whatever)"
+    - ``timeout``: the timeout used for serial commands. This can be
+      changed between calls to the read and write commands.
+    - ``reads``: list of all the PacketCollections that have been sent
+      back to this controller. PacketCollections are created by
+      ``run``, ``write_configuration``, and ``read_configuration``, but
+      not by any of the ``serial_*`` methods.
+
     '''
     start_byte = b'\x73'
     stop_byte = b'\x71'
     def __init__(self, port='/dev/ttyUSB1'):
         self.chips = []
+        self.all_chips = self._init_chips()
         self.reads = []
         self.nreads = 0
         self.port = port
@@ -723,8 +737,12 @@ class Controller(object):
         self.max_write = 8192
         self._serial = serial.Serial
 
-    def init_chips(self, nchips = 256, iochain = 0):
-        self.chips = [Chip(i, iochain) for i in range(256)]
+    def _init_chips(self, nchips = 256, iochain = 0):
+        '''
+        Return all possible chips.
+
+        '''
+        return [Chip(i, iochain) for i in range(256)]
 
     def get_chip(self, chip_id, io_chain):
         for chip in self.chips:
