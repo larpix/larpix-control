@@ -773,13 +773,18 @@ class Controller(object):
                     data_in += stream
         return data_in
 
-    def write_configuration(self, chip, registers=None, write_read=0):
+    def write_configuration(self, chip, registers=None, write_read=0,
+            message=None):
         if registers is None:
             registers = list(range(Configuration.num_registers))
         elif isinstance(registers, int):
             registers = [registers]
         else:
             pass
+        if message is None:
+            message = 'configuration write'
+        else:
+            message = 'configuration write: ' + message
         bytestreams = self.get_configuration_bytestreams(chip,
                 Packet.CONFIG_WRITE_PACKET, registers)
         if write_read == 0:
@@ -788,7 +793,7 @@ class Controller(object):
             miso_bytestream = self.serial_write_read(bytestreams,
                     timelimit=write_read)
             packets = self.parse_input(miso_bytestream)
-            self.store_packets(packets, miso_bytestream, 'configuration write')
+            self.store_packets(packets, miso_bytestream, message)
 
     def read_configuration(self, chip, registers=None, timeout=1):
         if registers is None:
@@ -797,11 +802,15 @@ class Controller(object):
             registers = [registers]
         else:
             pass
+        if message is None:
+            message = 'configuration read'
+        else:
+            message = 'configuration read: ' + message
         bytestreams = self.get_configuration_bytestreams(chip,
                 Packet.CONFIG_READ_PACKET, registers)
         data = self.serial_write_read(bytestreams, timeout)
         packets = self.parse_input(data)
-        self.store_packets(packets, data, 'configuration read')
+        self.store_packets(packets, data, message)
 
     def get_configuration_bytestreams(self, chip, packet_type, registers):
         # The configuration must be sent one register at a time
