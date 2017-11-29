@@ -195,6 +195,25 @@ def test_controller_save_output(tmpdir):
             }
     assert result == expected
 
+def test_controller_load(tmpdir):
+    controller = Controller(None)
+    chip = Chip(1, 0)
+    p = Packet()
+    controller.chips.append(chip)
+    collection = PacketCollection([p], p.bytes(), 'hi', 0)
+    controller.reads.append(collection)
+    controller.sort_packets(collection)
+    name = str(tmpdir.join('test.json'))
+    expected_message = 'this is a test'
+    controller.save_output(name, expected_message)
+    new_controller = Controller(None)
+    result_message = new_controller.load(name)
+    assert result_message == expected_message
+    assert new_controller.reads == controller.reads
+    for new_chip, old_chip in zip(new_controller.chips, controller.chips):
+        assert repr(new_chip) == repr(old_chip)
+        assert new_chip.reads == old_chip.reads
+
 def test_packet_bits_bytes():
     assert Packet.num_bytes == Packet.size // 8 + 1
 
