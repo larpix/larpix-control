@@ -1332,7 +1332,7 @@ class PacketCollection(object):
         d['message'] = str(self.message)
         d['read_id'] = 'None' if self.read_id is None else self.read_id
         d['bytestream'] = ('None' if self.bytestream is None else
-                self.bytestream.decode('utf-8'))
+                self.bytestream.decode('raw_unicode_escape'))
         return d
 
     def from_dict(self, d):
@@ -1342,7 +1342,7 @@ class PacketCollection(object):
         '''
         self.message = d['message']
         self.read_id = d['read_id']
-        self.bytestream = d['bytestream'].encode('utf-8')
+        self.bytestream = d['bytestream'].encode('raw_unicode_escape')
         self.parent = None
         self.packets = []
         for p in d['packets']:

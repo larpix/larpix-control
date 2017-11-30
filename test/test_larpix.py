@@ -189,7 +189,7 @@ def test_controller_save_output(tmpdir):
                     'parent': 'None',
                     'message': 'hi',
                     'read_id': 0,
-                    'bytestream': p.bytes().decode('utf-8')
+                    'bytestream': p.bytes().decode('raw_unicode_escape')
                     }
                 ]
             }
@@ -1699,6 +1699,7 @@ def test_packetcollection_origin():
 
 def test_packetcollection_to_dict():
     packet = Packet()
+    packet.chipid = 246
     packet.packet_type = Packet.TEST_PACKET
     collection = PacketCollection([packet], bytestream=packet.bytes(),
             message='hello')
@@ -1708,11 +1709,11 @@ def test_packetcollection_to_dict():
             'parent': 'None',
             'message': 'hello',
             'read_id': 'None',
-            'bytestream': packet.bytes().decode('utf-8'),
+            'bytestream': packet.bytes().decode('raw_unicode_escape'),
             'packets': [{
                 'bits': packet.bits.bin,
                 'type': 'test',
-                'chipid': 0,
+                'chipid': packet.chipid,
                 'parity': 0,
                 'valid_parity': True,
                 'counter': 0
