@@ -1697,6 +1697,25 @@ def test_packetcollection_origin():
     assert second_gen.parent is first_gen
     assert second_gen.origin() is collection
 
+def test_packetcollection_get_packet_attr():
+    p1 = Packet()
+    p1.chipid = 10
+    p1.packet_type = Packet.DATA_PACKET
+    p1.dataword = 36
+    p2 = Packet()
+    p2.chipid = 9
+    p2.packet_type = Packet.DATA_PACKET
+    p2.dataword = 38
+    pc = PacketCollection([p1,p2])
+    expected = [10, 9]
+    assert pc.get_packet_attr('chipid') == expected
+    expected = [36, 38]
+    assert pc.get_packet_attr('dataword') == expected
+    expected = [36]
+    assert pc.get_packet_attr('dataword', chipid=10) == expected
+    expected = []
+    assert pc.get_packet_attr('dataword', packet_type=Packet.TEST_PACKET) == expected
+
 def test_packetcollection_to_dict():
     packet = Packet()
     packet.chipid = 246
