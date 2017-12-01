@@ -29,22 +29,19 @@ def startup(**settings):
     '''
     logger = logging.getLogger(__name__)
     logger.info('Executing startup')
+    nchips = settings['nchips']
     if 'controller' in settings:
         controller = settings['controller']
-        if controller.chips:
-            nchips = len(controller.chips)
-        else:
-            controller.init_chips()
-            nchips = settings['nchips']
     else:
         controller = larpix.Controller(settings['port'])
-        controller.init_chips()
-        nchips = settings['nchips']
 
+    controller.use_all_chips = True
+    for chip in controller.all_chips:
+        chip.config.load("quiet.json")
     for _ in range(nchips):
-        for chip in controller.chips:
-            chip.config.load("quiet.json")
+        for chip in controller.all_chips:
             controller.write_configuration(chip)
+    controller.use_all_chips = False
 
 def get_chip_ids(**settings):
     '''
@@ -70,12 +67,12 @@ def get_chip_ids(**settings):
             print('Chip ID %d: Packet lost in black hole.  No connection?' %
                   chip.chip_id)
             continue
-        if len(chip.reads[0] != 1):
+        if len(chip.reads[0]) != 1:
             print('Cannot determine if chip %d exists because more'
                     'than 1 packet was received (expected 1)' %
                     chip.chip_id)
             continue
-        if read_packets[0].register_data != 0:
+        if chip.reads[0][0].register_data != 0:
             chips.append(chip)
             logger.info('Found chip %s' % chip)
     controller.timeout = stored_timeout
