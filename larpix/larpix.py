@@ -1351,6 +1351,21 @@ class PacketCollection(object):
             packet.bits = BitArray('0b' + bits)
             self.packets.append(packet)
 
+    def get_packet_attr(self, attr, **selection):
+        '''
+        Returns a list of the packet.attr values
+        A selection can be made on other packet attributes (chipid, valid_parity, etc)
+
+        '''
+        values = []
+        for p in self.packets:
+            try:
+                if all( getattr(p, key) == value for key, value in selection.iteritems()):
+                    values.append(getattr(p, attr))
+            except AttributeError:
+                continue
+        return values
+
     def origin(self):
         '''
         Return the original PacketCollection that this PacketCollection
