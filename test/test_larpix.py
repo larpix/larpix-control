@@ -199,6 +199,7 @@ def test_controller_load(tmpdir):
     controller = Controller(None)
     chip = Chip(1, 0)
     p = Packet()
+    p.chipid = 1
     controller.chips.append(chip)
     collection = PacketCollection([p], p.bytes(), 'hi', 0)
     controller.reads.append(collection)

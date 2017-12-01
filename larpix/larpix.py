@@ -932,13 +932,15 @@ class Controller(object):
     def sort_packets(self, collection):
         '''
         Sort the packets in ``collection`` into each chip in
-        ``self.chips``.
+        ``self.all_chips`` (if ``self.use_all_chips``) or ``self.chips``
+        (otherwise).
 
         '''
         by_chipid = collection.by_chipid()
-        for chip in self.chips:
-            if chip.chip_id in by_chipid:
-                chip.reads.append(by_chipid[chip.chip_id])
+        io_chain = 0
+        for chip_id in by_chipid.keys():
+            chip = self.get_chip(chip_id, io_chain)
+            chip.reads.append(by_chipid[chip_id])
 
 
     def format_bytestream(self, formatted_packets):
