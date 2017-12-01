@@ -1351,6 +1351,51 @@ class PacketCollection(object):
             packet.bits = BitArray('0b' + bits)
             self.packets.append(packet)
 
+    def extract(self, attr, **selection):
+        '''
+        Extract the given attribute from packets specified by selection
+        and return a list.
+
+        Any key used in Packet.export is a valid attribute or selection:
+
+        - all packets:
+             - bits
+             - type (data, test, config read, config write)
+             - chipid
+             - parity
+             - valid_parity
+        - data packets:
+             - channel
+             - timestamp
+             - adc_count
+             - fifo_half
+             - fifo_full
+        - test packets:
+             - counter
+        - config packets:
+             - register
+             - value
+
+        Usage:
+
+        >>> # Return a list of adc counts from any data packets
+        >>> adc_data = collection.extract('adc_counts')
+        >>> # Return a list of timestamps from chip 2 data
+        >>> timestamps = collection.extract('timestamp', chipid=2)
+        >>> # Return the most recently read global threshold from chip 5
+        >>> threshold = collection.extract('value', register=32, type='config read', chip=5)[-1]
+
+        '''
+        values = []
+        for p in self.packets:
+            try:
+                d = p.export()
+                if all( d[key] == value for key, value in selection.items()):
+                    values.append(d[attr])
+            except KeyError:
+                continue
+        return values
+
     def origin(self):
         '''
         Return the original PacketCollection that this PacketCollection
