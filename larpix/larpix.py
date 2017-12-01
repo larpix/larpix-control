@@ -1351,9 +1351,9 @@ class PacketCollection(object):
             packet.bits = BitArray('0b' + bits)
             self.packets.append(packet)
 
-    def get_packet_attr(self, attr, **selection):
+    def extract(self, attr, **selection):
         '''
-        Returns a list of the packet.attr values
+        Returns a list of the packet.(attr) values
         A selection can be made on other packet attributes (chipid, valid_parity, etc)
 
         '''
