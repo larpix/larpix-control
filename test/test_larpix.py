@@ -1706,8 +1706,11 @@ def test_packetcollection_get_packet_attr():
     p2.chipid = 9
     p2.packet_type = Packet.DATA_PACKET
     p2.dataword = 38
-    pc = PacketCollection([p1,p2])
-    expected = [10, 9]
+    p3 = Packet()
+    p3.chipid = 8
+    p3.packet_type = Packet.TEST_PACKET
+    pc = PacketCollection([p1,p2,p3])
+    expected = [10, 9, 8]
     assert pc.get_packet_attr('chipid') == expected
     expected = [36, 38]
     assert pc.get_packet_attr('adc_counts') == expected

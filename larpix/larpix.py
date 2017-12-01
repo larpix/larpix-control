@@ -1361,7 +1361,7 @@ class PacketCollection(object):
         for p in self.packets:
             try:
                 d = p.export()
-                if all( d[key] == value for key, value in selection.iteritems()):
+                if all( d[key] == value for key, value in selection.items()):
                     values.append(d[attr])
             except KeyError:
                 continue
