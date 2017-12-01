@@ -1360,9 +1360,10 @@ class PacketCollection(object):
         values = []
         for p in self.packets:
             try:
-                if all( getattr(p, key) == value for key, value in selection.iteritems()):
-                    values.append(getattr(p, attr))
-            except AttributeError:
+                d = p.export()
+                if all( d[key] == value for key, value in selection.iteritems()):
+                    values.append(d[attr])
+            except KeyError:
                 continue
         return values
 

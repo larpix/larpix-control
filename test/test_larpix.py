@@ -1710,11 +1710,11 @@ def test_packetcollection_get_packet_attr():
     expected = [10, 9]
     assert pc.get_packet_attr('chipid') == expected
     expected = [36, 38]
-    assert pc.get_packet_attr('dataword') == expected
+    assert pc.get_packet_attr('adc_counts') == expected
     expected = [36]
-    assert pc.get_packet_attr('dataword', chipid=10) == expected
+    assert pc.get_packet_attr('adc_counts', chipid=10) == expected
     expected = []
-    assert pc.get_packet_attr('dataword', packet_type=Packet.TEST_PACKET) == expected
+    assert pc.get_packet_attr('adc_counts', packet_type=Packet.TEST_PACKET) == expected
 
 def test_packetcollection_to_dict():
     packet = Packet()
