@@ -5,7 +5,6 @@ A module to control the LArPix chip.
 from __future__ import absolute_import
 
 import time
-import serial
 from bitstring import BitArray, Bits
 import json
 import os
@@ -741,7 +740,9 @@ class Controller(object):
         self.baudrate = 1000000
         self.timeout = 1
         self.max_write = 8192
-        self._serial = serial.Serial
+        self._serial = SerialPort(port=self.port,
+                                  baudrate=self.baudrate,
+                                  timeout=self.timeout)
 
     def _init_chips(self, nchips = 256, iochain = 0):
         '''
@@ -761,22 +762,20 @@ class Controller(object):
         raise ValueError('Could not find chip (%d, %d) (using all_chips'
                 '? %s)' % (chip_id, io_chain, self.use_all_chips))
 
-    def serial_flush(self):
-        with self._serial(self.port, baudrate=self.baudrate,
-                timeout=self.timeout) as serial:
-            serial.reset_output_buffer()
-            serial.reset_input_buffer()
+    #def serial_flush(self):
+    #    with self._serial(self.port, baudrate=self.baudrate,
+    #            timeout=self.timeout) as serial:
+    #        serial.reset_output_buffer()
+    #        serial.reset_input_buffer()
 
     def serial_read(self, timelimit):
         data_in = b''
         start = time.time()
         try:
-            with self._serial(self.port, baudrate=self.baudrate,
-                    timeout=self.timeout) as serial_in:
-                while time.time() - start < timelimit:
-                    stream = serial_in.read(self.max_write)
-                    if len(stream) > 0:
-                        data_in += stream
+            while time.time() - start < timelimit:
+                stream = self._serial.read(self.max_write)
+                if len(stream) > 0:
+                    data_in += stream
         except Exception as e:
             if getattr(self, '_read_tries_left', None) is None:
                 self._read_tries_left = 3
@@ -790,28 +789,25 @@ class Controller(object):
         return data_in
 
     def serial_write(self, bytestreams):
-        with self._serial(self.port, baudrate=self.baudrate,
-                timeout=self.timeout) as output:
-            for bytestream in bytestreams:
-                output.write(bytestream)
+        for bytestream in bytestreams:
+            self._serial.write(bytestream)
 
     def serial_write_read(self, bytestreams, timelimit):
         data_in = b''
         start = time.time()
-        with self._serial(self.port, baudrate=self.baudrate) as serial_port:
-            # First do a fast write-read loop until everything is
-            # written out, then just read
-            serial_port.timeout = 0  # Return whatever's already waiting
-            for bytestream in bytestreams:
-                serial_port.write(bytestream)
-                stream = serial_port.read(self.max_write)
-                if len(stream) > 0:
-                    data_in += stream
-            serial_port.timeout = self.timeout
-            while time.time() - start < timelimit:
-                stream = serial_port.read(self.max_write)
-                if len(stream) > 0:
-                    data_in += stream
+        # First do a fast write-read loop until everything is
+        # written out, then just read
+        self._serial.timeout = 0  # Return whatever's already waiting
+        for bytestream in bytestreams:
+            self._serial.write(bytestream)
+            stream = self._serial.read(self.max_write)
+            if len(stream) > 0:
+                data_in += stream
+        self._serial.timeout = self.timeout
+        while time.time() - start < timelimit:
+            stream = self._serial.read(self.max_write)
+            if len(stream) > 0:
+                data_in += stream
         return data_in
 
     def write_configuration(self, chip, registers=None, write_read=0,
@@ -1444,3 +1440,124 @@ class PacketCollection(object):
             new_collection.parent = self
             to_return[chipid] = new_collection
         return to_return
+
+
+
+class SerialPort(object):
+    '''Wrapper for various serial port interfaces across platforms'''
+    def __init__(self, port=None, baudrate=9600, timeout=None):
+        self.port = port
+        self.resolved_port = ''
+        self.port_type = '' 
+        self.baudrate = baudrate
+        self.timeout = timeout
+        self._keep_open = False
+        self.serial_com = None
+        self._initialize_serial_com()
+        return
+
+    def _ready_port(self):
+        '''Function handle.  Will be reset to appropriate method'''
+        raise NotImplementedError('Serial port type has not been defined.')
+
+    def _ready_port_pyserial(self):
+        '''Ready a pyserial port'''
+        if self.serial_com is None:
+            # Create serial port
+            import serial
+            self.serial_com = serial.Serial(self.resolved_port,
+                                            baudrate=self.baudrate,
+                                            timeout=self.timeout)
+        if not self.serial_com.is_open:
+            # Open, if necessary
+            self.serial_com.open()
+        return
+
+    def _ready_port_pylibftdi(self):
+        '''Ready a pylibftdi port'''
+        if self.serial_com is None:
+            # Construct serial port
+            import pylibftdi
+            self.serial_com = pylibftdi.Device(self.resolved_port)
+        # Open port
+        self.serial_com.open()
+        # Confirm baudrate (Required for OS X)
+        self._confirm_baudrate()
+        return        
+
+    def _confirm_baudrate(self):
+        '''Check and set the baud rate'''
+        if self.serial_com.baudrate != self.baudrate:
+            # Reset baudrate
+            self.serial_com.baudrate = self.baudrate
+        return
+            
+    def _initialize_serial_com(self):
+        '''Initialize the low-level serial com connection'''
+        self.resolved_port = self._resolve_port_name()
+        self.port_type = self._resolve_port_type()
+        if self.port_type is 'pyserial':
+            self._ready_port = self._ready_port_pyserial
+        elif self.port_type is 'pylibftdi':
+            self._ready_port = self._ready_port_pylibftdi
+            self._keep_open = True
+        else:
+            raise ValueError('Port type must be either pyserial or pylibftdi')
+        return
+
+    def _resolve_port_name(self):
+        '''Resolve the serial port name, based on user request'''
+        if self.port is None:
+            # Must set port
+            raise ValueError('You must choose a serial port for operation')
+        # FIXME: incorporate auto-scan feature
+        #if self.port is 'auto':
+        #    # Try to guess the correct port
+        #    return self._scan_for_ports()
+        # FIXME: incorporate list option?
+        #elif isinstance(self.port, list):
+        #    # Try to determine best choice from list
+        #    for port_name in list:
+        #        if self._port_exists(port_name):
+        #            return port_name
+        return self.port
+
+    def _resolve_port_type(self):
+        '''Resolve the type of serial port, based on the name'''
+        if self.resolved_port.startswith('/dev'):
+            # Looks like a tty device.  Use pyserial.
+            return 'pyserial'
+        elif self.resolved_port.startswith('FT'):
+            # Looks like a libftdi raw device.  Use pylibftdi.
+            return 'pylibftdi'
+        raise ValueError('Unknown port: %s' % self.port)
+
+    def open(self):
+        '''Open the port'''
+        self._ready_port()
+        return
+
+    def close(self):
+        '''Close the port'''
+        if self.serial_com is None: return
+        self.serial_com.close()
+        
+    def write(self, data):
+        '''Write data to serial port'''
+        self._ready_port()
+        self.serial_com.write(data)
+        if not self._keep_open:
+            self.close()
+        return
+
+    def read(self, nbytes):
+        '''Read data from serial port'''
+        self._ready_port()
+        data = self.serial_com.read(nbytes)
+        if not self._keep_open:
+            self.close()
+        return data
+        
+
+
+    
