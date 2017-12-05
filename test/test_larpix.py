@@ -6,7 +6,6 @@ from __future__ import print_function
 import pytest
 from larpix.larpix import (Chip, Packet, Configuration, Controller,
         PacketCollection)
-from larpix.simulation import model
 from bitstring import BitArray
 import json
 import os
