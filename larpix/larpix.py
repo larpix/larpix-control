@@ -836,6 +836,48 @@ class Controller(object):
             packets = self.parse_input(miso_bytestream)
             self.store_packets(packets, miso_bytestream, message)
 
+    def concat_write_configuration(self, write_list, write_read=0,
+            message=None):
+        '''
+        Write multiple configuration packets with a single serial write
+        commmand
+
+        ``write_list`` should be a list of tuples containing the chip to
+        write to (element 0) and a list of registers to write to (element 1)
+
+        Examples:
+        ``controller.concat_write_configuration([(chip0,[3,6,9])])``
+        ``controller.concat_write_configuration([chip1, chip2])``
+        ``controller.concat_write_configuration([(chip1,0),(chip2, [0,5])``
+        etc
+
+        '''
+        bytestreams = []
+        for write_tuple in write_list:
+            if isinstance(write_tuple, Chip):
+                chip = write_tuple
+                registers = list(range(Configuration.num_registers))
+            elif len(write_tuple) == 2:
+                chip = write_tuple[0]
+                registers = write_tuple[1]
+                if isinstance(registers, int):
+                    registers = [registers]
+            else:
+                raise ValueError('invalid tuple')
+            bytestreams += self.get_configuration_bytestreams(chip,
+                        Packet.CONFIG_WRITE_PACKET, registers)
+        if message is None:
+            message = 'configuration write'
+        else:
+            message = 'configuration write: ' + message
+        if write_read == 0:
+            self.serial_write(bytestreams)
+        else:
+            miso_bytestream = self.serial_write_read(bytestreams,
+                    timelimit=write_read)
+            packets = self.parse_input(miso_bytestream)
+            self.store_packets(packets, miso_bytestream, message)
+
     def read_configuration(self, chip, registers=None, timeout=1,
             message=None):
         if registers is None:

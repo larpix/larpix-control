@@ -1564,6 +1564,38 @@ def test_controller_write_configuration_one_reg(capfd):
     result, err = capfd.readouterr()
     assert result == expected
 
+def test_controller_concat_write_configuration(capfd):
+    controller = Controller(None)
+    controller._test_mode = True
+    controller._serial = FakeSerialPort
+    chip1 = Chip(2, 4)
+    chip2 = Chip(3, 3)
+    controller.concat_write_configuration([chip1, chip2])
+    conf_data1 = chip1.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
+    conf_data2 = chip2.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
+    expected1 = ' '.join(map(bytes2str, [controller.format_UART(chip1, conf_data_i) for
+            conf_data_i in conf_data1]))
+    expected2 = ' '.join(map(bytes2str, [controller.format_UART(chip2, conf_data_i) for
+            conf_data_i in conf_data2]))
+    expected = expected1 + expected2
+    result, err = capfd.readouterr()
+    assert result == expected
+
+def test_controller_concat_write_configuration_reg(capfd):
+    controller = Controller(None)
+    controller._test_mode = True
+    controller._serial = FakeSerialPort
+    chip1 = Chip(2, 4)
+    chip2 = Chip(3, 3)
+    controller.concat_write_configuration([(chip1, 0), (chip2, 0)])
+    conf_data1 = chip1.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[0]
+    conf_data2 = chip2.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[0]
+    expected1 = bytes2str(controller.format_UART(chip1, conf_data1))
+    expected2 = bytes2str(controller.format_UART(chip2, conf_data2))
+    expected = expected1 + expected2
+    result, err = capfd.readouterr()
+    assert result == expected
+
 def test_controller_write_configuration_write_read(capfd):
     controller = Controller(None)
     controller._serial = FakeSerialPort
