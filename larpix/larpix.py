@@ -1445,6 +1445,8 @@ class PacketCollection(object):
 
 class SerialPort(object):
     '''Wrapper for various serial port interfaces across platforms'''
+    _logger = None
+    
     def __init__(self, port=None, baudrate=9600, timeout=None):
         self.port = port
         self.resolved_port = ''
@@ -1454,6 +1456,9 @@ class SerialPort(object):
         self._keep_open = False
         self.serial_com = None
         self._initialize_serial_com()
+        self.logger = None
+        if not (self._logger is None):
+            self.logger = self._logger
         return
 
     def _ready_port(self):
@@ -1546,6 +1551,8 @@ class SerialPort(object):
         '''Write data to serial port'''
         self._ready_port()
         self.serial_com.write(data)
+        if self.logger:
+            self.logger.record({'data_type':'write','data':data})
         if not self._keep_open:
             self.close()
         return
@@ -1554,10 +1561,10 @@ class SerialPort(object):
         '''Read data from serial port'''
         self._ready_port()
         data = self.serial_com.read(nbytes)
+        if self.logger:
+            self.logger.record({'data_type':'read','data':data})
         if not self._keep_open:
             self.close()
         return data
         
 
-
-    
