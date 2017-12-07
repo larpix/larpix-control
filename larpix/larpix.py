@@ -1609,4 +1609,6 @@ class SerialPort(object):
 def enable_logger(filename=None):
     '''Enable serial data logger'''
     from larpix.datalogger import DataLogger
-    SerialPort._logger = DataLogger(filename)
+    if SerialPort._logger is None:
+        SerialPort._logger = DataLogger(filename)
+    return
