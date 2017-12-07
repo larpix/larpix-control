@@ -45,7 +45,7 @@ class DataLoader(object):
             self.open()
         raw_chunk = self.file.read(self.formatter.chunk_size * n_chunks)
         if len(raw_chunk) == 0:
-            print('Reached end of log')
+            print('%%%%%%%%%%%% Reached end of log %%%%%%%%%%%%')
             return None
         if len(raw_chunk) < self.formatter.chunk_size:
             print('Warning: file is incorrectly truncated')
