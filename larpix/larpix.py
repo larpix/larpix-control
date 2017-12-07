@@ -10,6 +10,7 @@ import json
 import os
 import errno
 import re
+import platform
 
 import larpix.configs as configs
 
@@ -715,7 +716,7 @@ class Controller(object):
     - ``all_chip``: all possible ``Chip`` objects (considering there are
       a finite number of chip IDs), initialized on object construction
     - ``port``: the path to the serial port, i.e. "/dev/(whatever)"
-      (default: ``'/dev/ttyUSB1'``)
+      (default: ``None`` [will attempt to auto-find correct port])
     - ``timeout``: the timeout used for serial commands, in seconds.
       This can be changed between calls to the read and write commands.
       (default: ``1``)
@@ -730,13 +731,15 @@ class Controller(object):
     '''
     start_byte = b'\x73'
     stop_byte = b'\x71'
-    def __init__(self, port='/dev/ttyUSB1'):
+    def __init__(self, port=None):
         self.chips = []
         self.all_chips = self._init_chips()
         self.use_all_chips = False
         self.reads = []
         self.nreads = 0
         self.port = port
+        if self.port is None:
+            self.port = SerialPort.guess_port()
         self.baudrate = 1000000
         self.timeout = 1
         self.max_write = 8192
@@ -883,7 +886,8 @@ class Controller(object):
                 daisy_chain_byte + Controller.stop_byte)
         return formatted_packet
 
-    def parse_input(self, bytestream):
+    @classmethod
+    def parse_input(cls, bytestream):
         packet_size = 10
         start_byte = Controller.start_byte[0]
         stop_byte = Controller.stop_byte[0]
@@ -1442,9 +1446,14 @@ class PacketCollection(object):
         return to_return
 
 
-
 class SerialPort(object):
     '''Wrapper for various serial port interfaces across platforms'''
+    # Guesses for default port name by platform
+    _default_port_map = {
+        'Default':['/dev/ttyUSB2','/dev/ttyUSB1'], # Same as Linux
+        'linux':['/dev/ttyUSB2','/dev/ttyUSB1'],   # Linux
+        'Darwin':['scan-ftdi',],     # OS X
+    }
     _logger = None
     
     def __init__(self, port=None, baudrate=9600, timeout=None):
@@ -1460,6 +1469,36 @@ class SerialPort(object):
         if not (self._logger is None):
             self.logger = self._logger
         return
+
+    @classmethod
+    def guess_port(cls):
+        '''Guess at correct port name based on platform'''
+        platform_default = 'Default'
+        platform_name = platform.system()
+        if platform_name not in cls._default_port_map:
+            platform_name = platform_default
+        default_devs = cls._default_port_map[platform_name]
+        osx_cmd = 'system_profiler SPUSBDataType | grep -C 7 FTDI | grep Serial'
+        for default_dev in default_devs:
+            if default_dev.startswith('/dev'): # pyserial
+                try:
+                    if os.stat(default_dev):
+                        return default_dev
+                except OSError:
+                    continue
+            elif default_dev == 'scan-ftdi':
+                if platform_name == 'Darwin':  # scan for pylibftdi on OS X
+                    # Scan for FTDI devices
+                    result = os.popen(osx_cmd).read()
+                    if len(result) > 0:
+                        idx = result.find('Serial Number:')
+                        dev_name = result[idx+14:idx+24].strip()
+                        print('Autoscan found FTDI device: %s' % dev_name)
+                        return dev_name
+            elif not default_dev.startswith('/dev'):  # assume pylibftdi
+                return default_dev
+        raise OSError('Cannot find serial device for platform: %s' %
+                      platform_name)
 
     def _ready_port(self):
         '''Function handle.  Will be reset to appropriate method'''
@@ -1516,9 +1555,9 @@ class SerialPort(object):
             # Must set port
             raise ValueError('You must choose a serial port for operation')
         # FIXME: incorporate auto-scan feature
-        #if self.port is 'auto':
-        #    # Try to guess the correct port
-        #    return self._scan_for_ports()
+        if self.port is 'auto':
+            # Try to guess the correct port
+            return self.guess_port()
         # FIXME: incorporate list option?
         #elif isinstance(self.port, list):
         #    # Try to determine best choice from list
@@ -1532,7 +1571,7 @@ class SerialPort(object):
         if self.resolved_port.startswith('/dev'):
             # Looks like a tty device.  Use pyserial.
             return 'pyserial'
-        elif self.resolved_port.startswith('FT'):
+        elif not self.resolved_port.startswith('/dev'):
             # Looks like a libftdi raw device.  Use pylibftdi.
             return 'pylibftdi'
         raise ValueError('Unknown port: %s' % self.port)
@@ -1567,4 +1606,7 @@ class SerialPort(object):
             self.close()
         return data
         
-
+def enable_logger(filename=None):
+    '''Enable serial data logger'''
+    from larpix.datalogger import DataLogger
+    SerialPort._logger = DataLogger(filename)
