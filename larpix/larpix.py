@@ -1455,11 +1455,11 @@ class SerialPort(object):
         'Darwin':['scan-ftdi',],     # OS X
     }
     _logger = None
-    
+
     def __init__(self, port=None, baudrate=9600, timeout=None):
         self.port = port
         self.resolved_port = ''
-        self.port_type = '' 
+        self.port_type = ''
         self.baudrate = baudrate
         self.timeout = timeout
         self._keep_open = False
@@ -1527,7 +1527,14 @@ class SerialPort(object):
         self.serial_com.open()
         # Confirm baudrate (Required for OS X)
         self._confirm_baudrate()
-        return        
+        return
+
+    def _ready_port_test(self):
+        if self.serial_com is None:
+            # Get FakeSerialPort from testing module
+            import test.test_larpix as test_lib
+            self.serial_com = test_lib.FakeSerialPort()
+        return
 
     def _confirm_baudrate(self):
         '''Check and set the baud rate'''
@@ -1535,7 +1542,7 @@ class SerialPort(object):
             # Reset baudrate
             self.serial_com.baudrate = self.baudrate
         return
-            
+
     def _initialize_serial_com(self):
         '''Initialize the low-level serial com connection'''
         self.resolved_port = self._resolve_port_name()
@@ -1545,8 +1552,11 @@ class SerialPort(object):
         elif self.port_type is 'pylibftdi':
             self._ready_port = self._ready_port_pylibftdi
             self._keep_open = True
+        elif self.port_type is 'test':
+            self._ready_port = self._ready_port_test
+            self._keep_open = True
         else:
-            raise ValueError('Port type must be either pyserial or pylibftdi')
+            raise ValueError('Port type must be either pyserial, pylibftdi, or test')
         return
 
     def _resolve_port_name(self):
@@ -1571,6 +1581,9 @@ class SerialPort(object):
         if self.resolved_port.startswith('/dev'):
             # Looks like a tty device.  Use pyserial.
             return 'pyserial'
+        elif self.resolved_port is 'test':
+            # Testing port. Don't use an external library
+            return 'test'
         elif not self.resolved_port.startswith('/dev'):
             # Looks like a libftdi raw device.  Use pylibftdi.
             return 'pylibftdi'
@@ -1585,7 +1598,7 @@ class SerialPort(object):
         '''Close the port'''
         if self.serial_com is None: return
         self.serial_com.close()
-        
+
     def write(self, data):
         '''Write data to serial port'''
         self._ready_port()
@@ -1605,7 +1618,7 @@ class SerialPort(object):
         if not self._keep_open:
             self.close()
         return data
-        
+
 def enable_logger(filename=None):
     '''Enable serial data logger'''
     from larpix.datalogger import DataLogger
