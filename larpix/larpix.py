@@ -1493,7 +1493,7 @@ class SerialPort(object):
                     if len(result) > 0:
                         idx = result.find('Serial Number:')
                         dev_name = result[idx+14:idx+24].strip()
-                        print('Autoscan found FTDI device: %s' % dev_name)
+                        print('Autoscan found FTDI device: "%s"' % dev_name)
                         return dev_name
             elif not default_dev.startswith('/dev'):  # assume pylibftdi
                 return default_dev
