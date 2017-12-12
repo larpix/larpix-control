@@ -854,6 +854,108 @@ class Controller(object):
         packets = self.parse_input(data)
         self.store_packets(packets, data, message)
 
+    def multi_write_configuration(self, chip_reg_pairs, write_read=0,
+            message=None):
+        '''
+        Send multiple write configuration commands at once.
+
+        ``chip_reg_pairs`` should be a list/iterable whose elements are
+        an valid arguments to ``Controller.write_configuration``,
+        excluding the ``write_read`` argument. Just like in the single
+        ``Controller.write_configuration``, setting ``write_read > 0`` will
+        have the controller read data during and after it writes, for
+        however many seconds are specified.
+
+        Examples:
+
+        These first 2 are equivalent and write the full configurations
+
+        >>> controller.multi_write_configuration([chip1, chip2, ...])
+        >>> controller.multi_write_configuration([(chip1, None), chip2, ...])
+
+        These 2 write the specified registers for the specified chips
+        in the specified order
+
+        >>> controller.multi_write_configuration([(chip1, 1), (chip2, 2), ...])
+        >>> controller.multi_write_configuration([(chip1, range(10)), chip2, ...])
+
+        '''
+        if message is None:
+            message = 'multi configuration write'
+        else:
+            message = 'multi configuration write: ' + message
+        final_bytestream = []
+        for chip_reg_pair in chip_reg_pairs:
+            if isinstance(chip_reg_pair, Chip):
+                chip_reg_pair = (chip_reg_pair, None)
+            chip, registers = chip_reg_pair
+            if registers is None:
+                registers = list(range(Configuration.num_registers))
+            elif isinstance(registers, int):
+                registers = [registers]
+            else:
+                pass
+            bytestreams = self.get_configuration_bytestreams(chip,
+                    Packet.CONFIG_WRITE_PACKET, registers)
+            final_bytestream += bytestreams
+        final_bytestream = self.format_bytestream(final_bytestream)
+        if write_read == 0:
+            self.serial_write(final_bytestream)
+        else:
+            miso_bytestream = self.serial_write_read(final_bytestream,
+                    timelimit=write_read)
+            packets = self.parse_input(miso_bytestream)
+            self.store_packets(packets, miso_bytestream, message)
+
+    def multi_read_configuration(self, chip_reg_pairs, timeout=1,
+            message=None):
+        '''
+        Send multiple read configuration commands at once.
+
+        ``chip_reg_pairs`` should be a list/iterable whose elements are
+        Chip objects (to read entire configuration) or (chip, registers)
+        tuples to read only the specified register(s). Registers could
+        be ``None`` (i.e. all), an ``int`` for that register only, or an
+        iterable of ``int``s.
+
+        Examples:
+
+        These first 2 are equivalent and read the full configurations
+
+        >>> controller.multi_read_configuration([chip1, chip2, ...])
+        >>> controller.multi_read_configuration([(chip1, None), chip2, ...])
+
+        These 2 read the specified registers for the specified chips
+        in the specified order
+
+        >>> controller.multi_read_configuration([(chip1, 1), (chip2, 2), ...])
+        >>> controller.multi_read_configuration([(chip1, range(10)), chip2, ...])
+
+        '''
+        if message is None:
+            message = 'multi configuration read'
+        else:
+            message = 'multi configuration read: ' + message
+        final_bytestream = []
+        for chip_reg_pair in chip_reg_pairs:
+            if isinstance(chip_reg_pair, Chip):
+                chip_reg_pair = (chip_reg_pair, None)
+            chip, registers = chip_reg_pair
+            if registers is None:
+                registers = list(range(Configuration.num_registers))
+            elif isinstance(registers, int):
+                registers = [registers]
+            else:
+                pass
+            bytestreams = self.get_configuration_bytestreams(chip,
+                    Packet.CONFIG_READ_PACKET, registers)
+            final_bytestream += bytestreams
+        mosi_bytestream = self.format_bytestream(final_bytestream)
+        miso_bytestream = self.serial_write_read(mosi_bytestream,
+                timelimit=timeout)
+        packets = self.parse_input(miso_bytestream)
+        self.store_packets(packets, miso_bytestream, message)
+
     def get_configuration_bytestreams(self, chip, packet_type, registers):
         # The configuration must be sent one register at a time
         all_configuration_packets = \
