@@ -96,10 +96,12 @@ def pulse_chip_channel(controller, chip, channel):
     return
 
 def noise_test_internal_pulser(board='pcb-5', chip_idx=0, n_pulses=1000,
-                               pulse_channel=0, pulse_dac=200, threshold=100):
+                               pulse_channel=0, pulse_dac=200, threshold=100,
+                               controller=None):
     '''Use cross-trigger from one channel to evaluate noise on other channels'''
     # Create controller and initialize chips to appropriate state
-    controller = quickcontroller(board)
+    if controller is None:
+        controller = quickcontroller(board)
     # Get chip under test
     chip = controller.chips[chip_idx]
     # Configure chip for pulsing one channel, and issuing cross-triggers
