@@ -89,8 +89,7 @@ class LogAnalyzer(DataLoader):
                     npackets_good_total[channelid] += 1
                     adc_max_total[channelid] = max(adc, adc_max_total[channelid])
                     adc_min_total[channelid] = min(adc, adc_min_total[channelid])
-                    adc_avg_total[channelid] += (adc - adc_avg_total[channelid])/\
-                                npackets_good_total[channelid] # running avg
+                    adc_avg_total[channelid] += float(adc - adc_avg_total[channelid])/npackets_good_total[channelid] # running avg
                     adc_total[channelid].append(adc)
                 if not channelid in npackets_good_interval:
                     npackets_good_interval[channelid] = 1
@@ -101,8 +100,7 @@ class LogAnalyzer(DataLoader):
                     npackets_good_interval[channelid] += 1
                     adc_max_interval[channelid] = max(adc, adc_max_interval[channelid])
                     adc_min_interval[channelid] = min(adc, adc_min_interval[channelid])
-                    adc_avg_interval[channelid] += (adc - adc_avg_interval[channelid])/\
-                                npackets_good_interval[channelid] # running avg
+                    adc_avg_interval[channelid] += float(adc - adc_avg_interval[channelid])/npackets_good_interval[channelid] # running avg
             if npackets_interval > interval_step:
                 # Interval Report
                 print('  N_packets, N_badparity: %d %d' % (
