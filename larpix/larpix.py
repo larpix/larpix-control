@@ -939,9 +939,11 @@ class Controller(object):
         by_chipid = collection.by_chipid()
         io_chain = 0
         for chip_id in by_chipid.keys():
-            chip = self.get_chip(chip_id, io_chain)
-            chip.reads.append(by_chipid[chip_id])
-
+            if chip_id in [x.chip_id for x in self.chips]:
+                chip = self.get_chip(chip_id, io_chain)
+                chip.reads.append(by_chipid[chip_id])
+            else:
+                print('Warning chip id %d not in chips.' % chip_id)
 
     def format_bytestream(self, formatted_packets):
         bytestreams = []
