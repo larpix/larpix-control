@@ -1541,6 +1541,29 @@ def test_controller_format_bytestream():
     expected.append(b''.join(fpackets[:1]*362))
     assert result == expected
 
+def test_controller_read_configuration(capfd):
+    controller = Controller(None)
+    controller._test_mode = True
+    controller._serial = FakeSerialPort
+    chip = Chip(2, 4)
+    controller.read_configuration(chip)
+    conf_data = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
+    expected = ' '.join(map(bytes2str, [controller.format_UART(chip, conf_data_i) for
+            conf_data_i in conf_data]))
+    result, err = capfd.readouterr()
+    assert result == expected
+
+def test_controller_read_configuration_reg(capfd):
+    controller = Controller(None)
+    controller._test_mode = True
+    controller._serial = FakeSerialPort
+    chip = Chip(2, 4)
+    controller.read_configuration(chip, 0)
+    conf_data = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)[0]
+    expected = bytes2str(controller.format_UART(chip, conf_data))
+    result, err = capfd.readouterr()
+    assert result == expected
+
 def test_controller_write_configuration(capfd):
     controller = Controller(None)
     controller._test_mode = True
