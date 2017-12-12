@@ -1617,7 +1617,7 @@ def test_controller_multi_write_configuration_specify_registers(capfd):
 
 def test_controller_multi_read_configuration(capfd):
     controller = Controller(None)
-    controller._test_mode = True
+    controller.use_all_chips = True
     controller._serial = FakeSerialPort
     chip = Chip(2, 4)
     chip2 = Chip(3, 4)
@@ -1634,7 +1634,7 @@ def test_controller_multi_read_configuration(capfd):
 
 def test_controller_multi_read_configuration_specify_registers(capfd):
     controller = Controller(None)
-    controller._test_mode = True
+    controller.use_all_chips = True
     controller._serial = FakeSerialPort
     chip = Chip(2, 4)
     chip2 = Chip(3, 4)
