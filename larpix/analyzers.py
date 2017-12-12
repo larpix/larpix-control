@@ -6,6 +6,7 @@ from __future__ import absolute_import
 from datetime import datetime
 from larpix.dataloader import DataLoader
 from larpix.larpix import Controller
+from larpix.larpix import Packet
 
 class LogAnalyzer(DataLoader):
     '''Analyzer of LArPix serial log transmissions'''
@@ -36,6 +37,107 @@ class LogAnalyzer(DataLoader):
         return sum(1 for pack in transmission['packets']
                    if not pack.has_valid_parity())
 
+    def adc_report(self, interval_step=100000):
+        '''
+        Print min, max, avg channel adcs for all packets with good parity in log
+        Returns list of adc values for each channel if ``fast=False``
+        Channel id is ``chip_id * 32 + channel``
+        '''
+        print('========= ADC Report ========================')
+        npackets_total = 0
+        npackets_bad_parity_total = 0
+        npackets_good_total = {}
+        adc_min_total = {}
+        adc_max_total = {}
+        adc_avg_total = {}
+        adc_total = {}
+        npackets_interval = 0
+        npackets_bad_parity_interval = 0
+        npackets_good_interval = {}
+        adc_min_interval = {}
+        adc_max_interval = {}
+        adc_avg_interval = {}
+        while True:
+            next_trans = self.next_transmission()
+            if next_trans is None:
+                break
+            if next_trans['block_type'] != 'data': continue
+            if next_trans['data_type'] != 'read': continue
+            if len(next_trans['packets']) <= 0: continue
+            npackets_total += len(next_trans['packets'])
+            npackets_interval += len(next_trans['packets'])
+            for packet in next_trans['packets']:
+                if packet.packet_type != Packet.DATA_PACKET:
+                    continue
+                adc = packet.dataword
+                chipid = packet.chipid
+                channel = packet.channel_id
+                channelid = chipid * 32 + channel
+                # Remove packets with bad parity
+                if packet.has_valid_parity() is False:
+                    npackets_bad_parity_total += 1
+                    npackets_bad_parity_interval += 1
+                    continue
+                # Store adc info for good packets
+                if not channelid in npackets_good_total:
+                    npackets_good_total[channelid] = 1
+                    adc_max_total[channelid] = adc
+                    adc_min_total[channelid] = adc
+                    adc_avg_total[channelid] = adc
+                    adc_total[channelid] = [adc]
+                else:
+                    npackets_good_total[channelid] += 1
+                    adc_max_total[channelid] = max(adc, adc_max_total[channelid])
+                    adc_min_total[channelid] = min(adc, adc_min_total[channelid])
+                    adc_avg_total[channelid] += (adc - adc_avg_total[channelid])/\
+                                npackets_good_total[channelid] # running avg
+                    adc_total[channelid].append(adc)
+                if not channelid in npackets_good_interval:
+                    npackets_good_interval[channelid] = 1
+                    adc_max_interval[channelid] = adc
+                    adc_min_interval[channelid] = adc
+                    adc_avg_interval[channelid] = adc
+                else:
+                    npackets_good_interval[channelid] += 1
+                    adc_max_interval[channelid] = max(adc, adc_max_interval[channelid])
+                    adc_min_interval[channelid] = min(adc, adc_min_interval[channelid])
+                    adc_avg_interval[channelid] += (adc - adc_avg_interval[channelid])/\
+                                npackets_good_interval[channelid] # running avg
+            if npackets_interval > interval_step:
+                # Interval Report
+                print('  N_packets, N_badparity: %d %d' % (
+                    npackets_interval,
+                    npackets_bad_parity_interval))
+                print('  Chip, Channel, Good packets, Min ADC, Max ADC, Avg ADC')
+                for channelid in npackets_good_interval.keys():
+                    print('  %4d, %7d, %12d, %7d, %7d, %7f' % (
+                            channelid // 32,
+                            channelid % 32,
+                            npackets_good_interval[channelid],
+                            adc_min_interval[channelid],
+                            adc_max_interval[channelid],
+                            adc_avg_interval[channelid]))
+                    del npackets_good_interval[channelid]
+                    del adc_min_interval[channelid]
+                    del adc_max_interval[channelid]
+                    del adc_avg_interval[channelid]
+                npackets_interval = 0
+                npackets_bad_parity_interval = 0
+        # Total Report
+        print('== Summary of ADC values ==')
+        print('  Total number of packets: %d' % npackets_total)
+        print('  Packets with bad parity: %d' % npackets_bad_parity_total)
+        print('  Channel breakdown:')
+        print('  Chip, Channel, Good packets, Min ADC, Max ADC, Avg ADC')
+        for channelid in sorted(npackets_good_total.keys()):
+            print('  %4d, %7d, %12d, %7d, %7d, %7f' % (
+                    channelid // 32,
+                    channelid % 32,
+                    npackets_good_total[channelid],
+                    adc_min_total[channelid],
+                    adc_max_total[channelid],
+                    adc_avg_total[channelid]))
+        return adc_total
 
     def parity_report(self, interval_step=100000):
         '''Check parities of all packets in log, and report status'''
@@ -73,7 +175,7 @@ class LogAnalyzer(DataLoader):
                                                      float(npackets_total)))
         return
 
-    
+
     @classmethod
     def print_transmission(cls, block, show_packets=True):
         '''Print transmission to terminal'''
