@@ -104,7 +104,7 @@ def noise_test_internal_pulser(board='pcb-5', chip_idx=0, n_pulses=1000,
     # Get chip under test
     chip = controller.chips[chip_idx]
     # Configure chip for pulsing one channel
-    chip.config.csa_testpulse_enable[channel] = 0 # Connect
+    chip.config.csa_testpulse_enable[pulse_channel] = 0 # Connect
     controller.write_configuration(chip,[42,43,44,45])
     # Initialize DAC level, and issuing cross-triggers
     chip.config.csa_testpulse_dac_amplitude = testpulse_dac_max
