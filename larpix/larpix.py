@@ -743,6 +743,7 @@ class Controller(object):
         self.baudrate = 1000000
         self.timeout = 1
         self.max_write = 8192
+        self._test_mode = False
         self._serial = SerialPort(port=self.port,
                                   baudrate=self.baudrate,
                                   timeout=self.timeout)
