@@ -1725,7 +1725,21 @@ class SerialPort(object):
 
 def enable_logger(filename=None):
     '''Enable serial data logger'''
-    from larpix.datalogger import DataLogger
     if SerialPort._logger is None:
+        from larpix.datalogger import DataLogger
         SerialPort._logger = DataLogger(filename)
+    if not SerialPort._logger.is_enabled():
+        SerialPort._logger.enable():
+    return
+
+def disable_logger():
+    '''Disable serial data logger'''
+    if SerialPort._logger is not None:
+        SerialPort._logger.disable()
+    return
+
+def flush_logger():
+    '''Flush serial data logger data to output file'''
+    if SerialPort._logger is not None:
+        SerialPort._logger.flush()
     return
