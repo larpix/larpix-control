@@ -38,7 +38,7 @@ class LogAnalyzer(DataLoader):
         return sum(1 for pack in transmission['packets']
                    if not pack.has_valid_parity())
 
-    def adc_report(self, interval_step=100000, max_read=None):
+    def adc_report(self, interval_step=100000, max_read=None, return_list=False):
         '''
         Print min, max, avg channel adcs for all packets with good parity in log
         Returns list of adc values for each channel if ``fast=False``
@@ -148,7 +148,8 @@ class LogAnalyzer(DataLoader):
                     adc_max_total[channelid],
                     adc_avg_total[channelid],
                     sqrt(float(adc_ssq_total[channelid])/npackets_good_total[channelid] - adc_avg_total[channelid]**2)))
-        return adc_total
+        if return_list:
+            return adc_total
 
     def parity_report(self, interval_step=100000):
         '''Check parities of all packets in log, and report status'''
