@@ -1044,7 +1044,7 @@ class Controller(object):
             if chip_id in [x.chip_id for x in self.chips]:
                 chip = self.get_chip(chip_id, io_chain)
                 chip.reads.append(by_chipid[chip_id])
-            else:
+            elif not self._test_mode:
                 print('Warning chip id %d not in chips.' % chip_id)
 
     def format_bytestream(self, formatted_packets):
