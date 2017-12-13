@@ -87,31 +87,49 @@ def scan_threshold(controller=None, board='pcb-5', chip_idx=0,
     return results
     
 
-def pulse_chip_channel(controller, chip, channel):
-    '''Issue one pulse to specific chip, channel'''
-    chip.config.csa_testpulse_enable[channel] = 0 # Connect
-    controller.write_configuration(chip,[42,43,44,45])
-    chip.config.csa_testpulse_enable[channel] = 1 # Disconnect
-    controller.write_configuration(chip,[42,43,44,45],write_read=0.1)
+def pulse_chip(controller, chip, dac_level):
+    '''Issue one pulse to specific chip'''
+    chip.config.csa_testpulse_dac_amplitude = dac_level
+    controller.write_configuration(chip,46)
     return
 
 def noise_test_internal_pulser(board='pcb-5', chip_idx=0, n_pulses=1000,
-                               pulse_channel=0, pulse_dac=200, threshold=100,
-                               controller=None):
+                               pulse_channel=0, pulse_dac=6, threshold=40,
+                               controller=None, testpulse_dac_max=235,
+                               testpulse_dac_min=20):
     '''Use cross-trigger from one channel to evaluate noise on other channels'''
     # Create controller and initialize chips to appropriate state
     if controller is None:
         controller = quickcontroller(board)
     # Get chip under test
     chip = controller.chips[chip_idx]
-    # Configure chip for pulsing one channel, and issuing cross-triggers
+    # Configure chip for pulsing one channel
+    chip.config.csa_testpulse_enable[channel] = 0 # Connect
+    controller.write_configuration(chip,[42,43,44,45])
+    # Initialize DAC level, and issuing cross-triggers
+    chip.config.csa_testpulse_dac_amplitude = testpulse_dac_max
+    controller.write_configuration(chip,46)
+    # Set initial threshold, and enable cross-triggers
     chip.config.global_threshold = threshold
-    chip.config.csa_testpulse_dac_amplitude = pulse_dac
     chip.config.cross_trigger_mode = 1
-    controller.write_configuration(chip,[32,46,47])
+    controller.write_configuration(chip,[32,47])
     # Pulse chip n times
+    dac_level = testpulse_dac_max
     for pulse_idx in range(n_pulses):
-        pulse_chip_channel(controller, chip, pulse_channel)
+        if dac_level < (testpulse_dac_min + pulse_dac):
+            # Reset DAC level if it is too low to issue pulse
+            chip.config.csa_testpulse_dac_amplitude = testpulse_dac_max
+            controller.write_configuration(chip,46)
+            time.sleep(0.1) # Wait for front-end to settle
+            # FIXME: do we need to flush buffer here?
+            dac_level = testpulse_dac_max
+        # Issue pulse
+        dac_level -= pulse_dac  # Negative DAC step mimics electron arrival
+        pulse_chip(controller, chip, dac_level)
+    # Reset DAC level, and disconnect channel
+    chip.config.csa_testpulse_dac_amplitude = 0
+    chip.config.csa_testpulse_enable[channel] = 1 # Disconnect
+    controller.write_configuration(chip,[46,42,43,44,45])
     # Keep a handle to chip data, and return
     result = controller.reads
     return result
