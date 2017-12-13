@@ -3,9 +3,11 @@ Test serial port interface
 '''
 
 from __future__ import absolute_import
-from larpix.larpix import SerialPort, enable_logger, guess_port
+import pytest
+from larpix.larpix import SerialPort, enable_logger
 
-def test_serial_loopback(port_name = guess_port(), enable_logging=False):
+@pytest.mark.skip(reason='This is not a pytest file')
+def test_serial_loopback(port_name='auto', enable_logging=False):
     '''Write stream of integers to serial port.  Read back and see if
     loopback data is correct.'''
     baudrate = 1000000
