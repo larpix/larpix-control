@@ -90,7 +90,7 @@ def scan_threshold(controller=None, board='pcb-5', chip_idx=0,
 def pulse_chip(controller, chip, dac_level):
     '''Issue one pulse to specific chip'''
     chip.config.csa_testpulse_dac_amplitude = dac_level
-    controller.write_configuration(chip,46)
+    controller.write_configuration(chip,46, write_read=0.1)
     return
 
 def noise_test_internal_pulser(board='pcb-5', chip_idx=0, n_pulses=1000,
