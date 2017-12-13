@@ -90,7 +90,7 @@ def scan_threshold(controller=None, board='pcb-5', chip_idx=0,
 def pulse_chip(controller, chip, dac_level):
     '''Issue one pulse to specific chip'''
     chip.config.csa_testpulse_dac_amplitude = dac_level
-    controller.write_configuration(chip,46, write_read=0.1)
+    controller.write_configuration(chip,46,write_read=0.1)
     return
 
 def noise_test_internal_pulser(board='pcb-5', chip_idx=0, n_pulses=1000,
@@ -128,7 +128,7 @@ def noise_test_internal_pulser(board='pcb-5', chip_idx=0, n_pulses=1000,
         pulse_chip(controller, chip, dac_level)
     # Reset DAC level, and disconnect channel
     chip.config.csa_testpulse_dac_amplitude = 0
-    chip.config.csa_testpulse_enable[pulse_channel] = 1 # Disconnect
+    chip.config.csa_testpulse_enable = [1,]*32 # Disconnect
     controller.write_configuration(chip,[46,42,43,44,45])
     # Keep a handle to chip data, and return
     result = controller.reads
