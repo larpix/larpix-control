@@ -770,6 +770,10 @@ class Controller(object):
     #            timeout=self.timeout) as serial:
     #        serial.reset_output_buffer()
     #        serial.reset_input_buffer()
+    def serial_close(self):
+        if not self._serial is None:
+            self._serial.close()
+        return
 
     def serial_read(self, timelimit):
         data_in = b''

@@ -14,7 +14,9 @@ def scan_threshold(controller=None, board='pcb-5', chip_idx=0,
                    saturation_level=10000):
     '''Scan the signal rate versus channel threshold'''
     # Create controller and initialize chips to appropriate state
+    close_controller = False
     if controller is None:
+        close_controller = True
         controller = quickcontroller(board)
         print('  created controller')
     # Get chip under test
@@ -84,6 +86,8 @@ def scan_threshold(controller=None, board='pcb-5', chip_idx=0,
     controller.write_configuration(chip,32)
     chip.config.channel_mask = channel_mask_orig
     controller.write_configuration(chip,[52,53,54,55])
+    if close_controller:
+        controller.serial_close()
     return results
     
 
@@ -99,7 +103,9 @@ def noise_test_internal_pulser(board='pcb-5', chip_idx=0, n_pulses=1000,
                                testpulse_dac_min=20):
     '''Use cross-trigger from one channel to evaluate noise on other channels'''
     # Create controller and initialize chips to appropriate state
+    close_controller = False
     if controller is None:
+        close_controller = True
         controller = quickcontroller(board)
     # Get chip under test
     chip = controller.chips[chip_idx]
@@ -132,13 +138,17 @@ def noise_test_internal_pulser(board='pcb-5', chip_idx=0, n_pulses=1000,
     controller.write_configuration(chip,[46,42,43,44,45])
     # Keep a handle to chip data, and return
     result = controller.reads
+    if close_controller:
+        controller.serial_close()
     return result
 
 
 def analog_monitor(controller=None, board='pcb-5', chip_idx=0, channel=0):
     '''Connect analog monitor for this channel'''
+    close_controller = False
     if not controller:
         # Create controller and initialize chips to appropriate state
+        close_controller = True
         controller = quickcontroller(board)
     # Get chip under test
     chip = controller.chips[chip_idx]
@@ -147,6 +157,8 @@ def analog_monitor(controller=None, board='pcb-5', chip_idx=0, channel=0):
     chip.config.csa_monitor_select[channel] = 1
     controller.write_configuration(chip, [38,39,40,41])
     # return controller, for optional reuse
+    if close_controller:
+        controller.serial_close()
     return controller
 
 def examine_global_scan(coarse_data, saturation_level=10000):
@@ -205,6 +217,7 @@ def run_threshold_test():
             chipidx,
             ch_result['chan_level_too_high'],
             ch_result['chan_level_too_low']))
+    cont.serial_close()
     return (thresh_descs, chip_results)
 
 
