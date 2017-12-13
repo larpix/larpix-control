@@ -742,7 +742,7 @@ class Controller(object):
             self.port = SerialPort.guess_port()
         self.baudrate = 1000000
         self.timeout = 1
-        self.max_write = 8192
+        self.max_write = 256
         self._serial = SerialPort(port=self.port,
                                   baudrate=self.baudrate,
                                   timeout=self.timeout)
@@ -1627,8 +1627,9 @@ class SerialPort(object):
             # Construct serial port
             import pylibftdi
             self.serial_com = pylibftdi.Device(self.resolved_port)
-        # Open port
-        self.serial_com.open()
+        if self.serial_com.closed:
+            # Open port
+            self.serial_com.open()
         # Confirm baudrate (Required for OS X)
         self._confirm_baudrate()
         return
@@ -1729,7 +1730,7 @@ def enable_logger(filename=None):
         from larpix.datalogger import DataLogger
         SerialPort._logger = DataLogger(filename)
     if not SerialPort._logger.is_enabled():
-        SerialPort._logger.enable():
+        SerialPort._logger.enable()
     return
 
 def disable_logger():
