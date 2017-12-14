@@ -3,6 +3,52 @@ Pick the appropriate wrapper for serial communications.
 
 '''
 
+import re
+import platform
+import os
+
+def guess_port():
+    '''
+    Guess the particular port class to use on a particular system.
+
+    Return a tuple of ``(serial_port_class, port_name)``, or ``None`` if
+    the guess is inconclusive. If the port name cannot be imputed but
+    the serial port class can be, then return
+    ``(serial_port_class, None)``.
+
+    '''
+    platform_name = platform.system()
+    if platform_name == 'Linux':
+        return _guess_port_linux()
+    elif platform_name == 'Darwin':
+        return _guess_port_mac()
+    else:
+        return None
+
+def _guess_port_linux():
+    import larpix.serialport.linux as LinuxSerial
+    SerialPort = LinuxSerial.LinuxSerialPort
+    if os.path.exists('/dev/ttyUSB2'):
+        port = '/dev/ttyUSB2'
+    elif os.path.exists('/dev/ttyUSB0'):
+        port = '/dev/ttyUSB0'
+    else:
+        port = None
+    return (SerialPort, port)
+
+def _guess_port_mac():
+    import larpix.serialport.libftdi as libFTDISerial
+    SerialPort = libFTDISerial.FTDISerialPort
+    port_search = ('system_profiler SPUSBDataType | '
+            'grep C 7 FTDI | grep Serial')
+    port_search_result = os.popen(port_search).read()
+    if len(port_search_result > 0):
+        start_index = port_search_result.find('Serial Number:')
+        port = port_search_result[start_index+14:start_index+24].strip()
+    else:
+        port = None
+    return (SerialPort, port)
+
 def AbstractSerialPort(object):
     '''
     Specifies the interface for serial communications.
@@ -11,7 +57,7 @@ def AbstractSerialPort(object):
 
     def __init__(self, port, baudrate, timeout):
         '''
-        Initialize the serial driver and prepare to read or write.
+        Initialize the serial driver and optionally prepare to read or write.
 
         Implementations may decide to open the serial port here or to
         open it using __enter__ and __exit__ (context managers).

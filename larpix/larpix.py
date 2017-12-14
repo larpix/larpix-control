@@ -13,6 +13,7 @@ import errno
 import re
 
 import larpix.configs as configs
+import larpix.serialport as serialport
 
 class Chip(object):
     '''
@@ -731,16 +732,46 @@ class Controller(object):
     '''
     start_byte = b'\x73'
     stop_byte = b'\x71'
-    def __init__(self, port='/dev/ttyUSB1'):
+    def __init__(self, port=None, guess_port=True):
+        '''
+        Set up the controller.
+
+        If ``guess_port == True``, then the controller will attempt to
+        select the correct serial port interface, using hints from the
+        ``sys`` and ``platform`` modules as well as from the ``port``
+        parameter, if it is specified.
+
+        If ``guess_port == False``, then you will have to set
+        ``controller._serial`` to an object or class conforming to the
+        ``larpix.serialport.AbstractSerialPort`` interface.
+
+        '''
         self.chips = []
-        self.all_chips = self._init_chips()
+
         self.use_all_chips = False
         self.reads = []
         self.nreads = 0
-        self.port = port
         self.baudrate = 1000000
         self.timeout = 1
         self.max_write = 8192
+        serial_kwargs = {
+                'baudrate': self.baudrate,
+                'timeout': self.timeout,
+                'port': port,
+                }
+        if guess_port:
+            guess = serialport.guess_port()
+            if guess is not None:
+                if port:
+                    self._serial = guess[0](**serial_kwargs)
+                elif guess[1]:
+                    serial_kwargs['port'] = guess[1]
+                    self._serial = guess[0](**serial_kwargs)
+                else:
+                    raise OSError('Cannot find a port. Guess: %s' % guess)
+            else:
+                raise OSError('Cannot find a port. Guess: %s' % guess)
+        self.all_chips = self._init_chips()
         self._serial = serial.Serial
 
     def _init_chips(self, nchips = 256, iochain = 0):
