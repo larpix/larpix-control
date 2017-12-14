@@ -89,18 +89,18 @@ def scan_threshold(controller=None, board='pcb-5', chip_idx=0,
     if close_controller:
         controller.serial_close()
     return results
-    
+
 
 def pulse_chip(controller, chip, dac_level):
     '''Issue one pulse to specific chip'''
     chip.config.csa_testpulse_dac_amplitude = dac_level
     controller.write_configuration(chip,46,write_read=0.1)
-    return
+    return controller.reads[-1]
 
 def noise_test_internal_pulser(board='pcb-5', chip_idx=0, n_pulses=1000,
                                pulse_channel=0, pulse_dac=6, threshold=40,
                                controller=None, testpulse_dac_max=235,
-                               testpulse_dac_min=20):
+                               testpulse_dac_min=40, trim=0):
     '''Use cross-trigger from one channel to evaluate noise on other channels'''
     # Create controller and initialize chips to appropriate state
     close_controller = False
@@ -117,21 +117,39 @@ def noise_test_internal_pulser(board='pcb-5', chip_idx=0, n_pulses=1000,
     controller.write_configuration(chip,46)
     # Set initial threshold, and enable cross-triggers
     chip.config.global_threshold = threshold
+    chip.config.pixel_trim_thresholds = [31] * 32
+    chip.config.pixel_trim_thresholds[pulse_channel] = trim
     chip.config.cross_trigger_mode = 1
-    controller.write_configuration(chip,[32,47])
+    #chip.config.enable_analog_monitor(pulse_channel)
+    #controller.write_configuration(chip,range(38,42)) # monitor
+    controller.write_configuration(chip,range(32)) # trim
+    controller.write_configuration(chip,[32,47]) # global threshold / xtrig
+    print('Finished initial configuration')
     # Pulse chip n times
     dac_level = testpulse_dac_max
+    lost = 0
+    extra = 0
     for pulse_idx in range(n_pulses):
         if dac_level < (testpulse_dac_min + pulse_dac):
             # Reset DAC level if it is too low to issue pulse
+            time.sleep(1)
             chip.config.csa_testpulse_dac_amplitude = testpulse_dac_max
             controller.write_configuration(chip,46)
+            print('  Reset DAC value')
             time.sleep(0.1) # Wait for front-end to settle
+            controller.run(0.1,' clear buffer ')
+            del controller.reads[-1]
             # FIXME: do we need to flush buffer here?
             dac_level = testpulse_dac_max
         # Issue pulse
         dac_level -= pulse_dac  # Negative DAC step mimics electron arrival
-        pulse_chip(controller, chip, dac_level)
+        result = pulse_chip(controller, chip, dac_level)
+        if len(result) - 32 > 0:
+            extra += 1
+        elif len(result) - 32 < 0:
+            lost += 1
+        print('Pulse: %4d, Received: %4d, DAC: %4d' % (pulse_idx, len(result), dac_level))
+
     # Reset DAC level, and disconnect channel
     chip.config.csa_testpulse_dac_amplitude = 0
     chip.config.csa_testpulse_enable = [1,]*32 # Disconnect
@@ -140,6 +158,7 @@ def noise_test_internal_pulser(board='pcb-5', chip_idx=0, n_pulses=1000,
     result = controller.reads
     if close_controller:
         controller.serial_close()
+    print('Pulses with # trigs > 1: %4d, Missed trigs: %4d' % (extra, lost))
     return result
 
 
@@ -167,7 +186,7 @@ def examine_global_scan(coarse_data, saturation_level=10000):
     sat_threshes = []
     chan_level_too_high = []
     chan_level_too_low = []
-    for (channel_num, data) in coarse_data.iteritems():        
+    for (channel_num, data) in coarse_data.iteritems():
         thresholds = data[0]
         npackets = data[1]
         saturation_thresh = -1
@@ -222,7 +241,7 @@ def run_threshold_test():
 
 
 
-    
+
 if '__main__' == __name__:
     result1 = run_threshold_test()
 
