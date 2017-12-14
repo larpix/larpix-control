@@ -27,8 +27,9 @@ class DataLogger(object):
         # Has log been initialized?
         if not self._log_initialized:
             self._initialize_log()
-        # Ensure buffer flushed on python exit
-        atexit.register(self.flush)
+        # Enable, and ensure buffer flushed on python exit
+        self._is_enabled = True
+        self._exit_func = atexit.register(self.flush)
         
     def _default_logname(self):
         '''Generate a log file name'''
@@ -61,6 +62,7 @@ class DataLogger(object):
         
     def record(self,data_block_desc):
         '''Log a data block'''
+        if not self._is_enabled: return
         data_block_desc['block_type'] = 'data'
         data_block_desc['time'] = time.time()
         self.buffer += self.formatter.format_block(data_block_desc)
@@ -71,6 +73,8 @@ class DataLogger(object):
 
     def flush(self):
         '''Write current data blocks to file'''
+        # Check if enabled
+        if not self._is_enabled: return
         # Is there data to log?
         if len(self.buffer) == 0: return  # No data
         # Write data to file
@@ -82,3 +86,17 @@ class DataLogger(object):
         self.buffer = bytearray()
         return
 
+    def enable(self):
+        '''Enable logger'''
+        self._is_enabled = True
+        return
+    
+    def disable(self):
+        '''Flush logger and disable'''
+        self.flush()
+        self._is_enabled = False
+        return
+
+    def is_enabled(self):
+        '''Return true if logger is enabled'''
+        return self._is_enabled
