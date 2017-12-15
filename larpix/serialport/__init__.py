@@ -40,7 +40,7 @@ def _guess_port_mac():
     import larpix.serialport.libftdi as libFTDISerial
     SerialPort = libFTDISerial.FTDISerialPort
     port_search = ('system_profiler SPUSBDataType | '
-            'grep C 7 FTDI | grep Serial')
+            'grep -C 7 FTDI | grep Serial')
     port_search_result = os.popen(port_search).read()
     if len(port_search_result > 0):
         start_index = port_search_result.find('Serial Number:')
