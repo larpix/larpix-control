@@ -196,7 +196,7 @@ class MockFormatter(object):
         self.miso_source = None
         self.miso_buffer = deque()
         ''' Represents all buffers between the FPGA and the serial port.'''
-        self._controller = larpix.Controller(None)
+        self._controller = larpix.Controller(port=None, guess_port=False)
         '''Used for its parse_input function.'''
 
     def activate_chips(self):

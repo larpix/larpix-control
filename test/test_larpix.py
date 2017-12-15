@@ -168,7 +168,7 @@ def test_chip_export_reads_all():
     assert chip.new_reads_index == 1
 
 def test_controller_save_output(tmpdir):
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     chip = Chip(1, 0)
     p = Packet()
     chip.reads.append(p)
@@ -196,7 +196,7 @@ def test_controller_save_output(tmpdir):
     assert result == expected
 
 def test_controller_load(tmpdir):
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     chip = Chip(1, 0)
     p = Packet()
     p.chipid = 1
@@ -207,7 +207,7 @@ def test_controller_load(tmpdir):
     name = str(tmpdir.join('test.json'))
     expected_message = 'this is a test'
     controller.save_output(name, expected_message)
-    new_controller = Controller(None)
+    new_controller = Controller(port=None, guess_port=False)
     result_message = new_controller.load(name)
     assert result_message == expected_message
     assert new_controller.reads == controller.reads
@@ -1461,26 +1461,26 @@ def test_configuration_from_dict_reg_reset_cycles():
     assert result == expected
 
 def test_controller_init_chips():
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     result = list(map(repr, controller._init_chips()))
     expected = list(map(repr, (Chip(i, 0) for i in range(256))))
     assert result == expected
 
 def test_controller_get_chip():
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     chip = Chip(1, 3)
     controller.chips.append(chip)
     assert controller.get_chip(1, 3) == chip
 
 def test_controller_get_chip_all_chips():
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     controller.use_all_chips = True
     result = controller.get_chip(5, 0)
     expected = controller.all_chips[5]
     assert result == expected
 
 def test_controller_get_chip_error():
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     chip = Chip(1, 3)
     controller.chips.append(chip)
     with pytest.raises(ValueError, message='Should fail: bad chipid'):
@@ -1489,7 +1489,7 @@ def test_controller_get_chip_error():
         controller.get_chip(1, 1)
 
 def test_controller_serial_read_mock():
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     controller._serial = FakeSerialPort
     FakeSerialPort.data_to_mock_read = bytes(bytearray(10))
     result = controller.serial_read(0.1)
@@ -1497,7 +1497,7 @@ def test_controller_serial_read_mock():
     assert result == expected
 
 def test_controller_serial_write_mock(capfd):
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     controller._serial = FakeSerialPort
     to_write = [b's12345678q', b's87654321q']
     controller.serial_write(to_write)
@@ -1506,7 +1506,7 @@ def test_controller_serial_write_mock(capfd):
     assert result == expected
 
 def test_controller_serial_write_read_mock(capfd):
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     controller._serial = FakeSerialPort
     to_write = [b's12345678q', b's9862983aq']
     FakeSerialPort.data_to_mock_read = bytes(bytearray(range(256)))
@@ -1518,7 +1518,7 @@ def test_controller_serial_write_read_mock(capfd):
     assert write_result == write_expected
 
 def test_controller_format_UART():
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     chip = Chip(2, 4)
     packet = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)[10]
     result = controller.format_UART(chip, packet)
@@ -1526,7 +1526,7 @@ def test_controller_format_UART():
     assert result == expected
 
 def test_controller_format_bytestream():
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     chip = Chip(2, 4)
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
     fpackets = [controller.format_UART(chip, p) for p in packets]
@@ -1542,7 +1542,8 @@ def test_controller_format_bytestream():
     assert result == expected
 
 def test_controller_read_configuration(capfd):
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
+    controller._test_mode = True
     controller._serial = FakeSerialPort
     chip = Chip(2, 0)
     controller.chips.append(chip)
@@ -1557,7 +1558,8 @@ def test_controller_read_configuration(capfd):
     assert result == expected
 
 def test_controller_read_configuration_reg(capfd):
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
+    controller._test_mode = True
     controller._serial = FakeSerialPort
     chip = Chip(2, 0)
     controller.chips.append(chip)
@@ -1570,7 +1572,8 @@ def test_controller_read_configuration_reg(capfd):
     assert result == expected
 
 def test_controller_write_configuration(capfd):
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
+    controller._test_mode = True
     controller._serial = FakeSerialPort
     chip = Chip(2, 4)
     controller.write_configuration(chip)
@@ -1581,7 +1584,7 @@ def test_controller_write_configuration(capfd):
     assert result == expected
 
 def test_controller_write_configuration_one_reg(capfd):
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     controller._test_mode = True
     controller._serial = FakeSerialPort
     chip = Chip(2, 4)
@@ -1592,7 +1595,7 @@ def test_controller_write_configuration_one_reg(capfd):
     assert result == expected
 
 def test_controller_write_configuration_write_read(capfd):
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     controller._serial = FakeSerialPort
     controller.timeout=0.01
     chip = Chip(2, 0)
@@ -1608,7 +1611,7 @@ def test_controller_write_configuration_write_read(capfd):
     assert result == expected
 
 def test_controller_multi_write_configuration(capfd):
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     controller._test_mode = True
     controller._serial = FakeSerialPort
     chip = Chip(2, 4)
@@ -1625,7 +1628,7 @@ def test_controller_multi_write_configuration(capfd):
     assert result == expected
 
 def test_controller_multi_write_configuration_specify_registers(capfd):
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     controller._test_mode = True
     controller._serial = FakeSerialPort
     chip = Chip(2, 4)
@@ -1643,7 +1646,7 @@ def test_controller_multi_write_configuration_specify_registers(capfd):
 
 
 def test_controller_multi_read_configuration(capfd):
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     controller.use_all_chips = True
     controller._serial = FakeSerialPort
     chip = Chip(2, 4)
@@ -1660,7 +1663,7 @@ def test_controller_multi_read_configuration(capfd):
     assert result == expected
 
 def test_controller_multi_read_configuration_specify_registers(capfd):
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     controller.use_all_chips = True
     controller._serial = FakeSerialPort
     chip = Chip(2, 4)
@@ -1677,7 +1680,7 @@ def test_controller_multi_read_configuration_specify_registers(capfd):
     assert result == expected
 
 def test_controller_get_configuration_bytestreams():
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     chip = Chip(0, 0)
     controller.chips.append(chip)
     result = controller.get_configuration_bytestreams(chip,
@@ -1689,7 +1692,7 @@ def test_controller_get_configuration_bytestreams():
     assert result == expected
 
 def test_controller_parse_input():
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     chip = Chip(2, 4)
     controller.chips.append(chip)
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
@@ -1701,7 +1704,7 @@ def test_controller_parse_input():
 
 def test_controller_parse_input_dropped_data_byte():
     # Test whether the parser can recover from dropped bytes
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     chip = Chip(2, 4)
     controller.chips.append(chip)
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
@@ -1715,7 +1718,7 @@ def test_controller_parse_input_dropped_data_byte():
     assert result == expected
 
 def test_controller_parse_input_dropped_start_byte():
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     chip = Chip(2, 4)
     controller.chips.append(chip)
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
@@ -1729,7 +1732,7 @@ def test_controller_parse_input_dropped_start_byte():
     assert result == expected
 
 def test_controller_parse_input_dropped_stop_byte():
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     chip = Chip(2, 4)
     controller.chips.append(chip)
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
@@ -1743,7 +1746,7 @@ def test_controller_parse_input_dropped_stop_byte():
     assert result == expected
 
 def test_controller_parse_input_dropped_stopstart_bytes():
-    controller = Controller(None)
+    controller = Controller(port=None, guess_port=False)
     chip = Chip(2, 4)
     controller.chips.append(chip)
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)

@@ -754,6 +754,7 @@ class Controller(object):
         self.baudrate = 1000000
         self.timeout = 1
         self.max_write = 8192
+        self.port = port
         serial_kwargs = {
                 'baudrate': self.baudrate,
                 'timeout': self.timeout,
@@ -762,15 +763,15 @@ class Controller(object):
         if guess_port:
             guess = serialport.guess_port()
             if guess is not None:
-                if port:
+                if self.port:
                     self._serial = guess[0](**serial_kwargs)
                 elif guess[1]:
                     serial_kwargs['port'] = guess[1]
                     self._serial = guess[0](**serial_kwargs)
                 else:
-                    raise OSError('Cannot find a port. Guess: %s' % guess)
+                    raise OSError('Cannot find a port. Guess: %s' % str(guess))
             else:
-                raise OSError('Cannot find a port. Guess: %s' % guess)
+                raise OSError('Cannot find a port. Guess: %s' % str(guess))
         self.all_chips = self._init_chips()
         self._serial = serial.Serial
 
@@ -1111,7 +1112,7 @@ class Controller(object):
 
         Overwrites all data inside the controller!
         '''
-        self.__init__(self.port)
+        self.__init__(port=self.port, guess_port=False)
         with open(filename, 'r') as infile:
             data = json.load(infile)
         chip_regexp = re.compile(r'Chip\((\d+), ?(\d+)\)')
