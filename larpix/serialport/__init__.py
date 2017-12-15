@@ -42,7 +42,7 @@ def _guess_port_mac():
     port_search = ('system_profiler SPUSBDataType | '
             'grep -C 7 FTDI | grep Serial')
     port_search_result = os.popen(port_search).read()
-    if len(port_search_result > 0):
+    if len(port_search_result) > 0:
         start_index = port_search_result.find('Serial Number:')
         port = port_search_result[start_index+14:start_index+24].strip()
     else:
