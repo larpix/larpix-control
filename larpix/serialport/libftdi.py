@@ -19,9 +19,11 @@ class FTDISerialPort(object):
 
         '''
         self._device = pylibftdi.Device(port)
+        self.baudrate = baudrate
+        self.timeout = timeout
         if self._device.closed:
             self._device.open()
-        self._confirm_baudrate()
+        self._reset_baudrate()
 
     def __del__(self):
         '''
@@ -51,3 +53,8 @@ class FTDISerialPort(object):
 
         '''
         return self._dvice.write(num_bytes)
+
+    def _reset_baudrate():
+        '''Reset the device baudrate to be self.baudrate.'''
+        if self._device.baudrate != self.baudrate:
+            self._device.baudrate = self.baudrate
