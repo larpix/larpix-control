@@ -28,10 +28,10 @@ def guess_port():
 def _guess_port_linux():
     import larpix.serialport.linux as LinuxSerial
     SerialPort = LinuxSerial.LinuxSerialPort
-    if os.path.exists('/dev/ttyUSB2'):
+    if os.path.exists('/dev/ttyUSB2'):  # Laptop
         port = '/dev/ttyUSB2'
-    elif os.path.exists('/dev/ttyUSB0'):
-        port = '/dev/ttyUSB0'
+    elif os.path.exists('/dev/ttyAMA0'):  # Raspberry Pi
+        port = '/dev/ttyAMA0'
     else:
         port = None
     return (SerialPort, port)
