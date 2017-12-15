@@ -766,7 +766,8 @@ class Controller(object):
                 if self.port:
                     self._serial = guess[0](**serial_kwargs)
                 elif guess[1]:
-                    serial_kwargs['port'] = guess[1]
+                    self.port = guess[1]
+                    serial_kwargs['port'] = self.port
                     self._serial = guess[0](**serial_kwargs)
                 else:
                     raise OSError('Cannot find a port. Guess: %s' % str(guess))
