@@ -1605,7 +1605,6 @@ def test_controller_write_configuration_write_read(capfd):
 def test_controller_multi_write_configuration(capfd):
     controller = Controller(port='test')
     controller._test_mode = True
-    controller._test_mode = True
     chip = Chip(2, 4)
     chip2 = Chip(3, 4)
     controller.multi_write_configuration((chip, chip2))
@@ -1621,7 +1620,6 @@ def test_controller_multi_write_configuration(capfd):
 
 def test_controller_multi_write_configuration_specify_registers(capfd):
     controller = Controller(port='test')
-    controller._test_mode = True
     controller._test_mode = True
     chip = Chip(2, 4)
     chip2 = Chip(3, 4)

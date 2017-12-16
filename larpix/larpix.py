@@ -742,7 +742,7 @@ class Controller(object):
             self.port = SerialPort.guess_port()
         self.baudrate = 1000000
         self.timeout = 1
-        self.max_write = 256
+        self.max_write = 250
         self._test_mode = False
         self._serial = SerialPort(port=self.port,
                                   baudrate=self.baudrate,

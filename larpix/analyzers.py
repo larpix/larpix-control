@@ -139,6 +139,8 @@ class LogAnalyzer(DataLoader):
         print('  Packets with bad parity: %d' % npackets_bad_parity_total)
         print('  Channel breakdown:')
         print('  Chip, Channel, Good packets, Min ADC, Max ADC, Avg ADC, Std Dev ADC')
+        mean_std_dev = 0
+        n = 0
         for channelid in sorted(npackets_good_total.keys()):
             print('  %4d, %7d, %12d, %7d, %7d, %7.2f, %11.2f' % (
                     channelid // 32,
