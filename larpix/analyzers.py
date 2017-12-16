@@ -7,7 +7,7 @@ from datetime import datetime
 from larpix.dataloader import DataLoader
 from larpix.larpix import Controller
 from larpix.larpix import Packet
-from numpy import sqrt
+from math import sqrt
 
 class LogAnalyzer(DataLoader):
     '''Analyzer of LArPix serial log transmissions'''
