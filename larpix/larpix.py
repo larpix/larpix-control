@@ -1021,7 +1021,13 @@ class Controller(object):
                 # Note: start searching after byte 0 in case it's
                 # already a start byte
                 next_start_index = current_stream[1:].find(start_byte)
+                if next_start_index != 0:
+                    print('Warning: %d extra bytes in data stream!' %
+                          next_start_index+1)
                 current_stream = current_stream[1:][next_start_index:]
+        if len(current_stream) != 0:
+            print('Warning: %d extra bytes at end of data stream!' %
+                  len(current_stream))
         return [x[1] for x in byte_packets]
 
     def store_packets(self, packets, data, message):
