@@ -11,6 +11,12 @@ from math import sqrt
 
 class LogAnalyzer(DataLoader):
     '''Analyzer of LArPix serial log transmissions'''
+    def __init__(self, filename=None):
+        '''Constructor'''
+        DataLoader.__init__(self, filename)
+        # Merge packets split across transmissions?
+        self._stitch_transmissions = False
+        self._unused_bytes = bytes()
 
     def next_transmission(self):
         '''Parse next set of packets in controller transmission log'''
@@ -18,7 +24,21 @@ class LogAnalyzer(DataLoader):
         if block_desc is None:
             return None
         if block_desc['block_type'] == 'data':
-            packets = Controller.parse_input(bytes(block_desc['data']))
+            parse_bytes = bytes()
+            if self._stitch_transmissions and len(self._unused_bytes)>0:
+                # Use leftover bytes from previous transmission
+                parse_bytes += self._unused_bytes
+                self._unused_bytes = bytes()
+            # Get bytes from this transmission
+            parse_bytes += bytes(block_desc['data'])
+            if self._stitch_transmissions:
+                # Remove extra bytes for use in next transmission
+                #   FIXME: assumes all packets are 10 bytes in length!
+                n_extra_bytes = (len(parse_bytes) % 10)
+                if n_extra_bytes != 0:
+                    self._unused_bytes = parse_bytes[-n_extra_bytes:]
+                    parse_bytes = parse_bytes[:-n_extra_bytes]
+            packets = Controller.parse_input(parse_bytes)
             block_desc['packets'] = packets
         return block_desc
 
