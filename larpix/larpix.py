@@ -1023,7 +1023,7 @@ class Controller(object):
                 next_start_index = current_stream[1:].find(start_byte)
                 if next_start_index != 0:
                     print('Warning: %d extra bytes in data stream!' %
-                          next_start_index+1)
+                          (next_start_index+1))
                 current_stream = current_stream[1:][next_start_index:]
         if len(current_stream) != 0:
             print('Warning: %d extra bytes at end of data stream!' %
