@@ -833,7 +833,7 @@ class Controller(object):
         else:
             miso_bytestream = self.serial_write_read(bytestreams,
                     timelimit=write_read)
-            packets = self.parse_input(miso_bytestream)
+            packets, skipped = self.parse_input(miso_bytestream)
             self.store_packets(packets, miso_bytestream, message)
 
     def read_configuration(self, chip, registers=None, timeout=1,
@@ -851,7 +851,7 @@ class Controller(object):
         bytestreams = self.get_configuration_bytestreams(chip,
                 Packet.CONFIG_READ_PACKET, registers)
         data = self.serial_write_read(bytestreams, timeout)
-        packets = self.parse_input(data)
+        packets, skipped = self.parse_input(data)
         self.store_packets(packets, data, message)
 
     def multi_write_configuration(self, chip_reg_pairs, write_read=0,
@@ -904,7 +904,7 @@ class Controller(object):
         else:
             miso_bytestream = self.serial_write_read(final_bytestream,
                     timelimit=write_read)
-            packets = self.parse_input(miso_bytestream)
+            packets, skipped = self.parse_input(miso_bytestream)
             self.store_packets(packets, miso_bytestream, message)
 
     def multi_read_configuration(self, chip_reg_pairs, timeout=1,
@@ -953,7 +953,7 @@ class Controller(object):
         mosi_bytestream = self.format_bytestream(final_bytestream)
         miso_bytestream = self.serial_write_read(mosi_bytestream,
                 timelimit=timeout)
-        packets = self.parse_input(miso_bytestream)
+        packets, skipped = self.parse_input(miso_bytestream)
         self.store_packets(packets, miso_bytestream, message)
 
     def get_configuration_bytestreams(self, chip, packet_type, registers):
@@ -970,7 +970,7 @@ class Controller(object):
 
     def run(self, timelimit, message):
         data = self.serial_read(timelimit)
-        packets = self.parse_input(data)
+        packets, skipped = self.parse_input(data)
         self.store_packets(packets, data, message)
 
     def run_testpulse(self, list_of_channels):
@@ -997,7 +997,9 @@ class Controller(object):
         data_bytes = slice(1,8)
         # parse the bytestream into Packets + metadata
         byte_packets = []
+        skip_slices = []
         current_stream = bytestream
+        index = 0
         while len(current_stream) >= packet_size:
             if (current_stream[0] == start_byte and
                     current_stream[packet_size-1] == stop_byte):
@@ -1011,13 +1013,17 @@ class Controller(object):
                 byte_packets.append((Bits(code + str(metadata)),
                     Packet(current_stream[data_bytes])))
                 current_stream = current_stream[packet_size:]
+                index += packet_size
             else:
                 # Throw out everything between here and the next start byte.
                 # Note: start searching after byte 0 in case it's
                 # already a start byte
-                next_start_index = current_stream[1:].find(start_byte)
-                current_stream = current_stream[1:][next_start_index:]
-        return [x[1] for x in byte_packets]
+                next_start_index = current_stream[1:].find(start_byte) + 1
+                skip_slice = slice(index, index + next_start_index)
+                skip_slices.append((skip_slice,
+                    current_stream[:next_start_index]))
+                current_stream = current_stream[next_start_index:]
+        return ([x[1] for x in byte_packets], skip_slices)
 
     def store_packets(self, packets, data, message):
         '''
