@@ -72,7 +72,7 @@ class DataLoader(object):
             # Catch continued blocks, and append data
             block_chunk += self.next_block_bytes()
         return block_chunk
-    
+
     def open(self):
         '''Open the log file'''
         if self.is_open(): return

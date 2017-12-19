@@ -10,9 +10,9 @@ import time
 
 
 def scan_threshold(controller=None, board='pcb-5', chip_idx=0,
-                   channel_list=range(32), threshold_min_coarse=27,
+                   channel_list=range(32), threshold_min_coarse=26,
                    threshold_max_coarse=37, threshold_step_coarse=1,
-                   saturation_level=10000):
+                   saturation_level=1000):
     '''Scan the signal rate versus channel threshold'''
     # Create controller and initialize chips to appropriate state
     close_controller = False
@@ -51,16 +51,17 @@ def scan_threshold(controller=None, board='pcb-5', chip_idx=0,
             controller.write_configuration(chip,32)
             print('    set threshold')
             #if threshold == thresholds[0]:
-            if True:
+            if len(controller.reads) > 0 and len(controller.reads[-1]) > 0:
+            #if True:
                 # Flush buffer for first cycle
                 print('    clearing buffer')
                 time.sleep(0.2)
-                controller.run(1,'clear buffer')
+                controller.run(2,'clear buffer')
                 time.sleep(0.2)
             controller.reads = []
             # Collect data
             print('    reading')
-            controller.run(1,'scan threshold')
+            controller.run(0.1,'scan threshold')
             print('    done reading')
             # Process data
             packets = controller.reads[-1]
@@ -91,6 +92,59 @@ def scan_threshold(controller=None, board='pcb-5', chip_idx=0,
         controller.serial_close()
     return results
 
+def test_leakage_current(controller=None, chip_idx=0, board='pcb-5', reset_cycles=4096,
+                         global_threshold=125, trim=16, run_time=1, channel_list=range(32)):
+    '''Sets chips to high threshold and counts number of triggers'''
+    close_controller = False
+    if controller is None:
+        close_controller = True
+        controller = quickcontroller(board)
+    
+    chip = controller.chips[0]
+    print('initial configuration for chip %d' % chip.chip_id)
+    chip.config.global_threshold = global_threshold
+    chip.config.pixel_trim_thresholds = [trim] * 32
+    if reset_cycles is None:
+        chip.config.periodic_reset = 0
+    else:
+        chip.config.reset_cycles = reset_cycles
+        chip.config.periodic_reset = 1
+    chip.config.disable_channels()
+    controller.write_configuration(chip)
+
+    return_data = {
+        'channel':[],
+        'n_packets':[],
+        'run_time':[],
+        'rate': [],
+        }
+    print('  clear buffer')
+    controller.run(2,'clear buffer')
+    del controller.reads[-1]
+    for channel in channel_list:
+        chip.config.disable_channels()
+        chip.config.enable_channels([channel])
+        controller.write_configuration(chip,range(52,56))
+        # flush buffer
+        print('  clear buffer')
+        controller.run(0.1,'clear buffer')
+        del controller.reads[-1]
+        # run for run_time
+        print('  begin test (runtime = %.1f)' % run_time)
+        controller.run(run_time,'leakage current test')
+        read = controller.reads[-1]
+        return_data['channel'] += [channel]
+        return_data['n_packets'] += [len(read)]
+        return_data['run_time'] += [run_time]
+        return_data['rate'] += [float(len(read))/run_time]
+        print('channel %2d: %.2f' % (channel, return_data['rate'][-1]))
+    mean_rate = sum(return_data['rate'])/len(return_data['rate'])
+    rms_rate = sum(abs(rate - mean_rate) 
+                   for rate in return_data['rate'])/len(return_data['rate'])
+    print('chip mean: %.3f, rms: %.3f' % (mean_rate, rms_rate))
+    if close_controller:
+        controller.serial_close()
+    return return_data
 
 def pulse_chip(controller, chip, dac_level):
     '''Issue one pulse to specific chip'''
@@ -103,20 +157,22 @@ def noise_test_all_chips(n_pulses=1000, pulse_channel=0, pulse_dac=6, threshold=
                          trim=0, board='pcb-5', reset_cycles=4096, csa_recovery_time=0.1,
                          reset_dac_time=1):
     '''Run noise_test_internal_pulser on all available chips'''
-    # Create controller and initialize chips to appropriate state
+    # Create controller and initialize chip,s to appropriate state
     close_controller = False
     if controller is None:
         close_controller = True
         controller = quickcontroller(board)
 
     for chip_idx in range(len(controller.chips)):
+        chip_threshold = threshold
+        chip_pulse_dac = pulse_dac
         if isinstance(threshold, list):
             chip_threshold = threshold[chip_idx]
-        else:
-            chip_threshold = threshold
+        if isinstance(pulse_dac, list):
+            chip_pulse_dac = pulse_dac[chip_idx]
         noise_test_internal_pulser(board=board, chip_idx=chip_idx, n_pulses=n_pulses,
                                    pulse_channel=pulse_channel, reset_cycles=reset_cycles,
-                                   pulse_dac=pulse_dac, threshold=chip_threshold,
+                                   pulse_dac=chip_pulse_dac, threshold=chip_threshold,
                                    controller=controller, csa_recovery_time=csa_recovery_time,
                                    testpulse_dac_max=testpulse_dac_max,
                                    reset_dac_time=reset_dac_time,

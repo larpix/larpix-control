@@ -36,9 +36,10 @@ def init_controller(controller, board='pcb-5'):
         
 def silence_chips(controller):
     '''Silence all chips in controller'''
-    for chip in controller.chips:
-        chip.config.global_threshold = 255
-        controller.write_configuration(chip,32)
+    for _ in controller.chips:
+        for chip in controller.chips:
+            chip.config.global_threshold = 255
+            controller.write_configuration(chip,32)
     return
 
 def set_config_physics(controller):
