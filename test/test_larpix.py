@@ -6,6 +6,7 @@ from __future__ import print_function
 import pytest
 from larpix.larpix import (Chip, Packet, Configuration, Controller,
         PacketCollection)
+from larpix.larpix_hpt import *
 from bitstring import BitArray
 import json
 import os
@@ -1843,3 +1844,44 @@ def test_packetcollection_from_dict():
     result.from_dict(d)
     expected = collection
     assert result == expected
+
+def test_larpix_hpt_init():
+    hpt = larpix_hpt.serialized_hpt(chip_id=246)
+    assert hpt == larpix_hpt.ref_time
+    assert hpt == larpix_hpt.prev_time[246]
+    larpix_hpt.reset()
+
+def test_larpix_hpt_update():
+    hpt0 = larpix_hpt.serialized_hpt()
+    hpt1 = larpix_hpt.serialized_hpt(0.1, 0.3, 0)
+    assert hpt0 == larpix_hpt.ref_time
+    assert hpt1 == larpix_hpt.prev_time[0]
+    larpix_hpt.reset()
+
+def test_larpix_hpt_time_same_serial_read():
+    hpt0 = larpix_hpt.serialized_hpt()
+    adc_d = larpix_hpt.larpix_offset_d
+    d = larpix_hpt.larpix_offset_d / larpix_hpt.larpix_clk_freq
+    hpt1 = larpix_hpt.serialized_hpt(0, adc_d)
+    s = get_s(d)
+    ns = get_ns(d)
+    expected = larpix_hpt(s,ns,0,adc_d)
+    assert hpt1 == expected
+    hpt2 = larpix_hpt.serialized_hpt(0, adc_d/2.)
+    s = get_s(3.*d/2.)
+    ns = get_ns(3.*d/2.)
+    expected = larpix_hpt(s,ns,0,3.*adc_d/2.)
+    assert hpt2 == expected
+    larpix_hpt.reset()
+
+def test_larpix_hpt_time_diff_serial_read():
+    hpt0 = larpix_hpt.serialized_hpt()
+    adc_d = larpix_hpt.larpix_offset_d
+    d = larpix_hpt.larpix_offset_d / larpix_hpt.larpix_clk_freq
+    hpt1 = larpix_hpt.serialized_hpt(0, adc_d)
+    hpt2 = larpix_hpt.serialized_hpt(3*d, adc_d)
+    s = get_s(4*d)
+    ns = get_ns(4*d)
+    expected = larpix_hpt(s,ns,3*d,4*adc_d)
+    assert hpt2 == expected
+    larpix_hpt.reset()
