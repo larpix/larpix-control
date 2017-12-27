@@ -834,7 +834,7 @@ class Controller(object):
             miso_bytestream = self.serial_write_read(bytestreams,
                     timelimit=write_read)
             packets, skipped = self.parse_input(miso_bytestream)
-            self.store_packets(packets, miso_bytestream, message)
+            self.store_packets(packets, miso_bytestream, skipped, message)
 
     def read_configuration(self, chip, registers=None, timeout=1,
             message=None):
@@ -852,7 +852,7 @@ class Controller(object):
                 Packet.CONFIG_READ_PACKET, registers)
         data = self.serial_write_read(bytestreams, timeout)
         packets, skipped = self.parse_input(data)
-        self.store_packets(packets, data, message)
+        self.store_packets(packets, data, skipped, message)
 
     def multi_write_configuration(self, chip_reg_pairs, write_read=0,
             message=None):
@@ -905,7 +905,7 @@ class Controller(object):
             miso_bytestream = self.serial_write_read(final_bytestream,
                     timelimit=write_read)
             packets, skipped = self.parse_input(miso_bytestream)
-            self.store_packets(packets, miso_bytestream, message)
+            self.store_packets(packets, miso_bytestream, skipped, message)
 
     def multi_read_configuration(self, chip_reg_pairs, timeout=1,
             message=None):
@@ -954,7 +954,7 @@ class Controller(object):
         miso_bytestream = self.serial_write_read(mosi_bytestream,
                 timelimit=timeout)
         packets, skipped = self.parse_input(miso_bytestream)
-        self.store_packets(packets, miso_bytestream, message)
+        self.store_packets(packets, miso_bytestream, skipped, message)
 
     def get_configuration_bytestreams(self, chip, packet_type, registers):
         # The configuration must be sent one register at a time
@@ -971,7 +971,7 @@ class Controller(object):
     def run(self, timelimit, message):
         data = self.serial_read(timelimit)
         packets, skipped = self.parse_input(data)
-        self.store_packets(packets, data, message)
+        self.store_packets(packets, data, skipped, message)
 
     def run_testpulse(self, list_of_channels):
         return
@@ -1025,7 +1025,7 @@ class Controller(object):
                 current_stream = current_stream[next_start_index:]
         return ([x[1] for x in byte_packets], skip_slices)
 
-    def store_packets(self, packets, data, message):
+    def store_packets(self, packets, data, skipped, message):
         '''
         Store the packets in ``self`` and in ``self.chips``
 
@@ -1349,9 +1349,11 @@ class PacketCollection(object):
 
 
     '''
-    def __init__(self, packets, bytestream=None, message='', read_id=None):
+    def __init__(self, packets, bytestream=None, message='',
+            read_id=None, skipped=None):
         self.packets = packets
         self.bytestream = bytestream
+        self.skipped = skipped
         self.message = message
         self.read_id = read_id
         self.parent = None
