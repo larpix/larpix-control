@@ -6,7 +6,7 @@ from __future__ import print_function
 import pytest
 from larpix.larpix import (Chip, Packet, Configuration, Controller,
         PacketCollection)
-from larpix.larpix_hpt import *
+from larpix.Timestamp import *
 from bitstring import BitArray
 import json
 import os
@@ -1845,43 +1845,49 @@ def test_packetcollection_from_dict():
     expected = collection
     assert result == expected
 
-def test_larpix_hpt_init():
-    hpt = larpix_hpt.serialized_hpt(chip_id=246)
-    assert hpt == larpix_hpt.ref_time
-    assert hpt == larpix_hpt.prev_time[246]
-    larpix_hpt.reset()
+def test_timestamp_init():
+    t = Timestamp(ns=2**33, cpu_time=1e10 + 1e-6, adc_time=Timestamp.larpix_offset_d // 2,
+                  adj_adc_time=Timestamp.larpix_offset_d * 100)
+    assert 2**33 == t.ns
+    assert 1e10 + 1e-6  == t.cpu_time
+    assert Timestamp.larpix_offset_d // 2 == t.adc_time
+    assert Timestamp.larpix_offset_d * 100 == t.adj_adc_time
 
-def test_larpix_hpt_update():
-    hpt0 = larpix_hpt.serialized_hpt()
-    hpt1 = larpix_hpt.serialized_hpt(0.1, 0.3, 0)
-    assert hpt0 == larpix_hpt.ref_time
-    assert hpt1 == larpix_hpt.prev_time[0]
-    larpix_hpt.reset()
+def test_timestamp_error():
+    with pytest.raises(ValueError, message='Should fail: value too large'):
+        t = Timestamp.serialized_timestamp(0, Timestamp.larpix_offset_d)
 
-def test_larpix_hpt_time_same_serial_read():
-    hpt0 = larpix_hpt.serialized_hpt()
-    adc_d = larpix_hpt.larpix_offset_d
-    d = larpix_hpt.larpix_offset_d / larpix_hpt.larpix_clk_freq
-    hpt1 = larpix_hpt.serialized_hpt(0, adc_d)
-    s = get_s(d)
-    ns = get_ns(d)
-    expected = larpix_hpt(s,ns,0,adc_d)
-    assert hpt1 == expected
-    hpt2 = larpix_hpt.serialized_hpt(0, adc_d/2.)
-    s = get_s(3.*d/2.)
-    ns = get_ns(3.*d/2.)
-    expected = larpix_hpt(s,ns,0,3.*adc_d/2.)
-    assert hpt2 == expected
-    larpix_hpt.reset()
+def test_timestamp_same_serial_read():
+    clk_counter = 0
+    t0 = Timestamp.serialized_timestamp(cpu_time=0, adc_time=clk_counter)
+    clk_counter += Timestamp.larpix_offset_d - 1
+    adc1 = clk_counter % Timestamp.larpix_offset_d
+    ns1 = clk_counter * long(1e9) // Timestamp.larpix_clk_freq
+    t1 = Timestamp.serialized_timestamp(cpu_time=0, adc_time=adc1, ref_time=t0)
+    assert t1.ns == ns1
+    clk_counter += 2
+    adc2 = clk_counter % Timestamp.larpix_offset_d
+    ns2 = clk_counter * long(1e9) // Timestamp.larpix_clk_freq
+    t2 = Timestamp.serialized_timestamp(cpu_time=0, adc_time=adc2, ref_time=t1)
+    expected = Timestamp(ns=ns2, cpu_time=0, adc_time=adc2,
+                         adj_adc_time=Timestamp.larpix_offset_d + adc2)
+    assert t2 == expected
 
-def test_larpix_hpt_time_diff_serial_read():
-    hpt0 = larpix_hpt.serialized_hpt()
-    adc_d = larpix_hpt.larpix_offset_d
-    d = larpix_hpt.larpix_offset_d / larpix_hpt.larpix_clk_freq
-    hpt1 = larpix_hpt.serialized_hpt(0, adc_d)
-    hpt2 = larpix_hpt.serialized_hpt(3*d, adc_d)
-    s = get_s(4*d)
-    ns = get_ns(4*d)
-    expected = larpix_hpt(s,ns,3*d,4*adc_d)
-    assert hpt2 == expected
-    larpix_hpt.reset()
+def test_timestamp_diff_serial_read():
+    clk_counter = 0
+    t0 = Timestamp.serialized_timestamp(cpu_time=0, adc_time=clk_counter)
+    clk_counter += Timestamp.larpix_offset_d - 1
+    adc1 = clk_counter % Timestamp.larpix_offset_d
+    ns1 = clk_counter * long(1e9) / Timestamp.larpix_clk_freq
+    t1 = Timestamp.serialized_timestamp(cpu_time=ns1 * 1e-9, adc_time=adc1, ref_time=t0)
+    assert t1.ns == ns1
+    clk_counter += Timestamp.larpix_offset_d - 1
+    adc2 = clk_counter % Timestamp.larpix_offset_d
+    ns2 = clk_counter * long(1e9) / Timestamp.larpix_clk_freq
+    t2_0 = Timestamp.serialized_timestamp(cpu_time=ns2 * 1e-9, adc_time=adc2, ref_time=t0)
+    t2_1 = Timestamp.serialized_timestamp(cpu_time=ns2 * 1e-9, adc_time=adc2, ref_time=t1)
+    expected = Timestamp(ns=ns2, cpu_time=ns2 * 1e-9, adc_time=adc2,
+                         adj_adc_time=adc2 + Timestamp.larpix_offset_d)
+    assert t2_0 == expected
+    assert t2_1 == expected
+
