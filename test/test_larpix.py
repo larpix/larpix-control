@@ -1855,7 +1855,7 @@ def test_timestamp_init():
 
 def test_timestamp_error():
     with pytest.raises(ValueError, message='Should fail: value too large'):
-        t = Timestamp.serialized_timestamp(0, Timestamp.larpix_offset_d)
+        t = Timestamp.serialized_timestamp(cpu_time=0, adc_time=Timestamp.larpix_offset_d)
 
 def test_timestamp_same_serial_read():
     clk_counter = 0
