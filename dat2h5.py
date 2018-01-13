@@ -13,6 +13,7 @@ import argparse
 from larpix.dataloader import DataLoader
 from larpix.larpix import Controller
 from larpixgeometry.pixelplane import PixelPlane
+import larpixgeometry.layouts as layouts
 parse = Controller.parse_input
 
 def fix_ADC(raw_adc):
@@ -32,7 +33,7 @@ infile = args.infile
 outfile = args.outfile
 loader = DataLoader(infile)
 
-geometry = PixelPlane.load('sensor_plane_28_simple.yaml')
+geometry = PixelPlane.fromDict(layouts.load('sensor_plane_28_simple.yaml'))
 
 numpy_arrays = []
 index_limit = 10000
