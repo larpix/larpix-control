@@ -5,6 +5,11 @@ following data:
     channel id | chip id | pixel id | pixel x | pixel y | raw ADC | raw
     timestamp | 6-bit ADC | full timestamp
 
+Note: for the h5 output, the array type is 64-bit signed integer. This
+works to hold all of the data with no problem except for the pixel x and
+y. These are stored as int(10*value) as a way to save some precision.
+(For ROOT output, those fields are saved as floats so no problem.)
+
 '''
 
 from __future__ import print_function
@@ -12,6 +17,7 @@ import argparse
 import numpy as np
 from larpix.dataloader import DataLoader
 from larpix.larpix import Controller
+from larpix.Timestamp import Timestamp
 from larpixgeometry.pixelplane import PixelPlane
 import larpixgeometry.layouts as layouts
 parse = Controller.parse_input
@@ -66,9 +72,10 @@ geometry = PixelPlane.fromDict(layouts.load('sensor_plane_28_simple.yaml'))
 
 numpy_arrays = []
 index_limit = 10000
-numpy_arrays.append(np.empty((index_limit, 9), dtype=np.float64))
+numpy_arrays.append(np.empty((index_limit, 9), dtype=np.int64))
 current_array = numpy_arrays[-1]
 current_index = 0
+last_timestamp = None
 while True:
     block = loader.next_block()
     if block is None: break
@@ -81,14 +88,19 @@ while True:
                 current_array[current_index][5] = packet.dataword
                 current_array[current_index][6] = packet.timestamp
                 current_array[current_index][7] = fix_ADC(packet.dataword)
-                current_array[current_index][8] = 0
 
                 chipid = packet.chipid
                 channel = packet.channel_id
                 pixel = geometry.chips[chipid].channel_connections[channel]
                 current_array[current_index][2] = pixel.pixelid
-                current_array[current_index][3] = pixel.x
-                current_array[current_index][4] = pixel.y
+                current_array[current_index][3] = int(10*pixel.x)
+                current_array[current_index][4] = int(10*pixel.y)
+
+                cpu_time = block['time']
+                ref_time = last_timestamp
+                last_timestamp = Timestamp.from_packet(packet, cpu_time,
+                        ref_time)
+                current_array[current_index][8] = last_timestamp.ns
                 if use_root:
                     (root_channelid[0], root_chipid[0], root_pixelid[0],
                             root_pixelx[0], root_pixely[0],
@@ -114,6 +126,6 @@ else:
     with h5py.File(outfile, 'w') as outfile:
         dset = outfile.create_dataset('data', data=final_array)
         dset.attrs['descripiton'] = '''
-    channel id | chip id | pixel id | pixel x | pixel y | raw ADC | raw
+    channel id | chip id | pixel id | int(10*pixel x) | int(10*pixel y) | raw ADC | raw
     timestamp | 6-bit ADC | full timestamp'''
 
