@@ -28,7 +28,7 @@ setup(
         ],
         keywords='dune physics',
         packages=find_packages(),
-        install_requires=['pyserial','bitstring','pytest','h5py',
+        install_requires=['pyserial','bitstring','pytest',
             'larpix-geometry'],
         scripts=['scripts/larpix-drivercheck-ubuntu',
                  'scripts/larpix-drivercheck-mac',
