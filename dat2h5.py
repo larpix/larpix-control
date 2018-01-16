@@ -34,7 +34,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('infile')
 parser.add_argument('outfile')
 parser.add_argument('-v', '--verbose', action='store_true')
-parser.add_argument('--format', choices=['h5', 'root', 'ROOT']
+parser.add_argument('--format', choices=['h5', 'root', 'ROOT'],
+        required=True)
 args = parser.parse_args()
 
 infile = args.infile
@@ -44,6 +45,7 @@ loader = DataLoader(infile)
 
 if args.format == 'h5':
     import h5py
+    use_root = False
 elif args.format.lower() == 'root':
     use_root = True
     import ROOT
