@@ -115,7 +115,7 @@ while True:
                     if current_index == index_limit:
                         current_index = 0
                         numpy_arrays.append(np.empty((index_limit, 9),
-                            dtype=np.float64))
+                            dtype=np.int64))
                         current_array = numpy_arrays[-1]
 
 if use_root:
@@ -126,7 +126,8 @@ else:
     numpy_arrays[-1] = numpy_arrays[-1][:current_index]
     final_array = np.vstack(numpy_arrays)
     with h5py.File(outfile, 'w') as outfile:
-        dset = outfile.create_dataset('data', data=final_array)
+        dset = outfile.create_dataset('data', data=final_array,
+                dtype=final_array.dtype)
         dset.attrs['descripiton'] = '''
     channel id | chip id | pixel id | int(10*pixel x) | int(10*pixel y) | raw ADC | raw
     timestamp | 6-bit ADC | full timestamp'''
