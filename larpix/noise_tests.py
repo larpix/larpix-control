@@ -55,7 +55,7 @@ def find_channel_thresholds(controller=None, board='pcb-1', chip_idx=0,
 def simultaneous_scan_trim(controller=None, board='pcb-5', chip_idx=0,
                            channel_list=range(32), 
                            trim_min=0, trim_max=31, trim_step=1, saturation_level=1000, 
-                           max_level=1200,
+                           max_level=1200, reset_cycles = 4096,
                            global_threshold=30, run_time=0.1):
     # Create controller and initialize chips to appropriate state
     close_controller = False
@@ -77,7 +77,7 @@ def simultaneous_scan_trim(controller=None, board='pcb-5', chip_idx=0,
     controller.write_configuration(chip,range(52,56))
     time.sleep(1)
     chip.config.enable_channels(channel_list)
-    chip.config.reset_cycles = 4092
+    chip.config.reset_cycles = reset_cycles
     print('  writing config')
     controller.write_configuration(chip,range(60,62))
     controller.write_configuration(chip,[32,52,53,54,55])
@@ -168,7 +168,7 @@ def simultaneous_scan_trim(controller=None, board='pcb-5', chip_idx=0,
 def simultaneous_scan_trim_with_communication(controller=None, board='pcb-5', chip_idx=0,
                                               channel_list=range(32), 
                                               trim_min=0, trim_max=31, trim_step=1,
-                                              saturation_level=10,
+                                              saturation_level=10, reset_cycles = 4096,
                                               max_level=100, writes=100,
                                               global_threshold=30, run_time=0.1):
     # Create controller and initialize chips to appropriate state
@@ -191,7 +191,7 @@ def simultaneous_scan_trim_with_communication(controller=None, board='pcb-5', ch
     controller.write_configuration(chip,range(52,56))
     controller.run(0.1,'clear buffer')
     chip.config.enable_channels(channel_list)
-    chip.config.reset_cycles = 4092
+    chip.config.reset_cycles = reset_cycles
     print('  writing config')
     controller.write_configuration(chip,range(60,62)) # reset cycles
     controller.write_configuration(chip,[32,52,53,54,55])
@@ -288,7 +288,7 @@ def simultaneous_scan_trim_with_communication(controller=None, board='pcb-5', ch
 
 def scan_trim(controller=None, board='pcb-5', chip_idx=0, channel_list=range(32), 
               trim_min=0, trim_max=31, trim_step=1, saturation_level=1000, 
-              global_threshold=30, run_time=0.1):
+              global_threshold=30, run_time=0.1, reset_cycles=4096):
     # Create controller and initialize chips to appropriate state
     close_controller = False
     if controller is None:
@@ -309,7 +309,7 @@ def scan_trim(controller=None, board='pcb-5', chip_idx=0, channel_list=range(32)
         chip.config.global_threshold = global_threshold
         chip.config.channel_mask = [1,]*32
         chip.config.channel_mask[channel] = 0
-        chip.config.reset_cycles = 4092
+        chip.config.reset_cycles = reset_cycles
         print('  writing config')
         controller.write_configuration(chip,range(60,62))
         controller.write_configuration(chip,[32,52,53,54,55])
