@@ -7,6 +7,7 @@ following columns:
 
 '''
 
+from __future__ import print_function
 import numpy as np
 import h5py
 import argparse
@@ -27,10 +28,12 @@ def fix_ADC(raw_adc):
 parser = argparse.ArgumentParser()
 parser.add_argument('infile')
 parser.add_argument('outfile')
+parser.add_argument('-v', '--verbose', action='store_true')
 args = parser.parse_args()
 
 infile = args.infile
 outfile = args.outfile
+verbose = args.verbose
 loader = DataLoader(infile)
 
 geometry = PixelPlane.fromDict(layouts.load('sensor_plane_28_simple.yaml'))
@@ -43,7 +46,7 @@ current_index = 0
 while True:
     block = loader.next_block()
     if block is None: break
-    if block['block_type'] == 'data' and block['block_type'] == 'read':
+    if block['block_type'] == 'data' and block['data_type'] == 'read':
         packets = parse(bytes(block['data']))
         for packet in packets:
             if packet.packet_type == packet.DATA_PACKET:
@@ -68,7 +71,7 @@ while True:
 
 numpy_arrays[-1] = numpy_arrays[-1][:current_index]
 final_array = np.vstack(numpy_arrays)
-with h5py.File(outfile, 'a') as outfile:
+with h5py.File(outfile, 'w') as outfile:
     dset = outfile.create_dataset('data', data=final_array)
     dset.attrs['descripiton'] = '''
 channel id | chip id | pixel id | pixel x | pixel y | raw ADC | raw
