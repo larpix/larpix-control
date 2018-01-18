@@ -65,9 +65,9 @@ elif args.format.lower() == 'root':
     ttree.Branch('pixelid', root_pixelid, 'pixelid/I')
     ttree.Branch('pixelx', root_pixelx, 'pixelx/D')
     ttree.Branch('pixely', root_pixely, 'pixely/D')
-    ttree.Branch('raw_adc', root_raw_adc, 'raw_adc/I')
-    ttree.Branch('raw_timestamp', root_raw_timestamp, 'raw_timestamp/l')
-    ttree.Branch('adc', root_adc, 'adc/I')
+    ttree.Branch('raw_adc', root_rawADC, 'raw_adc/I')
+    ttree.Branch('raw_timestamp', root_rawTimestamp, 'raw_timestamp/l')
+    ttree.Branch('adc', root_ADC, 'adc/I')
     ttree.Branch('timestamp', root_timestamp, 'timestamp/l')
 
 geometry = PixelPlane.fromDict(layouts.load('sensor_plane_28_simple.yaml'))
