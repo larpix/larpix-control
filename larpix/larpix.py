@@ -986,6 +986,65 @@ class Controller(object):
     def run_analog_monitor_test(self):
         return
 
+    def enable_analog_monitor(self, chip_id, channel, io_chain=0):
+        chip = self.get_chip(chip_id, io_chain)
+        chip.config.disable_analog_monitor()
+        chip.config.enable_analog_monitor(channel)
+        self.write_configuration(chip, Configuration.csa_monitor_select_addresses)
+        return
+
+    def disable_analog_monitor(self, chip_id=None, channel=None, io_chain=0):
+        if chip_id is None:
+            for chip in self.chips:
+                self.disable_analog_monitor(chip_id=chip.chip_id, channel=channel,
+                                       io_chain=io_chain)
+        elif channel is None:
+            for channel in range(32):
+                self.disable_analog_monitor(chip_id=chip_id, channel=channel,
+                                            io_chain=io_chain)
+        else:
+            chip = self.get_chip(chip_id, io_chain)
+            chip.config.disable_analog_monitor()
+            self.write_configuration(chip, Configuration.csa_monitor_select_addresses)
+        return
+
+    def enable_testpulse(self, chip_id, channel_list, io_chain=0, start_dac=255):
+        chip = self.get_chip(chip_id, io_chain)
+        chip.config.disable_testpulse()
+        chip.config.enable_testpulse(channel_list)
+        chip.config.csa_testpulse_dac_amplitude = start_dac
+        self.write_configuration(chip, Configuration.csa_testpulse_enable_addresses +
+                                 [Configuration.csa_testpulse_dac_amplitude_address])
+        return
+
+    def issue_testpulse(self, chip_id, pulse_dac, io_chain=0):
+        chip = self.get_chip(chip_id, io_chain)
+        chip.config.csa_testpulse_dac_amplitude -= pulse_dac
+        self.write_configuration(chip, Configuration.csa_testpulse_dac_amplitude_address,
+                                 write_read=0.1)
+        return
+
+    def disable_testpulse(self, chip_id=None, channel_list=range(32), io_chain=0):
+        if chip_id is None:
+            for chip in self.chips:
+                self.disable_testpulse(chip_id=chip.chip_id, channel_list=channel_list,
+                                       io_chain=io_chain)
+        else:
+            chip = self.get_chip(chip_id, io_chain)
+            chip.config.disable_testpulse(channel_list)
+            self.write_configuration(chip, Configuration.csa_testpulse_enable_addresses)
+        return
+
+    def disable(self, chip_id=None, channel_list=range(32), io_chain=0):
+        if chip_id is None:
+            for chip in self.chips:
+                self.disable(chip_id=chip.chip_id, channel_list=channel_list,
+                             io_chain=io_chain)
+        else:
+            chip = self.get_chip(chip_id, io_chain)
+            chip.config.disable_channels(channel_list)
+            self.write_configuration(chip, Configuration.channel_mask_addresses)
+
     def format_UART(self, chip, packet):
         packet_bytes = packet.bytes()
         daisy_chain_byte = (4 + Bits('uint:4=' + str(chip.io_chain))).bytes

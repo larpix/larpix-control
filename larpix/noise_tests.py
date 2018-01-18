@@ -404,8 +404,10 @@ def scan_threshold(controller=None, board='pcb-5', chip_idx=0,
         print('testing channel',channel)
         # Configure chip for one channel operation
         chip.config.channel_mask = [1,]*32
+        chip.config.pixel_trim_thresholds = [16]*32
         chip.config.channel_mask[channel] = 0
         print('  writing config')
+        controller.write_configuration(chip,range(32))
         controller.write_configuration(chip,[52,53,54,55])
         print('  reading config')
         controller.read_configuration(chip)
@@ -465,7 +467,9 @@ def scan_threshold(controller=None, board='pcb-5', chip_idx=0,
                             adc_means[:], adc_rmss[:]]
     # Restore original global threshold and channel mask
     chip.config.global_threshold = global_threshold_orig
+    chip.config.pixel_trim_thresholds = [16]*32
     controller.write_configuration(chip,32)
+    controller.write_configuration(chip,range(32))
     chip.config.channel_mask = channel_mask_orig
     controller.write_configuration(chip,[52,53,54,55])
     if close_controller:
@@ -949,7 +953,7 @@ def scan_trim_with_pulse(controller=None, board='pcb-1', chip_idx=0,
         for trim in range(trim_max, trim_min-1, -trim_step):
             # Set threshold and trim
             print('  trim %d' % trim)
-            chip.config.pixel_trim_threshold = trim
+            chip.config.pixel_trim_thresholds[channel] = trim
             chip.config.reset_cycles = reset_cycles
             controller.write_configuration(chip,range(32)) # trim
             controller.write_configuration(chip,range(60,63)) # reset cycles
@@ -1118,10 +1122,12 @@ def examine_fine_scan(fine_data, saturation_level=1000):
     sat_trims = []
     chan_level_too_high = []
     chan_level_too_low = []
-    for (channel_num, data) in fine_data.iteritems():
-        trims = data[0]
-        npackets = data[1]
-        adc_widths = data[3]
+    print fine_data
+    for channel_num in fine_data.keys():
+        print fine_data[0]
+        trims = fine_data[channel_num]['trims']
+        npackets = fine_data[channel_num]['npackes']
+        #adc_widths = data['']
         saturation_trim = -1
         saturation_npacket = -1
         # Only process if not already saturated
@@ -1131,16 +1137,16 @@ def examine_fine_scan(fine_data, saturation_level=1000):
         if npackets[-1] <= saturation_level:
             chan_level_too_low.append(channel_num)
             continue
-        for (trim, npacket, adc_width) in zip(trims, npackets, adc_widths):
+        for (trim, npacket) in zip(trims, npackets):
             if npacket > saturation_level:
                 saturation_trim = trim
                 saturation_npacket = npacket
-                saturation_adc_width = adc_width
+                #saturation_adc_width = adc_width
                 sat_trims.append(saturation_trim)
                 break
         result[channel_num] = {'saturation_trim':saturation_trim,
-                               'saturation_npacket':saturation_npacket,
-                               'saturation_adc_width':saturation_adc_width}
+                               'saturation_npacket':saturation_npacket}
+                               #'saturation_adc_width':saturation_adc_width}
     # Collect other relevant results
     result['chan_level_too_high'] = chan_level_too_high
     result['chan_level_too_low'] = chan_level_too_low
