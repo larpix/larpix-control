@@ -385,7 +385,7 @@ def scan_trim(controller=None, board='pcb-5', chip_idx=0, channel_list=range(32)
 def scan_threshold(controller=None, board='pcb-5', chip_idx=0,
                    channel_list=range(32), threshold_min_coarse=26,
                    threshold_max_coarse=37, threshold_step_coarse=1,
-                   saturation_level=1000, run_time=0.1):
+                   saturation_level=1000, run_time=0.1, reset_cycles=4092):
     '''Scan the signal rate versus channel threshold'''
     # Create controller and initialize chips to appropriate state
     close_controller = False
@@ -406,9 +406,10 @@ def scan_threshold(controller=None, board='pcb-5', chip_idx=0,
         chip.config.channel_mask = [1,]*32
         chip.config.pixel_trim_thresholds = [16]*32
         chip.config.channel_mask[channel] = 0
+        chip.config.reset_cycles = reset_cycles
         print('  writing config')
-        controller.write_configuration(chip,range(32))
-        controller.write_configuration(chip,[52,53,54,55])
+        registers_to_write = range(32) + [52,53,54,55] + [60,61,62]
+        controller.write_configuration(chip,registers_to_write)
         print('  reading config')
         controller.read_configuration(chip)
         print('  set mask')
@@ -566,7 +567,7 @@ def scan_threshold_with_communication(controller=None, board='pcb-1', chip_idx=0
         controller.serial_close()
     return results
 
-def test_leakage_current(controller=None, chip_idx=0, board='pcb-5', reset_cycles=4096,
+def test_leakage_current(controller=None, chip_idx=0, board='pcb-5', reset_cycles=None,
                          global_threshold=125, trim=16, run_time=1, channel_list=range(32)):
     '''Sets chips to high threshold and counts number of triggers'''
     close_controller = False
@@ -574,7 +575,7 @@ def test_leakage_current(controller=None, chip_idx=0, board='pcb-5', reset_cycle
         close_controller = True
         controller = quickcontroller(board)
     
-    chip = controller.chips[0]
+    chip = controller.chips[chip_idx]
     print('initial configuration for chip %d' % chip.chip_id)
     chip.config.global_threshold = global_threshold
     chip.config.pixel_trim_thresholds = [trim] * 32
@@ -658,7 +659,7 @@ def noise_test_all_chips(n_pulses=1000, pulse_channel=0, pulse_dac=6, threshold=
 
 def noise_test_external_pulser(board='pcb-5', chip_idx=0, run_time=10,
                                channel_list=range(32), global_threshold=200,
-                               controller=None):
+                               controller=None, reset_cycles=4096):
     '''Scan through channels with external trigger enabled - report adc width'''
     close_controller = False
     if controller is None:
@@ -669,7 +670,9 @@ def noise_test_external_pulser(board='pcb-5', chip_idx=0, run_time=10,
     chip = controller.chips[chip_idx]
     print('initial configuration for chip %d' % chip.chip_id)
     chip.config.global_threshold = global_threshold
+    chip.config.reset_cycles = reset_cycles
     controller.write_configuration(chip,32)
+    controller.write_configuration(chip,[60,61,62])
     adc_values = {}
     mean = {}
     std_dev = {}
@@ -677,7 +680,9 @@ def noise_test_external_pulser(board='pcb-5', chip_idx=0, run_time=10,
         print('test channel %d' % channel)
         print('  clear buffer (slow)')
         controller.run(1,'clear buffer')
+        chip.config.disable_channels()
         chip.config.enable_channels([channel])
+        chip.config.disable_external_trigger()
         chip.config.enable_external_trigger([channel])
         controller.write_configuration(chip,range(52,60))
         print('  clear buffer (quick)')
@@ -691,12 +696,14 @@ def noise_test_external_pulser(board='pcb-5', chip_idx=0, run_time=10,
         chip.config.disable_channels()
         chip.config.disable_external_trigger()
         controller.write_configuration(chip,range(52,60))
-        mean[channel] = float(sum(adc_values[channel]))/len(adc_values[channel])
-        std_dev[channel] = math.sqrt(sum([float(value)**2 for value in adc_values[channel]])/len(adc_values[channel]) - mean[channel]**2)
-        print('%d  %f  %f' % (channel, mean[channel], std_dev[channel]))
+        if len(adc_values[channel]) > 0:
+            mean[channel] = float(sum(adc_values[channel]))/len(adc_values[channel])
+            std_dev[channel] = math.sqrt(sum([float(value)**2 for value in adc_values[channel]])/len(adc_values[channel]) - mean[channel]**2)
+            print('%d  %f  %f' % (channel, mean[channel], std_dev[channel]))
     print('summary (channel, mean, std dev):')
     for channel in channel_list:
-        print('%d  %f  %f' % (channel, mean[channel], std_dev[channel]))
+        if channel in mean:
+            print('%d  %f  %f' % (channel, mean[channel], std_dev[channel]))
 
     flush_logger()
     if close_controller:
