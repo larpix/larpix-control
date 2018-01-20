@@ -986,6 +986,26 @@ class Controller(object):
     def run_analog_monitor_test(self):
         return
 
+    def verify_configuration(self, chip_id=None, io_chain=0):
+        '''
+        Read chip configuration from specified chip and return a bool that is True if the
+        read chip configuration matches the current configuration stored in chip instance
+        '''
+        if chip_id is None:
+            return all([self.verify_configuration(chip_id=chip.chip_id, io_chain=io_chain)
+                        for chip in self.chips])
+        else:
+            chip = self.get_chip(chip_id, io_chain)
+            self.read_configuration(chip)
+            configuration_data = {}
+            for packet in self.reads[-1]:
+                if (packet.packet_type == Packet.CONFIG_READ_PACKET and
+                    packet.chipid == chip_id):
+                    configuration_data[packet.register_address] = packet.register_data
+            chip_configuration = Configuration()
+            chip_configuration.from_dict_registers(configuration_data)
+            return chip_configuration == chip.config
+
     def enable_analog_monitor(self, chip_id, channel, io_chain=0):
         chip = self.get_chip(chip_id, io_chain)
         chip.config.disable_analog_monitor()
