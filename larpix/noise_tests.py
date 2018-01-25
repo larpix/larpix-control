@@ -372,6 +372,13 @@ def scan_trim(controller=None, board='pcb-5', chip_idx=0, channel_list=range(32)
                 break
         results[channel] = [trims[:], n_packets[:],
                             adc_means[:], adc_rmss[:]]
+
+    print('Summary (last trim, sat level, adc mean, adc rms):')
+    for channel in results:
+        print('%d %d %d %.2f %.2f' % (channel, results[channel][0][-1],
+                                      results[channel][1][-1], results[channel][2][-1],
+                                      results[channel][3][-1]))
+
     # Restore original global threshold and channel mask
     chip.config.pixel_trim_thresholds = pixel_trim_thresholds_orig
     chip.config.global_threshold = global_threshold_orig
@@ -466,6 +473,12 @@ def scan_threshold(controller=None, board='pcb-5', chip_idx=0,
                 break
         results[channel] = [thresholds[:], n_packets[:],
                             adc_means[:], adc_rmss[:]]
+
+    print('Summary (last threshold, npackets, adc mean, adc rms)')
+    for channel in results:
+        print('%d %d %d %.2f %.2f' % (channel, results[channel][0][-1],
+                                      results[channel][1][-1], results[channel][2][-1],
+                                      results[channel][3][-1]))
     # Restore original global threshold and channel mask
     chip.config.global_threshold = global_threshold_orig
     chip.config.pixel_trim_thresholds = [16]*32
@@ -558,6 +571,11 @@ def scan_threshold_with_communication(controller=None, board='pcb-1', chip_idx=0
                 break
         results[channel] = [thresholds[:], n_packets[:],
                             adc_means[:], adc_rmss[:]]
+    print('Summary (last threshold, npackets, adc mean, adc rms)')
+    for channel in results:
+        print('%d %d %d %.2f %.2f' % (channel, results[channel][0][-1],
+                                      results[channel][1][-1], results[channel][2][-1],
+                                      results[channel][3][-1]))
     # Restore original global threshold and channel mask
     chip.config.global_threshold = global_threshold_orig
     controller.write_configuration(chip,32)

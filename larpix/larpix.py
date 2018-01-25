@@ -187,6 +187,13 @@ class Configuration(object):
         # These registers each correspond to an entry in an array
         self._trim_registers = list(range(32))
 
+    def __eq__(self, other):
+        '''
+        Returns true if all fields match
+        '''
+        return all([getattr(self, register_name) == getattr(other, register_name)
+                    for register_name in self.register_names])
+
     def __str__(self):
         '''
         Converts configuration to a nicely formatted json string
@@ -196,26 +203,33 @@ class Configuration(object):
         l = ['\"{}\": {}'.format(key,value) for key,value in d.items()]
         return '{\n    ' + ',\n    '.join(l) + '\n}'
 
-    def get_nondefault_registers(self):
+    def compare(self, config):
+        '''
+        Returns a dict containing pairs of each differently valued register
+        Pair order is (self, other)
+        '''
         d = {}
-        default_config = Configuration()
         for register_name in self.register_names:
-            if getattr(self, register_name) != getattr(default_config, register_name):
-                d[register_name] = getattr(self, register_name)
+            if getattr(self, register_name) != getattr(config, register_name):
+                d[register_name] = (getattr(self, register_name), getattr(config,
+                                                                          register_name))
         # Attempt to simplify some of the long values (array values)
         for (name, value) in d.items():
             if (name in (label for _, label in self._complex_array_spec)
                     or name == 'pixel_trim_thresholds'):
                 different_values = []
-                for ch, (val, default_val) in enumerate(zip(value, getattr(
-                    default_config, name))):
-                    if val != default_val:
+                for ch, (val, config_val) in enumerate(zip(value, getattr(
+                    config, name))):
+                    if val != config_val:
                         different_values.append({'channel': ch, 'value': val})
                 if len(different_values) < 5:
                     d[name] = different_values
                 else:
                     pass
         return d
+
+    def get_nondefault_registers(self):
+        return self.compare(Configuration())
 
     @property
     def pixel_trim_thresholds(self):
@@ -990,10 +1004,18 @@ class Controller(object):
         '''
         Read chip configuration from specified chip and return a bool that is True if the
         read chip configuration matches the current configuration stored in chip instance
+        Also returns a dict containing the values of registers that are different 
+        (read register, stored register)
         '''
+        return_value = True
+        different_fields = {}
         if chip_id is None:
-            return all([self.verify_configuration(chip_id=chip.chip_id, io_chain=io_chain)
-                        for chip in self.chips])
+            for chip in self.chips:
+                chip_fields = self.verify_configuration(chip_id=chip.chip_id,
+                                                        io_chain=io_chain)[1]
+                if not chip_fields is {}:
+                    different_fields[chip.chip_id] = chip_fields
+                    return_value = False
         else:
             chip = self.get_chip(chip_id, io_chain)
             self.read_configuration(chip)
@@ -1004,7 +1026,10 @@ class Controller(object):
                     configuration_data[packet.register_address] = packet.register_data
             chip_configuration = Configuration()
             chip_configuration.from_dict_registers(configuration_data)
-            return chip_configuration == chip.config
+            if not chip_configuration == chip.config:
+                return_value = False
+                different_fields = chip_configuration.compare(chip.config)
+        return (return_value, different_fields)
 
     def enable_analog_monitor(self, chip_id, channel, io_chain=0):
         chip = self.get_chip(chip_id, io_chain)
