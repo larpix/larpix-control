@@ -10,6 +10,7 @@ from larpix.larpix import (flush_logger, PacketCollection)
 import math
 import time
 import json
+import os
 
 def find_channel_thresholds(controller=None, board='pcb-1', chip_idx=0,
                             channel_list=range(32),
@@ -584,6 +585,52 @@ def scan_threshold_with_communication(controller=None, board='pcb-1', chip_idx=0
     if close_controller:
         controller.serial_close()
     return results
+
+def test_csa_gain(controller=None, chip_idx=0, board='pcb-5', reset_cycles=4096,
+                  global_threshold=40, pixel_trim_thresholds=[16]*32, pulse_dac_start=1,
+                  pulse_dac_end=60, pulse_dac_step=1, n_pulses=10, adc_burst_length=0,
+                  channel_list=range(32)):
+    '''Pulse channels with increasing pulse sizes'''
+    close_controller = False
+    if controller is None:
+        close_controller = True
+        controller = quickcontroller(board)
+    chip = controller.chips[chip_idx]
+    print('initial config for chip %d' % chip.chip_id)
+    # Save current configuration
+    temp_filename = 'tmp_config.json'
+    chip.config.write(temp_filename,force=True)
+    # Set up chip for testing
+    controller.disable()
+    chip.config.global_threshold = global_threshold
+    for idx, channel in enumerate(channel_list):
+        chip.config.pixel_trim_thresholds[channel] = pixel_trim_thresholds[idx]
+    chip.config.reset_cycles = reset_cycles
+    chip.config.adc_burst_length = adc_burst_length
+    controller.write_configuration(chip, range(33) + range(60,63))
+    controller.enable(chip_id=chip.chip_id, channel_list=channel_list)
+    controller.enable_testpulse(chip_id=chip.chip_id, channel_list=channel_list)
+    # Check noise rate
+    print('checking noise rate:')
+    controller.run(1,'noise rate')
+    print('%d Hz / %d channels' % (len(controller.reads[-1]), len(channel_list)))
+    # Pulse chip
+    for pulse_dac in range(pulse_dac_start, pulse_dac_end + pulse_dac_step, pulse_dac_step):
+        print('DAC: %d, pulsing' % pulse_dac)
+        for _ in range(n_pulses):
+            try:
+                controller.issue_testpulse(chip_id=chip.chip_id, pulse_dac=pulse_dac)
+            except ValueError:
+                print('reset DAC')
+                controller.enable_testpulse(chip_id=chip.chip_id, channel_list=channel_list)
+                controller.run(1,'clear buffer')
+    # Restore previous state
+    controller.disable()
+    chip.config.load(temp_filename)
+    controller.write_configuration(chip)
+    os.remove(temp_filename)
+    if close_controller:
+        controller.serial_close()
 
 def test_leakage_current(controller=None, chip_idx=0, board='pcb-5', reset_cycles=None,
                          global_threshold=125, trim=16, run_time=1, channel_list=range(32)):
