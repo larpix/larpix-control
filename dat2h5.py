@@ -63,6 +63,7 @@ elif args.format.lower() == 'root':
     root_rawTimestamp = np.array([0], dtype=np.uint64)
     root_ADC = np.array([-1], dtype=int)
     root_timestamp = np.array([0], dtype=np.uint64)
+    root_serialblock = np.array([-1], dtype=int)
     fout = ROOT.TFile(outfile, 'recreate')
     ttree = ROOT.TTree('larpixdata', 'LArPixData')
     ttree.Branch('channelid', root_channelid, 'channelid/I')
@@ -74,17 +75,20 @@ elif args.format.lower() == 'root':
     ttree.Branch('raw_timestamp', root_rawTimestamp, 'raw_timestamp/l')
     ttree.Branch('adc', root_ADC, 'adc/I')
     ttree.Branch('timestamp', root_timestamp, 'timestamp/l')
+    ttree.Branch('serialblock', root_serialblock, 'serialblock/I')
 
 geometry = PixelPlane.fromDict(layouts.load('sensor_plane_28_simple.yaml'))
 
 numpy_arrays = []
 index_limit = 10000
-numpy_arrays.append(np.empty((index_limit, 9), dtype=np.int64))
+serialblock = -1 # serial read index
+numpy_arrays.append(np.empty((index_limit, 10), dtype=np.int64))
 current_array = numpy_arrays[-1]
 current_index = 0
 last_timestamp = None
 while True:
     block = loader.next_block()
+    serialblock += 1
     if block is None: break
     if block['block_type'] == 'data' and block['data_type'] == 'read':
         packets = parse(bytes(block['data']))
@@ -95,6 +99,7 @@ while True:
                 current_array[current_index][5] = packet.dataword
                 current_array[current_index][6] = packet.timestamp
                 current_array[current_index][7] = fix_ADC(packet.dataword)
+                current_array[current_index][9] = serialblock
 
                 chipid = packet.chipid
                 channel = packet.channel_id
@@ -112,14 +117,15 @@ while True:
                     (root_channelid[0], root_chipid[0], root_pixelid[0],
                             root_pixelx[0], root_pixely[0],
                             root_rawADC[0], root_rawTimestamp[0],
-                            root_ADC[0], root_timestamp[0]
+                            root_ADC[0], root_timestamp[0],
+                            root_serialblock[0]
                         ) = current_array[current_index]
                     ttree.Fill()
                 else:
                     current_index += 1
                     if current_index == index_limit:
                         current_index = 0
-                        numpy_arrays.append(np.empty((index_limit, 9),
+                        numpy_arrays.append(np.empty((index_limit, 10),
                             dtype=np.int64))
                         current_array = numpy_arrays[-1]
 
@@ -135,5 +141,5 @@ else:
                 dtype=final_array.dtype)
         dset.attrs['descripiton'] = '''
     channel id | chip id | pixel id | int(10*pixel x) | int(10*pixel y) | raw ADC | raw
-    timestamp | 6-bit ADC | full timestamp'''
+    timestamp | 6-bit ADC | full timestamp | serial index'''
 
