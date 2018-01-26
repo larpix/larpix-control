@@ -11,6 +11,7 @@ import os
 import errno
 import re
 import platform
+import math
 
 import larpix.configs as configs
 
@@ -1004,7 +1005,7 @@ class Controller(object):
         '''
         Read chip configuration from specified chip and return a bool that is True if the
         read chip configuration matches the current configuration stored in chip instance
-        Also returns a dict containing the values of registers that are different 
+        Also returns a dict containing the values of registers that are different
         (read register, stored register)
         '''
         return_value = True
@@ -1030,6 +1031,50 @@ class Controller(object):
                 return_value = False
                 different_fields = chip_configuration.compare(chip.config)
         return (return_value, different_fields)
+
+    def read_channel_pedestal(self, chip_id, channel, io_chain=0, run_time=0.1):
+        '''
+        Set channel threshold to 0 and report back on the recieved adcs from channel
+        Returns mean, rms, and packet collection
+        '''
+        chip = self.get_chip(chip_id, io_chain)
+        # Store previous state
+        prev_channel_mask = chip.config.channel_mask
+        prev_global_threshold = chip.config.global_threshold
+        prev_pixel_trim_thresholds = chip.config.pixel_trim_thresholds
+        # Set new configuration
+        chip.config.disable_channels()
+        chip.config.enable_channels([channel])
+        chip.config.global_threshold = 0
+        chip.config.pixel_trim_thresholds = [31]*32
+        chip.config.pixel_trim_thresholds[channel] = 0
+        self.write_configuration(chip, Configuration.channel_mask_addresses +
+                                 Configuration.pixel_trim_threshold_addresses +
+                                 [Configuration.global_threshold_address])
+        self.run(0.1,'clear buffer')
+        # Collect data
+        self.run(run_time,'read_channel_pedestal_c%d_ch%d' % (chip_id, channel))
+        channel_packets = PacketCollection([packet for packet in c.reads[-1]
+                                            if packet.chip_id == chip_id
+                                            and packet.channel_id == channel])
+        channel_packets.parent = c.reads[-1]
+        adcs = [packet.dataword for packet in channel_packets]
+        mean = 0
+        rms = 0
+        if len(adcs) > 0:
+            mean = float(sum(adcs)) / len(adcs)
+            rms = math.sqrt(sum([adc**2 for adc in adcs])/len(adcs) - mean**2)
+        else:
+            print('No packets received from chip %d, channel %d' % (chip_id, channel))
+        # Restore previous state
+        chip.config.channel_mask = prev_channel_mask
+        chip.config.global_threshold = prev_global_threshold
+        chip.config.pixel_trim_thresholds = prev_pixel_trim_thresholds
+        self.write_configuration(chip, Configuration.channel_mask_addresses +
+                                 Configuration.pixel_trim_threshold_addresses +
+                                 [Configuration.global_threshold_address])
+        self.run(0.1,'clear buffer')
+        return (channel_packets, mean, rms)
 
     def enable_analog_monitor(self, chip_id, channel, io_chain=0):
         '''
