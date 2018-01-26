@@ -15,6 +15,7 @@ y. These are stored as int(10*value) as a way to save some precision.
 from __future__ import print_function
 import argparse
 import numpy as np
+from os.path import splitext
 from larpix.dataloader import DataLoader
 from larpix.larpix import Controller
 from larpix.Timestamp import Timestamp
@@ -32,7 +33,7 @@ def fix_ADC(raw_adc):
 
 parser = argparse.ArgumentParser()
 parser.add_argument('infile')
-parser.add_argument('outfile')
+parser.add_argument('outfile', nargs='?', default=None)
 parser.add_argument('-v', '--verbose', action='store_true')
 parser.add_argument('--format', choices=['h5', 'root', 'ROOT'],
         required=True)
@@ -43,6 +44,10 @@ outfile = args.outfile
 verbose = args.verbose
 loader = DataLoader(infile)
 
+if outfile is None:
+    outfile = splitext(infile)[0] + '.' + args.format.lower()
+if args.verbose:
+    print(infile + ' -> ' + outfile)
 if args.format == 'h5':
     import h5py
     use_root = False
