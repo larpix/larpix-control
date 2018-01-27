@@ -1054,10 +1054,10 @@ class Controller(object):
         self.run(0.1,'clear buffer')
         # Collect data
         self.run(run_time,'read_channel_pedestal_c%d_ch%d' % (chip_id, channel))
-        channel_packets = PacketCollection([packet for packet in c.reads[-1]
-                                            if packet.chip_id == chip_id
+        channel_packets = PacketCollection([packet for packet in self.reads[-1]
+                                            if packet.chipid == chip_id
                                             and packet.channel_id == channel])
-        channel_packets.parent = c.reads[-1]
+        channel_packets.parent = self.reads[-1]
         adcs = [packet.dataword for packet in channel_packets]
         mean = 0
         rms = 0

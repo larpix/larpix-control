@@ -629,6 +629,8 @@ def test_csa_gain(controller=None, chip_idx=0, board='pcb-5', reset_cycles=4096,
     chip.config.load(temp_filename)
     controller.write_configuration(chip)
     os.remove(temp_filename)
+    if not controller.verify_configuration(chip_id=chip.chip_id)[0]:
+        print('Warning: Could not restore chip state')
     if close_controller:
         controller.serial_close()
 
