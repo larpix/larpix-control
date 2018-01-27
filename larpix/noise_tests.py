@@ -809,12 +809,14 @@ def noise_test_low_threshold(board='pcb-5', chip_idx=0, run_time=1,
                                packet.channel_id == channel]
         chip.config.disable_channels()
         controller.write_configuration(chip,range(52,56))
-        mean[channel] = float(sum(adc_values[channel]))/len(adc_values[channel])
-        std_dev[channel] = math.sqrt(sum([float(value)**2 for value in adc_values[channel]])/len(adc_values[channel]) - mean[channel]**2)
-        print('%d  %f  %f' % (channel, mean[channel], std_dev[channel]))
+        if len(adc_values[channel]) > 0:
+            mean[channel] = float(sum(adc_values[channel]))/len(adc_values[channel])
+            std_dev[channel] = math.sqrt(sum([float(value)**2 for value in adc_values[channel]])/len(adc_values[channel]) - mean[channel]**2)
+            print('%d  %f  %f' % (channel, mean[channel], std_dev[channel]))
     print('summary (channel, mean, std dev):')
     for channel in channel_list:
-        print('%d  %f  %f' % (channel, mean[channel], std_dev[channel]))
+        if channel in mean.keys():
+            print('%d  %f  %f' % (channel, mean[channel], std_dev[channel]))
 
     flush_logger()
     if close_controller:

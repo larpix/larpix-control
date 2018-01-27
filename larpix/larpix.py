@@ -538,13 +538,13 @@ class Configuration(object):
         if list_of_channels is None:
             list_of_channels = range(Chip.num_channels)
         for channel in list_of_channels:
-            self.csa_testpulse_enable[channel] = 1
+            self.csa_testpulse_enable[channel] = 0
 
     def disable_testpulse(self, list_of_channels=None):
         if list_of_channels is None:
             list_of_channels = range(Chip.num_channels)
         for channel in list_of_channels:
-            self.csa_testpulse_enable[channel] = 0
+            self.csa_testpulse_enable[channel] = 1
 
     def enable_analog_monitor(self, channel):
         self.csa_monitor_select[channel] = 1
@@ -1126,7 +1126,7 @@ class Controller(object):
         '''
         chip = self.get_chip(chip_id, io_chain)
         chip.config.csa_testpulse_dac_amplitude -= pulse_dac
-        self.write_configuration(chip, Configuration.csa_testpulse_dac_amplitude_address,
+        self.write_configuration(chip, [Configuration.csa_testpulse_dac_amplitude_address],
                                  write_read=0.1)
         return
 
