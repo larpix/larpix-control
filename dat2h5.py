@@ -85,7 +85,7 @@ serialblock = -1 # serial read index
 numpy_arrays.append(np.empty((index_limit, 10), dtype=np.int64))
 current_array = numpy_arrays[-1]
 current_index = 0
-last_timestamp = None
+last_timestamp = {}
 while True:
     block = loader.next_block()
     serialblock += 1
@@ -109,10 +109,14 @@ while True:
                 current_array[current_index][4] = int(10*pixel.y)
 
                 cpu_time = block['time']
-                ref_time = last_timestamp
-                last_timestamp = Timestamp.from_packet(packet, cpu_time,
+                ref_time = None
+                if packet.chipid in last_timestamp.keys():
+                    ref_time = last_timestamp[packet.chipid]
+                current_timestamp = Timestamp.from_packet(packet, cpu_time,
                         ref_time)
-                current_array[current_index][8] = last_timestamp.ns
+                current_array[current_index][8] = current_timestamp.ns
+                last_timestamp[packet.chipid] = current_timestamp
+
                 if use_root:
                     (root_channelid[0], root_chipid[0], root_pixelid[0],
                             root_pixelx[0], root_pixely[0],
