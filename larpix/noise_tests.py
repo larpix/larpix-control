@@ -588,7 +588,7 @@ def scan_threshold_with_communication(controller=None, board='pcb-1', chip_idx=0
 
 def test_csa_gain(controller=None, chip_idx=0, board='pcb-5', reset_cycles=4096,
                   global_threshold=40, pixel_trim_thresholds=[16]*32, pulse_dac_start=1,
-                  pulse_dac_end=60, pulse_dac_step=1, n_pulses=10, adc_burst_length=0,
+                  pulse_dac_end=60, pulse_dac_step=5, n_pulses=10, adc_burst_length=0,
                   channel_list=range(32)):
     '''Pulse channels with increasing pulse sizes'''
     close_controller = False
@@ -610,6 +610,7 @@ def test_csa_gain(controller=None, chip_idx=0, board='pcb-5', reset_cycles=4096,
     controller.write_configuration(chip, range(33) + range(60,63))
     controller.enable(chip_id=chip.chip_id, channel_list=channel_list)
     controller.enable_testpulse(chip_id=chip.chip_id, channel_list=channel_list)
+    controller.run(1,'clear buffer')
     # Check noise rate
     print('checking noise rate:')
     controller.run(1,'noise rate')

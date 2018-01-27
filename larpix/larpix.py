@@ -1012,9 +1012,9 @@ class Controller(object):
         different_fields = {}
         if chip_id is None:
             for chip in self.chips:
-                chip_fields = self.verify_configuration(chip_id=chip.chip_id,
+                match, chip_fields = self.verify_configuration(chip_id=chip.chip_id,
                                                         io_chain=io_chain)[1]
-                if not chip_fields is {}:
+                if not match:
                     different_fields[chip.chip_id] = chip_fields
                     return_value = False
         else:
