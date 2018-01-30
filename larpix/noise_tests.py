@@ -589,7 +589,7 @@ def scan_threshold_with_communication(controller=None, board='pcb-1', chip_idx=0
 def test_csa_gain(controller=None, chip_idx=0, board='pcb-5', reset_cycles=4096,
                   global_threshold=40, pixel_trim_thresholds=[16]*32, pulse_dac_start=1,
                   pulse_dac_end=60, pulse_dac_step=5, n_pulses=10, adc_burst_length=0,
-                  channel_list=range(32)):
+                  channel_list=range(32) ):
     '''Pulse channels with increasing pulse sizes'''
     close_controller = False
     if controller is None:
@@ -608,23 +608,34 @@ def test_csa_gain(controller=None, chip_idx=0, board='pcb-5', reset_cycles=4096,
     chip.config.reset_cycles = reset_cycles
     chip.config.adc_burst_length = adc_burst_length
     controller.write_configuration(chip, range(33) + range(60,63))
-    controller.enable(chip_id=chip.chip_id, channel_list=channel_list)
-    controller.enable_testpulse(chip_id=chip.chip_id, channel_list=channel_list)
     controller.run(1,'clear buffer')
+    # Pulse chip,channel
+    #for channel in channel_list:
+    controller.disable(chip_id=chip.chip_id)
+    controller.enable(chip_id=chip.chip_id, channel_list=channel_list)
+    controller.disable_testpulse(chip_id=chip.chip_id)
+    controller.enable_testpulse(chip_id=chip.chip_id, channel_list=channel_list)
     # Check noise rate
-    print('checking noise rate:')
+    print('checking noise rate (c%d):'%(chip.chip_id))
     controller.run(1,'noise rate')
-    print('%d Hz / %d channels' % (len(controller.reads[-1]), len(channel_list)))
-    # Pulse chip
+    print('%d Hz' % len(controller.reads[-1]))
     for pulse_dac in range(pulse_dac_start, pulse_dac_end + pulse_dac_step, pulse_dac_step):
-        print('DAC: %d, pulsing' % pulse_dac)
-        for _ in range(n_pulses):
+        print('DAC pulse: %d, pulsing' % pulse_dac)
+        print('reset DAC')
+        controller.enable_testpulse(chip_id=chip.chip_id, channel_list=channel_list)
+        controller.run(1,'clear buffer')
+        pulses_sent = 0
+        packets_received = 0
+        while pulses_sent < n_pulses:
             try:
                 controller.issue_testpulse(chip_id=chip.chip_id, pulse_dac=pulse_dac)
+                pulses_sent += 1
+                packets_received += len(controller.reads[-1])
             except ValueError:
                 print('reset DAC')
                 controller.enable_testpulse(chip_id=chip.chip_id, channel_list=channel_list)
                 controller.run(1,'clear buffer')
+        print('%d sent / %d received' % (pulses_sent, packets_received))
     # Restore previous state
     controller.disable()
     chip.config.load(temp_filename)
@@ -1171,14 +1182,14 @@ def examine_global_scan(coarse_data, saturation_level=1000):
         saturation_thresh = -1
         saturation_npacket = -1
         # Only process if not already saturated
-        if npackets[0] > saturation_level:
+        if npackets[0] >= saturation_level:
             chan_level_too_high.append(channel_num)
             continue
-        if npackets[-1] <= saturation_level:
+        if npackets[-1] < saturation_level:
             chan_level_too_low.append(channel_num)
             continue
         for (thresh, npacket, adc_width) in zip(thresholds, npackets, adc_widths):
-            if npacket > saturation_level:
+            if npacket >= saturation_level:
                 saturation_thresh = thresh
                 saturation_npacket = npacket
                 saturation_adc_width = adc_width

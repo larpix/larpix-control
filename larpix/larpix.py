@@ -1013,13 +1013,13 @@ class Controller(object):
         if chip_id is None:
             for chip in self.chips:
                 match, chip_fields = self.verify_configuration(chip_id=chip.chip_id,
-                                                        io_chain=io_chain)[1]
+                                                        io_chain=io_chain)
                 if not match:
                     different_fields[chip.chip_id] = chip_fields
                     return_value = False
         else:
             chip = self.get_chip(chip_id, io_chain)
-            self.read_configuration(chip)
+            self.read_configuration(chip,timeout=0.1)
             configuration_data = {}
             for packet in self.reads[-1]:
                 if (packet.packet_type == Packet.CONFIG_READ_PACKET and
@@ -1043,8 +1043,8 @@ class Controller(object):
         prev_global_threshold = chip.config.global_threshold
         prev_pixel_trim_thresholds = chip.config.pixel_trim_thresholds
         # Set new configuration
-        chip.config.disable_channels()
-        chip.config.enable_channels([channel])
+        self.disable(chip_id=chip_id)
+        self.enable(chip_id=chip_id, channel_list=[channel])
         chip.config.global_threshold = 0
         chip.config.pixel_trim_thresholds = [31]*32
         chip.config.pixel_trim_thresholds[channel] = 0
@@ -1054,16 +1054,13 @@ class Controller(object):
         self.run(0.1,'clear buffer')
         # Collect data
         self.run(run_time,'read_channel_pedestal_c%d_ch%d' % (chip_id, channel))
-        channel_packets = PacketCollection([packet for packet in self.reads[-1]
-                                            if packet.chipid == chip_id
-                                            and packet.channel_id == channel])
-        channel_packets.parent = self.reads[-1]
-        adcs = [packet.dataword for packet in channel_packets]
+        self.disable(chip_id=chip_id)
+        adcs = self.reads[-2].extract('adc_counts', chipid=chip_id, channel=channel)
         mean = 0
         rms = 0
         if len(adcs) > 0:
             mean = float(sum(adcs)) / len(adcs)
-            rms = math.sqrt(sum([adc**2 for adc in adcs])/len(adcs) - mean**2)
+            rms = math.sqrt(float(sum([adc**2 for adc in adcs]))/len(adcs) - mean**2)
         else:
             print('No packets received from chip %d, channel %d' % (chip_id, channel))
         # Restore previous state
@@ -1073,8 +1070,8 @@ class Controller(object):
         self.write_configuration(chip, Configuration.channel_mask_addresses +
                                  Configuration.pixel_trim_threshold_addresses +
                                  [Configuration.global_threshold_address])
-        self.run(0.1,'clear buffer')
-        return (channel_packets, mean, rms)
+        self.run(2,'clear buffer')
+        return (adcs, mean, rms)
 
     def enable_analog_monitor(self, chip_id, channel, io_chain=0):
         '''
