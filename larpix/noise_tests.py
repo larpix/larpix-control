@@ -119,19 +119,21 @@ def simultaneous_scan_trim(controller=None, board='pcb-5', chip_idx=0,
         # Collect data
         print('    reading')
         controller.run(run_time,'scan trim')
-        print('    done reading')
+        print('    done reading (read %d)' % len(controller.reads[-1]))
         # Process data
         packets = controller.reads[-1]
         packets_by_channel = {}
         for channel in channel_list:
-            packets_by_channel[channel] = [packet for packet in controller.reads[-1]
-                                           if packet.chipid ==chip.chip_id and 
-                                           packet.channel_id == channel]
+            packets_by_channel[channel] = []
+        for packet in controller.reads[-1]:
+            if packet.chipid == chip.chip_id:
+                packets_by_channel[packet.channel_id] += [packet]
 
-        if any([len(packets_by_channel[channel]) for channel in channel_list])>max_level:
+        if any([len(packets_by_channel[channel])>=max_level for channel in channel_list]):
             # turn off noisy channels
             for channel in channel_list:
-                if len(packets_by_channel[channel])>max_level:
+                if len(packets_by_channel[channel])>=max_level:
+                    print('  disabling ch%d' % channel)
                     chip.config.disable_channels([channel])
                     controller.write_configuration(chip,range(52,56),write_read=1)
                     del controller.reads[-1]
@@ -150,11 +152,16 @@ def simultaneous_scan_trim(controller=None, board='pcb-5', chip_idx=0,
             
         if all([scan_completed[channel] for channel in scan_completed]):
             break
+    print('channel summary (channel, trim, npackets):')
     for channel in channel_list:
         results[channel] = {'trims':channel_trims[channel],
                             'npackets':channel_npackets[channel],
                             'complete':scan_completed[channel]}
-
+        if len(results[channel]['npackets'])>0:
+            print('%d %d %d' % (channel, results[channel]['trims'][-1],
+                                results[channel]['npackets'][-1]))
+        else:
+            print('%d %d 0' % (channel, results[channel]['trims'][-1]))
 
     # Restore original global threshold and channel mask
     chip.config.pixel_trim_thresholds = pixel_trim_thresholds_orig
@@ -388,6 +395,128 @@ def scan_trim(controller=None, board='pcb-5', chip_idx=0, channel_list=range(32)
     controller.write_configuration(chip,[52,53,54,55])
     if close_controller:
         controller.serial_close()
+    return results
+
+def quick_scan_threshold(controller=None, board='pcb-5', chip_idx=0,
+                         channel_list=range(32), threshold_min_coarse=26,
+                         threshold_max_coarse=37, threshold_step_coarse=1,
+                         saturation_level=1000, run_time=0.1, reset_cycles=4092):
+    '''Enable all channels and scan thresholds until one channels reaches saturation
+    If channels saturated to start, disable noisy channels then scan
+    '''
+    # Create controller and initialize chips to appropriate state
+    close_controller = False
+    if controller is None:
+        close_controller = True
+        controller = quickcontroller(board)
+        disable_chips(controller)
+        print('created controller')
+    chip = controller.chips[chip_idx]
+    global_threshold_orig = chip.config.global_threshold
+    channel_mask_orig = chip.config.channel_mask[:]
+    print('testing chip',chip.chip_id)
+    controller.disable(chip_id=chip.chip_id)
+    chip.config.global_threshold = threshold_max_coarse
+    chip.config.pixel_trim_thresholds = [31]*32
+    chip.config.reset_cycles = reset_cycles
+    chip.config.enable_channels(channel_list)
+    registers_to_write = range(33) + [52,53,54,55] + [60,61,62]
+    controller.write_configuration(chip, registers_to_write)
+    print('clear buffer')
+    controller.run(2,'clear buffer')
+    # Check for noisy channels
+    print('noise check')
+    controller.run(run_time,'noise')
+    packets_by_channel = {}
+    for channel in channel_list:
+        packets_by_channel[channel] = 0
+    for packet in controller.reads[-1]:
+        if packet.chipid == chip.chip_id:
+            packets_by_channel[packet.channel_id] += 1
+    noisy_channels = [channel for channel in packets_by_channel
+                      if packets_by_channel[channel] >= saturation_level]
+    print('channels at saturation: %s' % str(noisy_channels))
+    print('disabling')
+    chip.config.disable_channels(noisy_channels)
+    controller.write_configuration(chip, [52,53,54,55])
+    controller.run(1,'clear buffer')
+    print('proceeding with scan')
+    results = {}
+    for channel in channel_list:
+        results[channel] = {
+            'threshold': [],
+            'npackets': [],
+            'adc_mean': [],
+            'adc_rms': []
+            }
+    break_flag = False
+    final_threshold = threshold_max_coarse
+    for threshold in range(threshold_max_coarse, threshold_min_coarse-threshold_step_coarse,
+                           -threshold_step_coarse):
+        print('threshold %d' % threshold)
+        final_threshold = threshold
+        chip.config.global_threshold = threshold
+        controller.write_configuration(chip, 32)
+        print('clear buffer (quick)')
+        controller.run(0.1,'clear buffer')
+        del controller.reads[-1]
+        #if threshold == thresholds[0]:
+        if len(controller.reads) > 0 and len(controller.reads[-1]) > 0:
+        #if True:
+            # Flush buffer for first cycle
+            print('clear buffer (slow)')
+            time.sleep(0.2)
+            controller.run(2,'clear buffer')
+            time.sleep(0.2)
+        controller.reads = []
+        # Collect data
+        print('reading')
+        controller.run(run_time,'scan threshold')
+        print('done reading')
+        # Process data
+        packets = controller.reads[-1]
+        adc_mean = 0
+        adc_rms = 0
+        if len(packets)>0:
+            print('processing packets: %d' % len(packets))
+            adcs_by_channel = {}
+            adc_mean_by_channel = {}
+            adc_rms_by_channel = {}
+            for packet in controller.reads[-1]:
+                if packet.chipid != chip.chip_id:
+                    continue
+                if not packet.channel_id in adcs_by_channel:
+                    adcs_by_channel[packet.channel_id] = []
+                adcs_by_channel[packet.channel_id] += [packet.dataword]
+            for channel in channel_list:
+                if channel in adcs_by_channel and len(adcs_by_channel[channel]) > 0:
+                    adc_mean_by_channel[channel] = sum(adcs_by_channel[channel])/float(len(
+                            adcs_by_channel[channel]))
+                    adc_rms_by_channel[channel] = (sum([abs(adc-adc_mean_by_channel[channel]) 
+                                                        for adc in adcs_by_channel[channel]])
+                                                   / float(len(adcs_by_channel[channel])))
+                    results[channel]['threshold'] += [threshold]
+                    results[channel]['npackets'] += [len(adcs_by_channel[channel])]
+                    results[channel]['adc_mean'] += [adc_mean_by_channel[channel]]
+                    results[channel]['adc_rms'] += [adc_rms_by_channel[channel]]
+                    print('%d %d %0.2f %.2f' % (channel, len(adcs_by_channel[channel]),
+                                                adc_mean_by_channel[channel],
+                                                adc_rms_by_channel[channel]))
+                    if len(adcs_by_channel[channel]) >= saturation_level:
+                        # Stop scanning if saturation level is hit.
+                        break_flag = True
+        if break_flag:
+            break
+    # Restore original global threshold and channel mask
+    chip.config.global_threshold = global_threshold_orig
+    chip.config.pixel_trim_thresholds = [16]*32
+    controller.write_configuration(chip,32)
+    controller.write_configuration(chip,range(32))
+    chip.config.channel_mask = channel_mask_orig
+    controller.write_configuration(chip,[52,53,54,55])
+    if close_controller:
+        controller.serial_close()
+    print('saturation threshold: %d' % final_threshold)
     return results
 
 def scan_threshold(controller=None, board='pcb-5', chip_idx=0,
