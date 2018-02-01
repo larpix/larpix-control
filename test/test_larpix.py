@@ -1543,30 +1543,34 @@ def test_controller_format_bytestream():
 
 def test_controller_read_configuration(capfd):
     controller = Controller(None)
-    controller._test_mode = True
     controller._serial = FakeSerialPort
-    chip = Chip(2, 4)
-    controller.read_configuration(chip)
+    chip = Chip(2, 0)
+    controller.chips.append(chip)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
-    expected = ' '.join(map(bytes2str, [controller.format_UART(chip, conf_data_i) for
-            conf_data_i in conf_data]))
+    expected_bytes = b''.join(controller.format_UART(chip, conf_data_i) for
+            conf_data_i in conf_data)
+    expected = ' '.join(map(bytes2str, [controller.format_UART(chip,
+        conf_data_i) for conf_data_i in conf_data]))
+    FakeSerialPort.data_to_mock_read = expected_bytes
+    controller.read_configuration(chip)
     result, err = capfd.readouterr()
     assert result == expected
 
 def test_controller_read_configuration_reg(capfd):
     controller = Controller(None)
-    controller._test_mode = True
     controller._serial = FakeSerialPort
-    chip = Chip(2, 4)
-    controller.read_configuration(chip, 0)
+    chip = Chip(2, 0)
+    controller.chips.append(chip)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)[0]
+    expected_bytes = controller.format_UART(chip, conf_data)
     expected = bytes2str(controller.format_UART(chip, conf_data))
+    FakeSerialPort.data_to_mock_read = expected_bytes
+    controller.read_configuration(chip, 0)
     result, err = capfd.readouterr()
     assert result == expected
 
 def test_controller_write_configuration(capfd):
     controller = Controller(None)
-    controller._test_mode = True
     controller._serial = FakeSerialPort
     chip = Chip(2, 4)
     controller.write_configuration(chip)
@@ -1692,7 +1696,7 @@ def test_controller_parse_input():
     fpackets = [controller.format_UART(chip, p) for p in packets]
     bytestream = b''.join(controller.format_bytestream(fpackets))
     result = controller.parse_input(bytestream)
-    expected = packets
+    expected = (packets, [])
     assert result == expected
 
 def test_controller_parse_input_dropped_data_byte():
@@ -1706,7 +1710,8 @@ def test_controller_parse_input_dropped_data_byte():
     # Drop a byte in the first packet
     bytestream_faulty = bytestream[:5] + bytestream[6:]
     result = controller.parse_input(bytestream_faulty)
-    expected = packets[1:]
+    skipped = [(slice(0, 9), bytestream_faulty[0:9])]
+    expected = (packets[1:], skipped)
     assert result == expected
 
 def test_controller_parse_input_dropped_start_byte():
@@ -1718,8 +1723,9 @@ def test_controller_parse_input_dropped_start_byte():
     bytestream = b''.join(controller.format_bytestream(fpackets))
     # Drop the first start byte
     bytestream_faulty = bytestream[1:]
+    skipped = [(slice(0, 9), bytestream_faulty[0:9])]
     result = controller.parse_input(bytestream_faulty)
-    expected = packets[1:]
+    expected = (packets[1:], skipped)
     assert result == expected
 
 def test_controller_parse_input_dropped_stop_byte():
@@ -1731,8 +1737,9 @@ def test_controller_parse_input_dropped_stop_byte():
     bytestream = b''.join(controller.format_bytestream(fpackets))
     # Drop the first stop byte
     bytestream_faulty = bytestream[:9] + bytestream[10:]
+    skipped = [(slice(0, 9), bytestream_faulty[0:9])]
     result = controller.parse_input(bytestream_faulty)
-    expected = packets[1:]
+    expected = (packets[1:], skipped)
     assert result == expected
 
 def test_controller_parse_input_dropped_stopstart_bytes():
@@ -1744,8 +1751,9 @@ def test_controller_parse_input_dropped_stopstart_bytes():
     bytestream = b''.join(controller.format_bytestream(fpackets))
     # Drop the first stop byte
     bytestream_faulty = bytestream[:9] + bytestream[11:]
+    skipped = [(slice(0, 18), bytestream_faulty[:18])]
     result = controller.parse_input(bytestream_faulty)
-    expected = packets[2:]
+    expected = (packets[2:], skipped)
     assert result == expected
 
 def test_packetcollection_getitem_int():
