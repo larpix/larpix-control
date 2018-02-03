@@ -1117,12 +1117,14 @@ class Controller(object):
                                  [Configuration.csa_testpulse_dac_amplitude_address])
         return
 
-    def issue_testpulse(self, chip_id, pulse_dac, io_chain=0):
+    def issue_testpulse(self, chip_id, pulse_dac, min_dac=0, io_chain=0):
         '''
         Reduce the testpulser dac by pulse_dac and write_read to chip for 0.1s
         '''
         chip = self.get_chip(chip_id, io_chain)
         chip.config.csa_testpulse_dac_amplitude -= pulse_dac
+        if chip.config.csa_testpulse_dac_amplitude < min_dac:
+            raise ValueError('Minimum DAC exceeded')
         self.write_configuration(chip, [Configuration.csa_testpulse_dac_amplitude_address],
                                  write_read=0.1)
         return

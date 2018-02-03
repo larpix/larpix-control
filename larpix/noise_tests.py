@@ -54,8 +54,8 @@ def find_channel_thresholds(controller=None, board='pcb-1', chip_idx=0,
             fine_scan_results)
 
 def simultaneous_scan_trim(controller=None, board='pcb-5', chip_idx=0,
-                           channel_list=range(32), 
-                           trim_min=0, trim_max=31, trim_step=1, saturation_level=1000, 
+                           channel_list=range(32),
+                           trim_min=0, trim_max=31, trim_step=1, saturation_level=1000,
                            max_level=1200, reset_cycles = 4096,
                            global_threshold=30, run_time=0.1):
     # Create controller and initialize chips to appropriate state
@@ -149,7 +149,7 @@ def simultaneous_scan_trim(controller=None, board='pcb-5', chip_idx=0,
                                          scan_completed[channel]))
             if len(packets_by_channel[channel])>=saturation_level:
                 scan_completed[channel] = True
-            
+
         if all([scan_completed[channel] for channel in scan_completed]):
             break
     print('channel summary (channel, trim, npackets):')
@@ -174,7 +174,7 @@ def simultaneous_scan_trim(controller=None, board='pcb-5', chip_idx=0,
     return results
 
 def simultaneous_scan_trim_with_communication(controller=None, board='pcb-5', chip_idx=0,
-                                              channel_list=range(32), 
+                                              channel_list=range(32),
                                               trim_min=0, trim_max=31, trim_step=1,
                                               saturation_level=10, reset_cycles = 4096,
                                               max_level=100, writes=100,
@@ -275,7 +275,7 @@ def simultaneous_scan_trim_with_communication(controller=None, board='pcb-5', ch
                                          scan_completed[channel]))
             if len(packets_by_channel[channel])>=saturation_level:
                 scan_completed[channel] = True
-            
+
         if all([scan_completed[channel] for channel in scan_completed]):
             break
     for channel in channel_list:
@@ -294,8 +294,8 @@ def simultaneous_scan_trim_with_communication(controller=None, board='pcb-5', ch
         controller.serial_close()
     return results
 
-def scan_trim(controller=None, board='pcb-5', chip_idx=0, channel_list=range(32), 
-              trim_min=0, trim_max=31, trim_step=1, saturation_level=1000, 
+def scan_trim(controller=None, board='pcb-5', chip_idx=0, channel_list=range(32),
+              trim_min=0, trim_max=31, trim_step=1, saturation_level=1000,
               global_threshold=30, run_time=0.1, reset_cycles=4096):
     # Create controller and initialize chips to appropriate state
     close_controller = False
@@ -364,7 +364,7 @@ def scan_trim(controller=None, board='pcb-5', chip_idx=0, channel_list=range(32)
             adc_rms = 0
             if len(packets)>0:
                 print('    processing packets: %d' % len(packets))
-                adcs = [p.dataword for p in packets 
+                adcs = [p.dataword for p in packets
                         if p.chipid == chip.chip_id and p.channel_id == channel]
                 if len(adcs) > 0:
                     adc_mean = sum(adcs)/float(len(adcs))
@@ -492,7 +492,7 @@ def quick_scan_threshold(controller=None, board='pcb-5', chip_idx=0,
                 if channel in adcs_by_channel and len(adcs_by_channel[channel]) > 0:
                     adc_mean_by_channel[channel] = sum(adcs_by_channel[channel])/float(len(
                             adcs_by_channel[channel]))
-                    adc_rms_by_channel[channel] = (sum([abs(adc-adc_mean_by_channel[channel]) 
+                    adc_rms_by_channel[channel] = (sum([abs(adc-adc_mean_by_channel[channel])
                                                         for adc in adcs_by_channel[channel]])
                                                    / float(len(adcs_by_channel[channel])))
                     results[channel]['threshold'] += [threshold]
@@ -587,7 +587,7 @@ def scan_threshold(controller=None, board='pcb-5', chip_idx=0,
             adc_rms = 0
             if len(packets)>0:
                 print('    processing packets: %d' % len(packets))
-                adcs = [p.dataword for p in packets 
+                adcs = [p.dataword for p in packets
                         if p.chipid == chip.chip_id and p.channel_id == channel]
                 if len(adcs) > 0:
                     adc_mean = sum(adcs)/float(len(adcs))
@@ -685,7 +685,7 @@ def scan_threshold_with_communication(controller=None, board='pcb-1', chip_idx=0
             adc_rms = 0
             if len(packets)>0:
                 print('    processing packets: %d' % len(packets))
-                adcs = [p.dataword for p in packets 
+                adcs = [p.dataword for p in packets
                         if p.chipid == chip.chip_id and p.channel_id == channel]
                 if len(adcs) > 0:
                     adc_mean = sum(adcs)/float(len(adcs))
@@ -718,32 +718,39 @@ def scan_threshold_with_communication(controller=None, board='pcb-1', chip_idx=0
 def test_csa_gain(controller=None, chip_idx=0, board='pcb-5', reset_cycles=4096,
                   global_threshold=40, pixel_trim_thresholds=[16]*32, pulse_dac_start=1,
                   pulse_dac_end=60, pulse_dac_step=5, n_pulses=10, adc_burst_length=0,
-                  channel_list=range(32) ):
+                  channel_list=range(32), dac_max=255, dac_min=0, csa_recovery_time=0.1,
+                  sample_cycles=255):
     '''Pulse channels with increasing pulse sizes'''
     close_controller = False
     if controller is None:
         close_controller = True
         controller = quickcontroller(board)
+        controller.disable()
     chip = controller.chips[chip_idx]
     print('initial config for chip %d' % chip.chip_id)
     # Save current configuration
     temp_filename = 'tmp_config.json'
     chip.config.write(temp_filename,force=True)
     # Set up chip for testing
-    controller.disable()
+    controller.disable(chip_id=chip.chip_id)
     chip.config.global_threshold = global_threshold
     for idx, channel in enumerate(channel_list):
         chip.config.pixel_trim_thresholds[channel] = pixel_trim_thresholds[idx]
     chip.config.reset_cycles = reset_cycles
     chip.config.adc_burst_length = adc_burst_length
-    controller.write_configuration(chip, range(33) + range(60,63))
+    chip.config.sample_cycles = sample_cycles
+    controller.write_configuration(chip, range(33) + [48] + range(60,63))
     controller.run(1,'clear buffer')
+    if not controller.verify_configuration(chip_id=chip.chip_id)[0]:
+        print('Warning: chip config does not match readback')
     # Pulse chip,channel
     #for channel in channel_list:
     controller.disable(chip_id=chip.chip_id)
     controller.enable(chip_id=chip.chip_id, channel_list=channel_list)
     controller.disable_testpulse(chip_id=chip.chip_id)
-    controller.enable_testpulse(chip_id=chip.chip_id, channel_list=channel_list)
+    controller.enable_testpulse(chip_id=chip.chip_id, channel_list=channel_list,
+                                start_dac=dac_max)
+    time.sleep(csa_recovery_time)
     # Check noise rate
     print('checking noise rate (c%d):'%(chip.chip_id))
     controller.run(1,'noise rate')
@@ -751,22 +758,111 @@ def test_csa_gain(controller=None, chip_idx=0, board='pcb-5', reset_cycles=4096,
     for pulse_dac in range(pulse_dac_start, pulse_dac_end + pulse_dac_step, pulse_dac_step):
         print('DAC pulse: %d, pulsing' % pulse_dac)
         print('reset DAC')
-        controller.enable_testpulse(chip_id=chip.chip_id, channel_list=channel_list)
+        controller.enable_testpulse(chip_id=chip.chip_id, channel_list=channel_list,
+                                    start_dac=dac_max)
+        time.sleep(csa_recovery_time)
         controller.run(1,'clear buffer')
+        reset_attempts = 0
         pulses_sent = 0
         packets_received = 0
-        while pulses_sent < n_pulses:
+        while pulses_sent < n_pulses and reset_attempts < 2:
             try:
-                controller.issue_testpulse(chip_id=chip.chip_id, pulse_dac=pulse_dac)
+                controller.issue_testpulse(chip_id=chip.chip_id, pulse_dac=pulse_dac,
+                                           min_dac=dac_min)
+                time.sleep(csa_recovery_time)
+                reset_attempts = 0
                 pulses_sent += 1
                 packets_received += len(controller.reads[-1])
             except ValueError:
                 print('reset DAC')
-                controller.enable_testpulse(chip_id=chip.chip_id, channel_list=channel_list)
+                controller.enable_testpulse(chip_id=chip.chip_id, channel_list=channel_list,
+                                            start_dac=dac_max)
+                time.sleep(csa_recovery_time)
                 controller.run(1,'clear buffer')
+                reset_attempts += 1
+        if reset_attempts >= 2:
+            print('testpulse reset failed - check pulse size and DAC min/max')
         print('%d sent / %d received' % (pulses_sent, packets_received))
     # Restore previous state
-    controller.disable()
+    controller.disable(chip_id=chip.chip_id)
+    chip.config.load(temp_filename)
+    controller.write_configuration(chip)
+    os.remove(temp_filename)
+    if not controller.verify_configuration(chip_id=chip.chip_id)[0]:
+        print('Warning: Could not restore chip state')
+    if close_controller:
+        controller.serial_close()
+
+def test_testpulse_linearity(controller=None, chip_idx=0, board='pcb-5', reset_cycles=4096,
+                             global_threshold=40, pixel_trim_thresholds=[16]*32,
+                             pulse_dac=50, dac_max=255, dac_min=0, dac_step=1,
+                             n_pulses=1, adc_burst_length=0, channel_list=range(32),
+                             csa_recovery_time=0.1, sample_cycles=255):
+    '''Pulse channels with same pulse size changing the DAC step values'''
+    close_controller = False
+    if controller is None:
+        close_controller = True
+        controller = quickcontroller(board)
+        controller.disable()
+    chip = controller.chips[chip_idx]
+    print('initial config for chip %d' % chip.chip_id)
+    # Save current configuration
+    temp_filename = 'tmp_config.json'
+    chip.config.write(temp_filename,force=True)
+    # Set up chip for testing
+    controller.disable(chip_id=chip.chip_id)
+    chip.config.global_threshold = global_threshold
+    for idx, channel in enumerate(channel_list):
+        chip.config.pixel_trim_thresholds[channel] = pixel_trim_thresholds[idx]
+    chip.config.reset_cycles = reset_cycles
+    chip.config.adc_burst_length = adc_burst_length
+    chip.config.sample_cycles = sample_cycles
+    controller.write_configuration(chip, range(33) + [48] + range(60,63))
+    controller.run(1,'clear buffer')
+    if not controller.verify_configuration(chip_id=chip.chip_id)[0]:
+        print('Warning: chip config does not match readback')
+    # Pulse chip,channel
+    #for channel in channel_list:
+    controller.disable(chip_id=chip.chip_id)
+    controller.enable(chip_id=chip.chip_id, channel_list=channel_list)
+    controller.disable_testpulse(chip_id=chip.chip_id)
+    controller.enable_testpulse(chip_id=chip.chip_id, channel_list=channel_list,
+                                start_dac=dac_max)
+    time.sleep(csa_recovery_time)
+    # Check noise rate
+    print('checking noise rate (c%d):'%(chip.chip_id))
+    controller.run(1,'noise rate')
+    print('%d Hz' % len(controller.reads[-1]))
+    for dac_value in range(dac_max, dac_min - 1, -dac_step):
+        print('DAC pulse: %d - %d, pulsing' % (dac_value, dac_value-pulse_dac))
+        print('reset DAC')
+        controller.enable_testpulse(chip_id=chip.chip_id, channel_list=channel_list,
+                                    start_dac=dac_value)
+        time.sleep(csa_recovery_time)
+        controller.run(1,'clear buffer')
+        reset_attempts = 0
+        pulses_sent = 0
+        packets_received = 0
+        while pulses_sent < n_pulses and reset_attempts < 2:
+            try:
+                controller.issue_testpulse(chip_id=chip.chip_id, pulse_dac=pulse_dac,
+                                           min_dac=dac_value-pulse_dac)
+                time.sleep(csa_recovery_time)
+                reset_attempts = 0
+                pulses_sent += 1
+                packets_received += len(controller.reads[-1])
+            except ValueError:
+                print('reset DAC')
+                controller.enable_testpulse(chip_id=chip.chip_id, channel_list=channel_list,
+                                            start_dac=dac_value)
+                time.sleep(csa_recovery_time)
+                controller.run(1,'clear buffer')
+                reset_attempts += 1
+        if reset_attempts >= 2:
+            print('testpulse reset failed - check pulse size and DAC min/max')
+        print('%d sent / %d received' % (pulses_sent, packets_received))
+    # Restore previous state
+    controller.disable(chip_id=chip.chip_id)
     chip.config.load(temp_filename)
     controller.write_configuration(chip)
     os.remove(temp_filename)
@@ -782,7 +878,7 @@ def test_leakage_current(controller=None, chip_idx=0, board='pcb-5', reset_cycle
     if controller is None:
         close_controller = True
         controller = quickcontroller(board)
-    
+
     chip = controller.chips[chip_idx]
     print('initial configuration for chip %d' % chip.chip_id)
     chip.config.global_threshold = global_threshold
@@ -822,7 +918,7 @@ def test_leakage_current(controller=None, chip_idx=0, board='pcb-5', reset_cycle
         return_data['rate'] += [float(len(read))/run_time]
         print('channel %2d: %.2f' % (channel, return_data['rate'][-1]))
     mean_rate = sum(return_data['rate'])/len(return_data['rate'])
-    rms_rate = sum(abs(rate - mean_rate) 
+    rms_rate = sum(abs(rate - mean_rate)
                    for rate in return_data['rate'])/len(return_data['rate'])
     print('chip mean: %.3f, rms: %.3f' % (mean_rate, rms_rate))
     if close_controller:
@@ -899,7 +995,7 @@ def noise_test_external_pulser(board='pcb-5', chip_idx=0, run_time=10,
         controller.run(run_time,'collect data')
         adc_values[channel] = [packet.dataword for packet in controller.reads[-1]
                                if packet.packet_type == packet.DATA_PACKET and
-                               packet.chipid == chip.chip_id and 
+                               packet.chipid == chip.chip_id and
                                packet.channel_id == channel]
         chip.config.disable_channels()
         chip.config.disable_external_trigger()
@@ -946,7 +1042,7 @@ def noise_test_low_threshold(board='pcb-5', chip_idx=0, run_time=1,
         controller.run(run_time,'collect data')
         adc_values[channel] = [packet.dataword for packet in controller.reads[-1]
                                if packet.packet_type == packet.DATA_PACKET and
-                               packet.chipid == chip.chip_id and 
+                               packet.chipid == chip.chip_id and
                                packet.channel_id == channel]
         chip.config.disable_channels()
         controller.write_configuration(chip,range(52,56))
@@ -1104,7 +1200,7 @@ def scan_threshold_with_pulse(controller=None, board='pcb-1', chip_idx=0,
                 result = pulse_chip(controller, chip, dac_level)
                 pulses_issued += 1
                 triggers_received += len(result)
-            print('  pulses issued: %d, triggers received: %d' % (pulses_issued, 
+            print('  pulses issued: %d, triggers received: %d' % (pulses_issued,
                                                                   triggers_received))
             efficiency = float(triggers_received)/pulses_issued
             thresholds.append(threshold)
@@ -1114,8 +1210,8 @@ def scan_threshold_with_pulse(controller=None, board='pcb-1', chip_idx=0,
             else:
                 if efficiency > max_acceptable_efficiency:
                     print('outside of max acceptable_efficiency')
-                print('%d %d %d %d %.2f' % (channel, threshold, pulses_issued, 
-                                            triggers_received, 
+                print('%d %d %d %d %.2f' % (channel, threshold, pulses_issued,
+                                            triggers_received,
                                             float(triggers_received)/pulses_issued))
                 results[channel] = {'thresholds' : thresholds,
                                     'efficiencies': efficiencies}
@@ -1193,7 +1289,7 @@ def scan_trim_with_pulse(controller=None, board='pcb-1', chip_idx=0,
                 result = pulse_chip(controller, chip, dac_level)
                 pulses_issued += 1
                 triggers_received += len(result)
-            print('  pulses issued: %d, triggers received: %d' % (pulses_issued, 
+            print('  pulses issued: %d, triggers received: %d' % (pulses_issued,
                                                                   triggers_received))
             efficiency = float(triggers_received)/pulses_issued
             trims.append(trim)
@@ -1203,8 +1299,8 @@ def scan_trim_with_pulse(controller=None, board='pcb-1', chip_idx=0,
             else:
                 if efficiency > max_acceptable_efficiency:
                     print('outside of max acceptable_efficiency')
-                print('%d %d %d %d %.2f' % (channel, trim, pulses_issued, 
-                                            triggers_received, 
+                print('%d %d %d %d %.2f' % (channel, trim, pulses_issued,
+                                            triggers_received,
                                             float(triggers_received)/pulses_issued))
                 results[channel] = {'trims' : trims,
                                     'efficiencies': efficiencies}
@@ -1253,7 +1349,7 @@ def test_min_signal_amplitude(controller=None, board='pcb-1', chip_idx=0,
         controller.write_configuration(chip,[32,47]) # global threshold / xtrig
         for dac_amp in range(min_dac_amp, max_dac_amp+1, dac_step):
             # Step over a range of dac_amplitudes
-            print('  pulse amp: %d' % dac_amp) 
+            print('  pulse amp: %d' % dac_amp)
             dac_level = max_dac_amp
             controller.run(0.1, 'clear buffer')
             del controller.reads[-1]
@@ -1273,7 +1369,7 @@ def test_min_signal_amplitude(controller=None, board='pcb-1', chip_idx=0,
                 result = pulse_chip(controller, chip, dac_level)
                 pulses_issued += 1
                 triggers_received += len(result)
-            print('pulses issued: %d, triggers received: %d' % (pulses_issued, 
+            print('pulses issued: %d, triggers received: %d' % (pulses_issued,
                                                                 triggers_received))
 
     if close_controller:
