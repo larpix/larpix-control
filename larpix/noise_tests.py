@@ -12,6 +12,44 @@ import time
 import json
 import os
 
+def check_chip_status(controller, chip_idx=0, channel_ids = range(32),
+                      global_thresh=60, pulse_dac=20):
+    '''Quick check of system status using internal pulser on each channel'''
+    # Get chip under test
+    chip = controller.chips[chip_idx]
+    # First, ensure all channels disabled
+    chip.config.channel_mask = [1]*32 # Disable all channels
+    controller.write_configuration(chip, range(52,56))
+    # Ensure all pixel trims at max
+    chip.config.pixel_trim_thresholds = [31]*32
+    controller.write_configuration(chip, range(32))
+    # Set moderate global threshold
+    chip.config.global_threshold = global_thresh
+    controller.write_configuration(chip, 32)
+    # Clear buffer
+    controller.run(0.2, 'clear buffer')
+    # Check each channel
+    for chanid in channel_ids:
+        print ''
+        print 'Checking chip - channel: %d - %d' % (chip_idx, chanid)
+        chip.config.channel_mask[chanid] = 0 # Enable channel
+        controller.write_configuration(chip, range(52,56))
+        # Read to check that noise level is managable
+        controller.run(0.2, 'clear buffer')
+        controller.run(0.2, 'noise check chan = %d' % chanid)
+        n_noise_packets = len(controller.reads[-1])
+        # Pulse check
+        pulse_channel(controller, chip_idx=chip_idx, pulse_channel=chanid,
+                      n_pulses=2, pulse_dac=pulse_dac)
+        n_pulse_packets = [len(controller.reads[-2]), len(controller.reads[-1])]
+        print ' Noise packets: %d' % (n_noise_packets)
+        print ' Pulse packets: %r' % (n_pulse_packets)
+        # Be sure to disable after test
+        chip.config.channel_mask = [1]*32 # Disable all channels
+        controller.write_configuration(chip, range(52,56))
+    return
+
+
 def find_channel_thresholds(controller=None, board='pcb-1', chip_idx=0,
                             channel_list=range(32),
                             saturation_level=1000, threshold_min_coarse=20,
@@ -527,7 +565,7 @@ def quick_scan_threshold(controller=None, board='pcb-5', chip_idx=0,
     print('summary (channel, threshold, npackets, adc mean, adc rms):')
     for channel in channel_list:
         if len(results[channel]['threshold']) > 0:
-            print('%d %d %d %.2f %.2f' % (channel, results[channel]['threshold'][-1], 
+            print('%d %d %d %.2f %.2f' % (channel, results[channel]['threshold'][-1],
                                           results[channel]['npackets'][-1],
                                           results[channel]['adc_mean'][-1],
                                           results[channel]['adc_rms'][-1]))
