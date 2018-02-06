@@ -401,8 +401,9 @@ def quick_scan_threshold(controller=None, board='pcb-5', chip_idx=0,
                          channel_list=range(32), threshold_min_coarse=26,
                          threshold_max_coarse=37, threshold_step_coarse=1,
                          saturation_level=1000, run_time=0.1, reset_cycles=4092):
-    '''Enable all channels and scan thresholds until one channels reaches saturation
-    If channels saturated to start, disable noisy channels then scan
+    '''
+    Enable all channels and scan thresholds until one channels reaches saturation
+    Disable that channel and continue
     '''
     # Create controller and initialize chips to appropriate state
     close_controller = False
@@ -450,16 +451,14 @@ def quick_scan_threshold(controller=None, board='pcb-5', chip_idx=0,
             'adc_rms': []
             }
     break_flag = False
-    final_threshold = threshold_max_coarse
-    for threshold in range(threshold_max_coarse, threshold_min_coarse-threshold_step_coarse,
-                           -threshold_step_coarse):
+    final_threshold = {}
+    threshold = threshold_max_coarse
+    while threshold >= threshold_min_coarse:
         print('threshold %d' % threshold)
-        final_threshold = threshold
         chip.config.global_threshold = threshold
         controller.write_configuration(chip, 32)
         print('clear buffer (quick)')
         controller.run(0.1,'clear buffer')
-        del controller.reads[-1]
         #if threshold == thresholds[0]:
         if len(controller.reads) > 0 and len(controller.reads[-1]) > 0:
         #if True:
@@ -503,10 +502,18 @@ def quick_scan_threshold(controller=None, board='pcb-5', chip_idx=0,
                                                 adc_mean_by_channel[channel],
                                                 adc_rms_by_channel[channel]))
                     if len(adcs_by_channel[channel]) >= saturation_level:
-                        # Stop scanning if saturation level is hit.
-                        break_flag = True
-        if break_flag:
-            break
+                        # Disable channel if saturation_level is hit
+                        final_threshold[channel] = threshold
+                        controller.disable(chip_id=chip.chip_id, channel=channel)
+                        #break_flag = True
+            # If no channels reached saturation, continue scan
+            if not any([len(adcs_by_channel[channel]) >= saturation_level
+                        for channel in adcs_by_channel.keys()]):
+                threshold -= threshold_step_coarse
+        else:
+            threshold -= threshold_step_coarse
+        #if break_flag:
+        #    break
     # Restore original global threshold and channel mask
     chip.config.global_threshold = global_threshold_orig
     chip.config.pixel_trim_thresholds = [16]*32
@@ -516,7 +523,15 @@ def quick_scan_threshold(controller=None, board='pcb-5', chip_idx=0,
     controller.write_configuration(chip,[52,53,54,55])
     if close_controller:
         controller.serial_close()
-    print('saturation threshold: %d' % final_threshold)
+    print('summary (channel, threshold, npackets):')
+    for channel in channel_list:
+        if len(results[channel]['threshold']) > 0:
+            print('%d %d %d' % (channel, results[channel]['threshold'][-1], 
+                                results[channel]['threshold'][-1]))
+        else:
+            print('%d -- --' % channel)
+    print('channels with thresholds above %d: %s' % (threshold_max_coarse,
+                                                     str(noisy_channels))
     return results
 
 def scan_threshold(controller=None, board='pcb-5', chip_idx=0,
