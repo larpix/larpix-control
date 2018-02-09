@@ -531,7 +531,7 @@ def quick_scan_threshold(controller=None, board='pcb-5', chip_idx=0,
         else:
             print('%d -- --' % channel)
     print('channels with thresholds above %d: %s' % (threshold_max_coarse,
-                                                     str(noisy_channels))
+                                                     str(noisy_channels)))
     return results
 
 def scan_threshold(controller=None, board='pcb-5', chip_idx=0,
