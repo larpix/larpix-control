@@ -12,6 +12,46 @@ import time
 import json
 import os
 
+def pulse_channel(controller, chip_idx=0, pulse_channel=0, n_pulses=100,
+                  pulse_dac=6, testpulse_dac_max=235, testpulse_dac_min=40):
+    '''Simple script to pulse and then listen to a given channel'''
+    # Get chip under test
+    chip = controller.chips[chip_idx]
+    # Initialize DAC level
+    chip.config.csa_testpulse_dac_amplitude = testpulse_dac_max
+    controller.write_configuration(chip,46)
+    time.sleep(0.5) # Settle CSA
+    dac_level = testpulse_dac_max
+    # Configure chip for pulsing one channel
+    chip.config.csa_testpulse_enable = [1]*32 # Disable all other channels
+    chip.config.csa_testpulse_enable[pulse_channel] = 0 # Connect
+    controller.write_configuration(chip,[42,43,44,45])
+    #
+    # Pulse chip n times
+    controller.run(0.2, 'clear buffer')
+    for pulse_idx in range(n_pulses):
+        if dac_level < (testpulse_dac_min + pulse_dac):
+            # Reset DAC level if it is too low to issue pulse
+            chip.config.csa_testpulse_dac_amplitude = testpulse_dac_max
+            controller.write_configuration(chip,46)
+            time.sleep(0.5) # Settle CSA
+            controller.run(0.2, 'clear buffer')
+            print('  Reset DAC value')
+            dac_level = testpulse_dac_max
+        # Issue pulse
+        dac_level -= pulse_dac  # Negative DAC step mimics electron arrival
+        chip.config.csa_testpulse_dac_amplitude = dac_level
+        controller.write_configuration(chip,46,write_read=0.3)
+        print '  pulse %d (DAC=%d): %d packets' % (pulse_idx, dac_level,
+                                                   len(controller.reads[-1]))
+    # Reset DAC level, and disconnect channel
+    chip.config.csa_testpulse_enable = [1]*32 # Disconnect
+    controller.write_configuration(chip,[42,43,44,45]) # testpulse
+    chip.config.csa_testpulse_dac_amplitude = 0
+    controller.write_configuration(chip,46)
+    return
+
+
 def check_chip_status(controller, chip_idx=0, channel_ids = range(32),
                       global_thresh=60, pulse_dac=20):
     '''Quick check of system status using internal pulser on each channel'''
