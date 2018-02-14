@@ -154,14 +154,20 @@ class Timestamp(object):
             while adj_adc_time < ref_time.adj_adc_time:
                 # sychronize adj adc timestamp and ref cpu timestamp
                 adj_adc_time += Timestamp.larpix_offset_d
-            # determine number of rollovers between reads
-            n_offset = (long(cpu_time - ref_time.cpu_time) * Timestamp.larpix_clk_freq) // Timestamp.larpix_offset_d
+            # estimate number of clk cycles between reads
+            n_clk_cycles = long((cpu_time - ref_time.cpu_time) * Timestamp.larpix_clk_freq)
+            n_offset = n_clk_cycles // Timestamp.larpix_offset_d
             adj_adc_time += Timestamp.larpix_offset_d * n_offset
+            # enforce that the n_clk_cycles by adc timestamp is greater than n_clk_cycles
+            # by cpu
+            while adj_adc_time - ref_time.adj_adc_time < n_clk_cycles:
+                adj_adc_time += Timestamp.larpix_offset_d
 
         timestamp = None
         if ref_time is None:
             timestamp = Timestamp(cpu_time * 1e9, cpu_time, adc_time, adj_adc_time)
         else:
-            ns = ref_time.ns + long(((adj_adc_time - ref_time.adj_adc_time) * long(1e9)) / Timestamp.larpix_clk_freq)
+            ns = ref_time.ns + long((adj_adc_time - ref_time.adj_adc_time) * long(1e9) \
+                                        / Timestamp.larpix_clk_freq)
             timestamp = Timestamp(ns, cpu_time, adc_time, adj_adc_time)
         return timestamp
