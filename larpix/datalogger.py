@@ -64,7 +64,7 @@ class DataLogger(object):
         '''Log a data block'''
         if not self._is_enabled: return
         data_block_desc['block_type'] = 'data'
-        data_block_desc['time'] = time.time()
+        #data_block_desc['time'] = time.time()
         self.buffer += self.formatter.format_block(data_block_desc)
         if len(self.buffer) > self._buffer_flush:
             # Flush current data to file
