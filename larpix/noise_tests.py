@@ -977,6 +977,8 @@ def test_leakage_current(controller=None, chip_idx=0, board='pcb-5', reset_cycle
 
     chip = controller.chips[chip_idx]
     print('initial configuration for chip %d' % chip.chip_id)
+    temp_filename = 'tmp_config.json'
+    chip.config.write(temp_filename,force=True)
     chip.config.global_threshold = global_threshold
     chip.config.pixel_trim_thresholds = [trim] * 32
     if reset_cycles is None:
@@ -1017,6 +1019,10 @@ def test_leakage_current(controller=None, chip_idx=0, board='pcb-5', reset_cycle
     rms_rate = sum(abs(rate - mean_rate)
                    for rate in return_data['rate'])/len(return_data['rate'])
     print('chip mean: %.3f, rms: %.3f' % (mean_rate, rms_rate))
+    controller.disable(chip_id=chip.chip_id)
+    chip.config.load(temp_filename)
+    controller.write_configuration(chip)
+    os.remove(temp_filename)
     if close_controller:
         controller.serial_close()
     return return_data
