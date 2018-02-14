@@ -1906,8 +1906,8 @@ def test_timestamp_ambiguous_rollover():
     t0 = Timestamp.serialized_timestamp(adc_time=5, cpu_time=0)
     t1 = Timestamp.serialized_timestamp(adc_time=6, cpu_time=3,
             ref_time=t0)
-    expected_adj_adc_time = Timestamp.larpix_offset_d + 1
+    expected_adj_adc_time = Timestamp.larpix_offset_d + 6
     expected = \
-    Timestamp(ns=expected_adj_adc_time*long(1e9/Timestamp.larpix_clk_freq),
+    Timestamp(ns=(expected_adj_adc_time-t0.adj_adc_time)*long(1e9/Timestamp.larpix_clk_freq),
             cpu_time=3, adc_time=6, adj_adc_time=expected_adj_adc_time)
     assert t1 == expected
