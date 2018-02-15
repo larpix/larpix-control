@@ -123,10 +123,10 @@ class Timestamp(object):
         ``ns == cpu_time * 1e9``)
         - If reference packet has the same ``cpu_time``, add rollovers to ``adj_adc_time``
         until ``ref_time.adj_adc_time < adj_adc_time``
-        - If reference packet has a different ``cpu_time``, add rollovers to ``adc_time``
-        until ``ref_time.adj_adc_time < adj_adc_time``. Then determine the number of rollovers
-        that could have occured between ``cpu_time`` and ``ref_time.cpu_time``, and add to
-        ``adj_adc_time``.
+        - If reference packet has a different ``cpu_time``, estimate the number of clk cycles
+        that have occurred between serial reads add rollovers to ``adj_adc_time`` until the
+        difference between ``ref_time.adj_adc_time`` and ``adj_adc_time`` is less than
+        ``larpix_offset_d/2`` away from the estimated number of clk cycles
         - The previous two steps provide an ``adj_adc_time`` that is serialized, calculate
         ``ns`` from ``ref_time.ns + <diff btw adj_adc_times>/larpix_clk_freq``
 
@@ -134,6 +134,8 @@ class Timestamp(object):
         - within a single serial read, the data rate must be greater than
         ``larpix_clk_freq/larpix_offset_d`` (nominally ~.3Hz) OR the serial timeout must be
         less than ``larpix_offset_d/larpix_clk_freq`` (nominally ~3s)
+        - between serial reads, the first data packet should arrive within
+        ``larpix_offset_d/larpix_clk_freq/2`` of the serial read time (~1.5s)
         - reference time should be the timestamp of the previously read packet from
         that chip (there is a delay between packet creation and packet receipt that can
         interfere with the time ordering of packets between chips)
@@ -151,16 +153,11 @@ class Timestamp(object):
                 adj_adc_time += Timestamp.larpix_offset_d
         else:
             # new serial read
-            while adj_adc_time < ref_time.adj_adc_time:
-                # sychronize adj adc timestamp and ref cpu timestamp
-                adj_adc_time += Timestamp.larpix_offset_d
             # estimate number of clk cycles between reads
-            n_clk_cycles = long((cpu_time - ref_time.cpu_time) * Timestamp.larpix_clk_freq)
-            n_offset = n_clk_cycles // Timestamp.larpix_offset_d
-            adj_adc_time += Timestamp.larpix_offset_d * n_offset
-            # enforce that the n_clk_cycles by adc timestamp is greater than n_clk_cycles
-            # by cpu
-            while adj_adc_time - ref_time.adj_adc_time < n_clk_cycles:
+            n_clk_cycles = long((cpu_time - ref_time.ns * 1e-9) * Timestamp.larpix_clk_freq)
+            # add offsets until you are close to the predicted number of clk cycles
+            while abs(adj_adc_time - ref_time.adj_adc_time - n_clk_cycles) \
+                    > Timestamp.larpix_offset_d / 2:
                 adj_adc_time += Timestamp.larpix_offset_d
 
         timestamp = None
