@@ -1718,9 +1718,10 @@ class SerialPort(object):
     def write(self, data):
         '''Write data to serial port'''
         self._ready_port()
+        write_time = time.time()
         self.serial_com.write(data)
         if self.logger:
-            self.logger.record({'data_type':'write','data':data})
+            self.logger.record({'data_type':'write','data':data,'time':write_time})
         if not self._keep_open:
             self.close()
         return
@@ -1728,9 +1729,10 @@ class SerialPort(object):
     def read(self, nbytes):
         '''Read data from serial port'''
         self._ready_port()
+        read_time = time.time()
         data = self.serial_com.read(nbytes)
         if self.logger:
-            self.logger.record({'data_type':'read','data':data})
+            self.logger.record({'data_type':'read','data':data,'time':read_time})
         if not self._keep_open:
             self.close()
         return data

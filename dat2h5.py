@@ -115,7 +115,11 @@ while True:
                 current_timestamp = Timestamp.from_packet(packet, cpu_time,
                         ref_time)
                 current_array[current_index][8] = current_timestamp.ns
-                last_timestamp[packet.chipid] = current_timestamp
+                if len(last_timestamp.keys())==0:
+                    for chip in range(255):
+                        last_timestamp[chip] = current_timestamp
+                else:
+                    last_timestamp[chipid] = current_timestamp
 
                 if use_root:
                     (root_channelid[0], root_chipid[0], root_pixelid[0],
