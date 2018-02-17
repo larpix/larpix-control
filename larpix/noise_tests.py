@@ -94,7 +94,7 @@ def find_channel_thresholds(controller=None, board='pcb-1', chip_idx=0,
                             channel_list=range(32), output_directory='.',
                             saturation_level=5, run_time=1, reset_cycles=4096,
                             threshold_min_coarse=20, threshold_max_coarse=40,
-                            threshold_step_coarse=1,
+                            threshold_step_coarse=1, max_level=100,
                             trim_min=0, trim_max=31, trim_step=1,
                             pulse_dac=10):
     ''' Scans through global threshold then channel trims to determine a chip configuration
@@ -105,60 +105,61 @@ def find_channel_thresholds(controller=None, board='pcb-1', chip_idx=0,
     if controller is None:
         close_controller = True
         controller = quickcontroller(board)
-        c.disable()
-        c.run(1,'clear buffer')
-        config_ok, different_registers = c.verify_configuration()
+        controller.disable()
+        controller.run(2,'clear buffer')
+        config_ok, different_registers = controller.verify_configuration()
         if config_ok:
             print('  new controller created')
         else:
             print('  configuration error')
             print('  different registers: %s' % str(different_registers))
+    chip = controller.chips[chip_idx]
+    chip_id = chip.chip_id
+    print('configuring chip %d for scan' % chip_id)
     # Save current configuration in a temporary file
     temp_filename = '.config_%s.json' % time.strftime('%Y_%m_%d_%H_%M_%S',time.localtime())
     print('temporarily storing previous configuration: %s' % temp_filename)
     chip.config.write(temp_filename,force=True)
     # Set up chip configuration
-    print('configuring chip for scan')
-    chip = c.chips[chip_idx]
-    chip_id = chip.chip_id
-    c.disable(chip_id=chip_id)
+    controller.disable(chip_id=chip_id)
     chip.config.global_threshold = threshold_max_coarse
     chip.config.pixel_trim_thresholds = [trim_max]*32
     chip.config.reset_cycles = reset_cycles
     registers_to_write = range(33) + [52,53,54,55] + [60,61,62]
-    c.write_configuration(chip, registers_to_write)
-    config_ok, different_registers = c.verify_configuration(chip_id=chip_id)
+    controller.write_configuration(chip, registers_to_write)
+    config_ok, different_registers = controller.verify_configuration(chip_id=chip_id)
     if not config_ok:
         print('  configuration error')
         print('  different registers: %s' % str(different_registers))
     # Check for high rate channels
     print('checking rate at max threshold')
-    c.enable(chip_id=chip_id, channel_list=channel_list)
-    high_rate_channels = []
+    controller.enable(chip_id=chip_id, channel_list=channel_list)
+    high_rate_channels = set()
     while True:
-        c.run(run_time,'checking for high rate channels')
-        packets_by_channel = {}
+        controller.run(run_time,'checking for high rate channels')
+        packets_by_channel = [0]*32
         for channel in channel_list:
-            packets_by_channel[channel] = 0
             for packet in controller.reads[-1]:
                 if packet.chipid == chip.chip_id:
                     packets_by_channel[packet.channel_id] += 1
-        saturated_channels = [channel for channel in packets_by_channel.keys()
-                              if packets_by_channel[channel] >= saturation_level]
-        high_rate_channels += saturated_channels
-        print('  channels at saturation: %s' % str(high_rate_channels))
+        saturated_channels = [channel for channel,npackets in enumerate(packets_by_channel)
+                              if npackets >= max_level]
+        high_rate_channels = set(saturated_channels + list(high_rate_channels))
+        print('  channels at saturation: %s' % str(saturated_channels))
         if len(saturated_channels) == 0:
             break
         print('  disabling')
-        c.disable(chip_id=chip_id, channel_list=high_rate_channels)
-        controller.run(1,'clear buffer')
+        controller.disable(chip_id=chip_id, channel_list=high_rate_channels)
+        controller.run(2,'clear buffer')
     if len(high_rate_channels) > 0:
+        high_rate_channels = list(high_rate_channels)
         print('  disabled high rate channels: %s' % str(high_rate_channels))
     enabled_channels = [channel for channel,mask in enumerate(chip.config.channel_mask[:])
                         if not mask]
     # Run a quick threshold scan to determine global threshold
     print('begin coarse scan')
-    coarse_scan_results = quick_scan_threshold(controller=c, board=board, chip_idx=chip_idx,
+    coarse_scan_results = quick_scan_threshold(controller=controller, board=board,
+                                               chip_idx=chip_idx,
                                                channel_list=enabled_channels,
                                                threshold_min_coarse=threshold_min_coarse,
                                                threshold_max_coarse=threshold_max_coarse,
@@ -167,65 +168,68 @@ def find_channel_thresholds(controller=None, board='pcb-1', chip_idx=0,
                                                run_time=run_time,
                                                reset_cycles=reset_cycles)
     print('coarse scan complete')
-    channel_coarse_thresholds = [threshold_max_coarse]*32
+    channel_coarse_thresholds = [threshold_min_coarse]*32
     for channel in coarse_scan_results:
-        channel_coarse_thresholds[channel] = coarse_scan_results['threshold'][-1]
+        if len(coarse_scan_results[channel]['threshold']) > 0:
+            channel_coarse_thresholds[channel] = coarse_scan_results[channel]['threshold'][-1]
     coarse_threshold = max([threshold
                             for channel,threshold in enumerate(channel_coarse_thresholds)
                             if channel in enabled_channels])
     print('global threshold: %d' % coarse_threshold)
     chip.config.global_threshold = coarse_threshold
-    c.write_configuration(chip, 32)
+    controller.write_configuration(chip, 32)
     # Run fine scan to determine pixel thresholds
     print('begin fine scan')
-    fine_scan_results = simultaneous_scan_trim(controller=c, board=board, chip_idx=chip_idx,
+    fine_scan_results = simultaneous_scan_trim(controller=controller, board=board,
+                                               chip_idx=chip_idx,
                                                channel_list=enabled_channels,
                                                trim_min=trim_min, trim_max=trim_max,
                                                trim_step=trim_step,
                                                saturation_level=saturation_level,
-                                               max_level=10*saturation_level,
+                                               max_level=max_level,
                                                reset_cycles=reset_cycles,
                                                global_threshold=coarse_threshold,
                                                run_time=run_time)
     print('fine scan complete')
     channel_trims = [trim_max]*32
     for channel in fine_scan_results:
-        channel_trims[channel] = results[channel]['trims'][-1]
-    for channel in channel_trims.keys():
-        chip.config.pixel_trim_threshold[channel] = channel_trims[channel]
-    c.write_configuration(chip, range(32))
+        channel_trims[channel] = fine_scan_results[channel]['trims'][-1]
+    for channel in channel_list:
+        chip.config.pixel_trim_thresholds[channel] = channel_trims[channel]
+    controller.write_configuration(chip, range(32))
     # Pulse channels to test sensitivity
-    c.run(1,'clear buffer')
-    c.run(run_time,'check rate')
+    controller.run(2,'clear buffer')
+    controller.run(run_time,'check rate')
     channel_rate = [0]*32
-    for packet in c.reads[-1]:
+    for packet in controller.reads[-1]:
         if packet.chipid == chip_id:
             channel_rate[packet.channel_id] += 1./run_time
-    print('check rate: %.2f Hz / %d channels' % (float(len(c.reads[-1]))/run_time,
+    print('check rate: %.2f Hz / %d channels' % (float(len(controller.reads[-1]))/run_time,
                                                  len(enabled_channels)))
     print('testing sensitivity (DAC=%d)' % pulse_dac)
-    c.enable_testpulse(chip_id=chip_id, channel_list=channel_list)
-    c.issue_testpulse(chip_id=chip_id, pulse_dac=pulse_dac)
+    controller.enable_testpulse(chip_id=chip_id, channel_list=channel_list)
+    controller.issue_testpulse(chip_id=chip_id, pulse_dac=pulse_dac)
     packets_received = [0]*32
-    for packet in c.reads[-1]:
+    for packet in controller.reads[-1]:
         if packet.chipid == chip_id:
             packets_received[packet.channel_id] += 1
     print('  channel - packets received')
-    for channel,npackets in packets_received:
+    for channel,npackets in enumerate(packets_received):
         print('  %d - %d' % (channel,npackets))
-    c.disable_testpulse(chip_id=chip_id)
+    controller.disable_testpulse(chip_id=chip_id)
     # Print summary of scan
     print('find_channel_thresholds report:')
     print('  channel\tenabled?\tsat thresh (global)\ttrim\trate (Hz)\tpulse npackets')
     for channel in range(32):
         if channel in channel_list:
-            print('  %d\t%d\t%d\t%d\t%.2f\t%d' % (channel, (channel in enabled_channels),
+            print('  %d\t\t%d\t\t%d\t\t%d\t\t%.2f\t\t%d' % (channel, (channel in 
+                                                                      enabled_channels),
                                                   channel_coarse_thresholds[channel],
                                                   channel_trims[channel],
                                                   channel_rate[channel],
                                                   packets_received[channel]))
     print('global threshold: %d' % coarse_threshold)
-    print('channel mask: %s' % str([not channel in enabled_channels
+    print('channel mask: %s' % str([int(not channel in enabled_channels)
                                     for channel in range(32)]))
     print('pixel trim thresholds: %s' % str(channel_trims))
     config_filename = '%s/c%d_%s.json' % (output_directory, chip_id,
@@ -709,7 +713,7 @@ def quick_scan_threshold(controller=None, board='pcb-5', chip_idx=0,
                     results[channel]['npackets'] += [len(adcs_by_channel[channel])]
                     results[channel]['adc_mean'] += [adc_mean_by_channel[channel]]
                     results[channel]['adc_rms'] += [adc_rms_by_channel[channel]]
-                    print('%d %d %0.2f %.2f %d' % (channel, len(adcs_by_channel[channel]),
+                    print('%d %d %0.2f %.2f' % (channel, len(adcs_by_channel[channel]),
                                                 adc_mean_by_channel[channel],
                                                 adc_rms_by_channel[channel]))
                     if len(adcs_by_channel[channel]) >= saturation_level:
@@ -717,7 +721,7 @@ def quick_scan_threshold(controller=None, board='pcb-5', chip_idx=0,
                         final_threshold[channel] = threshold
                         print('disable ch%d' % channel)
                         controller.disable(chip_id=chip.chip_id, channel_list=[channel])
-            if all([channel in final_threshold.keys or channel in noisy_channels
+            if all([channel in final_threshold.keys() or channel in noisy_channels
                     for channel in channel_list]):
                 # All channel thresholds have been found - end scan
                 break_flag = True
