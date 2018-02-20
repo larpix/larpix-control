@@ -11,6 +11,7 @@ import os
 import errno
 import re
 import platform
+import math
 
 import larpix.configs as configs
 
@@ -187,6 +188,13 @@ class Configuration(object):
         # These registers each correspond to an entry in an array
         self._trim_registers = list(range(32))
 
+    def __eq__(self, other):
+        '''
+        Returns true if all fields match
+        '''
+        return all([getattr(self, register_name) == getattr(other, register_name)
+                    for register_name in self.register_names])
+
     def __str__(self):
         '''
         Converts configuration to a nicely formatted json string
@@ -196,26 +204,33 @@ class Configuration(object):
         l = ['\"{}\": {}'.format(key,value) for key,value in d.items()]
         return '{\n    ' + ',\n    '.join(l) + '\n}'
 
-    def get_nondefault_registers(self):
+    def compare(self, config):
+        '''
+        Returns a dict containing pairs of each differently valued register
+        Pair order is (self, other)
+        '''
         d = {}
-        default_config = Configuration()
         for register_name in self.register_names:
-            if getattr(self, register_name) != getattr(default_config, register_name):
-                d[register_name] = getattr(self, register_name)
+            if getattr(self, register_name) != getattr(config, register_name):
+                d[register_name] = (getattr(self, register_name), getattr(config,
+                                                                          register_name))
         # Attempt to simplify some of the long values (array values)
-        for (name, value) in d.items():
+        for (name, (self_value, config_value)) in d.items():
             if (name in (label for _, label in self._complex_array_spec)
                     or name == 'pixel_trim_thresholds'):
                 different_values = []
-                for ch, (val, default_val) in enumerate(zip(value, getattr(
-                    default_config, name))):
-                    if val != default_val:
-                        different_values.append({'channel': ch, 'value': val})
+                for ch, (val, config_val) in enumerate(zip(self_value, config_value)):
+                    if val != config_val:
+                        different_values.append(({'channel': ch, 'value': val},
+                                                 {'channel': ch, 'value': config_val}))
                 if len(different_values) < 5:
                     d[name] = different_values
                 else:
                     pass
         return d
+
+    def get_nondefault_registers(self):
+        return self.compare(Configuration())
 
     @property
     def pixel_trim_thresholds(self):
@@ -523,13 +538,13 @@ class Configuration(object):
         if list_of_channels is None:
             list_of_channels = range(Chip.num_channels)
         for channel in list_of_channels:
-            self.csa_testpulse_enable[channel] = 1
+            self.csa_testpulse_enable[channel] = 0
 
     def disable_testpulse(self, list_of_channels=None):
         if list_of_channels is None:
             list_of_channels = range(Chip.num_channels)
         for channel in list_of_channels:
-            self.csa_testpulse_enable[channel] = 0
+            self.csa_testpulse_enable[channel] = 1
 
     def enable_analog_monitor(self, channel):
         self.csa_monitor_select[channel] = 1
@@ -985,6 +1000,177 @@ class Controller(object):
 
     def run_analog_monitor_test(self):
         return
+
+    def verify_configuration(self, chip_id=None, io_chain=0):
+        '''
+        Read chip configuration from specified chip and return a bool that is True if the
+        read chip configuration matches the current configuration stored in chip instance
+        Also returns a dict containing the values of registers that are different
+        (read register, stored register)
+        '''
+        return_value = True
+        different_fields = {}
+        if chip_id is None:
+            for chip in self.chips:
+                match, chip_fields = self.verify_configuration(chip_id=chip.chip_id,
+                                                        io_chain=io_chain)
+                if not match:
+                    different_fields[chip.chip_id] = chip_fields
+                    return_value = False
+        else:
+            chip = self.get_chip(chip_id, io_chain)
+            self.read_configuration(chip,timeout=0.1)
+            configuration_data = {}
+            for packet in self.reads[-1]:
+                if (packet.packet_type == Packet.CONFIG_READ_PACKET and
+                    packet.chipid == chip_id):
+                    configuration_data[packet.register_address] = packet.register_data
+            chip_configuration = Configuration()
+            chip_configuration.from_dict_registers(configuration_data)
+            if not chip_configuration == chip.config:
+                return_value = False
+                different_fields = chip_configuration.compare(chip.config)
+        return (return_value, different_fields)
+
+    def read_channel_pedestal(self, chip_id, channel, io_chain=0, run_time=0.1):
+        '''
+        Set channel threshold to 0 and report back on the recieved adcs from channel
+        Returns mean, rms, and packet collection
+        '''
+        chip = self.get_chip(chip_id, io_chain)
+        # Store previous state
+        prev_channel_mask = chip.config.channel_mask
+        prev_global_threshold = chip.config.global_threshold
+        prev_pixel_trim_thresholds = chip.config.pixel_trim_thresholds
+        # Set new configuration
+        self.disable(chip_id=chip_id)
+        self.enable(chip_id=chip_id, channel_list=[channel])
+        chip.config.global_threshold = 0
+        chip.config.pixel_trim_thresholds = [31]*32
+        chip.config.pixel_trim_thresholds[channel] = 0
+        self.write_configuration(chip, Configuration.channel_mask_addresses +
+                                 Configuration.pixel_trim_threshold_addresses +
+                                 [Configuration.global_threshold_address])
+        self.run(0.1,'clear buffer')
+        # Collect data
+        self.run(run_time,'read_channel_pedestal_c%d_ch%d' % (chip_id, channel))
+        self.disable(chip_id=chip_id)
+        adcs = self.reads[-2].extract('adc_counts', chipid=chip_id, channel=channel)
+        mean = 0
+        rms = 0
+        if len(adcs) > 0:
+            mean = float(sum(adcs)) / len(adcs)
+            rms = math.sqrt(float(sum([adc**2 for adc in adcs]))/len(adcs) - mean**2)
+        else:
+            print('No packets received from chip %d, channel %d' % (chip_id, channel))
+        # Restore previous state
+        chip.config.channel_mask = prev_channel_mask
+        chip.config.global_threshold = prev_global_threshold
+        chip.config.pixel_trim_thresholds = prev_pixel_trim_thresholds
+        self.write_configuration(chip, Configuration.channel_mask_addresses +
+                                 Configuration.pixel_trim_threshold_addresses +
+                                 [Configuration.global_threshold_address])
+        self.run(2,'clear buffer')
+        return (adcs, mean, rms)
+
+    def enable_analog_monitor(self, chip_id, channel, io_chain=0):
+        '''
+        Enable the analog monitor on a single channel on the specified chip.
+        Note: If monitoring a different chip, call disable_analog_monitor first to ensure
+        that the monitor to that chip is disconnected.
+        '''
+        chip = self.get_chip(chip_id, io_chain)
+        chip.config.disable_analog_monitor()
+        chip.config.enable_analog_monitor(channel)
+        self.write_configuration(chip, Configuration.csa_monitor_select_addresses)
+        return
+
+    def disable_analog_monitor(self, chip_id=None, channel=None, io_chain=0):
+        '''
+        Disable the analog monitor for a specified chip and channel, if none are specified
+        disable the analog monitor for all chips in self.chips and all channels
+        '''
+        if chip_id is None:
+            for chip in self.chips:
+                self.disable_analog_monitor(chip_id=chip.chip_id, channel=channel,
+                                       io_chain=io_chain)
+        elif channel is None:
+            for channel in range(32):
+                self.disable_analog_monitor(chip_id=chip_id, channel=channel,
+                                            io_chain=io_chain)
+        else:
+            chip = self.get_chip(chip_id, io_chain)
+            chip.config.disable_analog_monitor()
+            self.write_configuration(chip, Configuration.csa_monitor_select_addresses)
+        return
+
+    def enable_testpulse(self, chip_id, channel_list, io_chain=0, start_dac=255):
+        '''
+        Prepare chip for pulsing - enable testpulser and set a starting dac value for
+        specified chip/channel
+        '''
+        chip = self.get_chip(chip_id, io_chain)
+        chip.config.disable_testpulse()
+        chip.config.enable_testpulse(channel_list)
+        chip.config.csa_testpulse_dac_amplitude = start_dac
+        self.write_configuration(chip, Configuration.csa_testpulse_enable_addresses +
+                                 [Configuration.csa_testpulse_dac_amplitude_address])
+        return
+
+    def issue_testpulse(self, chip_id, pulse_dac, min_dac=0, io_chain=0):
+        '''
+        Reduce the testpulser dac by pulse_dac and write_read to chip for 0.1s
+        '''
+        chip = self.get_chip(chip_id, io_chain)
+        chip.config.csa_testpulse_dac_amplitude -= pulse_dac
+        if chip.config.csa_testpulse_dac_amplitude < min_dac:
+            raise ValueError('Minimum DAC exceeded')
+        self.write_configuration(chip, [Configuration.csa_testpulse_dac_amplitude_address],
+                                 write_read=0.1)
+        return
+
+    def disable_testpulse(self, chip_id=None, channel_list=range(32), io_chain=0):
+        '''
+        Disable testpulser for specified chip/channels. If none specified, disable for
+        all chips/channels
+        '''
+        if chip_id is None:
+            for chip in self.chips:
+                self.disable_testpulse(chip_id=chip.chip_id, channel_list=channel_list,
+                                       io_chain=io_chain)
+        else:
+            chip = self.get_chip(chip_id, io_chain)
+            chip.config.disable_testpulse(channel_list)
+            self.write_configuration(chip, Configuration.csa_testpulse_enable_addresses)
+        return
+
+    def disable(self, chip_id=None, channel_list=range(32), io_chain=0):
+        '''
+        Update channel mask to disable specified chips/channels. If none specified,
+        disable all chips/channels
+        '''
+        if chip_id is None:
+            for chip in self.chips:
+                self.disable(chip_id=chip.chip_id, channel_list=channel_list,
+                             io_chain=io_chain)
+        else:
+            chip = self.get_chip(chip_id, io_chain)
+            chip.config.disable_channels(channel_list)
+            self.write_configuration(chip, Configuration.channel_mask_addresses)
+
+    def enable(self, chip_id=None, channel_list=range(32), io_chain=0):
+        '''
+        Update channel mask to enable specified chips/channels. If none specified,
+        enable all chips/channels
+        '''
+        if chip_id is None:
+            for chip in self.chips:
+                self.enable(chip_id=chip.chip_id, channel_list=channel_list,
+                            io_chain=io_chain)
+        else:
+            chip = self.get_chip(chip_id, io_chain)
+            chip.config.enable_channels(channel_list)
+            self.write_configuration(chip, Configuration.channel_mask_addresses)
 
     def format_UART(self, chip, packet):
         packet_bytes = packet.bytes()

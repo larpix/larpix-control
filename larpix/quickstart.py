@@ -15,6 +15,8 @@ board_info_list = [
      'chip_list':[(246,0),(245,0),(252,0),(243,0)],},
     {'name':'pcb-4',
      'chip_list':[(207,0),(63,0),(250,0),(249,0)],},
+    {'name':'pcb-1',
+     'chip_list':[(246,0),(245,0),(252,0),(243,0)],},
 ]
 
 #Create handy map by board name
@@ -50,12 +52,19 @@ def disable_chips(controller):
         controller.write_configuration(chip,range(52,56))
     return
 
-def set_config_physics(controller):
+def set_config_physics(controller, board=None):
     '''Set the chips for the default physics configuration'''
     #import time
     for chip in controller.chips:
-        #chip.config.load("physics.json") # FIXME: doesn't exist in head
-        #controller.write_configuration(chip)
+        '''if not board is None:
+            try:
+                chip.config.load('physics-%s-c%d.json' % (board, chip.chip_id))
+            except Exception as e:
+                print('failed to load chip specific config - error: %s' % e)
+                chip.config.load('physics.json')
+        else:
+            chip.config.load('physics.json')
+        controller.write_configuration(chip)'''
         chip.config.internal_bypass = 1
         controller.write_configuration(chip,33)
         chip.config.periodic_reset = 1
@@ -72,7 +81,7 @@ def flush_stale_data(controller):
     controller.reads = []
     return
     
-def quickcontroller(board='pcb-5'):
+def quickcontroller(board='pcb-1'):
     '''Quick jump through all controller creation and config steps'''
     larpix.enable_logger()
     cont = create_controller()

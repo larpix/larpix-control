@@ -533,7 +533,7 @@ def test_configuration_get_nondefault_registers():
     expected = {}
     assert c.get_nondefault_registers() == expected
     c.adc_burst_length += 1
-    expected['adc_burst_length'] = c.adc_burst_length
+    expected['adc_burst_length'] = (c.adc_burst_length, c.adc_burst_length-1)
     assert c.get_nondefault_registers() == expected
 
 def test_configuration_get_nondefault_registers_array():
@@ -543,8 +543,8 @@ def test_configuration_get_nondefault_registers_array():
     result = c.get_nondefault_registers()
     expected = {
             'channel_mask': [
-                { 'channel': 1, 'value': 1 },
-                { 'channel': 5, 'value': 1 }
+                ({'channel': 1, 'value': 1}, {'channel': 1, 'value': 0}),
+                ({'channel': 5, 'value': 1}, {'channel': 5, 'value': 0})
                 ]
             }
     assert result == expected
@@ -553,7 +553,7 @@ def test_configuration_get_nondefault_registers_many_changes():
     c = Configuration()
     c.channel_mask[:20] = [1]*20
     result = c.get_nondefault_registers()
-    expected = { 'channel_mask': [1]*20 + [0]*12 }
+    expected = { 'channel_mask': ([1]*20 + [0]*12, [0]*32) }
     assert result == expected
 
 
