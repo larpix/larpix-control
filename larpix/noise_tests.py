@@ -145,6 +145,7 @@ def find_channel_thresholds(controller=None, board='pcb-1', chip_idx=0,
     chip.config.reset_cycles = reset_cycles
     registers_to_write = range(33) + [52,53,54,55] + [60,61,62]
     controller.write_configuration(chip, registers_to_write)
+    controller.run(2,'clear buffer')
     config_ok, different_registers = controller.verify_configuration(chip_id=chip_id)
     if not config_ok:
         print('  configuration error')
@@ -408,6 +409,7 @@ def simultaneous_scan_trim(controller=None, board='pcb-5', chip_idx=0,
             # turn off noisy channels
             for channel in channel_list:
                 if len(packets_by_channel[channel])>=max_level:
+                    scan_completed[channel] = True
                     print('      disabling ch%d' % channel)
                     chip.config.disable_channels([channel])
                     controller.write_configuration(chip,range(52,56),write_read=1)
