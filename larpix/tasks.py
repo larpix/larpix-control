@@ -114,6 +114,75 @@ def simple_stats(**settings):
         logger.info('max: %d', max(adcs))
     controller.timeout = stored_timeout
 
+def simple_plot(**settings):
+    '''
+    Read in data from LArPix and generate a few generic plots
+
+    Plots are
+
+     - histograms of ADC counts and timestamps (by chip)
+     - ADC counts against timestamp (by chip)
+
+    '''
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    logger = logging.getLogger(__name__)
+    logger.info('Executing simple_stats')
+    if 'controller' in settings:
+        controller = settings['controller']
+    else:
+        controller = larpix.Controller(settings['port'])
+    if not controller.chips:
+        for chip_description in settings['chipset']:
+            chip = larpix.Chip(*chip_description)
+            chip.config.load(settings['config'])
+            controller.chips.append(chip)
+            controller.write_configuration(chip)
+    controller.run(settings['runtime'])
+    chip_ids = controller.reads[-1].extract('chipid', type='data')
+    chip_data = []
+    for chip_id in set(chip_ids):
+        adc_counts = controller.reads[-1].extract('adc_counts', chipid=chip_id)
+        timestamps = controller.reads[-1].extract('timestamp', chipid=chip_id)
+        chip_data.append({
+                'chip_id': chip_id,
+                'adc_counts': adc_counts,
+                'timestamps': timestamps
+                })
+
+    plt.figure(1)
+    adc_min = 0.9 * min(controller.reads[-1].extract('adc_counts'))
+    adc_max = 1.1 * max(controller.reads[-1].extract('adc_counts'))
+    adc_bins = np.linspace(adc_min, adc_max, 25)
+    timestamp_min = 0.9 * min(controller.reads[-1].extract('timestamp'))
+    timestamp_max = 1.1 * max(controller.reads[-1].extract('timestamp'))
+    timestamp_bins = np.linspace(timestamp_min, timestamp_max, 25)
+
+    plt.subplot(311)
+    plt.xlabel('Timestamp')
+    plt.ylabel('ADC value')
+    plt.grid(True)
+
+    plt.subplot(312)
+    plt.xlabel('ADC value')
+
+    plt.subplot(313)
+    plt.xlabel('Timestamp')
+    for data in chip_data:
+        plt.subplot(311)
+        plt.plot(data['timestamps'], data['adc_counts'], 'o',
+                label='Chip: %d' % data['chip_id'])
+
+        plt.subplot(312)
+        plt.hist(data['adc_counts'], bins=adc_bins, histtype='step')
+
+        plt.subplot(313)
+        plt.hist(data['timestamps'], bins=timestamp_bins, histtype='step')
+
+    plt.subplot(311).legend()
+    plt.show()
+
 if __name__ == '__main__':
     import argparse
     import sys
@@ -121,6 +190,7 @@ if __name__ == '__main__':
             'simple_stats': simple_stats,
             'get_chip_ids': get_chip_ids,
             'startup': startup,
+            'simple_plot': simple_plot,
             }
     parser = argparse.ArgumentParser()
     parser.add_argument('--logfile', default='tasks.log',
@@ -162,7 +232,7 @@ if __name__ == '__main__':
             'nchips': args.nchips,
             'runtime': args.runtime,
             }
-    setup_logger(settings)
+    setup_logger(**settings)
     logger = logging.getLogger(__name__)
     logger.info('-'*60)
     logger.info(args.message)

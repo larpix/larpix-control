@@ -852,8 +852,8 @@ class Controller(object):
         else:
             miso_bytestream = self.serial_write_read(bytestreams,
                     timelimit=write_read)
-            packets = self.parse_input(miso_bytestream)
-            self.store_packets(packets, miso_bytestream, message)
+            packets, skipped = self.parse_input(miso_bytestream)
+            self.store_packets(packets, miso_bytestream, skipped, message)
 
     def read_configuration(self, chip, registers=None, timeout=1,
             message=None):
@@ -870,8 +870,8 @@ class Controller(object):
         bytestreams = self.get_configuration_bytestreams(chip,
                 Packet.CONFIG_READ_PACKET, registers)
         data = self.serial_write_read(bytestreams, timeout)
-        packets = self.parse_input(data)
-        self.store_packets(packets, data, message)
+        packets, skipped = self.parse_input(data)
+        self.store_packets(packets, data, skipped, message)
 
     def multi_write_configuration(self, chip_reg_pairs, write_read=0,
             message=None):
@@ -923,8 +923,8 @@ class Controller(object):
         else:
             miso_bytestream = self.serial_write_read(final_bytestream,
                     timelimit=write_read)
-            packets = self.parse_input(miso_bytestream)
-            self.store_packets(packets, miso_bytestream, message)
+            packets, skipped = self.parse_input(miso_bytestream)
+            self.store_packets(packets, miso_bytestream, skipped, message)
 
     def multi_read_configuration(self, chip_reg_pairs, timeout=1,
             message=None):
@@ -972,8 +972,8 @@ class Controller(object):
         mosi_bytestream = self.format_bytestream(final_bytestream)
         miso_bytestream = self.serial_write_read(mosi_bytestream,
                 timelimit=timeout)
-        packets = self.parse_input(miso_bytestream)
-        self.store_packets(packets, miso_bytestream, message)
+        packets, skipped = self.parse_input(miso_bytestream)
+        self.store_packets(packets, miso_bytestream, skipped, message)
 
     def get_configuration_bytestreams(self, chip, packet_type, registers):
         # The configuration must be sent one register at a time
@@ -989,8 +989,8 @@ class Controller(object):
 
     def run(self, timelimit, message):
         data = self.serial_read(timelimit)
-        packets = self.parse_input(data)
-        self.store_packets(packets, data, message)
+        packets, skipped = self.parse_input(data)
+        self.store_packets(packets, data, skipped, message)
 
     def run_testpulse(self, list_of_channels):
         return
@@ -1188,7 +1188,9 @@ class Controller(object):
         data_bytes = slice(1,8)
         # parse the bytestream into Packets + metadata
         byte_packets = []
+        skip_slices = []
         current_stream = bytestream
+        index = 0
         while len(current_stream) >= packet_size:
             if (current_stream[0] == start_byte and
                     current_stream[packet_size-1] == stop_byte):
@@ -1202,6 +1204,7 @@ class Controller(object):
                 byte_packets.append((Bits(code + str(metadata)),
                     Packet(current_stream[data_bytes])))
                 current_stream = current_stream[packet_size:]
+                index += packet_size
             else:
                 # Throw out everything between here and the next start byte.
                 # Note: start searching after byte 0 in case it's
@@ -1542,9 +1545,11 @@ class PacketCollection(object):
 
 
     '''
-    def __init__(self, packets, bytestream=None, message='', read_id=None):
+    def __init__(self, packets, bytestream=None, message='',
+            read_id=None, skipped=None):
         self.packets = packets
         self.bytestream = bytestream
+        self.skipped = skipped
         self.message = message
         self.read_id = read_id
         self.parent = None
