@@ -307,13 +307,14 @@ def find_channel_thresholds(controller=None, board='pcb-1', chip_idx=0,
     print('channel mask: %s' % str([int(not channel in enabled_channels)
                                     for channel in range(32)]))
     print('pixel trim thresholds: %s' % str(channel_trims))
+    # Save config to file
     config_filename = '%s/c%d_%s.json' % (output_directory, chip_id,
                                           time.strftime('%Y_%m_%d_%H_%M_%S',
                                                         time.localtime()))
-    return_config = chip.config
-    # Save config to file
     chip.config.write(filename=config_filename)
     print('configuration saved: %s' % config_filename)
+    return_config = Configuration()
+    return_config.load(config_filename)
 
     # Return chip to original state
     controller.disable(chip_id=chip.chip_id)
