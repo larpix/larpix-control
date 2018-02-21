@@ -536,9 +536,8 @@ def test_configuration_no_error_on_underscore():
     c._underscore = 'hello'
 
 def test_configuration_no_error_on_hasattr():
-    # There are no attributes I could find that aren't already handled
-    # by "known register name" or "underscore" criteria.
-    pass
+    c = Configuration()
+    c.num_registers = 0
 
 def test_configuration_get_nondefault_registers():
     c = Configuration()
