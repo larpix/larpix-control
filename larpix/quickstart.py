@@ -71,6 +71,8 @@ def set_config_physics(controller, board=None):
         controller.write_configuration(chip,47)
         chip.config.global_threshold = 60
         controller.write_configuration(chip,32)
+        chip.config.reset_cycles = 4096
+        controller.write_configuration(chip,range(60,63))
         #time.sleep(2)
         print('configured chip %d' % chip.chip_id)
     return
