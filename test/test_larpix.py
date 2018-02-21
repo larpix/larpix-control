@@ -527,6 +527,19 @@ def test_configuration_error_on_unknown_field():
                        'register names'):
         c.this_is_a_dummy_attr = 0
 
+def test_configuration_no_error_on_known_register_name():
+    c = Configuration()
+    c.reset_cycles = 5
+
+def test_configuration_no_error_on_underscore():
+    c = Configuration()
+    c._underscore = 'hello'
+
+def test_configuration_no_error_on_hasattr():
+    # There are no attributes I could find that aren't already handled
+    # by "known register name" or "underscore" criteria.
+    pass
+
 def test_configuration_get_nondefault_registers():
     c = Configuration()
     expected = {}
