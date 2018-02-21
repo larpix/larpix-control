@@ -521,6 +521,12 @@ def test_packet_get_test_counter():
     p.test_counter = expected
     assert p.test_counter == expected
 
+def test_configuration_error_on_unknown_field():
+    c = Configuration()
+    with pytest.raises(AttributeError, message='Should fail: attribute is not in known '
+                       'register names'):
+        c.this_is_a_dummy_attr = 0
+
 def test_configuration_get_nondefault_registers():
     c = Configuration()
     expected = {}

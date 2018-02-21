@@ -189,11 +189,12 @@ class Configuration(object):
 
     def __setattr__(self, name, value):
         '''
-        Default setattr behavior occurs if name is in register name or is "private"
-        Otherwise raise an error
+        Default setattr behavior occurs if name is in ``register_names``, is "private"
+        or is a known attribute
+        Otherwise raises an attribute error
 
         '''
-        if not (name in self.register_names or name[0] == '_'):
+        if not (name in self.register_names or name[0] == '_' or hasattr(self, name)):
             raise AttributeError('%s is not a known register' % name)
         return super(Configuration, self).__setattr__(name, value)
 
