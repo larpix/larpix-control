@@ -52,7 +52,7 @@ class FTDISerialPort(object):
         Write the specified bytes to the serial port.
 
         '''
-        return self._dvice.write(num_bytes)
+        return self._device.write(num_bytes)
 
     def _reset_baudrate():
         '''Reset the device baudrate to be self.baudrate.'''
