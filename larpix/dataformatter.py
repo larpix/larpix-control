@@ -135,7 +135,8 @@ class DataFormatter_v1_0(DataFormatter):
     data_version_major = 1
     data_version_minor = 0
     data_type_by_desc = {'read': int('01',2),
-                         'write': int('10',2)}
+                         'write': int('10',2),
+                         'message': int('11',2)}
     data_desc_by_type = dict([(val,key) for (key,val) in
                               data_type_by_desc.iteritems()])
     data_type_mask = int('00110000',2)
