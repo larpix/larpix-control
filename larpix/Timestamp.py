@@ -156,8 +156,8 @@ class Timestamp(object):
             # estimate number of clk cycles between reads
             n_clk_cycles = long((cpu_time - ref_time.ns * 1e-9) * Timestamp.larpix_clk_freq)
             # add offsets until you are close to the predicted number of clk cycles
-            while abs(adj_adc_time - ref_time.adj_adc_time - n_clk_cycles) \
-                    > Timestamp.larpix_offset_d / 2:
+            while adj_adc_time - ref_time.adj_adc_time - n_clk_cycles \
+                    < -Timestamp.larpix_offset_d / 2:
                 adj_adc_time += Timestamp.larpix_offset_d
 
         timestamp = None
