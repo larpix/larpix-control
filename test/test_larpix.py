@@ -1002,27 +1002,27 @@ def test_configuration_disable_external_trigger():
 
 def test_configuration_enable_testpulse():
     c = Configuration()
-    expected = [0, 1] * 16
+    expected = [1, 0] * 16
     c.disable_testpulse()
     c.enable_testpulse(range(1, 32, 2))
     assert c.csa_testpulse_enable == expected
 
 def test_configuration_enable_testpulse_default():
     c = Configuration()
-    expected = [1] * 32
-    c.disable_testpulse()
+    expected = [0] * 32
     c.enable_testpulse()
     assert c.csa_testpulse_enable == expected
 
 def test_configuration_disable_testpulse():
     c = Configuration()
-    expected = [0, 1] * 16
+    expected = [1, 0] * 16
+    c.enable_testpulse()
     c.disable_testpulse(range(0, 32, 2))
     assert c.csa_testpulse_enable == expected
 
 def test_configuration_disable_testpulse_default():
     c = Configuration()
-    expected = [0] * 32
+    expected = [1] * 32
     c.disable_testpulse()
     assert c.csa_testpulse_enable == expected
 
