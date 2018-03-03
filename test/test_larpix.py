@@ -1697,7 +1697,7 @@ def test_controller_parse_input():
     fpackets = [controller.format_UART(chip, p) for p in packets]
     bytestream = b''.join(controller.format_bytestream(fpackets))
     result = controller.parse_input(bytestream)
-    expected = (packets, [])
+    expected = packets
     assert result == expected
 
 def test_controller_parse_input_dropped_data_byte():
@@ -1711,8 +1711,8 @@ def test_controller_parse_input_dropped_data_byte():
     # Drop a byte in the first packet
     bytestream_faulty = bytestream[:5] + bytestream[6:]
     result = controller.parse_input(bytestream_faulty)
-    skipped = [(slice(0, 9), bytestream_faulty[0:9])]
-    expected = (packets[1:], skipped)
+    #skipped = [(slice(0, 9), bytestream_faulty[0:9])]
+    expected = packets[1:]
     assert result == expected
 
 def test_controller_parse_input_dropped_start_byte():
@@ -1724,9 +1724,9 @@ def test_controller_parse_input_dropped_start_byte():
     bytestream = b''.join(controller.format_bytestream(fpackets))
     # Drop the first start byte
     bytestream_faulty = bytestream[1:]
-    skipped = [(slice(0, 9), bytestream_faulty[0:9])]
+    #skipped = [(slice(0, 9), bytestream_faulty[0:9])]
     result = controller.parse_input(bytestream_faulty)
-    expected = (packets[1:], skipped)
+    expected = packets[1:]
     assert result == expected
 
 def test_controller_parse_input_dropped_stop_byte():
@@ -1738,9 +1738,9 @@ def test_controller_parse_input_dropped_stop_byte():
     bytestream = b''.join(controller.format_bytestream(fpackets))
     # Drop the first stop byte
     bytestream_faulty = bytestream[:9] + bytestream[10:]
-    skipped = [(slice(0, 9), bytestream_faulty[0:9])]
+    #skipped = [(slice(0, 9), bytestream_faulty[0:9])]
     result = controller.parse_input(bytestream_faulty)
-    expected = (packets[1:], skipped)
+    expected = packets[1:]
     assert result == expected
 
 def test_controller_parse_input_dropped_stopstart_bytes():
@@ -1752,9 +1752,9 @@ def test_controller_parse_input_dropped_stopstart_bytes():
     bytestream = b''.join(controller.format_bytestream(fpackets))
     # Drop the first stop byte
     bytestream_faulty = bytestream[:9] + bytestream[11:]
-    skipped = [(slice(0, 18), bytestream_faulty[:18])]
+    #skipped = [(slice(0, 18), bytestream_faulty[:18])]
     result = controller.parse_input(bytestream_faulty)
-    expected = (packets[2:], skipped)
+    expected = packets[2:]
     assert result == expected
 
 def test_packetcollection_getitem_int():

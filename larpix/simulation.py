@@ -218,7 +218,7 @@ class MockFormatter(object):
         is 1Mbaud and the LArPix bitrate is 10MHz, i.e. much faster.
 
         '''
-        packets, skipped = self._controller.parse_input(data)
+        packets = self._controller.parse_input(data)
         self.send_mosi(packets)
 
     def receive_miso(self, packet):
