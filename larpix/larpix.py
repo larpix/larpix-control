@@ -1174,7 +1174,8 @@ class Controller(object):
 
     def format_UART(self, chip, packet):
         packet_bytes = packet.bytes()
-        daisy_chain_byte = (4 + Bits('uint:4=' + str(chip.io_chain))).bytes
+        #daisy_chain_byte = (4 + Bits('uint:4=' + str(chip.io_chain))).bytes
+        daisy_chain_byte = b'\x00'
         formatted_packet = (Controller.start_byte + packet_bytes +
                 daisy_chain_byte + Controller.stop_byte)
         return formatted_packet
@@ -1194,6 +1195,7 @@ class Controller(object):
         while len(current_stream) >= packet_size:
             if (current_stream[0] == start_byte and
                     current_stream[packet_size-1] == stop_byte):
+                '''
                 metadata = current_stream[metadata_byte_index]
                 # This is necessary because of differences between
                 # Python 2 and Python 3
@@ -1203,6 +1205,9 @@ class Controller(object):
                     code = 'bytes:1='
                 byte_packets.append((Bits(code + str(metadata)),
                     Packet(current_stream[data_bytes])))
+                '''
+                byte_packets.append((,),
+                        Packet(current_stream[data_bytes]))
                 current_stream = current_stream[packet_size:]
                 index += packet_size
             else:
