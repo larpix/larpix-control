@@ -1856,6 +1856,7 @@ class SerialPort(object):
         self.port_type = self._resolve_port_type()
         if self.port_type is 'pyserial':
             self._ready_port = self._ready_port_pyserial
+            self._keep_open = True
         elif self.port_type is 'pylibftdi':
             self._ready_port = self._ready_port_pylibftdi
             self._keep_open = True
