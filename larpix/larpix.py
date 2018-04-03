@@ -1206,7 +1206,7 @@ class Controller(object):
                 byte_packets.append((Bits(code + str(metadata)),
                     Packet(current_stream[data_bytes])))
                 '''
-                byte_packets.append((,),
+                byte_packets.append([],
                         Packet(current_stream[data_bytes]))
                 current_stream = current_stream[packet_size:]
                 index += packet_size
