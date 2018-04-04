@@ -36,11 +36,16 @@ class Chip(object):
     def __repr__(self):
         return 'Chip(%d, %d)' % (self.chip_id, self.io_chain)
 
-    def get_configuration_packets(self, packet_type):
+    def get_configuration_packets(self, packet_type, registers=None):
+        if registers is None:
+            registers = range(Configuration.num_registers)
         conf = self.config
-        packets = [Packet() for _ in range(Configuration.num_registers)]
+        packets = []
         packet_register_data = conf.all_data()
-        for i, (packet, data) in enumerate(zip(packets, packet_register_data)):
+        for i, data in enumerate(packet_register_data):
+            if i not in registers:
+                continue
+            packet = Packet()
             packet.packet_type = packet_type
             packet.chipid = self.chip_id
             packet.register_address = i
@@ -49,6 +54,7 @@ class Chip(object):
             else:
                 packet.register_data = 0
             packet.assign_parity()
+            packets.append(packet)
         return packets
 
     def sync_configuration(self, index=-1):
@@ -977,11 +983,8 @@ class Controller(object):
 
     def get_configuration_bytestreams(self, chip, packet_type, registers):
         # The configuration must be sent one register at a time
-        all_configuration_packets = \
-            chip.get_configuration_packets(packet_type);
-        configuration_packets = []
-        for register in registers:
-            configuration_packets.append(all_configuration_packets[register])
+        configuration_packets = \
+            chip.get_configuration_packets(packet_type, registers);
         formatted_packets = [self.format_UART(chip, p) for p in
                 configuration_packets]
         bytestreams = self.format_bytestream(formatted_packets)
