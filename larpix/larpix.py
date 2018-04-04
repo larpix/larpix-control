@@ -1209,8 +1209,7 @@ class Controller(object):
                 byte_packets.append((Bits(code + str(metadata)),
                     Packet(current_stream[data_bytes])))
                 '''
-                byte_packets.append(([],
-                    Packet(bytestream[index+1:index+8])))
+                byte_packets.append(Packet(bytestream[index+1:index+8]))
                 #current_stream = current_stream[packet_size:]
                 index += packet_size
             else:
@@ -1227,7 +1226,7 @@ class Controller(object):
         #if len(current_stream) != 0:
         #    print('Warning: %d extra bytes at end of data stream!' %
         #          len(current_stream))
-        return [x[1] for x in byte_packets]
+        return byte_packets
 
     def store_packets(self, packets, data, message):
         '''
