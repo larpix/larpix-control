@@ -751,7 +751,7 @@ class Controller(object):
     '''
     start_byte = b'\x73'
     stop_byte = b'\x71'
-    def __init__(self, port=None):
+    def __init__(self, port=None, timeout=1):
         self.chips = []
         self.all_chips = self._init_chips()
         self.use_all_chips = False
@@ -761,7 +761,7 @@ class Controller(object):
         if self.port is None:
             self.port = SerialPort.guess_port()
         self.baudrate = 1000000
-        self.timeout = 1
+        self.timeout = timeout
         self.max_write = 250
         self._test_mode = False
         self._serial = SerialPort(port=self.port,
