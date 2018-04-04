@@ -5,7 +5,8 @@ A module to control the LArPix chip.
 from __future__ import absolute_import
 
 import time
-from bitstring import BitArray, Bits
+from bitarray import bitarray
+import larpix.bitarrayhelper as bah
 import json
 import os
 import errno
@@ -586,84 +587,82 @@ class Configuration(object):
         bits.append(self.reset_cycles_data(2))
         return bits
 
-    def _to8bits(self, number):
-        return Bits('uint:8=' + str(number))
-
     def trim_threshold_data(self, channel):
-        return self._to8bits(self.pixel_trim_thresholds[channel])
+        return bah.fromuint(self.pixel_trim_thresholds[channel], 8)
 
     def global_threshold_data(self):
-        return self._to8bits(self.global_threshold)
+        return bah.fromuint(self.global_threshold, 8)
 
     def csa_gain_and_bypasses_data(self):
-        return Bits('0b0000') + [self.internal_bypass, 0,
+        return bitarray('0000') + [self.internal_bypass, 0,
                 self.csa_bypass, self.csa_gain]
 
     def csa_bypass_select_data(self, chunk):
         if chunk == 0:
-            return Bits(self.csa_bypass_select[7::-1])
+            return bitarray(self.csa_bypass_select[7::-1])
         else:
             high_bit = (chunk + 1) * 8 - 1
             low_bit = chunk * 8 - 1
-            return Bits(self.csa_bypass_select[high_bit:low_bit:-1])
+            return bitarray(self.csa_bypass_select[high_bit:low_bit:-1])
 
+    #TODO
     def csa_monitor_select_data(self, chunk):
         if chunk == 0:
-            return Bits(self.csa_monitor_select[7::-1])
+            return bitarray(self.csa_monitor_select[7::-1])
         else:
             high_bit = (chunk + 1) * 8 - 1
             low_bit = chunk * 8 - 1
-            return Bits(self.csa_monitor_select[high_bit:low_bit:-1])
+            return bitarray(self.csa_monitor_select[high_bit:low_bit:-1])
 
     def csa_testpulse_enable_data(self, chunk):
         if chunk == 0:
-            return Bits(self.csa_testpulse_enable[7::-1])
+            return bitarray(self.csa_testpulse_enable[7::-1])
         else:
             high_bit = (chunk + 1) * 8 - 1
             low_bit = chunk * 8 - 1
-            return Bits(self.csa_testpulse_enable[high_bit:low_bit:-1])
+            return bitarray(self.csa_testpulse_enable[high_bit:low_bit:-1])
 
     def csa_testpulse_dac_amplitude_data(self):
-        return self._to8bits(self.csa_testpulse_dac_amplitude)
+        return bah.fromuint(self.csa_testpulse_dac_amplitude, 8)
 
     def test_mode_xtrig_reset_diag_data(self):
-        toReturn = BitArray([0, 0, 0, self.fifo_diagnostic,
+        toReturn = bitarray([0, 0, 0, self.fifo_diagnostic,
             self.periodic_reset,
             self.cross_trigger_mode])
-        toReturn.append('uint:2=' + str(self.test_mode))
+        toReturn.extend(bah.fromuint(self.test_mode, 2))
         return toReturn
 
     def sample_cycles_data(self):
-        return self._to8bits(self.sample_cycles)
+        return bah.fromuint(self.sample_cycles, 8)
 
     def test_burst_length_data(self, chunk):
-        bits = Bits('uint:16=' + str(self.test_burst_length))
+        bits = bah.fromuint(self.test_burst_length, 16)
         if chunk == 0:
             return bits[8:]
         elif chunk == 1:
             return bits[:8]
 
     def adc_burst_length_data(self):
-        return self._to8bits(self.adc_burst_length)
+        return bah.fromuint(self.adc_burst_length, 8)
 
     def channel_mask_data(self, chunk):
         if chunk == 0:
-            return Bits(self.channel_mask[7::-1])
+            return bitarray(self.channel_mask[7::-1])
         else:
             high_bit = (chunk + 1) * 8 - 1
             low_bit = chunk * 8 - 1
-            return Bits(self.channel_mask[high_bit:low_bit:-1])
+            return bitarray(self.channel_mask[high_bit:low_bit:-1])
 
     def external_trigger_mask_data(self, chunk):
         if chunk == 0:
-            return Bits(self.external_trigger_mask[7::-1])
+            return bitarray(self.external_trigger_mask[7::-1])
         else:
             high_bit = (chunk + 1) * 8 - 1
             low_bit = chunk * 8 - 1
-            return Bits(self.external_trigger_mask[high_bit:low_bit:-1])
+            return bitarray(self.external_trigger_mask[high_bit:low_bit:-1])
 
     def reset_cycles_data(self, chunk):
-        bits = Bits('uint:24=' + str(self.reset_cycles))
+        bits = bah.fromuint(self.reset_cycles, 24)
         if chunk == 0:
             return bits[16:]
         elif chunk == 1:
@@ -689,7 +688,7 @@ class Configuration(object):
 
         '''
         def bits_to_array(data):
-            bits = Bits('uint:8=%d' % data)
+            bits = bah.fromuint(data, 8)
             return [int(bit) for bit in bits][::-1]
 
         for address, value in d.items():
@@ -1331,23 +1330,23 @@ class Packet(object):
     test_counter_bits_11_0 = slice(1, 13)
     test_counter_bits_15_12 = slice(40, 44)
 
-    DATA_PACKET = Bits('0b00')
-    TEST_PACKET = Bits('0b01')
-    CONFIG_WRITE_PACKET = Bits('0b10')
-    CONFIG_READ_PACKET = Bits('0b11')
-    _bit_padding = Bits('0b00')
+    DATA_PACKET = bitarray('00')
+    TEST_PACKET = bitarray('01')
+    CONFIG_WRITE_PACKET = bitarray('10')
+    CONFIG_READ_PACKET = bitarray('11')
+    _bit_padding = bitarray('00')
     _pad_length = 2
 
     def __init__(self, bytestream=None):
         if bytestream is None:
-            self.bits = BitArray(Packet.size)
+            self.bits = bitarray(Packet.size)
+            self.bits.setall(False)
             return
         elif len(bytestream) == Packet.num_bytes:
             # Parse the bytestream. Remember that bytestream[0] goes at
             # the 'end' of the BitArray
             reversed_bytestream = bytestream[::-1]
-            self.bits = BitArray(bytes=reversed_bytestream,
-                    offset=self._pad_length)
+            self.bits = bitarray(reversed_bytestream)[2:]
         else:
             raise ValueError('Invalid number of bytes: %s' %
                     len(bytestream))
@@ -1399,14 +1398,14 @@ class Packet(object):
     def export(self):
         '''Return a dict representation of this Packet.'''
         type_map = {
-                Bits(self.TEST_PACKET): 'test',
-                Bits(self.DATA_PACKET): 'data',
-                Bits(self.CONFIG_WRITE_PACKET): 'config write',
-                Bits(self.CONFIG_READ_PACKET): 'config read'
+                self.TEST_PACKET.to01(): 'test',
+                self.DATA_PACKET.to01(): 'data',
+                self.CONFIG_WRITE_PACKET.to01(): 'config write',
+                self.CONFIG_READ_PACKET.to01(): 'config read'
                 }
         d = {}
         d['bits'] = self.bits.bin
-        d['type'] = type_map[Bits(self.packet_type)]
+        d['type'] = type_map[self.packet_type.to01()]
         d['chipid'] = self.chipid
         d['parity'] = self.parity_bit_value
         d['valid_parity'] = self.has_valid_parity()
@@ -1435,7 +1434,7 @@ class Packet(object):
 
     @property
     def chipid(self):
-        return self.bits[Packet.chipid_bits].uint
+        return bah.touint(self.bits[Packet.chipid_bits])
 
     @chipid.setter
     def chipid(self, value):
@@ -1460,7 +1459,7 @@ class Packet(object):
 
     @property
     def channel_id(self):
-        return self.bits[Packet.channel_id_bits].uint
+        return bah.touint(self.bits[Packet.channel_id_bits])
 
     @channel_id.setter
     def channel_id(self, value):
@@ -1468,7 +1467,7 @@ class Packet(object):
 
     @property
     def timestamp(self):
-        return self.bits[Packet.timestamp_bits].uint
+        return bah.touint(self.bits[Packet.timestamp_bits])
 
     @timestamp.setter
     def timestamp(self, value):
@@ -1476,7 +1475,7 @@ class Packet(object):
 
     @property
     def dataword(self):
-        ostensible_value = self.bits[Packet.dataword_bits].uint
+        ostensible_value = bah.touint(self.bits[Packet.dataword_bits])
         # TODO fix in LArPix v2
         return ostensible_value - (ostensible_value % 2)
 
@@ -1502,7 +1501,7 @@ class Packet(object):
 
     @property
     def register_address(self):
-        return self.bits[Packet.register_address_bits].uint
+        return bah.touint(self.bits[Packet.register_address_bits])
 
     @register_address.setter
     def register_address(self, value):
@@ -1510,7 +1509,7 @@ class Packet(object):
 
     @property
     def register_data(self):
-        return self.bits[Packet.register_data_bits].uint
+        return bah.touint(self.bits[Packet.register_data_bits])
 
     @register_data.setter
     def register_data(self, value):
@@ -1518,12 +1517,12 @@ class Packet(object):
 
     @property
     def test_counter(self):
-        return (self.bits[Packet.test_counter_bits_15_12] +
-                self.bits[Packet.test_counter_bits_11_0]).uint
+        return bah.touint(self.bits[Packet.test_counter_bits_15_12] +
+                self.bits[Packet.test_counter_bits_11_0])
 
     @test_counter.setter
     def test_counter(self, value):
-        allbits = BitArray('uint:16=' + str(value))
+        allbits = bah.fromuint(value, 16)
         self.bits[Packet.test_counter_bits_15_12] = allbits[:4]
         self.bits[Packet.test_counter_bits_11_0] = allbits[4:]
 
@@ -1665,7 +1664,7 @@ class PacketCollection(object):
         for p in d['packets']:
             bits = p['bits']
             packet = Packet()
-            packet.bits = BitArray('0b' + bits)
+            packet.bits = bitarray(bits)
             self.packets.append(packet)
 
     def extract(self, attr, **selection):
