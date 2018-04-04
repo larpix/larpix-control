@@ -1335,9 +1335,10 @@ class Packet(object):
     TEST_PACKET = Bits('0b01')
     CONFIG_WRITE_PACKET = Bits('0b10')
     CONFIG_READ_PACKET = Bits('0b11')
+    _bit_padding = Bits('0b00')
+    _pad_length = 2
 
     def __init__(self, bytestream=None):
-        self._bit_padding = Bits('0b00')
         if bytestream is None:
             self.bits = BitArray(Packet.size)
             return
@@ -1345,8 +1346,8 @@ class Packet(object):
             # Parse the bytestream. Remember that bytestream[0] goes at
             # the 'end' of the BitArray
             reversed_bytestream = bytestream[::-1]
-            bits_with_padding = BitArray(bytes=reversed_bytestream)
-            self.bits = bits_with_padding[len(self._bit_padding):]
+            self.bits = BitArray(bytes=reversed_bytestream,
+                    offset=self._pad_length)
         else:
             raise ValueError('Invalid number of bytes: %s' %
                     len(bytestream))
