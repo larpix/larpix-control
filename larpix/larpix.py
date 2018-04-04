@@ -799,6 +799,10 @@ class Controller(object):
     def serial_read(self, timelimit):
         data_in = b''
         start = time.time()
+        close_port = False
+        if not self._serial._keep_open:
+            close_port = True
+        self._serial._keep_open = True
         try:
             while time.time() - start < timelimit:
                 stream = self._serial.read(self.max_write)
@@ -814,6 +818,9 @@ class Controller(object):
             else:
                 del self._read_tries_left
                 raise
+        if close_port:
+            serial_close()
+            self._serial._keep_open = False
         return data_in
 
     def serial_write(self, bytestreams):
@@ -822,6 +829,10 @@ class Controller(object):
 
     def serial_write_read(self, bytestreams, timelimit):
         data_in = b''
+        close_port = False
+        if not self._serial._keep_open:
+            close_port = True
+        self._serial._keep_open = True
         start = time.time()
         # First do a fast write-read loop until everything is
         # written out, then just read
@@ -836,6 +847,9 @@ class Controller(object):
             stream = self._serial.read(self.max_write)
             if len(stream) > 0:
                 data_in += stream
+        if close_port:
+            serial_close()
+            self._serial._keep_open = False
         return data_in
 
     def write_configuration(self, chip, registers=None, write_read=0,
