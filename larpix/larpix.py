@@ -1176,8 +1176,7 @@ class Controller(object):
 
     def format_UART(self, chip, packet):
         packet_bytes = packet.bytes()
-        #daisy_chain_byte = (4 + Bits('uint:4=' + str(chip.io_chain))).bytes
-        daisy_chain_byte = b'\x00'
+        daisy_chain_byte = bah.fromuint(chip.io_chain, 8).tobytes()
         formatted_packet = (Controller.start_byte + packet_bytes +
                 daisy_chain_byte + Controller.stop_byte)
         return formatted_packet
@@ -1208,8 +1207,8 @@ class Controller(object):
                 byte_packets.append((Bits(code + str(metadata)),
                     Packet(current_stream[data_bytes])))
                 '''
-                byte_packets.append([],
-                        Packet(current_stream[data_bytes]))
+                byte_packets.append(([],
+                        Packet(current_stream[data_bytes])))
                 current_stream = current_stream[packet_size:]
                 index += packet_size
             else:
@@ -1335,7 +1334,6 @@ class Packet(object):
     CONFIG_WRITE_PACKET = bitarray('10')
     CONFIG_READ_PACKET = bitarray('11')
     _bit_padding = bitarray('00')
-    _pad_length = 2
 
     def __init__(self, bytestream=None):
         if bytestream is None:
@@ -1346,7 +1344,12 @@ class Packet(object):
             # Parse the bytestream. Remember that bytestream[0] goes at
             # the 'end' of the BitArray
             reversed_bytestream = bytestream[::-1]
-            self.bits = bitarray(reversed_bytestream)[2:]
+            self.bits = bitarray()
+            self.bits.frombytes(reversed_bytestream)
+            # Get rid of the padding (now at the beginning of the
+            # bitstream because of the reverse order)
+            self.bits.pop(0)
+            self.bits.pop(0)
         else:
             raise ValueError('Invalid number of bytes: %s' %
                     len(bytestream))
@@ -1392,7 +1395,7 @@ class Packet(object):
         # Here's the only other place we have to deal with the
         # endianness issue by reversing the order
         padded_output = self._bit_padding + self.bits
-        bytes_output = padded_output.bytes
+        bytes_output = padded_output.tobytes()
         return bytes_output[::-1]
 
     def export(self):
@@ -1404,7 +1407,7 @@ class Packet(object):
                 self.CONFIG_READ_PACKET.to01(): 'config read'
                 }
         d = {}
-        d['bits'] = self.bits.bin
+        d['bits'] = self.bits.to01()
         d['type'] = type_map[self.packet_type.to01()]
         d['chipid'] = self.chipid
         d['parity'] = self.parity_bit_value
@@ -1430,7 +1433,8 @@ class Packet(object):
 
     @packet_type.setter
     def packet_type(self, value):
-        self.bits[Packet.packet_type_bits] = value
+        self.bits[Packet.packet_type_bits] = bah.fromuint(value,
+                Packet.packet_type_bits)
 
     @property
     def chipid(self):
@@ -1438,7 +1442,8 @@ class Packet(object):
 
     @chipid.setter
     def chipid(self, value):
-        self.bits[Packet.chipid_bits] = value
+        self.bits[Packet.chipid_bits] = bah.fromuint(value,
+                Packet.chipid_bits)
 
     @property
     def parity_bit_value(self):
@@ -1446,7 +1451,7 @@ class Packet(object):
 
     @parity_bit_value.setter
     def parity_bit_value(self, value):
-        self.bits[Packet.parity_bit] = value
+        self.bits[Packet.parity_bit] = bool(value)
 
     def compute_parity(self):
         return 1 - (self.bits[Packet.parity_calc_bits].count(True) % 2)
@@ -1463,7 +1468,8 @@ class Packet(object):
 
     @channel_id.setter
     def channel_id(self, value):
-        self.bits[Packet.channel_id_bits] = value
+        self.bits[Packet.channel_id_bits] = bah.fromuint(value,
+                Packet.channel_id_bits)
 
     @property
     def timestamp(self):
@@ -1471,7 +1477,8 @@ class Packet(object):
 
     @timestamp.setter
     def timestamp(self, value):
-        self.bits[Packet.timestamp_bits] = value
+        self.bits[Packet.timestamp_bits] = bah.fromuint(value,
+                Packet.timestamp_bits)
 
     @property
     def dataword(self):
@@ -1481,7 +1488,8 @@ class Packet(object):
 
     @dataword.setter
     def dataword(self, value):
-        self.bits[Packet.dataword_bits] = value
+        self.bits[Packet.dataword_bits] = bah.fromuint(value,
+                Packet.dataword_bits)
 
     @property
     def fifo_half_flag(self):
@@ -1505,7 +1513,8 @@ class Packet(object):
 
     @register_address.setter
     def register_address(self, value):
-        self.bits[Packet.register_address_bits] = value
+        self.bits[Packet.register_address_bits] = bah.fromuint(value,
+                Packet.register_address_bits)
 
     @property
     def register_data(self):
@@ -1513,7 +1522,8 @@ class Packet(object):
 
     @register_data.setter
     def register_data(self, value):
-        self.bits[Packet.register_data_bits] = value
+        self.bits[Packet.register_data_bits] = bah.fromuint(value,
+                Packet.register_data_bits)
 
     @property
     def test_counter(self):
@@ -1523,8 +1533,10 @@ class Packet(object):
     @test_counter.setter
     def test_counter(self, value):
         allbits = bah.fromuint(value, 16)
-        self.bits[Packet.test_counter_bits_15_12] = allbits[:4]
-        self.bits[Packet.test_counter_bits_11_0] = allbits[4:]
+        self.bits[Packet.test_counter_bits_15_12] = (
+            bah.fromuint(allbits[:4], Packet.test_counter_bits_15_12))
+        self.bits[Packet.test_counter_bits_11_0] = (
+            bah.fromuint(allbits[4:], Packet.test_counter_bits_11_0))
 
 class PacketCollection(object):
     '''
@@ -1630,10 +1642,10 @@ class PacketCollection(object):
 
         '''
         if isinstance(key, slice):
-            return [' '.join(p.bits.bin[i:i+8] for i in
+            return [' '.join(p.bits.to01()[i:i+8] for i in
                 range(0, Packet.size, 8)) for p in self.packets[key]]
         else:
-            return ' '.join(self.packets[key].bits.bin[i:i+8] for i in
+            return ' '.join(self.packets[key].bits.to01()[i:i+8] for i in
                     range(0, Packet.size, 8))
 
     def to_dict(self):
