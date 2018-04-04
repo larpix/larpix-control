@@ -819,7 +819,7 @@ class Controller(object):
                 del self._read_tries_left
                 raise
         if close_port:
-            serial_close()
+            self.serial_close()
             self._serial._keep_open = False
         return data_in
 
@@ -848,7 +848,7 @@ class Controller(object):
             if len(stream) > 0:
                 data_in += stream
         if close_port:
-            serial_close()
+            self.serial_close()
             self._serial._keep_open = False
         return data_in
 
@@ -1893,7 +1893,7 @@ class SerialPort(object):
         self.port_type = self._resolve_port_type()
         if self.port_type is 'pyserial':
             self._ready_port = self._ready_port_pyserial
-            self._keep_open = True
+            self._keep_open = False
         elif self.port_type is 'pylibftdi':
             self._ready_port = self._ready_port_pylibftdi
             self._keep_open = True

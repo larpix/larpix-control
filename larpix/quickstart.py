@@ -99,7 +99,7 @@ def quickcontroller(board='pcb-1'):
         settings = {'controller':cont}
         cont.chips = get_chip_ids(**settings)
     set_config_physics(cont)
-    flush_stale_data(cont)
+    #flush_stale_data(cont)
     return cont
 
 # Short-cut handle
