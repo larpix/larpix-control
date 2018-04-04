@@ -1191,11 +1191,13 @@ class Controller(object):
         # parse the bytestream into Packets + metadata
         byte_packets = []
         skip_slices = []
-        current_stream = bytestream
+        #current_stream = bytestream
+        bytestream_len = len(bytestream)
+        last_possible_start = bytestream_len - packet_size
         index = 0
-        while len(current_stream) >= packet_size:
-            if (current_stream[0] == start_byte and
-                    current_stream[packet_size-1] == stop_byte):
+        while index <= last_possible_start:
+            if (bytestream[index] == start_byte and
+                    bytestream[index+packet_size-1] == stop_byte):
                 '''
                 metadata = current_stream[metadata_byte_index]
                 # This is necessary because of differences between
@@ -1208,18 +1210,20 @@ class Controller(object):
                     Packet(current_stream[data_bytes])))
                 '''
                 byte_packets.append(([],
-                        Packet(current_stream[data_bytes])))
-                current_stream = current_stream[packet_size:]
+                    Packet(bytestream[index+1:index+8])))
+                #current_stream = current_stream[packet_size:]
                 index += packet_size
             else:
                 # Throw out everything between here and the next start byte.
                 # Note: start searching after byte 0 in case it's
                 # already a start byte
-                next_start_index = current_stream[1:].find(start_byte)
+                index = bytestream.find(start_byte, index+1)
+                if index == -1:
+                    index = bytestream_len
                 #if next_start_index != 0:
                 #        print('Warning: %d extra bytes in data stream!' %
                 #        (next_start_index+1))
-                current_stream = current_stream[1:][next_start_index:]
+                #current_stream = current_stream[1:][next_start_index:]
         #if len(current_stream) != 0:
         #    print('Warning: %d extra bytes at end of data stream!' %
         #          len(current_stream))
