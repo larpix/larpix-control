@@ -7,7 +7,9 @@ import pytest
 from larpix.larpix import (Chip, Packet, Configuration, Controller,
         PacketCollection)
 from larpix.Timestamp import *
-from bitstring import BitArray
+#from bitstring import BitArray
+from bitarray import bitarray
+import larpix.bitarrayhelper as bah
 import json
 import os
 
@@ -104,7 +106,7 @@ def test_chip_sync_configuration():
     chip.reads.append(PacketCollection(packets))
     chip.sync_configuration()
     result = chip.config.all_data()
-    expected = [BitArray([0]*8)] * Configuration.num_registers
+    expected = [bitarray([0]*8)] * Configuration.num_registers
     assert result == expected
 
 def test_chip_export_reads():
@@ -122,7 +124,7 @@ def test_chip_export_reads():
             'io_chain': 2,
             'packets': [
                 {
-                    'bits': packet.bits.bin,
+                    'bits': packet.bits.to01(),
                     'type': 'config write',
                     'chipid': 1,
                     'parity': 1,
@@ -161,7 +163,7 @@ def test_chip_export_reads_all():
             'io_chain': 2,
             'packets': [
                 {
-                    'bits': packet.bits.bin,
+                    'bits': packet.bits.to01(),
                     'type': 'config write',
                     'chipid': 0,
                     'parity': 0,
@@ -227,15 +229,15 @@ def test_packet_bits_bytes():
 
 def test_packet_init_default():
     p = Packet()
-    expected = BitArray([0] * Packet.size)
+    expected = bitarray([0] * Packet.size)
     assert p.bits == expected
 
 def test_packet_init_bytestream():
     bytestream = b'\x3f' + b'\x00' * (Packet.num_bytes-2) + b'\x3e'
     p = Packet(bytestream)
-    expected = BitArray([0] * Packet.size)
-    expected[-6:] = [1]*6
-    expected[:5] = [1]*5
+    expected = bitarray([0] * Packet.size)
+    expected[-6:] = bitarray([1]*6)
+    expected[:5] = bitarray([1]*5)
     assert p.bits == expected
 
 def test_packet_bytes_zeros():
@@ -246,8 +248,8 @@ def test_packet_bytes_zeros():
 
 def test_packet_bytes_custom():
     p = Packet()
-    p.bits[-6:] = [1]*6  # First byte is 0b00111111
-    p.bits[:5] = [1]*5  # Last byte is 0b00111110 (2 MSBs are padding)
+    p.bits[-6:] = bitarray([1]*6)  # First byte is 0b00111111
+    p.bits[:5] = bitarray([1]*5)  # Last byte is 0b00111110 (2 MSBs are padding)
     b = p.bytes()
     expected = b'\x3f' + b'\x00' * (Packet.size//8-1) + b'\x3e'
     assert b == expected
@@ -268,7 +270,7 @@ def test_packet_export_test():
     p.assign_parity()
     result = p.export()
     expected = {
-            'bits': p.bits.bin,
+            'bits': p.bits.to01(),
             'type': 'test',
             'chipid': 5,
             'counter': 32838,
@@ -289,7 +291,7 @@ def test_packet_export_data():
     p.assign_parity()
     result = p.export()
     expected = {
-            'bits': p.bits.bin,
+            'bits': p.bits.to01(),
             'type': 'data',
             'chipid': 2,
             'channel': 10,
@@ -311,7 +313,7 @@ def test_packet_export_config_read():
     p.assign_parity()
     result = p.export()
     expected = {
-            'bits': p.bits.bin,
+            'bits': p.bits.to01(),
             'type': 'config read',
             'chipid': 10,
             'register': 51,
@@ -330,7 +332,7 @@ def test_packet_export_config_write():
     p.assign_parity()
     result = p.export()
     expected = {
-            'bits': p.bits.bin,
+            'bits': p.bits.to01(),
             'type': 'config write',
             'chipid': 10,
             'register': 51,
@@ -357,7 +359,7 @@ def test_packet_get_packet_type():
 def test_packet_set_chipid():
     p = Packet()
     p.chipid = 121
-    expected = BitArray('uint:8=121')
+    expected = bah.fromuint(121, 8)
     assert p.bits[Packet.chipid_bits] == expected
 
 def test_packet_get_chipid():
@@ -386,11 +388,11 @@ def test_packet_compute_parity():
     parity = p.compute_parity()
     expected = 0
     assert parity == expected
-    p.bits = BitArray([0]*54)
+    p.bits = bitarray([0]*54)
     parity = p.compute_parity()
     expected = 1
     assert parity == expected
-    p.bits = BitArray([1]*54)
+    p.bits = bitarray([1]*54)
     parity = p.compute_parity()
     expected = 0
     assert parity == expected
@@ -415,7 +417,7 @@ def test_packet_has_valid_parity():
     result = p.has_valid_parity()
     expected = True
     assert result == expected
-    p.bits = BitArray([1]*54)
+    p.bits = bitarray([1]*54)
     result = p.has_valid_parity()
     expected = False
     assert result == expected
@@ -427,7 +429,7 @@ def test_packet_has_valid_parity():
 def test_packet_set_channel_id():
     p = Packet()
     p.channel_id = 100
-    expected = BitArray('uint:7=100')
+    expected = bah.fromuint(100, 7)
     assert p.bits[Packet.channel_id_bits] == expected
 
 def test_packet_get_channel_id():
@@ -439,7 +441,7 @@ def test_packet_get_channel_id():
 def test_packet_set_timestamp():
     p = Packet()
     p.timestamp = 0x1327ab
-    expected = BitArray('0x1327ab')
+    expected = bah.fromuint(int('0x1327ab', 16), 24)
     assert p.bits[Packet.timestamp_bits] == expected
 
 def test_packet_get_timestamp():
@@ -451,7 +453,7 @@ def test_packet_get_timestamp():
 def test_packet_set_dataword():
     p = Packet()
     p.dataword = 75
-    expected = BitArray('uint:10=75')
+    expected = bah.fromuint(75, 10)
     assert p.bits[Packet.dataword_bits] == expected
 
 def test_packet_get_dataword():
@@ -493,7 +495,7 @@ def test_packet_get_fifo_full_flag():
 def test_packet_set_register_address():
     p = Packet()
     p.register_address = 121
-    expected = BitArray('uint:8=121')
+    expected = bah.fromuint(121, 8)
     assert p.bits[Packet.register_address_bits] == expected
 
 def test_packet_get_register_address():
@@ -505,7 +507,7 @@ def test_packet_get_register_address():
 def test_packet_set_register_data():
     p = Packet()
     p.register_data = 1
-    expected = BitArray('uint:8=1')
+    expected = bah.fromuint(1, 8)
     assert p.bits[Packet.register_data_bits] == expected
 
 def test_packet_get_register_data():
@@ -517,7 +519,7 @@ def test_packet_get_register_data():
 def test_packet_set_test_counter():
     p = Packet()
     p.test_counter = 18376
-    expected = BitArray('uint:16=18376')
+    expected = bah.fromuint(18376, 16)
     result = (p.bits[Packet.test_counter_bits_15_12] +
             p.bits[Packet.test_counter_bits_11_0])
     assert result == expected
@@ -1041,134 +1043,134 @@ def test_configuration_disable_analog_monitor():
 
 def test_configuration_trim_threshold_data():
     c = Configuration()
-    expected = BitArray('0x10')
+    expected = bah.fromuint(int('0x10', 16), 8)
     assert c.trim_threshold_data(0) == expected
 
 def test_configuration_global_threshold_data():
     c = Configuration()
-    expected = BitArray('0x10')
+    expected = bah.fromuint(int('0x10', 16), 8)
     assert c.global_threshold_data() == expected
 
 def test_configuration_csa_gain_and_bypasses_data():
     c = Configuration()
-    expected = BitArray('0b00000001')
+    expected = bitarray('00000001')
     assert c.csa_gain_and_bypasses_data() == expected
 
 def test_configuration_csa_bypass_select_data():
     c = Configuration()
     c.csa_bypass_select[4] = 1
-    expected = BitArray('0b00010000')
+    expected = bitarray('00010000')
     assert c.csa_bypass_select_data(0) == expected
     c.csa_bypass_select[10] = 1
-    expected = BitArray('0b00000100')
+    expected = bitarray('00000100')
     assert c.csa_bypass_select_data(1) == expected
     c.csa_bypass_select[20] = 1
-    expected = BitArray('0b00010000')
+    expected = bitarray('00010000')
     assert c.csa_bypass_select_data(2) == expected
     c.csa_bypass_select[30] = 1
-    expected = BitArray('0b01000000')
+    expected = bitarray('01000000')
     assert c.csa_bypass_select_data(3) == expected
 
 def test_configuration_csa_monitor_select_data():
     c = Configuration()
     c.csa_monitor_select[4] = 1
-    expected = BitArray('0b00010000')
+    expected = bitarray('00010000')
     assert c.csa_monitor_select_data(0) == expected
     c.csa_monitor_select[10] = 1
-    expected = BitArray('0b00000100')
+    expected = bitarray('00000100')
     assert c.csa_monitor_select_data(1) == expected
     c.csa_monitor_select[20] = 1
-    expected = BitArray('0b00010000')
+    expected = bitarray('00010000')
     assert c.csa_monitor_select_data(2) == expected
     c.csa_monitor_select[30] = 1
-    expected = BitArray('0b01000000')
+    expected = bitarray('01000000')
     assert c.csa_monitor_select_data(3) == expected
 
 def test_configuration_csa_testpulse_enable_data():
     c = Configuration()
     c.csa_testpulse_enable[4] = 0
-    expected = BitArray('0b11101111')
+    expected = bitarray('11101111')
     assert c.csa_testpulse_enable_data(0) == expected
     c.csa_testpulse_enable[10] = 0
-    expected = BitArray('0b11111011')
+    expected = bitarray('11111011')
     assert c.csa_testpulse_enable_data(1) == expected
     c.csa_testpulse_enable[20] = 0
-    expected = BitArray('0b11101111')
+    expected = bitarray('11101111')
     assert c.csa_testpulse_enable_data(2) == expected
     c.csa_testpulse_enable[30] = 0
-    expected = BitArray('0b10111111')
+    expected = bitarray('10111111')
     assert c.csa_testpulse_enable_data(3) == expected
 
 def test_configuration_csa_testpulse_dac_amplitude_data():
     c = Configuration()
     c.csa_testpulse_dac_amplitude = 200;
-    expected = BitArray('0b11001000')
+    expected = bitarray('11001000')
     assert c.csa_testpulse_dac_amplitude_data() == expected
 
 def test_configuration_test_mode_xtrig_reset_diag_data():
     c = Configuration()
     c.test_mode = 2
     c.fifo_diagnostic = 1
-    expected = BitArray('0b00010010')
+    expected = bitarray('00010010')
     assert c.test_mode_xtrig_reset_diag_data() == expected
 
 def test_configuration_sample_cycles_data():
     c = Configuration()
     c.sample_cycles = 221
-    expected = BitArray('0b11011101')
+    expected = bitarray('11011101')
     assert c.sample_cycles_data() == expected
 
 def test_configuration_test_burst_length_data():
     c = Configuration()
-    expected = BitArray('0xFF')
+    expected = bah.fromuint(int('0xFF', 16), 8)
     assert c.test_burst_length_data(0) == expected
-    expected = BitArray('0x00')
+    expected = bah.fromuint(int('0x00', 16), 8)
     assert c.test_burst_length_data(1) == expected
 
 def test_configuration_adc_burst_length_data():
     c = Configuration()
     c.adc_burst_length = 140
-    expected = BitArray('0b10001100')
+    expected = bitarray('10001100')
     assert c.adc_burst_length_data() == expected
 
 def test_configuration_channel_mask_data():
     c = Configuration()
     c.channel_mask[4] = 1
-    expected = BitArray('0b00010000')
+    expected = bitarray('00010000')
     assert c.channel_mask_data(0) == expected
     c.channel_mask[10] = 1
-    expected = BitArray('0b00000100')
+    expected = bitarray('00000100')
     assert c.channel_mask_data(1) == expected
     c.channel_mask[20] = 1
-    expected = BitArray('0b00010000')
+    expected = bitarray('00010000')
     assert c.channel_mask_data(2) == expected
     c.channel_mask[30] = 1
-    expected = BitArray('0b01000000')
+    expected = bitarray('01000000')
     assert c.channel_mask_data(3) == expected
 
 def test_configuration_external_trigger_mask_data():
     c = Configuration()
     c.external_trigger_mask[4] = 0
-    expected = BitArray('0b11101111')
+    expected = bitarray('11101111')
     assert c.external_trigger_mask_data(0) == expected
     c.external_trigger_mask[10] = 0
-    expected = BitArray('0b11111011')
+    expected = bitarray('11111011')
     assert c.external_trigger_mask_data(1) == expected
     c.external_trigger_mask[20] = 0
-    expected = BitArray('0b11101111')
+    expected = bitarray('11101111')
     assert c.external_trigger_mask_data(2) == expected
     c.external_trigger_mask[30] = 0
-    expected = BitArray('0b10111111')
+    expected = bitarray('10111111')
     assert c.external_trigger_mask_data(3) == expected
 
 def test_configuration_reset_cycles_data():
     c = Configuration()
     c.reset_cycles = 0xabcdef
-    expected = BitArray('0xef')
+    expected = bah.fromuint(int('0xef', 16), 8)
     assert c.reset_cycles_data(0) == expected
-    expected = BitArray('0xcd')
+    expected = bah.fromuint(int('0xcd', 16), 8)
     assert c.reset_cycles_data(1) == expected
-    expected = BitArray('0xab')
+    expected = bah.fromuint(int('0xab', 16), 8)
     assert c.reset_cycles_data(2) == expected
 
 def test_configuration_to_dict():
@@ -1767,7 +1769,7 @@ def test_packetcollection_getitem_int_bits():
     packet = Packet()
     collection = PacketCollection([packet])
     result = collection[0, 'bits']
-    expected = ' '.join(packet.bits.bin[i:i+8] for i in range(0, Packet.size, 8))
+    expected = ' '.join(packet.bits.to01()[i:i+8] for i in range(0, Packet.size, 8))
     assert result == expected
 
 def test_packetcollection_getitem_slice():
@@ -1784,7 +1786,7 @@ def test_packetcollection_getitem_slice_bits():
     packets = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
     collection = PacketCollection(packets, message='hello')
     result = collection[:10, 'bits']
-    expected = [' '.join(p.bits.bin[i:i+8] for i in range(0,
+    expected = [' '.join(p.bits.to01()[i:i+8] for i in range(0,
         Packet.size, 8)) for p in packets[:10]]
     assert result == expected
 
@@ -1835,7 +1837,7 @@ def test_packetcollection_to_dict():
             'read_id': 'None',
             'bytestream': packet.bytes().decode('raw_unicode_escape'),
             'packets': [{
-                'bits': packet.bits.bin,
+                'bits': packet.bits.to01(),
                 'type': 'test',
                 'chipid': packet.chipid,
                 'parity': 0,
