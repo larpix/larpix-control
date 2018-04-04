@@ -29,7 +29,7 @@ setup(
         keywords='dune physics',
         packages=find_packages(),
         install_requires=['pyserial','bitstring','pytest',
-            'larpix-geometry'],
+            'larpix-geometry', 'bitarray'],
         scripts=['scripts/larpix-drivercheck-ubuntu',
                  'scripts/larpix-drivercheck-mac',
                  'scripts/larpix-find-device-ubuntu',
