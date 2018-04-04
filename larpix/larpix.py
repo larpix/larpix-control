@@ -1236,7 +1236,7 @@ class Controller(object):
         new_packets.read_id = self.nreads
         self.nreads += 1
         self.reads.append(new_packets)
-        self.sort_packets(new_packets)
+        #self.sort_packets(new_packets)
 
 
     def sort_packets(self, collection):
