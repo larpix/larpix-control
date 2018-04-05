@@ -29,7 +29,7 @@ board_info_map = dict([(elem['name'],elem) for elem in board_info_list])
 
 def create_controller(timeout=0.01):
     '''Create a default controller'''
-    return larpix.Controller(timeout)
+    return larpix.Controller(timeout=timeout)
 
 def init_controller(controller, board='pcb-5'):
     '''Initialize controller'''
