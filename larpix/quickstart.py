@@ -27,9 +27,9 @@ board_info_list = [
 #Create handy map by board name
 board_info_map = dict([(elem['name'],elem) for elem in board_info_list])
 
-def create_controller():
+def create_controller(timeout=0.01):
     '''Create a default controller'''
-    return larpix.Controller()
+    return larpix.Controller(timeout)
 
 def init_controller(controller, board='pcb-5'):
     '''Initialize controller'''
