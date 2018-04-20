@@ -1794,7 +1794,8 @@ class SerialPort(object):
     # Guesses for default port name by platform
     _default_port_map = {
         'Default':['/dev/ttyUSB2','/dev/ttyUSB1'], # Same as Linux
-        'Linux':['/dev/ttyAMA0', '/dev/ttyUSB2','/dev/ttyUSB1'],   # Linux
+        'Linux':['/dev/ttyAMA0', '/dev/ttyUSB2','/dev/ttyUSB1',
+        '/dev/ttyUSB0'],   # Linux
         'Darwin':['scan-ftdi',],     # OS X
     }
     _logger = None
