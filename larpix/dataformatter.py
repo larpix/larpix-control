@@ -33,7 +33,7 @@ class DataFormatter(object):
     def header_type(cls,header_chunk):
         '''Return the header type, given the first header chunk'''
         header_bits = cls.header_type_mask & header_chunk[0]
-        for (key, val) in cls.header_type_by_desc.iteritems():
+        for (key, val) in cls.header_type_by_desc.items():
             if val == header_bits:
                 return key
         raise ValueError('Undefined header type:', header_bits)
@@ -138,7 +138,7 @@ class DataFormatter_v1_0(DataFormatter):
                          'write': int('10',2),
                          'message': int('11',2)}
     data_desc_by_type = dict([(val,key) for (key,val) in
-                              data_type_by_desc.iteritems()])
+                              data_type_by_desc.items()])
     data_type_mask = int('00110000',2)
     data_final_flag = 0
     data_continued_flag = 1

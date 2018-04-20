@@ -117,7 +117,7 @@ def print_log(filename):
         print('%%%%%%%%%%%%%%%%')
         print('  Block type:',block['block_type'])
         if block['block_type']=='file':
-            print block
+            print(block)
         if block['block_type']=='data':
             print('  Data type:  ',block['data_type'])
             print('  Size:       ',len(block['data']))
