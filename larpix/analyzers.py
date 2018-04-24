@@ -58,6 +58,17 @@ class LogAnalyzer(DataLoader):
         return sum(1 for pack in transmission['packets']
                    if not pack.has_valid_parity())
 
+    def check_fifo(self, transmission):
+        '''Returns tuple of number of half full fifos and full fifos in transmission'''
+        half_flags = 0
+        full_flags = 0
+        if transmission['block_type'] != 'data': return (0,0)
+        for packet in transmission['packets']:
+            if packet.packet_type == Packet.DATA_PACKET:
+                half_flags += int(packet.fifo_half_flag)
+                full_flags += int(packet.fifo_full_flag)
+        return (half_flags, full_flags)
+
     def adc_report(self, interval_step=100000, max_read=None, return_list=False):
         '''
         Print min, max, avg channel adcs for all packets with good parity in log
@@ -209,6 +220,44 @@ class LogAnalyzer(DataLoader):
                                                      float(npackets_total)))
         return
 
+    def fifo_report(self, interval_step=100000):
+        '''Check fifo flags of all packets in log, and report status'''
+        print('========= FIFO Report =====================')
+        npackets_total = 0
+        npackets_half_fifo_total = 0
+        npackets_full_fifo_total = 0
+        npackets_interval = 0
+        npackets_half_fifo_interval = 0
+        npackets_full_fifo_interval = 0
+        while True:
+            next_trans = self.next_transmission()
+            if next_trans is None:
+                break
+            if next_trans['block_type'] != 'data': continue
+            if next_trans['data_type'] != 'read': continue
+            if len(next_trans['packets']) <= 0: continue
+            n_half, n_full = self.check_fifo(next_trans)
+            npackets_total += len(next_trans['packets'])
+            npackets_half_fifo_total += n_half
+            npackets_full_fifo_total += n_full
+            npackets_interval += len(next_trans['packets'])
+            npackets_half_fifo_interval += n_half
+            npackets_full_fifo_interval += n_full
+            if npackets_interval > interval_step:
+                # Interval Report
+                print('  N_packets, N_half, N_full: %d %d %d' % (
+                    npackets_interval,
+                    npackets_half_fifo_interval,
+                    npackets_full_fifo_interval))
+                npackets_interval = 0
+                npackets_half_fifo_interval = 0
+                npackets_full_fifo_interval = 0
+        # Total Report
+        print('== Summary of FIFO Check ==')
+        print('  Total number of packets: %d' % npackets_total)
+        print('  Packets with half full FIFO: %d' % npackets_half_fifo_total)
+        print('  Packets with full FIFO: %d' % npackets_full_fifo_total)
+        return
 
     @classmethod
     def print_transmission(cls, block, show_packets=True):
