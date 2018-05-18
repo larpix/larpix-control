@@ -1143,7 +1143,7 @@ class Controller(object):
             raise ValueError('Minimum DAC exceeded')
         self.write_configuration(chip, [Configuration.csa_testpulse_dac_amplitude_address],
                                  write_read=0.1)
-        return
+        return self.reads[-1]
 
     def disable_testpulse(self, chip_id=None, channel_list=range(32), io_chain=0):
         '''

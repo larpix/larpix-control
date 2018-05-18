@@ -33,7 +33,7 @@ def create_controller(timeout=0.01):
 
 def init_controller(controller, board='pcb-5'):
     '''Initialize controller'''
-    if not board_info_map.has_key(board):
+    if not board in board_info_map.keys():
         board = 'unknown'
     board_info = board_info_map[board]
     for chip_info in board_info['chip_list']:
