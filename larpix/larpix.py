@@ -5,12 +5,14 @@ A module to control the LArPix chip.
 from __future__ import absolute_import
 
 import time
-import serial
-from bitstring import BitArray, Bits
+from bitarray import bitarray
+import larpix.bitarrayhelper as bah
 import json
 import os
 import errno
 import re
+import platform
+import math
 
 import larpix.configs as configs
 
@@ -35,11 +37,16 @@ class Chip(object):
     def __repr__(self):
         return 'Chip(%d, %d)' % (self.chip_id, self.io_chain)
 
-    def get_configuration_packets(self, packet_type):
+    def get_configuration_packets(self, packet_type, registers=None):
+        if registers is None:
+            registers = range(Configuration.num_registers)
         conf = self.config
-        packets = [Packet() for _ in range(Configuration.num_registers)]
+        packets = []
         packet_register_data = conf.all_data()
-        for i, (packet, data) in enumerate(zip(packets, packet_register_data)):
+        for i, data in enumerate(packet_register_data):
+            if i not in registers:
+                continue
+            packet = Packet()
             packet.packet_type = packet_type
             packet.chipid = self.chip_id
             packet.register_address = i
@@ -48,6 +55,7 @@ class Chip(object):
             else:
                 packet.register_data = 0
             packet.assign_parity()
+            packets.append(packet)
         return packets
 
     def sync_configuration(self, index=-1):
@@ -187,6 +195,13 @@ class Configuration(object):
         # These registers each correspond to an entry in an array
         self._trim_registers = list(range(32))
 
+    def __eq__(self, other):
+        '''
+        Returns true if all fields match
+        '''
+        return all([getattr(self, register_name) == getattr(other, register_name)
+                    for register_name in self.register_names])
+
     def __str__(self):
         '''
         Converts configuration to a nicely formatted json string
@@ -196,26 +211,33 @@ class Configuration(object):
         l = ['\"{}\": {}'.format(key,value) for key,value in d.items()]
         return '{\n    ' + ',\n    '.join(l) + '\n}'
 
-    def get_nondefault_registers(self):
+    def compare(self, config):
+        '''
+        Returns a dict containing pairs of each differently valued register
+        Pair order is (self, other)
+        '''
         d = {}
-        default_config = Configuration()
         for register_name in self.register_names:
-            if getattr(self, register_name) != getattr(default_config, register_name):
-                d[register_name] = getattr(self, register_name)
+            if getattr(self, register_name) != getattr(config, register_name):
+                d[register_name] = (getattr(self, register_name), getattr(config,
+                                                                          register_name))
         # Attempt to simplify some of the long values (array values)
-        for (name, value) in d.items():
+        for (name, (self_value, config_value)) in d.items():
             if (name in (label for _, label in self._complex_array_spec)
                     or name == 'pixel_trim_thresholds'):
                 different_values = []
-                for ch, (val, default_val) in enumerate(zip(value, getattr(
-                    default_config, name))):
-                    if val != default_val:
-                        different_values.append({'channel': ch, 'value': val})
+                for ch, (val, config_val) in enumerate(zip(self_value, config_value)):
+                    if val != config_val:
+                        different_values.append(({'channel': ch, 'value': val},
+                                                 {'channel': ch, 'value': config_val}))
                 if len(different_values) < 5:
                     d[name] = different_values
                 else:
                     pass
         return d
+
+    def get_nondefault_registers(self):
+        return self.compare(Configuration())
 
     @property
     def pixel_trim_thresholds(self):
@@ -523,13 +545,13 @@ class Configuration(object):
         if list_of_channels is None:
             list_of_channels = range(Chip.num_channels)
         for channel in list_of_channels:
-            self.csa_testpulse_enable[channel] = 1
+            self.csa_testpulse_enable[channel] = 0
 
     def disable_testpulse(self, list_of_channels=None):
         if list_of_channels is None:
             list_of_channels = range(Chip.num_channels)
         for channel in list_of_channels:
-            self.csa_testpulse_enable[channel] = 0
+            self.csa_testpulse_enable[channel] = 1
 
     def enable_analog_monitor(self, channel):
         self.csa_monitor_select[channel] = 1
@@ -565,84 +587,82 @@ class Configuration(object):
         bits.append(self.reset_cycles_data(2))
         return bits
 
-    def _to8bits(self, number):
-        return Bits('uint:8=' + str(number))
-
     def trim_threshold_data(self, channel):
-        return self._to8bits(self.pixel_trim_thresholds[channel])
+        return bah.fromuint(self.pixel_trim_thresholds[channel], 8)
 
     def global_threshold_data(self):
-        return self._to8bits(self.global_threshold)
+        return bah.fromuint(self.global_threshold, 8)
 
     def csa_gain_and_bypasses_data(self):
-        return Bits('0b0000') + [self.internal_bypass, 0,
+        return bitarray('0000') + [self.internal_bypass, 0,
                 self.csa_bypass, self.csa_gain]
 
     def csa_bypass_select_data(self, chunk):
         if chunk == 0:
-            return Bits(self.csa_bypass_select[7::-1])
+            return bitarray(self.csa_bypass_select[7::-1])
         else:
             high_bit = (chunk + 1) * 8 - 1
             low_bit = chunk * 8 - 1
-            return Bits(self.csa_bypass_select[high_bit:low_bit:-1])
+            return bitarray(self.csa_bypass_select[high_bit:low_bit:-1])
 
+    #TODO
     def csa_monitor_select_data(self, chunk):
         if chunk == 0:
-            return Bits(self.csa_monitor_select[7::-1])
+            return bitarray(self.csa_monitor_select[7::-1])
         else:
             high_bit = (chunk + 1) * 8 - 1
             low_bit = chunk * 8 - 1
-            return Bits(self.csa_monitor_select[high_bit:low_bit:-1])
+            return bitarray(self.csa_monitor_select[high_bit:low_bit:-1])
 
     def csa_testpulse_enable_data(self, chunk):
         if chunk == 0:
-            return Bits(self.csa_testpulse_enable[7::-1])
+            return bitarray(self.csa_testpulse_enable[7::-1])
         else:
             high_bit = (chunk + 1) * 8 - 1
             low_bit = chunk * 8 - 1
-            return Bits(self.csa_testpulse_enable[high_bit:low_bit:-1])
+            return bitarray(self.csa_testpulse_enable[high_bit:low_bit:-1])
 
     def csa_testpulse_dac_amplitude_data(self):
-        return self._to8bits(self.csa_testpulse_dac_amplitude)
+        return bah.fromuint(self.csa_testpulse_dac_amplitude, 8)
 
     def test_mode_xtrig_reset_diag_data(self):
-        toReturn = BitArray([0, 0, 0, self.fifo_diagnostic,
+        toReturn = bitarray([0, 0, 0, self.fifo_diagnostic,
             self.periodic_reset,
             self.cross_trigger_mode])
-        toReturn.append('uint:2=' + str(self.test_mode))
+        toReturn.extend(bah.fromuint(self.test_mode, 2))
         return toReturn
 
     def sample_cycles_data(self):
-        return self._to8bits(self.sample_cycles)
+        return bah.fromuint(self.sample_cycles, 8)
 
     def test_burst_length_data(self, chunk):
-        bits = Bits('uint:16=' + str(self.test_burst_length))
+        bits = bah.fromuint(self.test_burst_length, 16)
         if chunk == 0:
             return bits[8:]
         elif chunk == 1:
             return bits[:8]
 
     def adc_burst_length_data(self):
-        return self._to8bits(self.adc_burst_length)
+        return bah.fromuint(self.adc_burst_length, 8)
 
     def channel_mask_data(self, chunk):
         if chunk == 0:
-            return Bits(self.channel_mask[7::-1])
+            return bitarray(self.channel_mask[7::-1])
         else:
             high_bit = (chunk + 1) * 8 - 1
             low_bit = chunk * 8 - 1
-            return Bits(self.channel_mask[high_bit:low_bit:-1])
+            return bitarray(self.channel_mask[high_bit:low_bit:-1])
 
     def external_trigger_mask_data(self, chunk):
         if chunk == 0:
-            return Bits(self.external_trigger_mask[7::-1])
+            return bitarray(self.external_trigger_mask[7::-1])
         else:
             high_bit = (chunk + 1) * 8 - 1
             low_bit = chunk * 8 - 1
-            return Bits(self.external_trigger_mask[high_bit:low_bit:-1])
+            return bitarray(self.external_trigger_mask[high_bit:low_bit:-1])
 
     def reset_cycles_data(self, chunk):
-        bits = Bits('uint:24=' + str(self.reset_cycles))
+        bits = bah.fromuint(self.reset_cycles, 24)
         if chunk == 0:
             return bits[16:]
         elif chunk == 1:
@@ -668,7 +688,7 @@ class Configuration(object):
 
         '''
         def bits_to_array(data):
-            bits = Bits('uint:8=%d' % data)
+            bits = bah.fromuint(data, 8)
             return [int(bit) for bit in bits][::-1]
 
         for address, value in d.items():
@@ -716,7 +736,7 @@ class Controller(object):
     - ``all_chip``: all possible ``Chip`` objects (considering there are
       a finite number of chip IDs), initialized on object construction
     - ``port``: the path to the serial port, i.e. "/dev/(whatever)"
-      (default: ``'/dev/ttyUSB1'``)
+      (default: ``None`` [will attempt to auto-find correct port])
     - ``timeout``: the timeout used for serial commands, in seconds.
       This can be changed between calls to the read and write commands.
       (default: ``1``)
@@ -731,17 +751,22 @@ class Controller(object):
     '''
     start_byte = b'\x73'
     stop_byte = b'\x71'
-    def __init__(self, port='/dev/ttyUSB1'):
+    def __init__(self, port=None, timeout=1):
         self.chips = []
         self.all_chips = self._init_chips()
         self.use_all_chips = False
         self.reads = []
         self.nreads = 0
         self.port = port
+        if self.port is None:
+            self.port = SerialPort.guess_port()
         self.baudrate = 1000000
-        self.timeout = 1
-        self.max_write = 8192
-        self._serial = serial.Serial
+        self.timeout = timeout
+        self.max_write = 250
+        self._test_mode = False
+        self._serial = SerialPort(port=self.port,
+                                  baudrate=self.baudrate,
+                                  timeout=self.timeout)
 
     def _init_chips(self, nchips = 256, iochain = 0):
         '''
@@ -761,22 +786,28 @@ class Controller(object):
         raise ValueError('Could not find chip (%d, %d) (using all_chips'
                 '? %s)' % (chip_id, io_chain, self.use_all_chips))
 
-    def serial_flush(self):
-        with self._serial(self.port, baudrate=self.baudrate,
-                timeout=self.timeout) as serial:
-            serial.reset_output_buffer()
-            serial.reset_input_buffer()
+    #def serial_flush(self):
+    #    with self._serial(self.port, baudrate=self.baudrate,
+    #            timeout=self.timeout) as serial:
+    #        serial.reset_output_buffer()
+    #        serial.reset_input_buffer()
+    def serial_close(self):
+        if not self._serial is None:
+            self._serial.close()
+        return
 
     def serial_read(self, timelimit):
         data_in = b''
         start = time.time()
+        close_port = False
+        if not self._serial._keep_open:
+            close_port = True
+        self._serial._keep_open = True
         try:
-            with self._serial(self.port, baudrate=self.baudrate,
-                    timeout=self.timeout) as serial_in:
-                while time.time() - start < timelimit:
-                    stream = serial_in.read(self.max_write)
-                    if len(stream) > 0:
-                        data_in += stream
+            while time.time() - start < timelimit:
+                stream = self._serial.read(self.max_write)
+                if len(stream) > 0:
+                    data_in += stream
         except Exception as e:
             if getattr(self, '_read_tries_left', None) is None:
                 self._read_tries_left = 3
@@ -787,31 +818,38 @@ class Controller(object):
             else:
                 del self._read_tries_left
                 raise
+        if close_port:
+            self.serial_close()
+            self._serial._keep_open = False
         return data_in
 
     def serial_write(self, bytestreams):
-        with self._serial(self.port, baudrate=self.baudrate,
-                timeout=self.timeout) as output:
-            for bytestream in bytestreams:
-                output.write(bytestream)
+        for bytestream in bytestreams:
+            self._serial.write(bytestream)
 
     def serial_write_read(self, bytestreams, timelimit):
         data_in = b''
+        close_port = False
+        if not self._serial._keep_open:
+            close_port = True
+        self._serial._keep_open = True
         start = time.time()
-        with self._serial(self.port, baudrate=self.baudrate) as serial_port:
-            # First do a fast write-read loop until everything is
-            # written out, then just read
-            serial_port.timeout = 0  # Return whatever's already waiting
-            for bytestream in bytestreams:
-                serial_port.write(bytestream)
-                stream = serial_port.read(self.max_write)
-                if len(stream) > 0:
-                    data_in += stream
-            serial_port.timeout = self.timeout
-            while time.time() - start < timelimit:
-                stream = serial_port.read(self.max_write)
-                if len(stream) > 0:
-                    data_in += stream
+        # First do a fast write-read loop until everything is
+        # written out, then just read
+        self._serial.timeout = 0  # Return whatever's already waiting
+        for bytestream in bytestreams:
+            self._serial.write(bytestream)
+            stream = self._serial.read(self.max_write)
+            if len(stream) > 0:
+                data_in += stream
+        self._serial.timeout = self.timeout
+        while time.time() - start < timelimit:
+            stream = self._serial.read(self.max_write)
+            if len(stream) > 0:
+                data_in += stream
+        if close_port:
+            self.serial_close()
+            self._serial._keep_open = False
         return data_in
 
     def write_configuration(self, chip, registers=None, write_read=0,
@@ -833,8 +871,8 @@ class Controller(object):
         else:
             miso_bytestream = self.serial_write_read(bytestreams,
                     timelimit=write_read)
-            packets, skipped = self.parse_input(miso_bytestream)
-            self.store_packets(packets, miso_bytestream, skipped, message)
+            packets = self.parse_input(miso_bytestream)
+            self.store_packets(packets, miso_bytestream, message)
 
     def read_configuration(self, chip, registers=None, timeout=1,
             message=None):
@@ -851,8 +889,8 @@ class Controller(object):
         bytestreams = self.get_configuration_bytestreams(chip,
                 Packet.CONFIG_READ_PACKET, registers)
         data = self.serial_write_read(bytestreams, timeout)
-        packets, skipped = self.parse_input(data)
-        self.store_packets(packets, data, skipped, message)
+        packets = self.parse_input(data)
+        self.store_packets(packets, data, message)
 
     def multi_write_configuration(self, chip_reg_pairs, write_read=0,
             message=None):
@@ -904,8 +942,8 @@ class Controller(object):
         else:
             miso_bytestream = self.serial_write_read(final_bytestream,
                     timelimit=write_read)
-            packets, skipped = self.parse_input(miso_bytestream)
-            self.store_packets(packets, miso_bytestream, skipped, message)
+            packets = self.parse_input(miso_bytestream)
+            self.store_packets(packets, miso_bytestream, message)
 
     def multi_read_configuration(self, chip_reg_pairs, timeout=1,
             message=None):
@@ -953,16 +991,13 @@ class Controller(object):
         mosi_bytestream = self.format_bytestream(final_bytestream)
         miso_bytestream = self.serial_write_read(mosi_bytestream,
                 timelimit=timeout)
-        packets, skipped = self.parse_input(miso_bytestream)
-        self.store_packets(packets, miso_bytestream, skipped, message)
+        packets = self.parse_input(miso_bytestream)
+        self.store_packets(packets, miso_bytestream, message)
 
     def get_configuration_bytestreams(self, chip, packet_type, registers):
         # The configuration must be sent one register at a time
-        all_configuration_packets = \
-            chip.get_configuration_packets(packet_type);
-        configuration_packets = []
-        for register in registers:
-            configuration_packets.append(all_configuration_packets[register])
+        configuration_packets = \
+            chip.get_configuration_packets(packet_type, registers);
         formatted_packets = [self.format_UART(chip, p) for p in
                 configuration_packets]
         bytestreams = self.format_bytestream(formatted_packets)
@@ -970,8 +1005,8 @@ class Controller(object):
 
     def run(self, timelimit, message):
         data = self.serial_read(timelimit)
-        packets, skipped = self.parse_input(data)
-        self.store_packets(packets, data, skipped, message)
+        packets = self.parse_input(data)
+        self.store_packets(packets, data, message)
 
     def run_testpulse(self, list_of_channels):
         return
@@ -982,14 +1017,186 @@ class Controller(object):
     def run_analog_monitor_test(self):
         return
 
+    def verify_configuration(self, chip_id=None, io_chain=0):
+        '''
+        Read chip configuration from specified chip and return a bool that is True if the
+        read chip configuration matches the current configuration stored in chip instance
+        Also returns a dict containing the values of registers that are different
+        (read register, stored register)
+        '''
+        return_value = True
+        different_fields = {}
+        if chip_id is None:
+            for chip in self.chips:
+                match, chip_fields = self.verify_configuration(chip_id=chip.chip_id,
+                                                        io_chain=io_chain)
+                if not match:
+                    different_fields[chip.chip_id] = chip_fields
+                    return_value = False
+        else:
+            chip = self.get_chip(chip_id, io_chain)
+            self.read_configuration(chip,timeout=0.1)
+            configuration_data = {}
+            for packet in self.reads[-1]:
+                if (packet.packet_type == Packet.CONFIG_READ_PACKET and
+                    packet.chipid == chip_id):
+                    configuration_data[packet.register_address] = packet.register_data
+            chip_configuration = Configuration()
+            chip_configuration.from_dict_registers(configuration_data)
+            if not chip_configuration == chip.config:
+                return_value = False
+                different_fields = chip_configuration.compare(chip.config)
+        return (return_value, different_fields)
+
+    def read_channel_pedestal(self, chip_id, channel, io_chain=0, run_time=0.1):
+        '''
+        Set channel threshold to 0 and report back on the recieved adcs from channel
+        Returns mean, rms, and packet collection
+        '''
+        chip = self.get_chip(chip_id, io_chain)
+        # Store previous state
+        prev_channel_mask = chip.config.channel_mask
+        prev_global_threshold = chip.config.global_threshold
+        prev_pixel_trim_thresholds = chip.config.pixel_trim_thresholds
+        # Set new configuration
+        self.disable(chip_id=chip_id)
+        self.enable(chip_id=chip_id, channel_list=[channel])
+        chip.config.global_threshold = 0
+        chip.config.pixel_trim_thresholds = [31]*32
+        chip.config.pixel_trim_thresholds[channel] = 0
+        self.write_configuration(chip, Configuration.channel_mask_addresses +
+                                 Configuration.pixel_trim_threshold_addresses +
+                                 [Configuration.global_threshold_address])
+        self.run(0.1,'clear buffer')
+        # Collect data
+        self.run(run_time,'read_channel_pedestal_c%d_ch%d' % (chip_id, channel))
+        self.disable(chip_id=chip_id)
+        adcs = self.reads[-2].extract('adc_counts', chipid=chip_id, channel=channel)
+        mean = 0
+        rms = 0
+        if len(adcs) > 0:
+            mean = float(sum(adcs)) / len(adcs)
+            rms = math.sqrt(float(sum([adc**2 for adc in adcs]))/len(adcs) - mean**2)
+        else:
+            print('No packets received from chip %d, channel %d' % (chip_id, channel))
+        # Restore previous state
+        chip.config.channel_mask = prev_channel_mask
+        chip.config.global_threshold = prev_global_threshold
+        chip.config.pixel_trim_thresholds = prev_pixel_trim_thresholds
+        self.write_configuration(chip, Configuration.channel_mask_addresses +
+                                 Configuration.pixel_trim_threshold_addresses +
+                                 [Configuration.global_threshold_address])
+        self.run(2,'clear buffer')
+        return (adcs, mean, rms)
+
+    def enable_analog_monitor(self, chip_id, channel, io_chain=0):
+        '''
+        Enable the analog monitor on a single channel on the specified chip.
+        Note: If monitoring a different chip, call disable_analog_monitor first to ensure
+        that the monitor to that chip is disconnected.
+        '''
+        chip = self.get_chip(chip_id, io_chain)
+        chip.config.disable_analog_monitor()
+        chip.config.enable_analog_monitor(channel)
+        self.write_configuration(chip, Configuration.csa_monitor_select_addresses)
+        return
+
+    def disable_analog_monitor(self, chip_id=None, channel=None, io_chain=0):
+        '''
+        Disable the analog monitor for a specified chip and channel, if none are specified
+        disable the analog monitor for all chips in self.chips and all channels
+        '''
+        if chip_id is None:
+            for chip in self.chips:
+                self.disable_analog_monitor(chip_id=chip.chip_id, channel=channel,
+                                       io_chain=io_chain)
+        elif channel is None:
+            for channel in range(32):
+                self.disable_analog_monitor(chip_id=chip_id, channel=channel,
+                                            io_chain=io_chain)
+        else:
+            chip = self.get_chip(chip_id, io_chain)
+            chip.config.disable_analog_monitor()
+            self.write_configuration(chip, Configuration.csa_monitor_select_addresses)
+        return
+
+    def enable_testpulse(self, chip_id, channel_list, io_chain=0, start_dac=255):
+        '''
+        Prepare chip for pulsing - enable testpulser and set a starting dac value for
+        specified chip/channel
+        '''
+        chip = self.get_chip(chip_id, io_chain)
+        chip.config.disable_testpulse()
+        chip.config.enable_testpulse(channel_list)
+        chip.config.csa_testpulse_dac_amplitude = start_dac
+        self.write_configuration(chip, Configuration.csa_testpulse_enable_addresses +
+                                 [Configuration.csa_testpulse_dac_amplitude_address])
+        return
+
+    def issue_testpulse(self, chip_id, pulse_dac, min_dac=0, io_chain=0):
+        '''
+        Reduce the testpulser dac by pulse_dac and write_read to chip for 0.1s
+        '''
+        chip = self.get_chip(chip_id, io_chain)
+        chip.config.csa_testpulse_dac_amplitude -= pulse_dac
+        if chip.config.csa_testpulse_dac_amplitude < min_dac:
+            raise ValueError('Minimum DAC exceeded')
+        self.write_configuration(chip, [Configuration.csa_testpulse_dac_amplitude_address],
+                                 write_read=0.1)
+        return self.reads[-1]
+
+    def disable_testpulse(self, chip_id=None, channel_list=range(32), io_chain=0):
+        '''
+        Disable testpulser for specified chip/channels. If none specified, disable for
+        all chips/channels
+        '''
+        if chip_id is None:
+            for chip in self.chips:
+                self.disable_testpulse(chip_id=chip.chip_id, channel_list=channel_list,
+                                       io_chain=io_chain)
+        else:
+            chip = self.get_chip(chip_id, io_chain)
+            chip.config.disable_testpulse(channel_list)
+            self.write_configuration(chip, Configuration.csa_testpulse_enable_addresses)
+        return
+
+    def disable(self, chip_id=None, channel_list=range(32), io_chain=0):
+        '''
+        Update channel mask to disable specified chips/channels. If none specified,
+        disable all chips/channels
+        '''
+        if chip_id is None:
+            for chip in self.chips:
+                self.disable(chip_id=chip.chip_id, channel_list=channel_list,
+                             io_chain=io_chain)
+        else:
+            chip = self.get_chip(chip_id, io_chain)
+            chip.config.disable_channels(channel_list)
+            self.write_configuration(chip, Configuration.channel_mask_addresses)
+
+    def enable(self, chip_id=None, channel_list=range(32), io_chain=0):
+        '''
+        Update channel mask to enable specified chips/channels. If none specified,
+        enable all chips/channels
+        '''
+        if chip_id is None:
+            for chip in self.chips:
+                self.enable(chip_id=chip.chip_id, channel_list=channel_list,
+                            io_chain=io_chain)
+        else:
+            chip = self.get_chip(chip_id, io_chain)
+            chip.config.enable_channels(channel_list)
+            self.write_configuration(chip, Configuration.channel_mask_addresses)
+
     def format_UART(self, chip, packet):
         packet_bytes = packet.bytes()
-        daisy_chain_byte = (4 + Bits('uint:4=' + str(chip.io_chain))).bytes
+        daisy_chain_byte = bah.fromuint(chip.io_chain, 8).tobytes()
         formatted_packet = (Controller.start_byte + packet_bytes +
                 daisy_chain_byte + Controller.stop_byte)
         return formatted_packet
 
-    def parse_input(self, bytestream):
+    @classmethod
+    def parse_input(cls, bytestream):
         packet_size = 10
         start_byte = Controller.start_byte[0]
         stop_byte = Controller.stop_byte[0]
@@ -998,11 +1205,14 @@ class Controller(object):
         # parse the bytestream into Packets + metadata
         byte_packets = []
         skip_slices = []
-        current_stream = bytestream
+        #current_stream = bytestream
+        bytestream_len = len(bytestream)
+        last_possible_start = bytestream_len - packet_size
         index = 0
-        while len(current_stream) >= packet_size:
-            if (current_stream[0] == start_byte and
-                    current_stream[packet_size-1] == stop_byte):
+        while index <= last_possible_start:
+            if (bytestream[index] == start_byte and
+                    bytestream[index+packet_size-1] == stop_byte):
+                '''
                 metadata = current_stream[metadata_byte_index]
                 # This is necessary because of differences between
                 # Python 2 and Python 3
@@ -1012,20 +1222,27 @@ class Controller(object):
                     code = 'bytes:1='
                 byte_packets.append((Bits(code + str(metadata)),
                     Packet(current_stream[data_bytes])))
-                current_stream = current_stream[packet_size:]
+                '''
+                byte_packets.append(Packet(bytestream[index+1:index+8]))
+                #current_stream = current_stream[packet_size:]
                 index += packet_size
             else:
                 # Throw out everything between here and the next start byte.
                 # Note: start searching after byte 0 in case it's
                 # already a start byte
-                next_start_index = current_stream[1:].find(start_byte) + 1
-                skip_slice = slice(index, index + next_start_index)
-                skip_slices.append((skip_slice,
-                    current_stream[:next_start_index]))
-                current_stream = current_stream[next_start_index:]
-        return ([x[1] for x in byte_packets], skip_slices)
+                index = bytestream.find(start_byte, index+1)
+                if index == -1:
+                    index = bytestream_len
+                #if next_start_index != 0:
+                #        print('Warning: %d extra bytes in data stream!' %
+                #        (next_start_index+1))
+                #current_stream = current_stream[1:][next_start_index:]
+        #if len(current_stream) != 0:
+        #    print('Warning: %d extra bytes at end of data stream!' %
+        #          len(current_stream))
+        return byte_packets
 
-    def store_packets(self, packets, data, skipped, message):
+    def store_packets(self, packets, data, message):
         '''
         Store the packets in ``self`` and in ``self.chips``
 
@@ -1034,7 +1251,7 @@ class Controller(object):
         new_packets.read_id = self.nreads
         self.nreads += 1
         self.reads.append(new_packets)
-        self.sort_packets(new_packets)
+        #self.sort_packets(new_packets)
 
 
     def sort_packets(self, collection):
@@ -1047,9 +1264,11 @@ class Controller(object):
         by_chipid = collection.by_chipid()
         io_chain = 0
         for chip_id in by_chipid.keys():
-            chip = self.get_chip(chip_id, io_chain)
-            chip.reads.append(by_chipid[chip_id])
-
+            if chip_id in [x.chip_id for x in self.chips]:
+                chip = self.get_chip(chip_id, io_chain)
+                chip.reads.append(by_chipid[chip_id])
+            elif not self._test_mode:
+                print('Warning chip id %d not in chips.' % chip_id)
 
     def format_bytestream(self, formatted_packets):
         bytestreams = []
@@ -1127,22 +1346,27 @@ class Packet(object):
     test_counter_bits_11_0 = slice(1, 13)
     test_counter_bits_15_12 = slice(40, 44)
 
-    DATA_PACKET = Bits('0b00')
-    TEST_PACKET = Bits('0b01')
-    CONFIG_WRITE_PACKET = Bits('0b10')
-    CONFIG_READ_PACKET = Bits('0b11')
+    DATA_PACKET = bitarray('00')
+    TEST_PACKET = bitarray('01')
+    CONFIG_WRITE_PACKET = bitarray('10')
+    CONFIG_READ_PACKET = bitarray('11')
+    _bit_padding = bitarray('00')
 
     def __init__(self, bytestream=None):
-        self._bit_padding = Bits('0b00')
         if bytestream is None:
-            self.bits = BitArray(Packet.size)
+            self.bits = bitarray(Packet.size)
+            self.bits.setall(False)
             return
         elif len(bytestream) == Packet.num_bytes:
             # Parse the bytestream. Remember that bytestream[0] goes at
             # the 'end' of the BitArray
             reversed_bytestream = bytestream[::-1]
-            bits_with_padding = BitArray(bytes=reversed_bytestream)
-            self.bits = bits_with_padding[len(self._bit_padding):]
+            self.bits = bitarray()
+            self.bits.frombytes(reversed_bytestream)
+            # Get rid of the padding (now at the beginning of the
+            # bitstream because of the reverse order)
+            self.bits.pop(0)
+            self.bits.pop(0)
         else:
             raise ValueError('Invalid number of bytes: %s' %
                     len(bytestream))
@@ -1188,20 +1412,20 @@ class Packet(object):
         # Here's the only other place we have to deal with the
         # endianness issue by reversing the order
         padded_output = self._bit_padding + self.bits
-        bytes_output = padded_output.bytes
+        bytes_output = padded_output.tobytes()
         return bytes_output[::-1]
 
     def export(self):
         '''Return a dict representation of this Packet.'''
         type_map = {
-                Bits(self.TEST_PACKET): 'test',
-                Bits(self.DATA_PACKET): 'data',
-                Bits(self.CONFIG_WRITE_PACKET): 'config write',
-                Bits(self.CONFIG_READ_PACKET): 'config read'
+                self.TEST_PACKET.to01(): 'test',
+                self.DATA_PACKET.to01(): 'data',
+                self.CONFIG_WRITE_PACKET.to01(): 'config write',
+                self.CONFIG_READ_PACKET.to01(): 'config read'
                 }
         d = {}
-        d['bits'] = self.bits.bin
-        d['type'] = type_map[Bits(self.packet_type)]
+        d['bits'] = self.bits.to01()
+        d['type'] = type_map[self.packet_type.to01()]
         d['chipid'] = self.chipid
         d['parity'] = self.parity_bit_value
         d['valid_parity'] = self.has_valid_parity()
@@ -1226,15 +1450,17 @@ class Packet(object):
 
     @packet_type.setter
     def packet_type(self, value):
-        self.bits[Packet.packet_type_bits] = value
+        self.bits[Packet.packet_type_bits] = bah.fromuint(value,
+                Packet.packet_type_bits)
 
     @property
     def chipid(self):
-        return self.bits[Packet.chipid_bits].uint
+        return bah.touint(self.bits[Packet.chipid_bits])
 
     @chipid.setter
     def chipid(self, value):
-        self.bits[Packet.chipid_bits] = value
+        self.bits[Packet.chipid_bits] = bah.fromuint(value,
+                Packet.chipid_bits)
 
     @property
     def parity_bit_value(self):
@@ -1242,7 +1468,7 @@ class Packet(object):
 
     @parity_bit_value.setter
     def parity_bit_value(self, value):
-        self.bits[Packet.parity_bit] = value
+        self.bits[Packet.parity_bit] = bool(value)
 
     def compute_parity(self):
         return 1 - (self.bits[Packet.parity_calc_bits].count(True) % 2)
@@ -1255,29 +1481,32 @@ class Packet(object):
 
     @property
     def channel_id(self):
-        return self.bits[Packet.channel_id_bits].uint
+        return bah.touint(self.bits[Packet.channel_id_bits])
 
     @channel_id.setter
     def channel_id(self, value):
-        self.bits[Packet.channel_id_bits] = value
+        self.bits[Packet.channel_id_bits] = bah.fromuint(value,
+                Packet.channel_id_bits)
 
     @property
     def timestamp(self):
-        return self.bits[Packet.timestamp_bits].uint
+        return bah.touint(self.bits[Packet.timestamp_bits])
 
     @timestamp.setter
     def timestamp(self, value):
-        self.bits[Packet.timestamp_bits] = value
+        self.bits[Packet.timestamp_bits] = bah.fromuint(value,
+                Packet.timestamp_bits)
 
     @property
     def dataword(self):
-        ostensible_value = self.bits[Packet.dataword_bits].uint
+        ostensible_value = bah.touint(self.bits[Packet.dataword_bits])
         # TODO fix in LArPix v2
         return ostensible_value - (ostensible_value % 2)
 
     @dataword.setter
     def dataword(self, value):
-        self.bits[Packet.dataword_bits] = value
+        self.bits[Packet.dataword_bits] = bah.fromuint(value,
+                Packet.dataword_bits)
 
     @property
     def fifo_half_flag(self):
@@ -1297,30 +1526,34 @@ class Packet(object):
 
     @property
     def register_address(self):
-        return self.bits[Packet.register_address_bits].uint
+        return bah.touint(self.bits[Packet.register_address_bits])
 
     @register_address.setter
     def register_address(self, value):
-        self.bits[Packet.register_address_bits] = value
+        self.bits[Packet.register_address_bits] = bah.fromuint(value,
+                Packet.register_address_bits)
 
     @property
     def register_data(self):
-        return self.bits[Packet.register_data_bits].uint
+        return bah.touint(self.bits[Packet.register_data_bits])
 
     @register_data.setter
     def register_data(self, value):
-        self.bits[Packet.register_data_bits] = value
+        self.bits[Packet.register_data_bits] = bah.fromuint(value,
+                Packet.register_data_bits)
 
     @property
     def test_counter(self):
-        return (self.bits[Packet.test_counter_bits_15_12] +
-                self.bits[Packet.test_counter_bits_11_0]).uint
+        return bah.touint(self.bits[Packet.test_counter_bits_15_12] +
+                self.bits[Packet.test_counter_bits_11_0])
 
     @test_counter.setter
     def test_counter(self, value):
-        allbits = BitArray('uint:16=' + str(value))
-        self.bits[Packet.test_counter_bits_15_12] = allbits[:4]
-        self.bits[Packet.test_counter_bits_11_0] = allbits[4:]
+        allbits = bah.fromuint(value, 16)
+        self.bits[Packet.test_counter_bits_15_12] = (
+            bah.fromuint(allbits[:4], Packet.test_counter_bits_15_12))
+        self.bits[Packet.test_counter_bits_11_0] = (
+            bah.fromuint(allbits[4:], Packet.test_counter_bits_11_0))
 
 class PacketCollection(object):
     '''
@@ -1426,10 +1659,10 @@ class PacketCollection(object):
 
         '''
         if isinstance(key, slice):
-            return [' '.join(p.bits.bin[i:i+8] for i in
+            return [' '.join(p.bits.to01()[i:i+8] for i in
                 range(0, Packet.size, 8)) for p in self.packets[key]]
         else:
-            return ' '.join(self.packets[key].bits.bin[i:i+8] for i in
+            return ' '.join(self.packets[key].bits.to01()[i:i+8] for i in
                     range(0, Packet.size, 8))
 
     def to_dict(self):
@@ -1460,7 +1693,7 @@ class PacketCollection(object):
         for p in d['packets']:
             bits = p['bits']
             packet = Packet()
-            packet.bits = BitArray('0b' + bits)
+            packet.bits = bitarray(bits)
             self.packets.append(packet)
 
     def extract(self, attr, **selection):
@@ -1554,3 +1787,203 @@ class PacketCollection(object):
             new_collection.parent = self
             to_return[chipid] = new_collection
         return to_return
+
+
+class SerialPort(object):
+    '''Wrapper for various serial port interfaces across platforms'''
+    # Guesses for default port name by platform
+    _default_port_map = {
+        'Default':['/dev/ttyUSB2','/dev/ttyUSB1'], # Same as Linux
+        'Linux':['/dev/ttyAMA0', '/dev/ttyUSB2','/dev/ttyUSB1',
+        '/dev/ttyUSB0'],   # Linux
+        'Darwin':['scan-ftdi',],     # OS X
+    }
+    _logger = None
+
+    def __init__(self, port=None, baudrate=9600, timeout=None):
+        self.port = port
+        self.resolved_port = ''
+        self.port_type = ''
+        self.baudrate = baudrate
+        self.timeout = timeout
+        self._keep_open = False
+        self.serial_com = None
+        self._initialize_serial_com()
+        self.logger = None
+        if not (self._logger is None):
+            self.logger = self._logger
+        return
+
+    @classmethod
+    def guess_port(cls):
+        '''Guess at correct port name based on platform'''
+        platform_default = 'Default'
+        platform_name = platform.system()
+        if platform_name not in cls._default_port_map:
+            platform_name = platform_default
+        default_devs = cls._default_port_map[platform_name]
+        osx_cmd = 'system_profiler SPUSBDataType | grep -C 7 FTDI | grep Serial'
+        for default_dev in default_devs:
+            if default_dev.startswith('/dev'): # pyserial
+                try:
+                    if os.stat(default_dev):
+                        return default_dev
+                except OSError:
+                    continue
+            elif default_dev == 'scan-ftdi':
+                if platform_name == 'Darwin':  # scan for pylibftdi on OS X
+                    # Scan for FTDI devices
+                    result = os.popen(osx_cmd).read()
+                    if len(result) > 0:
+                        idx = result.find('Serial Number:')
+                        dev_name = result[idx+14:idx+24].strip()
+                        print('Autoscan found FTDI device: "%s"' % dev_name)
+                        return dev_name
+            elif not default_dev.startswith('/dev'):  # assume pylibftdi
+                return default_dev
+        raise OSError('Cannot find serial device for platform: %s' %
+                      platform_name)
+
+    def _ready_port(self):
+        '''Function handle.  Will be reset to appropriate method'''
+        raise NotImplementedError('Serial port type has not been defined.')
+
+    def _ready_port_pyserial(self):
+        '''Ready a pyserial port'''
+        if self.serial_com is None:
+            # Create serial port
+            import serial
+            self.serial_com = serial.Serial(self.resolved_port,
+                                            baudrate=self.baudrate,
+                                            timeout=self.timeout)
+        if not self.serial_com.is_open:
+            # Open, if necessary
+            self.serial_com.open()
+        return
+
+    def _ready_port_pylibftdi(self):
+        '''Ready a pylibftdi port'''
+        if self.serial_com is None:
+            # Construct serial port
+            import pylibftdi
+            self.serial_com = pylibftdi.Device(self.resolved_port)
+        if self.serial_com.closed:
+            # Open port
+            self.serial_com.open()
+        # Confirm baudrate (Required for OS X)
+        self._confirm_baudrate()
+        return
+
+    def _ready_port_test(self):
+        if self.serial_com is None:
+            # Get FakeSerialPort from testing module
+            import test.test_larpix as test_lib
+            self.serial_com = test_lib.FakeSerialPort()
+        return
+
+    def _confirm_baudrate(self):
+        '''Check and set the baud rate'''
+        if self.serial_com.baudrate != self.baudrate:
+            # Reset baudrate
+            self.serial_com.baudrate = self.baudrate
+        return
+
+    def _initialize_serial_com(self):
+        '''Initialize the low-level serial com connection'''
+        self.resolved_port = self._resolve_port_name()
+        self.port_type = self._resolve_port_type()
+        if self.port_type is 'pyserial':
+            self._ready_port = self._ready_port_pyserial
+            self._keep_open = False
+        elif self.port_type is 'pylibftdi':
+            self._ready_port = self._ready_port_pylibftdi
+            self._keep_open = True
+        elif self.port_type is 'test':
+            self._ready_port = self._ready_port_test
+            self._keep_open = True
+        else:
+            raise ValueError('Port type must be either pyserial, pylibftdi, or test')
+        return
+
+    def _resolve_port_name(self):
+        '''Resolve the serial port name, based on user request'''
+        if self.port is None:
+            # Must set port
+            raise ValueError('You must choose a serial port for operation')
+        # FIXME: incorporate auto-scan feature
+        if self.port is 'auto':
+            # Try to guess the correct port
+            return self.guess_port()
+        # FIXME: incorporate list option?
+        #elif isinstance(self.port, list):
+        #    # Try to determine best choice from list
+        #    for port_name in list:
+        #        if self._port_exists(port_name):
+        #            return port_name
+        return self.port
+
+    def _resolve_port_type(self):
+        '''Resolve the type of serial port, based on the name'''
+        if self.resolved_port.startswith('/dev'):
+            # Looks like a tty device.  Use pyserial.
+            return 'pyserial'
+        elif self.resolved_port is 'test':
+            # Testing port. Don't use an external library
+            return 'test'
+        elif not self.resolved_port.startswith('/dev'):
+            # Looks like a libftdi raw device.  Use pylibftdi.
+            return 'pylibftdi'
+        raise ValueError('Unknown port: %s' % self.port)
+
+    def open(self):
+        '''Open the port'''
+        self._ready_port()
+        return
+
+    def close(self):
+        '''Close the port'''
+        if self.serial_com is None: return
+        self.serial_com.close()
+
+    def write(self, data):
+        '''Write data to serial port'''
+        self._ready_port()
+        write_time = time.time()
+        self.serial_com.write(data)
+        if self.logger:
+            self.logger.record({'data_type':'write','data':data,'time':write_time})
+        if not self._keep_open:
+            self.close()
+        return
+
+    def read(self, nbytes):
+        '''Read data from serial port'''
+        self._ready_port()
+        read_time = time.time()
+        data = self.serial_com.read(nbytes)
+        if self.logger:
+            self.logger.record({'data_type':'read','data':data,'time':read_time})
+        if not self._keep_open:
+            self.close()
+        return data
+
+def enable_logger(filename=None):
+    '''Enable serial data logger'''
+    if SerialPort._logger is None:
+        from larpix.datalogger import DataLogger
+        SerialPort._logger = DataLogger(filename)
+    if not SerialPort._logger.is_enabled():
+        SerialPort._logger.enable()
+    return
+
+def disable_logger():
+    '''Disable serial data logger'''
+    if SerialPort._logger is not None:
+        SerialPort._logger.disable()
+    return
+
+def flush_logger():
+    '''Flush serial data logger data to output file'''
+    if SerialPort._logger is not None:
+        SerialPort._logger.flush()
+    return
