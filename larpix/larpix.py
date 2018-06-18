@@ -838,6 +838,9 @@ class Controller(object):
         return
 
     def serial_read(self, timelimit):
+        if self._serial.port_type == 'zmq':
+            data_in = self._serial.read(timelimit)
+            return data_in
         data_in = b''
         start = time.time()
         close_port = False
@@ -865,10 +868,16 @@ class Controller(object):
         return data_in
 
     def serial_write(self, bytestreams):
+        if self._serial.port_type == 'zmq':
+            self._serial.write(b''.join(bytestreams))
+            return
         for bytestream in bytestreams:
             self._serial.write(bytestream)
 
     def serial_write_read(self, bytestreams, timelimit):
+        if self._serial.port_type == 'zmq':
+            data_in = self._serial.write_read(b''.join(bytestreams), timelimit)
+            return data_in
         data_in = b''
         close_port = False
         if not self._serial._keep_open:
@@ -1809,7 +1818,15 @@ class PacketCollection(object):
 
 
 class SerialPort(object):
-    '''Wrapper for various serial port interfaces across platforms'''
+    '''Wrapper for various serial port interfaces across platforms.
+
+       Automatically loads correct driver based on the supplied port
+       name:
+
+           - ``'/dev/anything'`` ==> Linux ==> pySerial
+           - ``'scan-ftdi'`` ==> MacOS ==> libFTDI
+           - ``('zmq', push_address, pull_address)`` ==> ZeroMQ
+    '''
     # Guesses for default port name by platform
     _default_port_map = {
         'Default':['/dev/ttyUSB2','/dev/ttyUSB1'], # Same as Linux
@@ -1900,6 +1917,12 @@ class SerialPort(object):
             self.serial_com = test_lib.FakeSerialPort()
         return
 
+    def _ready_port_zmq(self):
+        if self.serial_com is None:
+            from larpix.zmqcontroller import Serial_ZMQ
+            self.serial_com = Serial_ZMQ(self.port[1], self.timeout)
+        return
+
     def _confirm_baudrate(self):
         '''Check and set the baud rate'''
         if self.serial_com.baudrate != self.baudrate:
@@ -1920,6 +1943,9 @@ class SerialPort(object):
         elif self.port_type is 'test':
             self._ready_port = self._ready_port_test
             self._keep_open = True
+        elif self.port_type is 'zmq':
+            self._ready_port = self._ready_port_zmq
+            self._keep_open = False
         else:
             raise ValueError('Port type must be either pyserial, pylibftdi, or test')
         return
@@ -1943,15 +1969,19 @@ class SerialPort(object):
 
     def _resolve_port_type(self):
         '''Resolve the type of serial port, based on the name'''
-        if self.resolved_port.startswith('/dev'):
-            # Looks like a tty device.  Use pyserial.
-            return 'pyserial'
-        elif self.resolved_port is 'test':
-            # Testing port. Don't use an external library
-            return 'test'
-        elif not self.resolved_port.startswith('/dev'):
-            # Looks like a libftdi raw device.  Use pylibftdi.
-            return 'pylibftdi'
+        if isinstance(self.resolved_port, str):
+            if self.resolved_port.startswith('/dev'):
+                # Looks like a tty device.  Use pyserial.
+                return 'pyserial'
+            elif self.resolved_port is 'test':
+                # Testing port. Don't use an external library
+                return 'test'
+            elif not self.resolved_port.startswith('/dev'):
+                # Looks like a libftdi raw device.  Use pylibftdi.
+                return 'pylibftdi'
+        elif self.resolved_port[0] == 'zmq':
+            # ZeroMQ communication
+            return 'zmq'
         raise ValueError('Unknown port: %s' % self.port)
 
     def open(self):
