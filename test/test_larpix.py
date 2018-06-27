@@ -6,7 +6,10 @@ from __future__ import print_function
 import pytest
 from larpix.larpix import (Chip, Packet, Configuration, Controller,
         PacketCollection)
-from bitstring import BitArray
+from larpix.Timestamp import *
+#from bitstring import BitArray
+from bitarray import bitarray
+import larpix.bitarrayhelper as bah
 import json
 import os
 
@@ -25,13 +28,19 @@ class FakeSerialPort(object):
         self.read_index = 0
 
     def write(self, data):
-        print(bytes2str(data), sep='', end='')
+        print(bytes2str(data), sep='', end=' END')
 
     def read(self, nbytes):
         read_index = self.read_index
         data = FakeSerialPort.data_to_mock_read[read_index:read_index+nbytes]
         self.read_index = read_index+nbytes
         return data
+
+    def open(self):
+        pass
+
+    def close(self):
+        pass
 
     def __enter__(self):
         return self
@@ -43,12 +52,24 @@ def bytes2str(bytestream):
     return ' '.join('{:02x}'.format(byte) for byte in
             bytearray(bytestream))
 
+def packets2mock_serialstream(controller, chip, listofpackets):
+    final_string = ''
+    for i, packet in enumerate(listofpackets):
+        packet_bytes = controller.format_UART(chip,packet)
+        packet_string = bytes2str(packet_bytes)
+        final_string += packet_string + ' '
+        if i % (controller.max_write/Configuration.fpga_packet_size) == ((controller.max_write/Configuration.fpga_packet_size)-1):
+            final_string += 'END'
+    if len(final_string)% controller.max_write > 0:
+        final_string += 'END'
+    return final_string
+
 def test_FakeSerialPort_write(capfd):
     serial = FakeSerialPort()
     to_write = b'Hello'
     serial.write(b'Hello')
     out, err = capfd.readouterr()
-    expected = bytes2str(to_write)
+    expected = bytes2str(to_write) + ' END'
     assert out == expected
 
 def test_FakeSerialPort_read():
@@ -97,7 +118,7 @@ def test_chip_sync_configuration():
     chip.reads.append(PacketCollection(packets))
     chip.sync_configuration()
     result = chip.config.all_data()
-    expected = [BitArray([0]*8)] * Configuration.num_registers
+    expected = [bitarray([0]*8)] * Configuration.num_registers
     assert result == expected
 
 def test_chip_export_reads():
@@ -115,7 +136,7 @@ def test_chip_export_reads():
             'io_chain': 2,
             'packets': [
                 {
-                    'bits': packet.bits.bin,
+                    'bits': packet.bits.to01(),
                     'type': 'config write',
                     'chipid': 1,
                     'parity': 1,
@@ -154,7 +175,7 @@ def test_chip_export_reads_all():
             'io_chain': 2,
             'packets': [
                 {
-                    'bits': packet.bits.bin,
+                    'bits': packet.bits.to01(),
                     'type': 'config write',
                     'chipid': 0,
                     'parity': 0,
@@ -168,7 +189,7 @@ def test_chip_export_reads_all():
     assert chip.new_reads_index == 1
 
 def test_controller_save_output(tmpdir):
-    controller = Controller(None)
+    controller = Controller(port='test')
     chip = Chip(1, 0)
     p = Packet()
     chip.reads.append(p)
@@ -196,7 +217,7 @@ def test_controller_save_output(tmpdir):
     assert result == expected
 
 def test_controller_load(tmpdir):
-    controller = Controller(None)
+    controller = Controller(port='test')
     chip = Chip(1, 0)
     p = Packet()
     p.chipid = 1
@@ -207,7 +228,7 @@ def test_controller_load(tmpdir):
     name = str(tmpdir.join('test.json'))
     expected_message = 'this is a test'
     controller.save_output(name, expected_message)
-    new_controller = Controller(None)
+    new_controller = Controller(port='test')
     result_message = new_controller.load(name)
     assert result_message == expected_message
     assert new_controller.reads == controller.reads
@@ -220,15 +241,15 @@ def test_packet_bits_bytes():
 
 def test_packet_init_default():
     p = Packet()
-    expected = BitArray([0] * Packet.size)
+    expected = bitarray([0] * Packet.size)
     assert p.bits == expected
 
 def test_packet_init_bytestream():
     bytestream = b'\x3f' + b'\x00' * (Packet.num_bytes-2) + b'\x3e'
     p = Packet(bytestream)
-    expected = BitArray([0] * Packet.size)
-    expected[-6:] = [1]*6
-    expected[:5] = [1]*5
+    expected = bitarray([0] * Packet.size)
+    expected[-6:] = bitarray([1]*6)
+    expected[:5] = bitarray([1]*5)
     assert p.bits == expected
 
 def test_packet_bytes_zeros():
@@ -239,8 +260,8 @@ def test_packet_bytes_zeros():
 
 def test_packet_bytes_custom():
     p = Packet()
-    p.bits[-6:] = [1]*6  # First byte is 0b00111111
-    p.bits[:5] = [1]*5  # Last byte is 0b00111110 (2 MSBs are padding)
+    p.bits[-6:] = bitarray([1]*6)  # First byte is 0b00111111
+    p.bits[:5] = bitarray([1]*5)  # Last byte is 0b00111110 (2 MSBs are padding)
     b = p.bytes()
     expected = b'\x3f' + b'\x00' * (Packet.size//8-1) + b'\x3e'
     assert b == expected
@@ -261,7 +282,7 @@ def test_packet_export_test():
     p.assign_parity()
     result = p.export()
     expected = {
-            'bits': p.bits.bin,
+            'bits': p.bits.to01(),
             'type': 'test',
             'chipid': 5,
             'counter': 32838,
@@ -282,7 +303,7 @@ def test_packet_export_data():
     p.assign_parity()
     result = p.export()
     expected = {
-            'bits': p.bits.bin,
+            'bits': p.bits.to01(),
             'type': 'data',
             'chipid': 2,
             'channel': 10,
@@ -304,7 +325,7 @@ def test_packet_export_config_read():
     p.assign_parity()
     result = p.export()
     expected = {
-            'bits': p.bits.bin,
+            'bits': p.bits.to01(),
             'type': 'config read',
             'chipid': 10,
             'register': 51,
@@ -323,7 +344,7 @@ def test_packet_export_config_write():
     p.assign_parity()
     result = p.export()
     expected = {
-            'bits': p.bits.bin,
+            'bits': p.bits.to01(),
             'type': 'config write',
             'chipid': 10,
             'register': 51,
@@ -350,7 +371,7 @@ def test_packet_get_packet_type():
 def test_packet_set_chipid():
     p = Packet()
     p.chipid = 121
-    expected = BitArray('uint:8=121')
+    expected = bah.fromuint(121, 8)
     assert p.bits[Packet.chipid_bits] == expected
 
 def test_packet_get_chipid():
@@ -379,11 +400,11 @@ def test_packet_compute_parity():
     parity = p.compute_parity()
     expected = 0
     assert parity == expected
-    p.bits = BitArray([0]*54)
+    p.bits = bitarray([0]*54)
     parity = p.compute_parity()
     expected = 1
     assert parity == expected
-    p.bits = BitArray([1]*54)
+    p.bits = bitarray([1]*54)
     parity = p.compute_parity()
     expected = 0
     assert parity == expected
@@ -408,7 +429,7 @@ def test_packet_has_valid_parity():
     result = p.has_valid_parity()
     expected = True
     assert result == expected
-    p.bits = BitArray([1]*54)
+    p.bits = bitarray([1]*54)
     result = p.has_valid_parity()
     expected = False
     assert result == expected
@@ -420,7 +441,7 @@ def test_packet_has_valid_parity():
 def test_packet_set_channel_id():
     p = Packet()
     p.channel_id = 100
-    expected = BitArray('uint:7=100')
+    expected = bah.fromuint(100, 7)
     assert p.bits[Packet.channel_id_bits] == expected
 
 def test_packet_get_channel_id():
@@ -432,7 +453,7 @@ def test_packet_get_channel_id():
 def test_packet_set_timestamp():
     p = Packet()
     p.timestamp = 0x1327ab
-    expected = BitArray('0x1327ab')
+    expected = bah.fromuint(int('0x1327ab', 16), 24)
     assert p.bits[Packet.timestamp_bits] == expected
 
 def test_packet_get_timestamp():
@@ -444,7 +465,7 @@ def test_packet_get_timestamp():
 def test_packet_set_dataword():
     p = Packet()
     p.dataword = 75
-    expected = BitArray('uint:10=75')
+    expected = bah.fromuint(75, 10)
     assert p.bits[Packet.dataword_bits] == expected
 
 def test_packet_get_dataword():
@@ -486,7 +507,7 @@ def test_packet_get_fifo_full_flag():
 def test_packet_set_register_address():
     p = Packet()
     p.register_address = 121
-    expected = BitArray('uint:8=121')
+    expected = bah.fromuint(121, 8)
     assert p.bits[Packet.register_address_bits] == expected
 
 def test_packet_get_register_address():
@@ -498,7 +519,7 @@ def test_packet_get_register_address():
 def test_packet_set_register_data():
     p = Packet()
     p.register_data = 1
-    expected = BitArray('uint:8=1')
+    expected = bah.fromuint(1, 8)
     assert p.bits[Packet.register_data_bits] == expected
 
 def test_packet_get_register_data():
@@ -510,7 +531,7 @@ def test_packet_get_register_data():
 def test_packet_set_test_counter():
     p = Packet()
     p.test_counter = 18376
-    expected = BitArray('uint:16=18376')
+    expected = bah.fromuint(18376, 16)
     result = (p.bits[Packet.test_counter_bits_15_12] +
             p.bits[Packet.test_counter_bits_11_0])
     assert result == expected
@@ -544,7 +565,7 @@ def test_configuration_get_nondefault_registers():
     expected = {}
     assert c.get_nondefault_registers() == expected
     c.adc_burst_length += 1
-    expected['adc_burst_length'] = c.adc_burst_length
+    expected['adc_burst_length'] = (c.adc_burst_length, c.adc_burst_length-1)
     assert c.get_nondefault_registers() == expected
 
 def test_configuration_get_nondefault_registers_array():
@@ -554,8 +575,8 @@ def test_configuration_get_nondefault_registers_array():
     result = c.get_nondefault_registers()
     expected = {
             'channel_mask': [
-                { 'channel': 1, 'value': 1 },
-                { 'channel': 5, 'value': 1 }
+                ({'channel': 1, 'value': 1}, {'channel': 1, 'value': 0}),
+                ({'channel': 5, 'value': 1}, {'channel': 5, 'value': 0})
                 ]
             }
     assert result == expected
@@ -564,7 +585,7 @@ def test_configuration_get_nondefault_registers_many_changes():
     c = Configuration()
     c.channel_mask[:20] = [1]*20
     result = c.get_nondefault_registers()
-    expected = { 'channel_mask': [1]*20 + [0]*12 }
+    expected = { 'channel_mask': ([1]*20 + [0]*12, [0]*32) }
     assert result == expected
 
 
@@ -1013,27 +1034,27 @@ def test_configuration_disable_external_trigger():
 
 def test_configuration_enable_testpulse():
     c = Configuration()
-    expected = [0, 1] * 16
+    expected = [1, 0] * 16
     c.disable_testpulse()
     c.enable_testpulse(range(1, 32, 2))
     assert c.csa_testpulse_enable == expected
 
 def test_configuration_enable_testpulse_default():
     c = Configuration()
-    expected = [1] * 32
-    c.disable_testpulse()
+    expected = [0] * 32
     c.enable_testpulse()
     assert c.csa_testpulse_enable == expected
 
 def test_configuration_disable_testpulse():
     c = Configuration()
-    expected = [0, 1] * 16
+    expected = [1, 0] * 16
+    c.enable_testpulse()
     c.disable_testpulse(range(0, 32, 2))
     assert c.csa_testpulse_enable == expected
 
 def test_configuration_disable_testpulse_default():
     c = Configuration()
-    expected = [0] * 32
+    expected = [1] * 32
     c.disable_testpulse()
     assert c.csa_testpulse_enable == expected
 
@@ -1052,134 +1073,134 @@ def test_configuration_disable_analog_monitor():
 
 def test_configuration_trim_threshold_data():
     c = Configuration()
-    expected = BitArray('0x10')
+    expected = bah.fromuint(int('0x10', 16), 8)
     assert c.trim_threshold_data(0) == expected
 
 def test_configuration_global_threshold_data():
     c = Configuration()
-    expected = BitArray('0x10')
+    expected = bah.fromuint(int('0x10', 16), 8)
     assert c.global_threshold_data() == expected
 
 def test_configuration_csa_gain_and_bypasses_data():
     c = Configuration()
-    expected = BitArray('0b00000001')
+    expected = bitarray('00000001')
     assert c.csa_gain_and_bypasses_data() == expected
 
 def test_configuration_csa_bypass_select_data():
     c = Configuration()
     c.csa_bypass_select[4] = 1
-    expected = BitArray('0b00010000')
+    expected = bitarray('00010000')
     assert c.csa_bypass_select_data(0) == expected
     c.csa_bypass_select[10] = 1
-    expected = BitArray('0b00000100')
+    expected = bitarray('00000100')
     assert c.csa_bypass_select_data(1) == expected
     c.csa_bypass_select[20] = 1
-    expected = BitArray('0b00010000')
+    expected = bitarray('00010000')
     assert c.csa_bypass_select_data(2) == expected
     c.csa_bypass_select[30] = 1
-    expected = BitArray('0b01000000')
+    expected = bitarray('01000000')
     assert c.csa_bypass_select_data(3) == expected
 
 def test_configuration_csa_monitor_select_data():
     c = Configuration()
     c.csa_monitor_select[4] = 1
-    expected = BitArray('0b00010000')
+    expected = bitarray('00010000')
     assert c.csa_monitor_select_data(0) == expected
     c.csa_monitor_select[10] = 1
-    expected = BitArray('0b00000100')
+    expected = bitarray('00000100')
     assert c.csa_monitor_select_data(1) == expected
     c.csa_monitor_select[20] = 1
-    expected = BitArray('0b00010000')
+    expected = bitarray('00010000')
     assert c.csa_monitor_select_data(2) == expected
     c.csa_monitor_select[30] = 1
-    expected = BitArray('0b01000000')
+    expected = bitarray('01000000')
     assert c.csa_monitor_select_data(3) == expected
 
 def test_configuration_csa_testpulse_enable_data():
     c = Configuration()
     c.csa_testpulse_enable[4] = 0
-    expected = BitArray('0b11101111')
+    expected = bitarray('11101111')
     assert c.csa_testpulse_enable_data(0) == expected
     c.csa_testpulse_enable[10] = 0
-    expected = BitArray('0b11111011')
+    expected = bitarray('11111011')
     assert c.csa_testpulse_enable_data(1) == expected
     c.csa_testpulse_enable[20] = 0
-    expected = BitArray('0b11101111')
+    expected = bitarray('11101111')
     assert c.csa_testpulse_enable_data(2) == expected
     c.csa_testpulse_enable[30] = 0
-    expected = BitArray('0b10111111')
+    expected = bitarray('10111111')
     assert c.csa_testpulse_enable_data(3) == expected
 
 def test_configuration_csa_testpulse_dac_amplitude_data():
     c = Configuration()
     c.csa_testpulse_dac_amplitude = 200;
-    expected = BitArray('0b11001000')
+    expected = bitarray('11001000')
     assert c.csa_testpulse_dac_amplitude_data() == expected
 
 def test_configuration_test_mode_xtrig_reset_diag_data():
     c = Configuration()
     c.test_mode = 2
     c.fifo_diagnostic = 1
-    expected = BitArray('0b00010010')
+    expected = bitarray('00010010')
     assert c.test_mode_xtrig_reset_diag_data() == expected
 
 def test_configuration_sample_cycles_data():
     c = Configuration()
     c.sample_cycles = 221
-    expected = BitArray('0b11011101')
+    expected = bitarray('11011101')
     assert c.sample_cycles_data() == expected
 
 def test_configuration_test_burst_length_data():
     c = Configuration()
-    expected = BitArray('0xFF')
+    expected = bah.fromuint(int('0xFF', 16), 8)
     assert c.test_burst_length_data(0) == expected
-    expected = BitArray('0x00')
+    expected = bah.fromuint(int('0x00', 16), 8)
     assert c.test_burst_length_data(1) == expected
 
 def test_configuration_adc_burst_length_data():
     c = Configuration()
     c.adc_burst_length = 140
-    expected = BitArray('0b10001100')
+    expected = bitarray('10001100')
     assert c.adc_burst_length_data() == expected
 
 def test_configuration_channel_mask_data():
     c = Configuration()
     c.channel_mask[4] = 1
-    expected = BitArray('0b00010000')
+    expected = bitarray('00010000')
     assert c.channel_mask_data(0) == expected
     c.channel_mask[10] = 1
-    expected = BitArray('0b00000100')
+    expected = bitarray('00000100')
     assert c.channel_mask_data(1) == expected
     c.channel_mask[20] = 1
-    expected = BitArray('0b00010000')
+    expected = bitarray('00010000')
     assert c.channel_mask_data(2) == expected
     c.channel_mask[30] = 1
-    expected = BitArray('0b01000000')
+    expected = bitarray('01000000')
     assert c.channel_mask_data(3) == expected
 
 def test_configuration_external_trigger_mask_data():
     c = Configuration()
     c.external_trigger_mask[4] = 0
-    expected = BitArray('0b11101111')
+    expected = bitarray('11101111')
     assert c.external_trigger_mask_data(0) == expected
     c.external_trigger_mask[10] = 0
-    expected = BitArray('0b11111011')
+    expected = bitarray('11111011')
     assert c.external_trigger_mask_data(1) == expected
     c.external_trigger_mask[20] = 0
-    expected = BitArray('0b11101111')
+    expected = bitarray('11101111')
     assert c.external_trigger_mask_data(2) == expected
     c.external_trigger_mask[30] = 0
-    expected = BitArray('0b10111111')
+    expected = bitarray('10111111')
     assert c.external_trigger_mask_data(3) == expected
 
 def test_configuration_reset_cycles_data():
     c = Configuration()
     c.reset_cycles = 0xabcdef
-    expected = BitArray('0xef')
+    expected = bah.fromuint(int('0xef', 16), 8)
     assert c.reset_cycles_data(0) == expected
-    expected = BitArray('0xcd')
+    expected = bah.fromuint(int('0xcd', 16), 8)
     assert c.reset_cycles_data(1) == expected
-    expected = BitArray('0xab')
+    expected = bah.fromuint(int('0xab', 16), 8)
     assert c.reset_cycles_data(2) == expected
 
 def test_configuration_to_dict():
@@ -1479,26 +1500,26 @@ def test_configuration_from_dict_reg_reset_cycles():
     assert result == expected
 
 def test_controller_init_chips():
-    controller = Controller(None)
+    controller = Controller(port='test')
     result = list(map(repr, controller._init_chips()))
     expected = list(map(repr, (Chip(i, 0) for i in range(256))))
     assert result == expected
 
 def test_controller_get_chip():
-    controller = Controller(None)
+    controller = Controller(port='test')
     chip = Chip(1, 3)
     controller.chips.append(chip)
     assert controller.get_chip(1, 3) == chip
 
 def test_controller_get_chip_all_chips():
-    controller = Controller(None)
+    controller = Controller(port='test')
     controller.use_all_chips = True
     result = controller.get_chip(5, 0)
     expected = controller.all_chips[5]
     assert result == expected
 
 def test_controller_get_chip_error():
-    controller = Controller(None)
+    controller = Controller(port='test')
     chip = Chip(1, 3)
     controller.chips.append(chip)
     with pytest.raises(ValueError, message='Should fail: bad chipid'):
@@ -1507,36 +1528,34 @@ def test_controller_get_chip_error():
         controller.get_chip(1, 1)
 
 def test_controller_serial_read_mock():
-    controller = Controller(None)
-    controller._serial = FakeSerialPort
+    controller = Controller(port='test')
     FakeSerialPort.data_to_mock_read = bytes(bytearray(10))
     result = controller.serial_read(0.1)
     expected = bytes(bytearray(10))
     assert result == expected
 
 def test_controller_serial_write_mock(capfd):
-    controller = Controller(None)
-    controller._serial = FakeSerialPort
-    to_write = [b's12345678q', b's87654321q']
+    controller = Controller(port='test')
+    to_write = [b's12345678q', b's87654321q',]
     controller.serial_write(to_write)
     result, err = capfd.readouterr()
-    expected = ''.join(map(bytes2str, to_write))
+    expected = ' END'.join(map(bytes2str, to_write)) + ' END'
     assert result == expected
 
 def test_controller_serial_write_read_mock(capfd):
-    controller = Controller(None)
-    controller._serial = FakeSerialPort
+    controller = Controller(port='test')
+
     to_write = [b's12345678q', b's9862983aq']
     FakeSerialPort.data_to_mock_read = bytes(bytearray(range(256)))
     read_result = controller.serial_write_read(to_write, 0.1)
     write_result, err = capfd.readouterr()
     read_expected = bytes(bytearray(range(256)))
-    write_expected = ''.join(map(bytes2str, to_write))
+    write_expected = ' END'.join(map(bytes2str, to_write)) + ' END'
     assert read_result == read_expected
     assert write_result == write_expected
 
 def test_controller_format_UART():
-    controller = Controller(None)
+    controller = Controller(port='test')
     chip = Chip(2, 4)
     packet = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)[10]
     result = controller.format_UART(chip, packet)
@@ -1544,7 +1563,7 @@ def test_controller_format_UART():
     assert result == expected
 
 def test_controller_format_bytestream():
-    controller = Controller(None)
+    controller = Controller(port='test')
     chip = Chip(2, 4)
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
     fpackets = [controller.format_UART(chip, p) for p in packets]
@@ -1552,150 +1571,138 @@ def test_controller_format_bytestream():
     assert result == fpackets[:1]
     result = controller.format_bytestream(fpackets[:2])
     assert result == [b''.join(fpackets[:2])]
-    result = controller.format_bytestream(fpackets[:1]*2000)
+    test_total_packets = 2000
+    result = controller.format_bytestream(fpackets[:1]*test_total_packets)
     expected = []
-    expected.append(b''.join(fpackets[:1]*819))
-    expected.append(b''.join(fpackets[:1]*819))
-    expected.append(b''.join(fpackets[:1]*362))
+    total_packets = test_total_packets
+    while total_packets >= int(controller.max_write/Configuration.fpga_packet_size):
+        expected.append(b''.join(fpackets[:1]*int(controller.max_write/Configuration.fpga_packet_size)))
+        total_packets -= int(controller.max_write/Configuration.fpga_packet_size)
+    if total_packets > 0:
+        expected.append(b''.join(fpackets[:1]*int(total_packets)))
     assert result == expected
 
+
 def test_controller_read_configuration(capfd):
-    controller = Controller(None)
-    controller._serial = FakeSerialPort
-    chip = Chip(2, 0)
-    controller.chips.append(chip)
+    controller = Controller(port='test')
+    controller._test_mode = True
+    chip = Chip(2, 4)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
     expected_bytes = b''.join(controller.format_UART(chip, conf_data_i) for
             conf_data_i in conf_data)
-    expected = ' '.join(map(bytes2str, [controller.format_UART(chip,
-        conf_data_i) for conf_data_i in conf_data]))
+    expected = packets2mock_serialstream(controller, chip, conf_data)
     FakeSerialPort.data_to_mock_read = expected_bytes
     controller.read_configuration(chip)
     result, err = capfd.readouterr()
     assert result == expected
 
 def test_controller_read_configuration_reg(capfd):
-    controller = Controller(None)
-    controller._serial = FakeSerialPort
-    chip = Chip(2, 0)
-    controller.chips.append(chip)
+    controller = Controller(port='test')
+    controller._test_mode = True
+    chip = Chip(2, 4)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)[0]
     expected_bytes = controller.format_UART(chip, conf_data)
-    expected = bytes2str(controller.format_UART(chip, conf_data))
+    expected = bytes2str(controller.format_UART(chip, conf_data)) + ' END'
     FakeSerialPort.data_to_mock_read = expected_bytes
     controller.read_configuration(chip, 0)
     result, err = capfd.readouterr()
     assert result == expected
 
 def test_controller_write_configuration(capfd):
-    controller = Controller(None)
-    controller._serial = FakeSerialPort
+    controller = Controller(port='test')
+    controller._test_mode = True
     chip = Chip(2, 4)
     controller.write_configuration(chip)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
-    expected = ' '.join(map(bytes2str, [controller.format_UART(chip, conf_data_i) for
-            conf_data_i in conf_data]))
+    expected = packets2mock_serialstream(controller, chip, conf_data)
     result, err = capfd.readouterr()
     assert result == expected
 
 def test_controller_write_configuration_one_reg(capfd):
-    controller = Controller(None)
+    controller = Controller(port='test')
     controller._test_mode = True
-    controller._serial = FakeSerialPort
     chip = Chip(2, 4)
     controller.write_configuration(chip, 0)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[0]
-    expected = bytes2str(controller.format_UART(chip, conf_data))
+    expected = bytes2str(controller.format_UART(chip, conf_data)) + ' END'
     result, err = capfd.readouterr()
     assert result == expected
 
 def test_controller_write_configuration_write_read(capfd):
-    controller = Controller(None)
-    controller._serial = FakeSerialPort
+    controller = Controller(port='test')
     controller.timeout=0.01
     chip = Chip(2, 0)
     controller.chips.append(chip)
     to_read = b's\x08\x0034567\x00q'
     FakeSerialPort.data_to_mock_read = to_read
     controller.write_configuration(chip, registers=5, write_read=0.1)
-    assert chip.reads[0][0].bytes() == to_read[1:-2]
     assert controller.reads[0].bytestream == to_read
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[5]
-    expected = bytes2str(controller.format_UART(chip, conf_data))
+    expected = bytes2str(controller.format_UART(chip, conf_data)) + ' END'
     result, err = capfd.readouterr()
     assert result == expected
 
 def test_controller_multi_write_configuration(capfd):
-    controller = Controller(None)
+    controller = Controller(port='test')
     controller._test_mode = True
-    controller._serial = FakeSerialPort
     chip = Chip(2, 4)
     chip2 = Chip(3, 4)
     controller.multi_write_configuration((chip, chip2))
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
     conf_data2 = chip2.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
-    expected = ' '.join(map(bytes2str, [controller.format_UART(chip, conf_data_i) for
-            conf_data_i in conf_data]))
-    expected2 = ' '.join(map(bytes2str, [controller.format_UART(chip2, conf_data_i) for
-            conf_data_i in conf_data2]))
-    expected += ' ' + expected2
+    final_string_1 = packets2mock_serialstream(controller, chip, conf_data)
+    final_string_2 = packets2mock_serialstream(controller, chip2, conf_data2)
+    expected = final_string_1 + final_string_2
     result, err = capfd.readouterr()
     assert result == expected
 
 def test_controller_multi_write_configuration_specify_registers(capfd):
-    controller = Controller(None)
+    controller = Controller(port='test')
     controller._test_mode = True
-    controller._serial = FakeSerialPort
     chip = Chip(2, 4)
     chip2 = Chip(3, 4)
     controller.multi_write_configuration([(chip, 0), chip2])
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[:1]
     conf_data2 = chip2.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
-    expected = ' '.join(map(bytes2str, [controller.format_UART(chip, conf_data_i) for
-            conf_data_i in conf_data]))
-    expected2 = ' '.join(map(bytes2str, [controller.format_UART(chip2, conf_data_i) for
-            conf_data_i in conf_data2]))
-    expected += ' ' + expected2
+    final_string_1 = packets2mock_serialstream(controller, chip, conf_data)
+    final_string_2 = packets2mock_serialstream(controller, chip2, conf_data2)
+    expected = final_string_1 + final_string_2
     result, err = capfd.readouterr()
     assert result == expected
 
 
 def test_controller_multi_read_configuration(capfd):
-    controller = Controller(None)
+    controller = Controller(port='test')
     controller.use_all_chips = True
-    controller._serial = FakeSerialPort
+    controller._test_mode = True
     chip = Chip(2, 4)
     chip2 = Chip(3, 4)
     controller.multi_read_configuration((chip, chip2))
     conf_data = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
     conf_data2 = chip2.get_configuration_packets(Packet.CONFIG_READ_PACKET)
-    expected = ' '.join(map(bytes2str, [controller.format_UART(chip, conf_data_i) for
-            conf_data_i in conf_data]))
-    expected2 = ' '.join(map(bytes2str, [controller.format_UART(chip2, conf_data_i) for
-            conf_data_i in conf_data2]))
-    expected += ' ' + expected2
+    final_string_1 = packets2mock_serialstream(controller, chip, conf_data)
+    final_string_2 = packets2mock_serialstream(controller, chip2, conf_data2)
+    expected = final_string_1 + final_string_2
     result, err = capfd.readouterr()
     assert result == expected
 
 def test_controller_multi_read_configuration_specify_registers(capfd):
-    controller = Controller(None)
+    controller = Controller(port='test')
     controller.use_all_chips = True
-    controller._serial = FakeSerialPort
+    controller._test_mode = True
     chip = Chip(2, 4)
     chip2 = Chip(3, 4)
     controller.multi_read_configuration([(chip, 0), chip2])
     conf_data = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)[:1]
     conf_data2 = chip2.get_configuration_packets(Packet.CONFIG_READ_PACKET)
-    expected = ' '.join(map(bytes2str, [controller.format_UART(chip, conf_data_i) for
-            conf_data_i in conf_data]))
-    expected2 = ' '.join(map(bytes2str, [controller.format_UART(chip2, conf_data_i) for
-            conf_data_i in conf_data2]))
-    expected += ' ' + expected2
+    final_string_1 = packets2mock_serialstream(controller, chip, conf_data)
+    final_string_2 = packets2mock_serialstream(controller, chip2, conf_data2)
+    expected = final_string_1 + final_string_2
     result, err = capfd.readouterr()
     assert result == expected
 
 def test_controller_get_configuration_bytestreams():
-    controller = Controller(None)
+    controller = Controller(port='test')
     chip = Chip(0, 0)
     controller.chips.append(chip)
     result = controller.get_configuration_bytestreams(chip,
@@ -1703,23 +1710,23 @@ def test_controller_get_configuration_bytestreams():
     all_packets = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
     bytestream_reg_0 = controller.format_UART(chip, all_packets[0])
     bytestream_reg_1 = controller.format_UART(chip, all_packets[1])
-    expected = [bytestream_reg_1 + bytestream_reg_0]
+    expected = [bytestream_reg_0 + bytestream_reg_1]
     assert result == expected
 
 def test_controller_parse_input():
-    controller = Controller(None)
+    controller = Controller(port='test')
     chip = Chip(2, 4)
     controller.chips.append(chip)
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
     fpackets = [controller.format_UART(chip, p) for p in packets]
     bytestream = b''.join(controller.format_bytestream(fpackets))
     result = controller.parse_input(bytestream)
-    expected = (packets, [])
+    expected = packets
     assert result == expected
 
 def test_controller_parse_input_dropped_data_byte():
     # Test whether the parser can recover from dropped bytes
-    controller = Controller(None)
+    controller = Controller(port='test')
     chip = Chip(2, 4)
     controller.chips.append(chip)
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
@@ -1728,12 +1735,12 @@ def test_controller_parse_input_dropped_data_byte():
     # Drop a byte in the first packet
     bytestream_faulty = bytestream[:5] + bytestream[6:]
     result = controller.parse_input(bytestream_faulty)
-    skipped = [(slice(0, 9), bytestream_faulty[0:9])]
-    expected = (packets[1:], skipped)
+    #skipped = [(slice(0, 9), bytestream_faulty[0:9])]
+    expected = packets[1:]
     assert result == expected
 
 def test_controller_parse_input_dropped_start_byte():
-    controller = Controller(None)
+    controller = Controller(port='test')
     chip = Chip(2, 4)
     controller.chips.append(chip)
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
@@ -1741,13 +1748,13 @@ def test_controller_parse_input_dropped_start_byte():
     bytestream = b''.join(controller.format_bytestream(fpackets))
     # Drop the first start byte
     bytestream_faulty = bytestream[1:]
-    skipped = [(slice(0, 9), bytestream_faulty[0:9])]
+    #skipped = [(slice(0, 9), bytestream_faulty[0:9])]
     result = controller.parse_input(bytestream_faulty)
-    expected = (packets[1:], skipped)
+    expected = packets[1:]
     assert result == expected
 
 def test_controller_parse_input_dropped_stop_byte():
-    controller = Controller(None)
+    controller = Controller(port='test')
     chip = Chip(2, 4)
     controller.chips.append(chip)
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
@@ -1755,13 +1762,13 @@ def test_controller_parse_input_dropped_stop_byte():
     bytestream = b''.join(controller.format_bytestream(fpackets))
     # Drop the first stop byte
     bytestream_faulty = bytestream[:9] + bytestream[10:]
-    skipped = [(slice(0, 9), bytestream_faulty[0:9])]
+    #skipped = [(slice(0, 9), bytestream_faulty[0:9])]
     result = controller.parse_input(bytestream_faulty)
-    expected = (packets[1:], skipped)
+    expected = packets[1:]
     assert result == expected
 
 def test_controller_parse_input_dropped_stopstart_bytes():
-    controller = Controller(None)
+    controller = Controller(port='test')
     chip = Chip(2, 4)
     controller.chips.append(chip)
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
@@ -1769,9 +1776,9 @@ def test_controller_parse_input_dropped_stopstart_bytes():
     bytestream = b''.join(controller.format_bytestream(fpackets))
     # Drop the first stop byte
     bytestream_faulty = bytestream[:9] + bytestream[11:]
-    skipped = [(slice(0, 18), bytestream_faulty[:18])]
+    #skipped = [(slice(0, 18), bytestream_faulty[:18])]
     result = controller.parse_input(bytestream_faulty)
-    expected = (packets[2:], skipped)
+    expected = packets[2:]
     assert result == expected
 
 def test_packetcollection_getitem_int():
@@ -1784,7 +1791,7 @@ def test_packetcollection_getitem_int_bits():
     packet = Packet()
     collection = PacketCollection([packet])
     result = collection[0, 'bits']
-    expected = ' '.join(packet.bits.bin[i:i+8] for i in range(0, Packet.size, 8))
+    expected = ' '.join(packet.bits.to01()[i:i+8] for i in range(0, Packet.size, 8))
     assert result == expected
 
 def test_packetcollection_getitem_slice():
@@ -1801,7 +1808,7 @@ def test_packetcollection_getitem_slice_bits():
     packets = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
     collection = PacketCollection(packets, message='hello')
     result = collection[:10, 'bits']
-    expected = [' '.join(p.bits.bin[i:i+8] for i in range(0,
+    expected = [' '.join(p.bits.to01()[i:i+8] for i in range(0,
         Packet.size, 8)) for p in packets[:10]]
     assert result == expected
 
@@ -1852,7 +1859,7 @@ def test_packetcollection_to_dict():
             'read_id': 'None',
             'bytestream': packet.bytes().decode('raw_unicode_escape'),
             'packets': [{
-                'bits': packet.bits.bin,
+                'bits': packet.bits.to01(),
                 'type': 'test',
                 'chipid': packet.chipid,
                 'parity': 0,
@@ -1872,3 +1879,70 @@ def test_packetcollection_from_dict():
     result.from_dict(d)
     expected = collection
     assert result == expected
+
+def test_timestamp_init():
+    t = Timestamp(ns=2**33, cpu_time=1e10 + 1e-6, adc_time=Timestamp.larpix_offset_d // 2,
+                  adj_adc_time=Timestamp.larpix_offset_d * 100)
+    assert 2**33 == t.ns
+    assert 1e10 + 1e-6  == t.cpu_time
+    assert Timestamp.larpix_offset_d // 2 == t.adc_time
+    assert Timestamp.larpix_offset_d * 100 == t.adj_adc_time
+
+def test_timestamp_error():
+    with pytest.raises(ValueError, message='Should fail: value too large'):
+        t = Timestamp.serialized_timestamp(cpu_time=0, adc_time=Timestamp.larpix_offset_d)
+
+def test_timestamp_same_serial_read():
+    clk_counter = 0
+    t0 = Timestamp.serialized_timestamp(cpu_time=0, adc_time=clk_counter)
+    clk_counter += Timestamp.larpix_offset_d - 1
+    adc1 = clk_counter % Timestamp.larpix_offset_d
+    ns1 = clk_counter * long(1e9) // Timestamp.larpix_clk_freq
+    t1 = Timestamp.serialized_timestamp(cpu_time=0, adc_time=adc1, ref_time=t0)
+    assert t1.ns == ns1
+    clk_counter += 2
+    adc2 = clk_counter % Timestamp.larpix_offset_d
+    ns2 = clk_counter * long(1e9) // Timestamp.larpix_clk_freq
+    t2 = Timestamp.serialized_timestamp(cpu_time=0, adc_time=adc2, ref_time=t1)
+    expected = Timestamp(ns=ns2, cpu_time=0, adc_time=adc2,
+                         adj_adc_time=Timestamp.larpix_offset_d + adc2)
+    assert t2 == expected
+
+def test_timestamp_diff_serial_read():
+    clk_counter = 0
+    t0 = Timestamp.serialized_timestamp(cpu_time=0, adc_time=clk_counter)
+    clk_counter += Timestamp.larpix_offset_d - 1
+    adc1 = clk_counter % Timestamp.larpix_offset_d
+    ns1 = clk_counter * long(1e9) / Timestamp.larpix_clk_freq
+    t1 = Timestamp.serialized_timestamp(cpu_time=ns1 * 1e-9, adc_time=adc1, ref_time=t0)
+    assert t1.ns == ns1
+    clk_counter += Timestamp.larpix_offset_d - 1
+    adc2 = clk_counter % Timestamp.larpix_offset_d
+    ns2 = clk_counter * long(1e9) / Timestamp.larpix_clk_freq
+    t2_0 = Timestamp.serialized_timestamp(cpu_time=ns2 * 1e-9, adc_time=adc2, ref_time=t0)
+    t2_1 = Timestamp.serialized_timestamp(cpu_time=ns2 * 1e-9, adc_time=adc2, ref_time=t1)
+    expected = Timestamp(ns=ns2, cpu_time=ns2 * 1e-9, adc_time=adc2,
+                         adj_adc_time=adc2 + Timestamp.larpix_offset_d)
+    assert t2_0 == expected
+    assert t2_1 == expected
+
+def test_timestamp_ambiguous_rollover():
+    '''
+    This test case checks the following scenario:
+
+      - serial reads every 3s
+      - two triggers mischievously placed 1 + epsilon full cycles apart
+
+    The algorithm must notice that there is a rollover in adc_time due
+    to the discrepancy between ``adc_time_1 - adc_time_0`` (small) and
+    ``cpu_time_1 - cpu_time_0 `` (large), in order to pass this test.
+
+    '''
+    t0 = Timestamp.serialized_timestamp(adc_time=5, cpu_time=0)
+    t1 = Timestamp.serialized_timestamp(adc_time=6, cpu_time=3,
+            ref_time=t0)
+    expected_adj_adc_time = Timestamp.larpix_offset_d + 6
+    expected = \
+    Timestamp(ns=(expected_adj_adc_time-t0.adj_adc_time)*long(1e9/Timestamp.larpix_clk_freq),
+            cpu_time=3, adc_time=6, adj_adc_time=expected_adj_adc_time)
+    assert t1 == expected

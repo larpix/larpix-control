@@ -9,3 +9,7 @@ dist
 *.egg-info
 docs/_build
 *.json
+datalog
+*.dat
+*.root
+*.h5

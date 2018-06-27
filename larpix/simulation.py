@@ -196,7 +196,7 @@ class MockFormatter(object):
         self.miso_source = None
         self.miso_buffer = deque()
         ''' Represents all buffers between the FPGA and the serial port.'''
-        self._controller = larpix.Controller(None)
+        self._controller = larpix.Controller(port='test')
         '''Used for its parse_input function.'''
 
     def activate_chips(self):
@@ -218,7 +218,7 @@ class MockFormatter(object):
         is 1Mbaud and the LArPix bitrate is 10MHz, i.e. much faster.
 
         '''
-        packets, skipped = self._controller.parse_input(data)
+        packets = self._controller.parse_input(data)
         self.send_mosi(packets)
 
     def receive_miso(self, packet):
