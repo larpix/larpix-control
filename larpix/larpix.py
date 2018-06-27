@@ -106,6 +106,8 @@ class Configuration(object):
     Represents the desired configuration state of a LArPix chip.
 
     '''
+    
+    fpga_packet_size = 10 #vb
     num_registers = 63
     pixel_trim_threshold_addresses = list(range(0, 32))
     global_threshold_address = 32
@@ -1197,7 +1199,7 @@ class Controller(object):
 
     @classmethod
     def parse_input(cls, bytestream):
-        packet_size = 10
+        packet_size = Configuration.fpga_packet_size  #vb
         start_byte = Controller.start_byte[0]
         stop_byte = Controller.stop_byte[0]
         metadata_byte_index = 8
@@ -1274,7 +1276,7 @@ class Controller(object):
         bytestreams = []
         current_bytestream = bytes()
         for packet in formatted_packets:
-            if len(current_bytestream) + len(packet) < self.max_write:
+            if len(current_bytestream) + len(packet) <= self.max_write:  #vb
                 current_bytestream += packet
             else:
                 bytestreams.append(current_bytestream)
