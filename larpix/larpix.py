@@ -197,6 +197,17 @@ class Configuration(object):
         # These registers each correspond to an entry in an array
         self._trim_registers = list(range(32))
 
+    def __setattr__(self, name, value):
+        '''
+        Default setattr behavior occurs if name is in ``register_names``, is "private"
+        or is a known attribute
+        Otherwise raises an attribute error
+
+        '''
+        if not (name in self.register_names or name[0] == '_' or hasattr(self, name)):
+            raise AttributeError('%s is not a known register' % name)
+        return super(Configuration, self).__setattr__(name, value)
+
     def __eq__(self, other):
         '''
         Returns true if all fields match
