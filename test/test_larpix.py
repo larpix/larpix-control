@@ -1321,7 +1321,7 @@ def test_configuration_read_local():
 
 def test_configuration_from_dict_reg_pixel_trim():
     c = Configuration()
-    register_dict = { 0: 5, 15: 100 }
+    register_dict = { 0: 5, 15: 20 }
     c.from_dict_registers(register_dict)
     result_1 = c.pixel_trim_thresholds[0]
     expected_1 = register_dict[0]
