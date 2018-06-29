@@ -101,12 +101,34 @@ class Chip(object):
         self.new_reads_index = len(self.reads)
         return data
 
+class Smart_List(list): #vb
+
+    def __init__(self, values, low, high):
+        if not (type(values) == list or type(values) == Smart_List):
+            raise ValueError("Smart_List is not list")
+        if any([value > high or value < low for value in values]):
+            raise ValueError("value out of bounds")
+        list.__init__(self, values)
+        self.low = low
+        self.high = high
+
+    def __setitem__(self, key, value):
+        if isinstance(key, int):
+            if value > self.high or value < self.low:
+                raise ValueError("value out of bounds")
+            list.__setitem__(self, key, value)
+        else:
+            for num in value:
+                if num > self.high or num < self.low:
+                    raise ValueError("value out of bounds")
+            list.__setitem__(self, key, value)
+
 class Configuration(object):
     '''
     Represents the desired configuration state of a LArPix chip.
 
     '''
-    
+
     fpga_packet_size = 10 #vb
     num_registers = 63
     pixel_trim_threshold_addresses = list(range(0, 32))
@@ -258,16 +280,18 @@ class Configuration(object):
 
     @pixel_trim_thresholds.setter
     def pixel_trim_thresholds(self, values):
-        if not type(values) == list:
+        low = 0
+        high = 31
+        if not (type(values) == list or type(values) == Smart_List):
             raise ValueError("pixel_trim_threshold is not list")
         if not len(values) == Chip.num_channels:
             raise ValueError("pixel_trim_threshold length is not %d" % Chip.num_channels)
         if not all(type(value) == int for value in values):
             raise ValueError("pixel_trim_threshold is not int")
-        if any(value > 31 or value < 0 for value in values):
+        if any(value > high or value < low for value in values):
             raise ValueError("pixel_trim_threshold out of bounds")
 
-        self._pixel_trim_thresholds = values
+        self._pixel_trim_thresholds = Smart_List(values, low, high)
 
     @property
     def global_threshold(self):
@@ -327,16 +351,18 @@ class Configuration(object):
 
     @csa_bypass_select.setter
     def csa_bypass_select(self, values):
-        if not type(values) == list:
+        low = 0
+        high = 1
+        if not (type(values) == list or type(values) == Smart_List):
             raise ValueError("csa_bypass_select is not list")
         if not len(values) == Chip.num_channels:
             raise ValueError("csa_bypass_select length is not %d" % Chip.num_channels)
         if not all(type(value) == int for value in values):
             raise ValueError("csa_bypass_select is not int")
-        if any(value > 1 or value < 0 for value in values):
+        if any(value > high or value < low for value in values):
             raise ValueError("csa_bypass_select out of bounds")
 
-        self._csa_bypass_select = values
+        self._csa_bypass_select = Smart_List(values, low, high)
 
     @property
     def csa_monitor_select(self):
@@ -344,16 +370,18 @@ class Configuration(object):
 
     @csa_monitor_select.setter
     def csa_monitor_select(self, values):
-        if not type(values) == list:
+        low = 0
+        high = 1
+        if not (type(values) == list or type(values) == Smart_List):
             raise ValueError("csa_monitor_select is not list")
         if not len(values) == Chip.num_channels:
             raise ValueError("csa_monitor_select length is not %d" % Chip.num_channels)
         if not all(type(value) == int for value in values):
             raise ValueError("csa_monitor_select is not int")
-        if any(value > 1 or value < 0 for value in values):
+        if any(value > high or value < low for value in values):
             raise ValueError("csa_monitor_select out of bounds")
 
-        self._csa_monitor_select = values
+        self._csa_monitor_select = Smart_List(values, low, high)
 
     @property
     def csa_testpulse_enable(self):
