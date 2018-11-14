@@ -6,6 +6,13 @@ from __future__ import absolute_import
 import larpix.larpix as larpix
 from larpix.tasks import get_chip_ids
 
+## For interactive mode
+import sys
+VERSION = sys.version_info
+if VERSION[0] < 3:
+    input = raw_input
+##
+
 
 #List of LArPix test board configurations
 board_info_list = [
@@ -41,12 +48,16 @@ def init_controller(controller, board='pcb-5'):
     controller.board_info = board_info
     return controller
         
-def silence_chips(controller):
+def silence_chips(controller, interactive):
     '''Silence all chips in controller'''
     #for _ in controller.chips:
     for chip in controller.chips:
+        if interactive:
+	    print('Silencing chip %d' % chip.chip_id)
         chip.config.global_threshold = 255
         controller.write_configuration(chip,32)
+        if interactive:
+            input('Just silenced chip %d. <enter> when ready.\n' % chip.chip_id)
     return
 
 def disable_chips(controller):
@@ -57,7 +68,7 @@ def disable_chips(controller):
         controller.write_configuration(chip,range(52,56))
     return
 
-def set_config_physics(controller, board=None):
+def set_config_physics(controller, interactive):
     '''Set the chips for the default physics configuration'''
     #import time
     for chip in controller.chips:
@@ -70,6 +81,10 @@ def set_config_physics(controller, board=None):
         else:
             chip.config.load('physics.json')
         controller.write_configuration(chip)'''
+        if interactive:
+            x = input('Configuring chip %d. <enter> to continue, q to quit' % chip.chip_id)
+            if x == 'q':
+                break
         chip.config.internal_bypass = 1
         controller.write_configuration(chip,33)
         chip.config.periodic_reset = 1
@@ -88,17 +103,17 @@ def flush_stale_data(controller):
     controller.reads = []
     return
     
-def quickcontroller(board='pcb-1'):
+def quickcontroller(board='pcb-1', interactive=False):
     '''Quick jump through all controller creation and config steps'''
     larpix.enable_logger()
     cont = create_controller()
     init_controller(cont,board)
-    silence_chips(cont)
+    silence_chips(cont, interactive)
     if cont.board_info['name'] == 'unknown':
         # Find and load chip info
         settings = {'controller':cont}
         cont.chips = get_chip_ids(**settings)
-    set_config_physics(cont)
+    set_config_physics(cont, interactive)
     #flush_stale_data(cont)
     return cont
 
