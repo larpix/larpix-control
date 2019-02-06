@@ -1823,6 +1823,7 @@ class SerialPort(object):
         self.max_write = 250
         self.serial_com = None
         self._initialize_serial_com()
+        self.is_listening = False
         self.logger = None
         if not (self._logger is None):
             self.logger = self._logger
@@ -1910,6 +1911,7 @@ class SerialPort(object):
 
     def start_listening(self):
         self.open()
+        self.is_listening = True
 
     def stop_listening(self, read):
         if read:
@@ -1917,6 +1919,7 @@ class SerialPort(object):
         else:
             packets = None
         self.close()
+        self.is_listening = False
         return packets
 
     def empty_queue(self):
@@ -1965,12 +1968,6 @@ class SerialPort(object):
 
     def _ready_port_pyserial(self):
         '''Ready a pyserial port'''
-        if self.serial_com is None:
-            # Create serial port
-            import serial
-            self.serial_com = serial.Serial(self.resolved_port,
-                                            baudrate=self.baudrate,
-                                            timeout=self.timeout)
         if not self.serial_com.is_open:
             # Open, if necessary
             self.serial_com.open()
@@ -1978,10 +1975,6 @@ class SerialPort(object):
 
     def _ready_port_pylibftdi(self):
         '''Ready a pylibftdi port'''
-        if self.serial_com is None:
-            # Construct serial port
-            import pylibftdi
-            self.serial_com = pylibftdi.Device(self.resolved_port)
         if self.serial_com.closed:
             # Open port
             self.serial_com.open()
@@ -1990,17 +1983,10 @@ class SerialPort(object):
         return
 
     def _ready_port_test(self):
-        if self.serial_com is None:
-            # Get FakeSerialPort from testing module
-            import test.test_larpix as test_lib
-            self.serial_com = test_lib.FakeSerialPort()
-        return
+        return True
 
     def _ready_port_zmq(self):
-        if self.serial_com is None:
-            from larpix.zmqcontroller import Serial_ZMQ
-            self.serial_com = Serial_ZMQ(self.port[1], self.timeout)
-        return
+        return True
 
     def _confirm_baudrate(self):
         '''Check and set the baud rate'''
@@ -2015,12 +2001,22 @@ class SerialPort(object):
         self.port_type = self._resolve_port_type()
         if self.port_type is 'pyserial':
             self._ready_port = self._ready_port_pyserial
+            import serial
+            self.serial_com = serial.Serial(self.resolved_port,
+                                            baudrate=self.baudrate,
+                                            timeout=self.timeout)
         elif self.port_type is 'pylibftdi':
             self._ready_port = self._ready_port_pylibftdi
+            import pylibftdi
+            self.serial_com = pylibftdi.Device(self.resolved_port)
         elif self.port_type is 'test':
             self._ready_port = self._ready_port_test
+            import test.test_larpix as test_lib
+            self.serial_com = test_lib.FakeSerialPort()
         elif self.port_type is 'zmq':
             self._ready_port = self._ready_port_zmq
+            from larpix.zmqcontroller import Serial_ZMQ
+            self.serial_com = Serial_ZMQ(self.port[1], self.timeout)
         else:
             raise ValueError('Port type must be either pyserial, pylibftdi, or test')
         return
@@ -2074,6 +2070,8 @@ class SerialPort(object):
         self._ready_port()
         write_time = time.time()
         self.serial_com.write(data)
+        if not self.is_listening:
+            self.close()
         if self.logger:
             self.logger.record({'data_type':'write','data':data,'time':write_time})
         return
