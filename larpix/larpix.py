@@ -845,7 +845,7 @@ class Controller(object):
         raise ValueError('Could not find chip (%d, %d) (using all_chips'
                 '? %s)' % (chip_id, io_chain, self.use_all_chips))
 
-    def send_packet(self, packets):
+    def send(self, packets):
         '''
         Send the specified packets to the LArPix ASICs.
 
