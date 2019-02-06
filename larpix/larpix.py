@@ -922,7 +922,7 @@ class Controller(object):
             self.start_listening()
             stop_time = time.time() + write_read
         for packet in packets:
-            self.send(packet, chip)
+            self.send(packet)
         if mess_with_listening:
             time.sleep(stop_time - time.time())
             self.read(message)
@@ -963,7 +963,7 @@ class Controller(object):
             self.start_listening()
             stop_time = time.time() + timeout
         for packet in packets:
-            self.send(packet, chip)
+            self.send(packet)
         if not already_listening:
             time.sleep(stop_time - time.time())
             self.read(message)
