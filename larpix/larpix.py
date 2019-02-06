@@ -883,6 +883,27 @@ class Controller(object):
 
     def write_configuration(self, chip, registers=None, write_read=0,
             message=None):
+        '''
+        Send the configurations stored in chip.config to the LArPix
+        ASIC.
+
+        By default, sends all registers. If registers is an int, then
+        only that register is sent. If registers is an iterable, then
+        all of the registers in the iterable are sent.
+
+        If write_read == 0 (default), the configurations will be sent
+        and the current listening state will not be affected. If the
+        controller is currently listening, then the listening state
+        will not change and the value of write_read will be ignored. If
+        write_read > 0 and the controller is not currently listening,
+        then the controller will listen for ``write_read`` seconds
+        beginning immediately before the packets are sent out, read the
+        io queue, and save the packets into the ``reads`` data member.
+        Note that the controller will only read the queue once, so if a
+        lot of data is expected, you should handle the reads manually
+        and set write_read to 0 (default).
+
+        '''
         if registers is None:
             registers = list(range(Configuration.num_registers))
         elif isinstance(registers, int):
@@ -893,18 +914,38 @@ class Controller(object):
             message = 'configuration write'
         else:
             message = 'configuration write: ' + message
-        bytestreams = self.get_configuration_bytestreams(chip,
+        packets = chip.get_configuration_packets(
                 Packet.CONFIG_WRITE_PACKET, registers)
-        if write_read == 0:
-            self.serial_write(bytestreams)
-        else:
-            miso_bytestream = self.serial_write_read(bytestreams,
-                    timelimit=write_read)
-            packets = self.parse_input(miso_bytestream)
-            self.store_packets(packets, miso_bytestream, message)
+        already_listening = self.io.is_listening
+        mess_with_listening = write_read != 0 and not already_listening
+        if mess_with_listening:
+            self.start_listening()
+            stop_time = time.time() + write_read
+        for packet in packets:
+            self.send(packet, chip)
+        if mess_with_listening:
+            time.sleep(stop_time - time.time())
+            self.read(message)
+            self.stop_listening()
 
     def read_configuration(self, chip, registers=None, timeout=1,
             message=None):
+        '''
+        Send "configuration read" requests to the LArPix ASIC.
+
+        By default, request all registers. If registers is an int, then
+        only that register is reqeusted. If registers is an iterable,
+        then all of the registers in the iterable are requested.
+
+        If the controller is currently listening, then the requests
+        will be sent and no change to the listening state will occur.
+        (The value of ``timeout`` will be ignored.) If the controller
+        is not currently listening, then the controller will listen
+        for ``timeout`` seconds beginning immediately before the first
+        packet is sent out, and will save any received packets in the
+        ``reads`` data member.
+
+        '''
         if registers is None:
             registers = list(range(Configuration.num_registers))
         elif isinstance(registers, int):
@@ -915,11 +956,18 @@ class Controller(object):
             message = 'configuration read'
         else:
             message = 'configuration read: ' + message
-        bytestreams = self.get_configuration_bytestreams(chip,
-                Packet.CONFIG_READ_PACKET, registers)
-        data = self.serial_write_read(bytestreams, timeout)
-        packets = self.parse_input(data)
-        self.store_packets(packets, data, message)
+        packets = chip.get_configuration_packets(
+                Packet.CONFIG_WRITE_PACKET, registers)
+        already_listening = self.io.is_listening
+        if not already_listening:
+            self.start_listening()
+            stop_time = time.time() + timeout
+        for packet in packets:
+            self.send(packet, chip)
+        if not already_listening:
+            time.sleep(stop_time - time.time())
+            self.read(message)
+            self.stop_listening()
 
     def multi_write_configuration(self, chip_reg_pairs, write_read=0,
             message=None):
