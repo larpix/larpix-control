@@ -771,6 +771,24 @@ class Controller(object):
     '''
     Controls a collection of LArPix Chip objects.
 
+    Reading data:
+
+    The specific interface for reading data is selected by specifying
+    an ``io`` object to be ``Controller.io``. These objects all have
+    similar behavior for reading in new data. On initialization, the
+    object will discard any LArPix packets sent from ASICs. To begin
+    saving incoming packets, call ``Controller.start_listening()``.
+    Data will then build up in some form of internal register or queue.
+    The queue can be emptied with a call to ``Controller.read()``,
+    which empties the queue and returns a list of Packet objects that
+    were in the queue. The ``io`` object will still be listening for
+    new packets during and after this process. If the queue/register
+    fills up, data may be discarded/lost. To stop saving incoming
+    packets and retrieve any packets still in the queue, call
+    ``Controller.stop_listening()``. While the Controller is listening,
+    packets can be sent using the appropriate methods without
+    interrupting the incoming data stream.
+
     Properties and attributes:
 
     - ``chips``: the ``Chip`` objects that the controller controls
@@ -805,9 +823,9 @@ class Controller(object):
         self.timeout = timeout
         self.max_write = 250
         self._test_mode = False
-        self._serial = SerialPort(port=self.port,
-                                  baudrate=self.baudrate,
-                                  timeout=self.timeout)
+        self.io = SerialPort(port=self.port,
+                             baudrate=self.baudrate,
+                             timeout=self.timeout)
 
     def _init_chips(self, nchips = 256, iochain = 0):
         '''
@@ -827,80 +845,38 @@ class Controller(object):
         raise ValueError('Could not find chip (%d, %d) (using all_chips'
                 '? %s)' % (chip_id, io_chain, self.use_all_chips))
 
-    #def serial_flush(self):
-    #    with self._serial(self.port, baudrate=self.baudrate,
-    #            timeout=self.timeout) as serial:
-    #        serial.reset_output_buffer()
-    #        serial.reset_input_buffer()
-    def serial_close(self):
-        if not self._serial is None:
-            self._serial.close()
-        return
+    def send_packet(self, packets):
+        '''
+        Send the specified packets to the LArPix ASICs.
 
-    def serial_read(self, timelimit):
-        if self._serial.port_type == 'zmq':
-            data_in = self._serial.read(timelimit)
-            return data_in
-        data_in = b''
-        start = time.time()
-        close_port = False
-        if not self._serial._keep_open:
-            close_port = True
-        self._serial._keep_open = True
-        try:
-            while time.time() - start < timelimit:
-                stream = self._serial.read(self.max_write)
-                if len(stream) > 0:
-                    data_in += stream
-        except Exception as e:
-            if getattr(self, '_read_tries_left', None) is None:
-                self._read_tries_left = 3
-                self.serial_read(timelimit)
-            elif self._read_tries_left > 0:
-                self._read_tries_left -= 1
-                self.serial_read(timelimit)
-            else:
-                del self._read_tries_left
-                raise
-        if close_port:
-            self.serial_close()
-            self._serial._keep_open = False
-        return data_in
+        '''
+        self.io.send(packets)
 
-    def serial_write(self, bytestreams):
-        if self._serial.port_type == 'zmq':
-            self._serial.write(b''.join(bytestreams))
-            return
-        for bytestream in bytestreams:
-            self._serial.write(bytestream)
+    def start_listening(self):
+        '''
+        Listen for packets to arrive.
 
-    def serial_write_read(self, bytestreams, timelimit):
-        if self._serial.port_type == 'zmq':
-            data_in = self._serial.write_read(b''.join(bytestreams), timelimit)
-            return data_in
-        data_in = b''
-        close_port = False
-        if not self._serial._keep_open:
-            close_port = True
-        self._serial._keep_open = True
-        start = time.time()
-        # First do a fast write-read loop until everything is
-        # written out, then just read
-        self._serial.timeout = 0  # Return whatever's already waiting
-        for bytestream in bytestreams:
-            self._serial.write(bytestream)
-            stream = self._serial.read(self.max_write)
-            if len(stream) > 0:
-                data_in += stream
-        self._serial.timeout = self.timeout
-        while time.time() - start < timelimit:
-            stream = self._serial.read(self.max_write)
-            if len(stream) > 0:
-                data_in += stream
-        if close_port:
-            self.serial_close()
-            self._serial._keep_open = False
-        return data_in
+        '''
+        self.io.start_listening()
+
+    def stop_listening(self, read=False):
+        '''
+        Stop listening for new packets to arrive. If ``read``, return a list of
+        packets that were waiting to be read.
+
+        '''
+        return self.io.stop_listening(read)
+
+    def read(self):
+        '''
+        Read any packets that have arrived and return them in a list.
+
+        The returned list will contain packets that arrived since the
+        last call to ``read`` or ``start_listening``, whichever was most
+        recent.
+
+        '''
+        return self.io.empty_queue()
 
     def write_configuration(self, chip, registers=None, write_read=0,
             message=None):
@@ -1835,20 +1811,123 @@ class SerialPort(object):
         'Darwin':['scan-ftdi',],     # OS X
     }
     _logger = None
+    start_byte = b'\x73'
+    stop_byte = b'\x71'
 
-    def __init__(self, port=None, baudrate=9600, timeout=None):
+    def __init__(self, port=None, baudrate=9600, timeout=0):
         self.port = port
         self.resolved_port = ''
         self.port_type = ''
         self.baudrate = baudrate
         self.timeout = timeout
-        self._keep_open = False
+        self.max_write = 250
         self.serial_com = None
         self._initialize_serial_com()
         self.logger = None
         if not (self._logger is None):
             self.logger = self._logger
         return
+
+    @staticmethod
+    def format_UART(packet):
+        packet_bytes = packet.bytes()
+        daisy_chain_byte = b'\x00'
+        formatted_packet = (SerialPort.start_byte + packet_bytes +
+                daisy_chain_byte + SerialPort.stop_byte)
+        return formatted_packet
+
+    @staticmethod
+    def parse_input(bytestream):
+        packet_size = Configuration.fpga_packet_size  #vb
+        start_byte = SerialPort.start_byte[0]
+        stop_byte = SerialPort.stop_byte[0]
+        metadata_byte_index = 8
+        data_bytes = slice(1,8)
+        # parse the bytestream into Packets + metadata
+        byte_packets = []
+        skip_slices = []
+        #current_stream = bytestream
+        bytestream_len = len(bytestream)
+        last_possible_start = bytestream_len - packet_size
+        index = 0
+        while index <= last_possible_start:
+            if (bytestream[index] == start_byte and
+                    bytestream[index+packet_size-1] == stop_byte):
+                '''
+                metadata = current_stream[metadata_byte_index]
+                # This is necessary because of differences between
+                # Python 2 and Python 3
+                if isinstance(metadata, int):  # Python 3
+                    code = 'uint:8='
+                elif isinstance(metadata, str):  # Python 2
+                    code = 'bytes:1='
+                byte_packets.append((Bits(code + str(metadata)),
+                    Packet(current_stream[data_bytes])))
+                '''
+                byte_packets.append(Packet(bytestream[index+1:index+8]))
+                #current_stream = current_stream[packet_size:]
+                index += packet_size
+            else:
+                # Throw out everything between here and the next start byte.
+                # Note: start searching after byte 0 in case it's
+                # already a start byte
+                index = bytestream.find(start_byte, index+1)
+                if index == -1:
+                    index = bytestream_len
+                #if next_start_index != 0:
+                #        print('Warning: %d extra bytes in data stream!' %
+                #        (next_start_index+1))
+                #current_stream = current_stream[1:][next_start_index:]
+        #if len(current_stream) != 0:
+        #    print('Warning: %d extra bytes at end of data stream!' %
+        #          len(current_stream))
+        return byte_packets
+
+    @staticmethod
+    def format_bytestream(formatted_packets):
+        bytestreams = []
+        current_bytestream = bytes()
+        for packet in formatted_packets:
+            if len(current_bytestream) + len(packet) <= SerialPort.max_write:  #vb
+                current_bytestream += packet
+            else:
+                bytestreams.append(current_bytestream)
+                current_bytestream = bytes()
+                current_bytestream += packet
+        bytestreams.append(current_bytestream)
+        return bytestreams
+
+    def send(self, packets):
+        '''
+        Format the packets as a bytestream and send it to the FPGA and on
+        to the LArPix ASICs.
+
+        '''
+        packet_bytes = [self.format_UART(p) for p in packets]
+        bytestreams = self.format_bytestream(packet_bytes)
+        for bytestream in bytestreams:
+            self.write(bytestream)
+
+    def start_listening(self):
+        self.open()
+
+    def stop_listening(self, read):
+        if read:
+            packets = self.empty_queue()
+        else:
+            packets = None
+        self.close()
+        return packets
+
+    def empty_queue(self):
+        data_in = b''
+        keep_reading = True
+        while keep_reading:
+            new_data = self.read(self.max_write)
+            data_in += new_data
+            keep_reading = (len(new_data) == self.max_write)
+        packets = self.parse_input(data_in)
+        return packets
 
     @classmethod
     def guess_port(cls):
@@ -1936,16 +2015,12 @@ class SerialPort(object):
         self.port_type = self._resolve_port_type()
         if self.port_type is 'pyserial':
             self._ready_port = self._ready_port_pyserial
-            self._keep_open = False
         elif self.port_type is 'pylibftdi':
             self._ready_port = self._ready_port_pylibftdi
-            self._keep_open = True
         elif self.port_type is 'test':
             self._ready_port = self._ready_port_test
-            self._keep_open = True
         elif self.port_type is 'zmq':
             self._ready_port = self._ready_port_zmq
-            self._keep_open = False
         else:
             raise ValueError('Port type must be either pyserial, pylibftdi, or test')
         return
@@ -2001,8 +2076,6 @@ class SerialPort(object):
         self.serial_com.write(data)
         if self.logger:
             self.logger.record({'data_type':'write','data':data,'time':write_time})
-        if not self._keep_open:
-            self.close()
         return
 
     def read(self, nbytes):
@@ -2012,8 +2085,6 @@ class SerialPort(object):
         data = self.serial_com.read(nbytes)
         if self.logger:
             self.logger.record({'data_type':'read','data':data,'time':read_time})
-        if not self._keep_open:
-            self.close()
         return data
 
 def enable_logger(filename=None):
