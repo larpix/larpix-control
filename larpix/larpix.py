@@ -867,16 +867,19 @@ class Controller(object):
         '''
         return self.io.stop_listening(read)
 
-    def read(self):
+    def read(self, message='default_read'):
         '''
-        Read any packets that have arrived and return them in a list.
+        Read any packets that have arrived, add the PacketCollection
+        to self.reads, and return that same PacketCollection.
 
         The returned list will contain packets that arrived since the
         last call to ``read`` or ``start_listening``, whichever was most
         recent.
 
         '''
-        return self.io.empty_queue()
+        packets, bytestream = self.io.empty_queue()
+        self.store_packets(packets, bytestream, message)
+        return self.reads[-1]
 
     def write_configuration(self, chip, registers=None, write_read=0,
             message=None):
@@ -1915,12 +1918,12 @@ class SerialPort(object):
 
     def stop_listening(self, read):
         if read:
-            packets = self.empty_queue()
+            data = self.empty_queue()
         else:
             packets = None
         self.close()
         self.is_listening = False
-        return packets
+        return data
 
     def empty_queue(self):
         data_in = b''
@@ -1930,7 +1933,7 @@ class SerialPort(object):
             data_in += new_data
             keep_reading = (len(new_data) == self.max_write)
         packets = self.parse_input(data_in)
-        return packets
+        return (packets, data_in)
 
     @classmethod
     def guess_port(cls):
