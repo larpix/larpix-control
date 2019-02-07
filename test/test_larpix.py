@@ -216,6 +216,7 @@ def test_controller_save_output(tmpdir):
             }
     assert result == expected
 
+@pytest.mark.skip
 def test_controller_load(tmpdir):
     controller = Controller(port='test')
     chip = Chip(1, 0)

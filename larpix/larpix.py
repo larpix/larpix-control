@@ -1334,28 +1334,6 @@ class Controller(object):
             json.dump(data, outfile, indent=4,
                     separators=(',',':'), sort_keys=True)
 
-    def load(self, filename):
-        '''
-        Load the data in filename into the controller.
-
-        Overwrites all data inside the controller!
-        '''
-        self.__init__(self.port)
-        with open(filename, 'r') as infile:
-            data = json.load(infile)
-        chip_regexp = re.compile(r'Chip\((\d+), ?(\d+)\)')
-        for chip_description in data['chips']:
-            parsed_chip = chip_regexp.match(chip_description)
-            chip_id = int(parsed_chip.group(1))
-            io_chain = int(parsed_chip.group(2))
-            self.chips.append(Chip(chip_id, io_chain))
-        for read in data['reads']:
-            collection = PacketCollection([])
-            collection.from_dict(read)
-            self.reads.append(collection)
-            self.sort_packets(collection)
-        return data['message']
-
 class Packet(object):
     '''
     A single 54-bit LArPix UART data packet.
