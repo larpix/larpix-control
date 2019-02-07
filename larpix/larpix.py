@@ -956,7 +956,7 @@ class Controller(object):
         else:
             message = 'configuration read: ' + message
         packets = chip.get_configuration_packets(
-                Packet.CONFIG_WRITE_PACKET, registers)
+                Packet.CONFIG_READ_PACKET, registers)
         already_listening = self.io.is_listening
         if not already_listening:
             self.start_listening()
@@ -997,7 +997,6 @@ class Controller(object):
             message = 'multi configuration write'
         else:
             message = 'multi configuration write: ' + message
-        final_bytestream = []
         packets = []
         for chip_reg_pair in chip_reg_pairs:
             if isinstance(chip_reg_pair, Chip):
@@ -1052,7 +1051,7 @@ class Controller(object):
             message = 'multi configuration read'
         else:
             message = 'multi configuration read: ' + message
-        final_bytestream = []
+        packets = []
         for chip_reg_pair in chip_reg_pairs:
             if isinstance(chip_reg_pair, Chip):
                 chip_reg_pair = (chip_reg_pair, None)
@@ -1063,14 +1062,18 @@ class Controller(object):
                 registers = [registers]
             else:
                 pass
-            bytestreams = self.get_configuration_bytestreams(chip,
+            one_chip_packets = chip.get_configuration_packets(
                     Packet.CONFIG_READ_PACKET, registers)
-            final_bytestream += bytestreams
-        mosi_bytestream = self.format_bytestream(final_bytestream)
-        miso_bytestream = self.serial_write_read(mosi_bytestream,
-                timelimit=timeout)
-        packets = self.parse_input(miso_bytestream)
-        self.store_packets(packets, miso_bytestream, message)
+            packets += one_chip_packets
+        already_listening = self.io.is_listening
+        if not already_listening:
+            self.start_listening()
+            stop_time = time.time() + timeout
+        self.send(packets)
+        if not already_listening:
+            time.sleep(stop_time - time.time())
+            self.read(message)
+            self.stop_listening()
 
     def get_configuration_bytestreams(self, chip, packet_type, registers):
         # The configuration must be sent one register at a time
