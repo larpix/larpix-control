@@ -811,21 +811,18 @@ class Controller(object):
     '''
     start_byte = b'\x73'
     stop_byte = b'\x71'
-    def __init__(self, port=None, timeout=1):
+    def __init__(self, timeout=1):
         self.chips = []
         self.all_chips = self._init_chips()
         self.use_all_chips = False
         self.reads = []
         self.nreads = 0
-        self.port = port
-        if self.port is None:
-            self.port = SerialPort.guess_port()
         self.baudrate = 1000000
         self.timeout = timeout
         self._test_mode = False
-        self.io = SerialPort(port=self.port,
-                             baudrate=self.baudrate,
-                             timeout=self.timeout)
+        self.io = None  # SerialPort(port=self.port,
+                             # baudrate=self.baudrate,
+                             # timeout=self.timeout)
 
     def _init_chips(self, nchips = 256, iochain = 0):
         '''
