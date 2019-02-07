@@ -7,6 +7,7 @@ from __future__ import absolute_import
 import time
 from bitarray import bitarray
 import larpix.bitarrayhelper as bah
+from collections import deque
 import json
 import os
 import errno
@@ -1843,6 +1844,32 @@ class PacketCollection(object):
             to_return[chipid] = new_collection
         return to_return
 
+class FakeIO(object):
+    '''
+    An IO stand-in that sends output to stdout (i.e. print) and reads
+    input from a data member that can be set in advance.
+
+    '''
+    def __init__(self):
+        self.is_listening = False
+        self.queue = deque()
+
+    def send(self, packets):
+        for packet in packets:
+            print(packet)
+
+    def start_listening(self):
+        self.is_listening = True
+
+    def stop_listening(self):
+        self.is_listening = False
+
+    def empty_queue(self):
+        if not self.is_listening:
+            raise RuntimeError('Cannot empty queue when not'
+                    ' listening')
+        data = self.queue.popleft()
+        return data
 
 class SerialPort(object):
     '''Wrapper for various serial port interfaces across platforms.

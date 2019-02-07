@@ -8,6 +8,7 @@ is tested.
 '''
 from __future__ import print_function
 import pytest
+pytestmark = pytest.mark.skip('skipping old simulation module...deal with it later')
 from collections import deque
 from larpix.larpix import (Packet)
 from larpix.simulation import (MockLArPix, MockSerial, MockFormatter)
