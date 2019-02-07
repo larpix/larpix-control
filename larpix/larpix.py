@@ -821,7 +821,6 @@ class Controller(object):
             self.port = SerialPort.guess_port()
         self.baudrate = 1000000
         self.timeout = timeout
-        self.max_write = 250
         self._test_mode = False
         self.io = SerialPort(port=self.port,
                              baudrate=self.baudrate,
@@ -921,8 +920,7 @@ class Controller(object):
         if mess_with_listening:
             self.start_listening()
             stop_time = time.time() + write_read
-        for packet in packets:
-            self.send(packet)
+        self.send(packets)
         if mess_with_listening:
             time.sleep(stop_time - time.time())
             self.read(message)
@@ -962,8 +960,7 @@ class Controller(object):
         if not already_listening:
             self.start_listening()
             stop_time = time.time() + timeout
-        for packet in packets:
-            self.send(packet)
+        self.send(packets)
         if not already_listening:
             time.sleep(stop_time - time.time())
             self.read(message)
@@ -1864,7 +1861,7 @@ class SerialPort(object):
     _logger = None
     start_byte = b'\x73'
     stop_byte = b'\x71'
-
+    max_write = 250
     def __init__(self, port=None, baudrate=9600, timeout=0):
         self.port = port
         self.resolved_port = ''
@@ -1968,7 +1965,7 @@ class SerialPort(object):
         if read:
             data = self.empty_queue()
         else:
-            packets = None
+            data = None
         self.close()
         self.is_listening = False
         return data
