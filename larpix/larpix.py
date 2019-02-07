@@ -997,6 +997,7 @@ class Controller(object):
         else:
             message = 'multi configuration write: ' + message
         final_bytestream = []
+        packets = []
         for chip_reg_pair in chip_reg_pairs:
             if isinstance(chip_reg_pair, Chip):
                 chip_reg_pair = (chip_reg_pair, None)
@@ -1007,17 +1008,19 @@ class Controller(object):
                 registers = [registers]
             else:
                 pass
-            bytestreams = self.get_configuration_bytestreams(chip,
+            one_chip_packets = chip.get_configuration_packets(
                     Packet.CONFIG_WRITE_PACKET, registers)
-            final_bytestream += bytestreams
-        final_bytestream = self.format_bytestream(final_bytestream)
-        if write_read == 0:
-            self.serial_write(final_bytestream)
-        else:
-            miso_bytestream = self.serial_write_read(final_bytestream,
-                    timelimit=write_read)
-            packets = self.parse_input(miso_bytestream)
-            self.store_packets(packets, miso_bytestream, message)
+            packets.extend(one_chip_packets)
+        already_listening = self.io.is_listening
+        mess_with_listening = write_read != 0 and not already_listening
+        if mess_with_listening:
+            self.start_listening()
+            stop_time = time.time() + write_Read
+        self.send(packets)
+        if mess_with_listening:
+            time.sleep(stop_time - time.time())
+            self.read(message)
+            self.stop_listening()
 
     def multi_read_configuration(self, chip_reg_pairs, timeout=1,
             message=None):
