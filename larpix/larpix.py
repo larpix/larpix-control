@@ -859,13 +859,12 @@ class Controller(object):
         '''
         self.io.start_listening()
 
-    def stop_listening(self, read=False):
+    def stop_listening(self):
         '''
-        Stop listening for new packets to arrive. If ``read``, return a list of
-        packets that were waiting to be read.
+        Stop listening for new packets to arrive.
 
         '''
-        return self.io.stop_listening(read)
+        return self.io.stop_listening()
 
     def read(self, message='default_read'):
         '''
