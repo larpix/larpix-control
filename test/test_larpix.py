@@ -1538,8 +1538,7 @@ def test_controller_read():
     controller.start_listening()
     result = controller.read()
     controller.stop_listening()
-    expected = PacketCollection([Packet()], b'\x00\x00', read_id=0,
-            message='default_read')
+    expected =([Packet()], b'\x00\x00')
     assert result == expected
 
 def test_controller_send(capfd):
