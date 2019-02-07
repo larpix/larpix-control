@@ -863,10 +863,10 @@ class Controller(object):
         '''
         return self.io.stop_listening()
 
-    def read(self, message='default_read'):
+    def read(self):
         '''
-        Read any packets that have arrived, add the PacketCollection
-        to self.reads, and return that same PacketCollection.
+        Read any packets that have arrived and return (packets,
+        bytestream) where bytestream is the bytes that were received.
 
         The returned list will contain packets that arrived since the
         last call to ``read`` or ``start_listening``, whichever was most
@@ -874,8 +874,7 @@ class Controller(object):
 
         '''
         packets, bytestream = self.io.empty_queue()
-        self.store_packets(packets, bytestream, message)
-        return self.reads[-1]
+        return packets, bytestream
 
     def write_configuration(self, chip, registers=None, write_read=0,
             message=None):
@@ -920,8 +919,9 @@ class Controller(object):
         self.send(packets)
         if mess_with_listening:
             time.sleep(stop_time - time.time())
-            self.read(message)
+            packets, bytestream = self.read()
             self.stop_listening()
+            self.store_packets(packets, bytestream, message)
 
     def read_configuration(self, chip, registers=None, timeout=1,
             message=None):
@@ -960,8 +960,9 @@ class Controller(object):
         self.send(packets)
         if not already_listening:
             time.sleep(stop_time - time.time())
-            self.read(message)
+            packets, bytestream = self.read()
             self.stop_listening()
+            self.store_packets(packets, bytestream, message)
 
     def multi_write_configuration(self, chip_reg_pairs, write_read=0,
             message=None):
@@ -1015,8 +1016,9 @@ class Controller(object):
         self.send(packets)
         if mess_with_listening:
             time.sleep(stop_time - time.time())
-            self.read(message)
+            packets, bytestream = self.read()
             self.stop_listening()
+            self.store_packets(packets, data, message)
 
     def multi_read_configuration(self, chip_reg_pairs, timeout=1,
             message=None):
@@ -1068,8 +1070,9 @@ class Controller(object):
         self.send(packets)
         if not already_listening:
             time.sleep(stop_time - time.time())
-            self.read(message)
+            packets, bytestream = self.read()
             self.stop_listening()
+            self.store_packets(packets, bytestream, message)
 
     def get_configuration_bytestreams(self, chip, packet_type, registers):
         # The configuration must be sent one register at a time
