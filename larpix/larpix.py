@@ -1084,8 +1084,18 @@ class Controller(object):
         return bytestreams
 
     def run(self, timelimit, message):
-        data = self.serial_read(timelimit)
-        packets = self.parse_input(data)
+        sleeptime = 0.1
+        self.start_listening()
+        start_time = time.time()
+        packets = []
+        bytestreams = []
+        while time.time() - start_time < timelimit:
+            time.sleep(sleeptime)
+            read_packets, read_bytestream = self.read()
+            packets.extend(read_packets)
+            bytestreams.append(read_bytestream)
+        self.stop_listening()
+        data = b''.join(bytestreams)
         self.store_packets(packets, data, message)
 
     def run_testpulse(self, list_of_channels):
