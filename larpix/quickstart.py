@@ -34,9 +34,11 @@ board_info_list = [
 #Create handy map by board name
 board_info_map = dict([(elem['name'],elem) for elem in board_info_list])
 
-def create_controller(timeout=0.01):
+def create_controller(timeout=0.01, io=None):
     '''Create a default controller'''
-    return larpix.Controller(timeout=timeout)
+    c = larpix.Controller(timeout=timeout)
+    c.io = io
+    return c
 
 def init_controller(controller, board='pcb-5'):
     '''Initialize controller'''
@@ -103,10 +105,14 @@ def flush_stale_data(controller):
     controller.reads = []
     return
     
-def quickcontroller(board='pcb-1', interactive=False):
+def quickcontroller(board='pcb-1', interactive=False, io=None):
     '''Quick jump through all controller creation and config steps'''
+    if io is None:
+        port = larpix.SerialPort.guess_port()
+        io = larpix.SerialPort(port=port, baudrate=1000000,
+                timeout=0.01)
     larpix.enable_logger()
-    cont = create_controller()
+    cont = create_controller(io=io)
     init_controller(cont,board)
     silence_chips(cont, interactive)
     if cont.board_info['name'] == 'unknown':
