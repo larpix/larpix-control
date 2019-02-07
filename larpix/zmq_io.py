@@ -48,3 +48,50 @@ class ZMQ_IO(object):
             bytestream = b''.join(bytestream_list)
         return packets, bytestream
 
+    def reset(self):
+        '''
+        Send a reset pulse to the LArPix ASICs.
+
+        '''
+        self.sender.send(b'SYRESET')
+        return self.sender.recv()
+
+    def set_clock(self, freq_khz):
+        '''
+        Set the LArPix CLK2X freqency (in kHz).
+
+        '''
+        self.sender.send(b'SETFREQ %s' % hex(freq_khz).encode())
+        return self.sender.recv()
+
+    def set_testpulse_freq(self, divisor):
+        '''
+        Set the testpulse frequency, computed by dividing the CLK2X
+        frequency by ``divisor``.
+
+        '''
+        self.sender.send(b'SETFTST %s' % hex(divisor).encode())
+        return self.sender.recv()
+
+    def get_packet_count(self, io_channel):
+        '''
+        Get the number of packets received, as determined by the number
+        of UART "start" bits processed.
+
+        '''
+        self.sender.send(b'GETSTAT %d' % io_channel)
+        result = self.sender.recv()
+        space = result.find(b' ')
+        number = int(result[:space])
+        return number
+
+    def ping(self):
+        '''
+        Send a ping to the system and return True if the first two bytes
+        of the response are b'OK'.
+
+        '''
+        self.sender.send(b'PING_HB')
+        result = self.sender.recv()
+        return result[:2] == b'OK'
+
