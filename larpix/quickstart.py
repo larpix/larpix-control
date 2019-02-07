@@ -49,13 +49,13 @@ def init_controller(controller, board='pcb-5'):
         controller.chips.append( larpix.Chip(chip_info[0],chip_info[1]) )
     controller.board_info = board_info
     return controller
-        
+
 def silence_chips(controller, interactive):
     '''Silence all chips in controller'''
     #for _ in controller.chips:
     for chip in controller.chips:
         if interactive:
-	    print('Silencing chip %d' % chip.chip_id)
+            print('Silencing chip %d' % chip.chip_id)
         chip.config.global_threshold = 255
         controller.write_configuration(chip,32)
         if interactive:

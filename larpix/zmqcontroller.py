@@ -26,20 +26,25 @@ class ZMQ_IO(object):
     def start_listening(self):
         if self.is_listening:
             raise RuntimeError('Already listening')
+        self.is_listening = True
         self.receiver.setsockopt(zmq.SUBSCRIBE, b'')
 
     def stop_listening(self):
         if not self.is_listening:
             raise RuntimeError('Already not listening')
+        self.is_listening = False
         self.receiver.setsockopt(zmq.UNSUBSCRIBE, b'')
 
     def empty_queue(self):
         packets = []
+        bytestream_list = []
         while self.poller.poll(0):
             message = self.receiver.recv()
-            if len(m) % 8 == 0:
-                for start_index in range(0, len(m), 8):
+            bytestream_list.append(message)
+            if len(message) % 8 == 0:
+                for start_index in range(0, len(message), 8):
                     packet_bytes = message[start_index:start_index+7]
                     packets.append(Packet(packet_bytes))
-        return packets
+            bytestream = b''.join(bytestream_list)
+        return packets, bytestream
 
