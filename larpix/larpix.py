@@ -23,6 +23,11 @@ class Chip(object):
     '''
     num_channels = 32
     def __init__(self, chip_id, io_chain):
+        '''
+        Create a new Chip object with the given ``chip_id`` and
+        ``io_chain`` (daisy chain index).
+
+        '''
         self.chip_id = chip_id
         self.io_chain = io_chain
         self.data_to_send = []
@@ -37,6 +42,12 @@ class Chip(object):
         return 'Chip(%d, %d)' % (self.chip_id, self.io_chain)
 
     def get_configuration_packets(self, packet_type, registers=None):
+        '''
+        Return a list of Packet objects to read or write (depending on
+        ``packet_type``) the specified configuration registers (or all
+        registers by default).
+
+        '''
         if registers is None:
             registers = range(Configuration.num_registers)
         conf = self.config
@@ -101,6 +112,12 @@ class Chip(object):
         return data
 
 class _Smart_List(list): #vb
+    '''
+    A list type which checks its elements to be within given bounds.
+    Used for Configuration attributes where there's a distinct value for
+    each LArPix channel.
+
+    '''
 
     def __init__(self, values, low, high):
         if not (type(values) == list or type(values) == _Smart_List):
@@ -271,6 +288,13 @@ class Configuration(object):
         return d
 
     def get_nondefault_registers(self):
+        '''
+        Return a dict of all registers that are not set to the default
+        configuration (i.e. of the ASIC on power-up). The keys are the
+        register name where there's a difference, and the values are
+        tuples of (current, default) configuration values.
+
+        '''
         return self.compare(Configuration())
 
     @property
@@ -553,12 +577,22 @@ class Configuration(object):
         self._reset_cycles = value
 
     def enable_channels(self, list_of_channels=None):
+        '''
+        Shortcut for changing the channel mask for the given
+        channels to "enable" (i.e. 0).
+
+        '''
         if list_of_channels is None:
             list_of_channels = range(Chip.num_channels)
         for channel in list_of_channels:
             self.channel_mask[channel] = 0
 
     def disable_channels(self, list_of_channels=None):
+        '''
+        Shortcut for changing the channel mask for the given channels
+        to "disable" (i.e. 1).
+
+        '''
         if list_of_channels is None:
             list_of_channels = range(Chip.num_channels)
         for channel in list_of_channels:
@@ -570,33 +604,59 @@ class Configuration(object):
         pass
 
     def enable_external_trigger(self, list_of_channels=None):
+        '''
+        Shortcut for enabling the external trigger functionality for the
+        given channels. (I.e. disabling the mask.)
+
+        '''
         if list_of_channels is None:
             list_of_channels = range(Chip.num_channels)
         for channel in list_of_channels:
             self.external_trigger_mask[channel] = 0
 
     def disable_external_trigger(self, list_of_channels=None):
+        '''
+        Shortcut for disabling the external trigger functionality for
+        the given channels. (I.e. enabling the mask.)
+
+        '''
         if list_of_channels is None:
             list_of_channels = range(Chip.num_channels)
         for channel in list_of_channels:
             self.external_trigger_mask[channel] = 1
 
     def enable_testpulse(self, list_of_channels=None):
+        '''
+        Shortcut for enabling the test pulser for the given channels.
+
+        '''
         if list_of_channels is None:
             list_of_channels = range(Chip.num_channels)
         for channel in list_of_channels:
             self.csa_testpulse_enable[channel] = 0
 
     def disable_testpulse(self, list_of_channels=None):
+        '''
+        Shortcut for disabling the test pulser for the given channels.
+
+        '''
         if list_of_channels is None:
             list_of_channels = range(Chip.num_channels)
         for channel in list_of_channels:
             self.csa_testpulse_enable[channel] = 1
 
     def enable_analog_monitor(self, channel):
+        '''
+        Shortcut for enabling the analog monitor on the given channel.
+
+        '''
         self.csa_monitor_select[channel] = 1
 
     def disable_analog_monitor(self):
+        '''
+        Shortcut for disabling the analog monitor (on all channels).
+
+        '''
         self.csa_monitor_select = [0] * Chip.num_channels
 
     def all_data(self):
@@ -711,12 +771,22 @@ class Configuration(object):
             return bits[:8]
 
     def to_dict(self):
+        '''
+        Export the configuration register names and values into a dict.
+
+        '''
         d = {}
         for register_name in self.register_names:
             d[register_name] = getattr(self, register_name)
         return d
 
     def from_dict(self, d):
+        '''
+        Use a dict of ``{register_name, value}`` to update the current
+        configuration. Not all registers must be in the dict - only
+        those present will be updated.
+
+        '''
         for register_name in self.register_names:
             if register_name in d:
                 setattr(self, register_name, d[register_name])
@@ -752,6 +822,10 @@ class Configuration(object):
         return  #phew
 
     def write(self, filename, force=False, append=False):
+        '''
+        Save the configuration to a JSON file.
+
+        '''
         if os.path.isfile(filename):
             if not force:
                 raise IOError(errno.EEXIST,
@@ -763,6 +837,11 @@ class Configuration(object):
         return 0
 
     def load(self, filename):
+        '''
+        Load a JSON file and use the contents to update the current
+        configuration.
+
+        '''
         data = configs.load(filename)
         self.from_dict(data)
 
@@ -773,30 +852,31 @@ class Controller(object):
     Reading data:
 
     The specific interface for reading data is selected by specifying
-    an ``io`` object to be ``Controller.io``. These objects all have
+    the ``io`` attribute. These objects all have
     similar behavior for reading in new data. On initialization, the
     object will discard any LArPix packets sent from ASICs. To begin
-    saving incoming packets, call ``Controller.start_listening()``.
+    saving incoming packets, call ``start_listening()``.
     Data will then build up in some form of internal register or queue.
-    The queue can be emptied with a call to ``Controller.read()``,
+    The queue can be emptied with a call to ``read()``,
     which empties the queue and returns a list of Packet objects that
     were in the queue. The ``io`` object will still be listening for
     new packets during and after this process. If the queue/register
     fills up, data may be discarded/lost. To stop saving incoming
     packets and retrieve any packets still in the queue, call
-    ``Controller.stop_listening()``. While the Controller is listening,
+    ``stop_listening()``. While the Controller is listening,
     packets can be sent using the appropriate methods without
     interrupting the incoming data stream.
 
     Properties and attributes:
 
     - ``chips``: the ``Chip`` objects that the controller controls
-    - ``all_chip``: all possible ``Chip`` objects (considering there are
+    - ``all_chips``: all possible ``Chip`` objects (considering there are
       a finite number of chip IDs), initialized on object construction
     - ``reads``: list of all the PacketCollections that have been sent
       back to this controller. PacketCollections are created by
-      ``run``, ``write_configuration``, and ``read_configuration``, but
-      not by any of the ``serial_*`` methods.
+      ``run``, ``write_configuration``, ``read_configuration``,
+      ``multi_write_configuration``, ``multi_read_configuration``, and
+      ``store_packets``.
     - ``use_all_chips``: if ``True``, look up chip objects in
       ``self.all_chips``, else look up in ``self.chips`` (default:
       ``False``)
@@ -818,6 +898,11 @@ class Controller(object):
         return [Chip(i, iochain) for i in range(256)]
 
     def get_chip(self, chip_id, io_chain):
+        '''
+        Retrieve the Chip object that this Controller associates with
+        the given ``chip_id`` and ``io_chain``.
+
+        '''
         if self.use_all_chips:
             chip_list = self.all_chips
         else:
@@ -1061,6 +1146,11 @@ class Controller(object):
             self.store_packets(packets, bytestream, message)
 
     def run(self, timelimit, message):
+        '''
+        Read data from the LArPix ASICs for the given ``timelimit`` and
+        associate the received Packets with the given ``message``.
+
+        '''
         sleeptime = 0.1
         self.start_listening()
         start_time = time.time()
@@ -1077,8 +1167,9 @@ class Controller(object):
 
     def verify_configuration(self, chip_id=None, io_chain=0):
         '''
-        Read chip configuration from specified chip and return a bool that is True if the
-        read chip configuration matches the current configuration stored in chip instance
+        Read chip configuration from specified chip and return ``True`` if the
+        read chip configuration matches the current configuration stored in chip instance.
+
         Also returns a dict containing the values of registers that are different
         (read register, stored register)
         '''
@@ -1287,6 +1378,35 @@ class Packet(object):
     '''
     A single 54-bit LArPix UART data packet.
 
+    LArPix Packet objects have attributes for inspecting and modifying
+    the contents of the packet.
+
+    Internally, packets are represented as an array of bits, and the
+    different attributes use Python "properties" to seamlessly convert
+    between the bits representation and a more intuitive integer
+    representation. The bits representation can be inspected with the
+    ``bits`` attribute.
+
+    Packet objects do not restrict you from adjusting an attribute for an
+    inappropriate packet type. For example, you can create a data packet and
+    then set ``packet.register_address = 5``. This will adjust the packet
+    bits corresponding to a configuration packet's "register\_address"
+    region, which is probably not what you want for your data packet.
+
+    Packets have a parity bit which enforces odd parity, i.e. the sum of
+    all the individual bits in a packet must be an odd number. The parity
+    bit can be accessed as above using the ``parity_bit_value`` attribute.
+    The correct parity bit can be computed using ``compute_parity()``,
+    and the validity of a packet's parity can be checked using
+    ``has_valid_parity()``. When constructing a new packet, the correct
+    parity bit can be assigned using ``assign_parity()``.
+
+    Individual packets can be printed to show a human-readable
+    interpretation of the packet contents. The printed version adjusts its
+    output based on the packet type, so a data packet will show the data
+    word, timestamp, etc., while a configuration packet will show the register
+    address and register data.
+
     '''
     size = 54
     num_bytes = 7
@@ -1377,6 +1497,17 @@ class Packet(object):
         return 'Packet(' + str(self.bytes()) + ')'
 
     def bytes(self):
+        '''
+        Construct the bytes that make up the packet.
+
+        Byte 0 is the first byte that would be sent out and contains the
+        first 8 bits of the packet (i.e. packet type and part of the
+        chip ID).
+
+        *Note*: The internal bits representation of the packet has a
+        different endian-ness compared to the output of this method.
+
+        '''
         # Here's the only other place we have to deal with the
         # endianness issue by reversing the order
         padded_output = self._bit_padding + self.bits
@@ -1761,22 +1892,53 @@ class FakeIO(object):
     An IO stand-in that sends output to stdout (i.e. print) and reads
     input from a data member that can be set in advance.
 
+    The queue is implemented as a ``collections.deque`` object. Data can
+    be queued up in advance through repeated calls to
+    ``queue.append()``. The first element of the queue will be passed on to
+    the ``Controller.read`` method each time it is called. This is a
+    true queue, i.e. first-in, first-out.
+
+    The format for an element of the queue is a tuple:
+    ``([list_of_Packets], b'corresponding bytes')``.
+
+    Although meaningless in terms of the internal implementation,
+    ``FakeIO`` objects contain an internal state determining whether the
+    object is currently "listening," and will raise a ``RuntimeError``
+    if ``empty_queue`` is called when the object is not listening.
+
     '''
     def __init__(self):
         self.is_listening = False
         self.queue = deque()
 
     def send(self, packets):
+        '''
+        Print the packets to stdout.
+
+        '''
         for packet in packets:
             print(packet)
 
     def start_listening(self):
+        '''
+        Mock-up of beginning to listen for new packets.
+
+        '''
         self.is_listening = True
 
     def stop_listening(self):
+        '''
+        Mock-up of no longer listening for new packets.
+
+        '''
         self.is_listening = False
 
     def empty_queue(self):
+        '''
+        Read and remove the next item from the internal queue and return
+        it as if it were data that had just been read.
+
+        '''
         if not self.is_listening:
             raise RuntimeError('Cannot empty queue when not'
                     ' listening')
