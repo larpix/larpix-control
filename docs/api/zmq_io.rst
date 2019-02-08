@@ -1,7 +1,7 @@
-LArPix Control Core
+ZeroMQ IO Interface
 ---------------------
 
-.. automodule:: larpix.larpix
+.. automodule:: larpix.zmq_io
     :members:
     :undoc-members:
 

@@ -6,17 +6,14 @@
 Welcome to larpix-control's documentation!
 ==========================================
 
+Here is the documentation for LArPix Control.
+
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
 
-   api/modules
+   api/larpix
+   api/serialport
+   api/zmq_io
 
 
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+:ref:`genindex`
