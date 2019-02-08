@@ -5,7 +5,8 @@ Use the pytest framework to write tests for the larpix module.
 from __future__ import print_function
 import pytest
 from larpix.larpix import (Chip, Packet, Configuration, Controller,
-        PacketCollection, _Smart_List, FakeIO)
+        PacketCollection, _Smart_List)
+from larpix.fakeio import FakeIO
 from larpix.Timestamp import *
 #from bitstring import BitArray
 from bitarray import bitarray
