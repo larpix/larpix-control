@@ -4,6 +4,7 @@ Quickstart commands for test boards
 
 from __future__ import absolute_import
 import larpix.larpix as larpix
+from larpix.serialport import SerialPort
 from larpix.tasks import get_chip_ids
 
 ## For interactive mode
@@ -108,8 +109,8 @@ def flush_stale_data(controller):
 def quickcontroller(board='pcb-1', interactive=False, io=None):
     '''Quick jump through all controller creation and config steps'''
     if io is None:
-        port = larpix.SerialPort.guess_port()
-        io = larpix.SerialPort(port=port, baudrate=1000000,
+        port = SerialPort.guess_port()
+        io = SerialPort(port=port, baudrate=1000000,
                 timeout=0.01)
     larpix.enable_logger()
     cont = create_controller(io=io)

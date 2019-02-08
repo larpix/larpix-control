@@ -4,7 +4,7 @@ Test serial port interface
 
 from __future__ import absolute_import
 import pytest
-from larpix.larpix import SerialPort, enable_logger
+from larpix.serialport import SerialPort, enable_logger
 
 @pytest.mark.skip(reason='This is not a pytest file')
 def test_serial_loopback(port_name='auto', enable_logging=False):
