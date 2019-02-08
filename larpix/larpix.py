@@ -1680,7 +1680,7 @@ class PacketCollection(object):
         - data packets:
              - channel
              - timestamp
-             - adc_count
+             - adc_counts
              - fifo_half
              - fifo_full
         - test packets:
