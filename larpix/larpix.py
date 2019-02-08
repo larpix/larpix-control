@@ -795,11 +795,6 @@ class Controller(object):
     - ``chips``: the ``Chip`` objects that the controller controls
     - ``all_chip``: all possible ``Chip`` objects (considering there are
       a finite number of chip IDs), initialized on object construction
-    - ``port``: the path to the serial port, i.e. "/dev/(whatever)"
-      (default: ``None`` [will attempt to auto-find correct port])
-    - ``timeout``: the timeout used for serial commands, in seconds.
-      This can be changed between calls to the read and write commands.
-      (default: ``1``)
     - ``reads``: list of all the PacketCollections that have been sent
       back to this controller. PacketCollections are created by
       ``run``, ``write_configuration``, and ``read_configuration``, but
@@ -809,8 +804,6 @@ class Controller(object):
       ``False``)
 
     '''
-    start_byte = b'\x73'
-    stop_byte = b'\x71'
     def __init__(self):
         self.chips = []
         self.all_chips = self._init_chips()
@@ -1069,15 +1062,6 @@ class Controller(object):
             self.stop_listening()
             self.store_packets(packets, bytestream, message)
 
-    def get_configuration_bytestreams(self, chip, packet_type, registers):
-        # The configuration must be sent one register at a time
-        configuration_packets = \
-            chip.get_configuration_packets(packet_type, registers);
-        formatted_packets = [self.format_UART(chip, p) for p in
-                configuration_packets]
-        bytestreams = self.format_bytestream(formatted_packets)
-        return bytestreams
-
     def run(self, timelimit, message):
         sleeptime = 0.1
         self.start_listening()
@@ -1092,15 +1076,6 @@ class Controller(object):
         self.stop_listening()
         data = b''.join(bytestreams)
         self.store_packets(packets, data, message)
-
-    def run_testpulse(self, list_of_channels):
-        return
-
-    def run_fifo_test(self):
-        return
-
-    def run_analog_monitor_test(self):
-        return
 
     def verify_configuration(self, chip_id=None, io_chain=0):
         '''
@@ -1273,60 +1248,6 @@ class Controller(object):
             chip.config.enable_channels(channel_list)
             self.write_configuration(chip, Configuration.channel_mask_addresses)
 
-    def format_UART(self, chip, packet):
-        packet_bytes = packet.bytes()
-        daisy_chain_byte = bah.fromuint(chip.io_chain, 8).tobytes()
-        formatted_packet = (Controller.start_byte + packet_bytes +
-                daisy_chain_byte + Controller.stop_byte)
-        return formatted_packet
-
-    @classmethod
-    def parse_input(cls, bytestream):
-        packet_size = Configuration.fpga_packet_size  #vb
-        start_byte = Controller.start_byte[0]
-        stop_byte = Controller.stop_byte[0]
-        metadata_byte_index = 8
-        data_bytes = slice(1,8)
-        # parse the bytestream into Packets + metadata
-        byte_packets = []
-        skip_slices = []
-        #current_stream = bytestream
-        bytestream_len = len(bytestream)
-        last_possible_start = bytestream_len - packet_size
-        index = 0
-        while index <= last_possible_start:
-            if (bytestream[index] == start_byte and
-                    bytestream[index+packet_size-1] == stop_byte):
-                '''
-                metadata = current_stream[metadata_byte_index]
-                # This is necessary because of differences between
-                # Python 2 and Python 3
-                if isinstance(metadata, int):  # Python 3
-                    code = 'uint:8='
-                elif isinstance(metadata, str):  # Python 2
-                    code = 'bytes:1='
-                byte_packets.append((Bits(code + str(metadata)),
-                    Packet(current_stream[data_bytes])))
-                '''
-                byte_packets.append(Packet(bytestream[index+1:index+8]))
-                #current_stream = current_stream[packet_size:]
-                index += packet_size
-            else:
-                # Throw out everything between here and the next start byte.
-                # Note: start searching after byte 0 in case it's
-                # already a start byte
-                index = bytestream.find(start_byte, index+1)
-                if index == -1:
-                    index = bytestream_len
-                #if next_start_index != 0:
-                #        print('Warning: %d extra bytes in data stream!' %
-                #        (next_start_index+1))
-                #current_stream = current_stream[1:][next_start_index:]
-        #if len(current_stream) != 0:
-        #    print('Warning: %d extra bytes at end of data stream!' %
-        #          len(current_stream))
-        return byte_packets
-
     def store_packets(self, packets, data, message):
         '''
         Store the packets in ``self`` and in ``self.chips``
@@ -1337,7 +1258,6 @@ class Controller(object):
         self.nreads += 1
         self.reads.append(new_packets)
         #self.sort_packets(new_packets)
-
 
     def sort_packets(self, collection):
         '''
@@ -1354,19 +1274,6 @@ class Controller(object):
                 chip.reads.append(by_chipid[chip_id])
             elif not self._test_mode:
                 print('Warning chip id %d not in chips.' % chip_id)
-
-    def format_bytestream(self, formatted_packets):
-        bytestreams = []
-        current_bytestream = bytes()
-        for packet in formatted_packets:
-            if len(current_bytestream) + len(packet) <= self.max_write:  #vb
-                current_bytestream += packet
-            else:
-                bytestreams.append(current_bytestream)
-                current_bytestream = bytes()
-                current_bytestream += packet
-        bytestreams.append(current_bytestream)
-        return bytestreams
 
     def save_output(self, filename, message):
         '''Save the data read by each chip to the specified file.'''
