@@ -100,11 +100,11 @@ class Chip(object):
         self.new_reads_index = len(self.reads)
         return data
 
-class Smart_List(list): #vb
+class _Smart_List(list): #vb
 
     def __init__(self, values, low, high):
-        if not (type(values) == list or type(values) == Smart_List):
-            raise ValueError("Smart_List is not list")
+        if not (type(values) == list or type(values) == _Smart_List):
+            raise ValueError("_Smart_List is not list")
         if any([value > high or value < low for value in values]):
             raise ValueError("value out of bounds")
         list.__init__(self, values)
@@ -281,7 +281,7 @@ class Configuration(object):
     def pixel_trim_thresholds(self, values):
         low = 0
         high = 31
-        if not (type(values) == list or type(values) == Smart_List):
+        if not (type(values) == list or type(values) == _Smart_List):
             raise ValueError("pixel_trim_threshold is not list")
         if not len(values) == Chip.num_channels:
             raise ValueError("pixel_trim_threshold length is not %d" % Chip.num_channels)
@@ -290,7 +290,7 @@ class Configuration(object):
         if any(value > high or value < low for value in values):
             raise ValueError("pixel_trim_threshold out of bounds")
 
-        self._pixel_trim_thresholds = Smart_List(values, low, high)
+        self._pixel_trim_thresholds = _Smart_List(values, low, high)
 
     @property
     def global_threshold(self):
@@ -352,7 +352,7 @@ class Configuration(object):
     def csa_bypass_select(self, values):
         low = 0
         high = 1
-        if not (type(values) == list or type(values) == Smart_List):
+        if not (type(values) == list or type(values) == _Smart_List):
             raise ValueError("csa_bypass_select is not list")
         if not len(values) == Chip.num_channels:
             raise ValueError("csa_bypass_select length is not %d" % Chip.num_channels)
@@ -361,7 +361,7 @@ class Configuration(object):
         if any(value > high or value < low for value in values):
             raise ValueError("csa_bypass_select out of bounds")
 
-        self._csa_bypass_select = Smart_List(values, low, high)
+        self._csa_bypass_select = _Smart_List(values, low, high)
 
     @property
     def csa_monitor_select(self):
@@ -371,7 +371,7 @@ class Configuration(object):
     def csa_monitor_select(self, values):
         low = 0
         high = 1
-        if not (type(values) == list or type(values) == Smart_List):
+        if not (type(values) == list or type(values) == _Smart_List):
             raise ValueError("csa_monitor_select is not list")
         if not len(values) == Chip.num_channels:
             raise ValueError("csa_monitor_select length is not %d" % Chip.num_channels)
@@ -380,7 +380,7 @@ class Configuration(object):
         if any(value > high or value < low for value in values):
             raise ValueError("csa_monitor_select out of bounds")
 
-        self._csa_monitor_select = Smart_List(values, low, high)
+        self._csa_monitor_select = _Smart_List(values, low, high)
 
     @property
     def csa_testpulse_enable(self):

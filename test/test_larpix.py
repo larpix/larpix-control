@@ -5,7 +5,7 @@ Use the pytest framework to write tests for the larpix module.
 from __future__ import print_function
 import pytest
 from larpix.larpix import (Chip, Packet, Configuration, Controller,
-        PacketCollection, Smart_List, FakeIO)
+        PacketCollection, _Smart_List, FakeIO)
 from larpix.Timestamp import *
 #from bitstring import BitArray
 from bitarray import bitarray
@@ -1856,7 +1856,7 @@ def test_timestamp_ambiguous_rollover():
     assert t1 == expected
 
 def test_Smart_List_assignment():
-    result = Smart_List([1,2,3],0,40)
+    result = _Smart_List([1,2,3],0,40)
     expected = [1,2,3]
     assert result == expected
     result[0] = 20
@@ -1864,7 +1864,7 @@ def test_Smart_List_assignment():
     assert result == expected
 
 def test_Smart_List_error():
-    sl = Smart_List([1,2,3],0,40)
+    sl = _Smart_List([1,2,3],0,40)
     with pytest.raises(ValueError, message='Should fail: out of bounds'):
         sl[0] = 41
 
