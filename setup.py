@@ -30,8 +30,4 @@ setup(
         packages=find_packages(),
         install_requires=['pyserial','bitstring','pytest',
             'larpix-geometry>=0.3.0', 'bitarray'],
-        scripts=['scripts/larpix-drivercheck-ubuntu',
-                 'scripts/larpix-drivercheck-mac',
-                 'scripts/larpix-find-device-ubuntu',
-                 'scripts/larpix-find-device-mac'],
 )
