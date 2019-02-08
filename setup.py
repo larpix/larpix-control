@@ -29,5 +29,5 @@ setup(
         keywords='dune physics',
         packages=find_packages(),
         install_requires=['pyserial','bitstring','pytest',
-            'larpix-geometry>=0.3.0', 'bitarray'],
+            'larpix-geometry>=0.3.0', 'bitarray', 'pyzmq'],
 )
