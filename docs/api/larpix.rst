@@ -2,6 +2,4 @@ LArPix Control Core
 ---------------------
 
 .. automodule:: larpix.larpix
-    :members:
-    :undoc-members:
 
