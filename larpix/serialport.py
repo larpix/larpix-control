@@ -6,6 +6,7 @@ from __future__ import absolute_import
 import time
 import os
 import platform
+from larpix.larpix import (Configuration, Packet)
 
 class SerialPort(object):
     '''Wrapper for various serial port interfaces across platforms.
