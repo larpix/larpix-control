@@ -1560,7 +1560,7 @@ def test_controller_read_configuration(capfd):
     controller.io.queue.append((conf_data,b'hi'))
     received_expected = PacketCollection(conf_data, b'hi', read_id=0,
             message='configuration read')
-    controller.read_configuration(chip)
+    controller.read_configuration(chip, timeout=0.01)
     received_result = controller.reads[-1]
     sent_result, err = capfd.readouterr()
     assert sent_result == sent_expected
@@ -1576,7 +1576,7 @@ def test_controller_read_configuration_reg(capfd):
     controller.io.queue.append((conf_data,b'hi'))
     received_expected = PacketCollection(conf_data, b'hi', read_id=0,
             message='configuration read')
-    controller.read_configuration(chip, 0)
+    controller.read_configuration(chip, 0, timeout=0.01)
     received_result = controller.reads[-1]
     sent_result, err = capfd.readouterr()
     assert sent_result == sent_expected
@@ -1662,7 +1662,7 @@ def test_controller_multi_read_configuration(capfd):
     controller.io.queue.append((conf_data+conf_data2, b'hi'))
     expected_read = PacketCollection(conf_data+conf_data2, b'hi',
             read_id=0, message='multi configuration read')
-    controller.multi_read_configuration((chip, chip2))
+    controller.multi_read_configuration((chip, chip2), timeout=0.01)
     result_sent, err = capfd.readouterr()
     result_read = controller.reads[-1]
     assert result_sent == expected_sent
@@ -1682,7 +1682,7 @@ def test_controller_multi_read_configuration_specify_registers(capfd):
     controller.io.queue.append((conf_data+conf_data2, b'hi'))
     expected_read = PacketCollection(conf_data+conf_data2, b'hi',
             read_id=0, message='multi configuration read')
-    controller.multi_read_configuration([(chip, 0), chip2])
+    controller.multi_read_configuration([(chip, 0), chip2], timeout=0.01)
     result_sent, err = capfd.readouterr()
     result_read = controller.reads[-1]
     assert result_sent == expected_sent
