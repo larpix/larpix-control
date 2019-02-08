@@ -1015,7 +1015,7 @@ class Controller(object):
         Chip objects (to read entire configuration) or (chip, registers)
         tuples to read only the specified register(s). Registers could
         be ``None`` (i.e. all), an ``int`` for that register only, or an
-        iterable of ``int``s.
+        iterable of ints.
 
         Examples:
 
