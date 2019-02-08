@@ -4,6 +4,7 @@ Quickstart commands for test boards
 
 from __future__ import absolute_import
 import larpix.larpix as larpix
+from larpix.serialport import SerialPort
 from larpix.tasks import get_chip_ids
 
 ## For interactive mode
@@ -34,9 +35,11 @@ board_info_list = [
 #Create handy map by board name
 board_info_map = dict([(elem['name'],elem) for elem in board_info_list])
 
-def create_controller(timeout=0.01):
+def create_controller(timeout=0.01, io=None):
     '''Create a default controller'''
-    return larpix.Controller(timeout=timeout)
+    c = larpix.Controller(timeout=timeout)
+    c.io = io
+    return c
 
 def init_controller(controller, board='pcb-5'):
     '''Initialize controller'''
@@ -47,13 +50,13 @@ def init_controller(controller, board='pcb-5'):
         controller.chips.append( larpix.Chip(chip_info[0],chip_info[1]) )
     controller.board_info = board_info
     return controller
-        
+
 def silence_chips(controller, interactive):
     '''Silence all chips in controller'''
     #for _ in controller.chips:
     for chip in controller.chips:
         if interactive:
-	    print('Silencing chip %d' % chip.chip_id)
+            print('Silencing chip %d' % chip.chip_id)
         chip.config.global_threshold = 255
         controller.write_configuration(chip,32)
         if interactive:
@@ -103,10 +106,14 @@ def flush_stale_data(controller):
     controller.reads = []
     return
     
-def quickcontroller(board='pcb-1', interactive=False):
+def quickcontroller(board='pcb-1', interactive=False, io=None):
     '''Quick jump through all controller creation and config steps'''
+    if io is None:
+        port = SerialPort.guess_port()
+        io = SerialPort(port=port, baudrate=1000000,
+                timeout=0.01)
     larpix.enable_logger()
-    cont = create_controller()
+    cont = create_controller(io=io)
     init_controller(cont,board)
     silence_chips(cont, interactive)
     if cont.board_info['name'] == 'unknown':

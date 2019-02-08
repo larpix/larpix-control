@@ -7,11 +7,10 @@ from __future__ import absolute_import
 import time
 from bitarray import bitarray
 import larpix.bitarrayhelper as bah
+from collections import deque
 import json
 import os
 import errno
-import re
-import platform
 import math
 
 import larpix.configs as configs
@@ -771,16 +770,29 @@ class Controller(object):
     '''
     Controls a collection of LArPix Chip objects.
 
+    Reading data:
+
+    The specific interface for reading data is selected by specifying
+    an ``io`` object to be ``Controller.io``. These objects all have
+    similar behavior for reading in new data. On initialization, the
+    object will discard any LArPix packets sent from ASICs. To begin
+    saving incoming packets, call ``Controller.start_listening()``.
+    Data will then build up in some form of internal register or queue.
+    The queue can be emptied with a call to ``Controller.read()``,
+    which empties the queue and returns a list of Packet objects that
+    were in the queue. The ``io`` object will still be listening for
+    new packets during and after this process. If the queue/register
+    fills up, data may be discarded/lost. To stop saving incoming
+    packets and retrieve any packets still in the queue, call
+    ``Controller.stop_listening()``. While the Controller is listening,
+    packets can be sent using the appropriate methods without
+    interrupting the incoming data stream.
+
     Properties and attributes:
 
     - ``chips``: the ``Chip`` objects that the controller controls
     - ``all_chip``: all possible ``Chip`` objects (considering there are
       a finite number of chip IDs), initialized on object construction
-    - ``port``: the path to the serial port, i.e. "/dev/(whatever)"
-      (default: ``None`` [will attempt to auto-find correct port])
-    - ``timeout``: the timeout used for serial commands, in seconds.
-      This can be changed between calls to the read and write commands.
-      (default: ``1``)
     - ``reads``: list of all the PacketCollections that have been sent
       back to this controller. PacketCollections are created by
       ``run``, ``write_configuration``, and ``read_configuration``, but
@@ -790,24 +802,13 @@ class Controller(object):
       ``False``)
 
     '''
-    start_byte = b'\x73'
-    stop_byte = b'\x71'
-    def __init__(self, port=None, timeout=1):
+    def __init__(self):
         self.chips = []
         self.all_chips = self._init_chips()
         self.use_all_chips = False
         self.reads = []
         self.nreads = 0
-        self.port = port
-        if self.port is None:
-            self.port = SerialPort.guess_port()
-        self.baudrate = 1000000
-        self.timeout = timeout
-        self.max_write = 250
-        self._test_mode = False
-        self._serial = SerialPort(port=self.port,
-                                  baudrate=self.baudrate,
-                                  timeout=self.timeout)
+        self.io = None
 
     def _init_chips(self, nchips = 256, iochain = 0):
         '''
@@ -827,74 +828,63 @@ class Controller(object):
         raise ValueError('Could not find chip (%d, %d) (using all_chips'
                 '? %s)' % (chip_id, io_chain, self.use_all_chips))
 
-    #def serial_flush(self):
-    #    with self._serial(self.port, baudrate=self.baudrate,
-    #            timeout=self.timeout) as serial:
-    #        serial.reset_output_buffer()
-    #        serial.reset_input_buffer()
-    def serial_close(self):
-        if not self._serial is None:
-            self._serial.close()
-        return
+    def send(self, packets):
+        '''
+        Send the specified packets to the LArPix ASICs.
 
-    def serial_read(self, timelimit):
-        data_in = b''
-        start = time.time()
-        close_port = False
-        if not self._serial._keep_open:
-            close_port = True
-        self._serial._keep_open = True
-        try:
-            while time.time() - start < timelimit:
-                stream = self._serial.read(self.max_write)
-                if len(stream) > 0:
-                    data_in += stream
-        except Exception as e:
-            if getattr(self, '_read_tries_left', None) is None:
-                self._read_tries_left = 3
-                self.serial_read(timelimit)
-            elif self._read_tries_left > 0:
-                self._read_tries_left -= 1
-                self.serial_read(timelimit)
-            else:
-                del self._read_tries_left
-                raise
-        if close_port:
-            self.serial_close()
-            self._serial._keep_open = False
-        return data_in
+        '''
+        self.io.send(packets)
 
-    def serial_write(self, bytestreams):
-        for bytestream in bytestreams:
-            self._serial.write(bytestream)
+    def start_listening(self):
+        '''
+        Listen for packets to arrive.
 
-    def serial_write_read(self, bytestreams, timelimit):
-        data_in = b''
-        close_port = False
-        if not self._serial._keep_open:
-            close_port = True
-        self._serial._keep_open = True
-        start = time.time()
-        # First do a fast write-read loop until everything is
-        # written out, then just read
-        self._serial.timeout = 0  # Return whatever's already waiting
-        for bytestream in bytestreams:
-            self._serial.write(bytestream)
-            stream = self._serial.read(self.max_write)
-            if len(stream) > 0:
-                data_in += stream
-        self._serial.timeout = self.timeout
-        while time.time() - start < timelimit:
-            stream = self._serial.read(self.max_write)
-            if len(stream) > 0:
-                data_in += stream
-        if close_port:
-            self.serial_close()
-            self._serial._keep_open = False
-        return data_in
+        '''
+        self.io.start_listening()
+
+    def stop_listening(self):
+        '''
+        Stop listening for new packets to arrive.
+
+        '''
+        return self.io.stop_listening()
+
+    def read(self):
+        '''
+        Read any packets that have arrived and return (packets,
+        bytestream) where bytestream is the bytes that were received.
+
+        The returned list will contain packets that arrived since the
+        last call to ``read`` or ``start_listening``, whichever was most
+        recent.
+
+        '''
+        packets, bytestream = self.io.empty_queue()
+        return packets, bytestream
 
     def write_configuration(self, chip, registers=None, write_read=0,
             message=None):
+        '''
+        Send the configurations stored in chip.config to the LArPix
+        ASIC.
+
+        By default, sends all registers. If registers is an int, then
+        only that register is sent. If registers is an iterable, then
+        all of the registers in the iterable are sent.
+
+        If write_read == 0 (default), the configurations will be sent
+        and the current listening state will not be affected. If the
+        controller is currently listening, then the listening state
+        will not change and the value of write_read will be ignored. If
+        write_read > 0 and the controller is not currently listening,
+        then the controller will listen for ``write_read`` seconds
+        beginning immediately before the packets are sent out, read the
+        io queue, and save the packets into the ``reads`` data member.
+        Note that the controller will only read the queue once, so if a
+        lot of data is expected, you should handle the reads manually
+        and set write_read to 0 (default).
+
+        '''
         if registers is None:
             registers = list(range(Configuration.num_registers))
         elif isinstance(registers, int):
@@ -905,18 +895,38 @@ class Controller(object):
             message = 'configuration write'
         else:
             message = 'configuration write: ' + message
-        bytestreams = self.get_configuration_bytestreams(chip,
+        packets = chip.get_configuration_packets(
                 Packet.CONFIG_WRITE_PACKET, registers)
-        if write_read == 0:
-            self.serial_write(bytestreams)
-        else:
-            miso_bytestream = self.serial_write_read(bytestreams,
-                    timelimit=write_read)
-            packets = self.parse_input(miso_bytestream)
-            self.store_packets(packets, miso_bytestream, message)
+        already_listening = self.io.is_listening
+        mess_with_listening = write_read != 0 and not already_listening
+        if mess_with_listening:
+            self.start_listening()
+            stop_time = time.time() + write_read
+        self.send(packets)
+        if mess_with_listening:
+            time.sleep(stop_time - time.time())
+            packets, bytestream = self.read()
+            self.stop_listening()
+            self.store_packets(packets, bytestream, message)
 
     def read_configuration(self, chip, registers=None, timeout=1,
             message=None):
+        '''
+        Send "configuration read" requests to the LArPix ASIC.
+
+        By default, request all registers. If registers is an int, then
+        only that register is reqeusted. If registers is an iterable,
+        then all of the registers in the iterable are requested.
+
+        If the controller is currently listening, then the requests
+        will be sent and no change to the listening state will occur.
+        (The value of ``timeout`` will be ignored.) If the controller
+        is not currently listening, then the controller will listen
+        for ``timeout`` seconds beginning immediately before the first
+        packet is sent out, and will save any received packets in the
+        ``reads`` data member.
+
+        '''
         if registers is None:
             registers = list(range(Configuration.num_registers))
         elif isinstance(registers, int):
@@ -927,11 +937,18 @@ class Controller(object):
             message = 'configuration read'
         else:
             message = 'configuration read: ' + message
-        bytestreams = self.get_configuration_bytestreams(chip,
+        packets = chip.get_configuration_packets(
                 Packet.CONFIG_READ_PACKET, registers)
-        data = self.serial_write_read(bytestreams, timeout)
-        packets = self.parse_input(data)
-        self.store_packets(packets, data, message)
+        already_listening = self.io.is_listening
+        if not already_listening:
+            self.start_listening()
+            stop_time = time.time() + timeout
+        self.send(packets)
+        if not already_listening:
+            time.sleep(stop_time - time.time())
+            packets, bytestream = self.read()
+            self.stop_listening()
+            self.store_packets(packets, bytestream, message)
 
     def multi_write_configuration(self, chip_reg_pairs, write_read=0,
             message=None):
@@ -963,7 +980,7 @@ class Controller(object):
             message = 'multi configuration write'
         else:
             message = 'multi configuration write: ' + message
-        final_bytestream = []
+        packets = []
         for chip_reg_pair in chip_reg_pairs:
             if isinstance(chip_reg_pair, Chip):
                 chip_reg_pair = (chip_reg_pair, None)
@@ -974,17 +991,20 @@ class Controller(object):
                 registers = [registers]
             else:
                 pass
-            bytestreams = self.get_configuration_bytestreams(chip,
+            one_chip_packets = chip.get_configuration_packets(
                     Packet.CONFIG_WRITE_PACKET, registers)
-            final_bytestream += bytestreams
-        final_bytestream = self.format_bytestream(final_bytestream)
-        if write_read == 0:
-            self.serial_write(final_bytestream)
-        else:
-            miso_bytestream = self.serial_write_read(final_bytestream,
-                    timelimit=write_read)
-            packets = self.parse_input(miso_bytestream)
-            self.store_packets(packets, miso_bytestream, message)
+            packets.extend(one_chip_packets)
+        already_listening = self.io.is_listening
+        mess_with_listening = write_read != 0 and not already_listening
+        if mess_with_listening:
+            self.start_listening()
+            stop_time = time.time() + write_Read
+        self.send(packets)
+        if mess_with_listening:
+            time.sleep(stop_time - time.time())
+            packets, bytestream = self.read()
+            self.stop_listening()
+            self.store_packets(packets, data, message)
 
     def multi_read_configuration(self, chip_reg_pairs, timeout=1,
             message=None):
@@ -1015,7 +1035,7 @@ class Controller(object):
             message = 'multi configuration read'
         else:
             message = 'multi configuration read: ' + message
-        final_bytestream = []
+        packets = []
         for chip_reg_pair in chip_reg_pairs:
             if isinstance(chip_reg_pair, Chip):
                 chip_reg_pair = (chip_reg_pair, None)
@@ -1026,37 +1046,34 @@ class Controller(object):
                 registers = [registers]
             else:
                 pass
-            bytestreams = self.get_configuration_bytestreams(chip,
+            one_chip_packets = chip.get_configuration_packets(
                     Packet.CONFIG_READ_PACKET, registers)
-            final_bytestream += bytestreams
-        mosi_bytestream = self.format_bytestream(final_bytestream)
-        miso_bytestream = self.serial_write_read(mosi_bytestream,
-                timelimit=timeout)
-        packets = self.parse_input(miso_bytestream)
-        self.store_packets(packets, miso_bytestream, message)
-
-    def get_configuration_bytestreams(self, chip, packet_type, registers):
-        # The configuration must be sent one register at a time
-        configuration_packets = \
-            chip.get_configuration_packets(packet_type, registers);
-        formatted_packets = [self.format_UART(chip, p) for p in
-                configuration_packets]
-        bytestreams = self.format_bytestream(formatted_packets)
-        return bytestreams
+            packets += one_chip_packets
+        already_listening = self.io.is_listening
+        if not already_listening:
+            self.start_listening()
+            stop_time = time.time() + timeout
+        self.send(packets)
+        if not already_listening:
+            time.sleep(stop_time - time.time())
+            packets, bytestream = self.read()
+            self.stop_listening()
+            self.store_packets(packets, bytestream, message)
 
     def run(self, timelimit, message):
-        data = self.serial_read(timelimit)
-        packets = self.parse_input(data)
+        sleeptime = 0.1
+        self.start_listening()
+        start_time = time.time()
+        packets = []
+        bytestreams = []
+        while time.time() - start_time < timelimit:
+            time.sleep(sleeptime)
+            read_packets, read_bytestream = self.read()
+            packets.extend(read_packets)
+            bytestreams.append(read_bytestream)
+        self.stop_listening()
+        data = b''.join(bytestreams)
         self.store_packets(packets, data, message)
-
-    def run_testpulse(self, list_of_channels):
-        return
-
-    def run_fifo_test(self):
-        return
-
-    def run_analog_monitor_test(self):
-        return
 
     def verify_configuration(self, chip_id=None, io_chain=0):
         '''
@@ -1229,60 +1246,6 @@ class Controller(object):
             chip.config.enable_channels(channel_list)
             self.write_configuration(chip, Configuration.channel_mask_addresses)
 
-    def format_UART(self, chip, packet):
-        packet_bytes = packet.bytes()
-        daisy_chain_byte = bah.fromuint(chip.io_chain, 8).tobytes()
-        formatted_packet = (Controller.start_byte + packet_bytes +
-                daisy_chain_byte + Controller.stop_byte)
-        return formatted_packet
-
-    @classmethod
-    def parse_input(cls, bytestream):
-        packet_size = Configuration.fpga_packet_size  #vb
-        start_byte = Controller.start_byte[0]
-        stop_byte = Controller.stop_byte[0]
-        metadata_byte_index = 8
-        data_bytes = slice(1,8)
-        # parse the bytestream into Packets + metadata
-        byte_packets = []
-        skip_slices = []
-        #current_stream = bytestream
-        bytestream_len = len(bytestream)
-        last_possible_start = bytestream_len - packet_size
-        index = 0
-        while index <= last_possible_start:
-            if (bytestream[index] == start_byte and
-                    bytestream[index+packet_size-1] == stop_byte):
-                '''
-                metadata = current_stream[metadata_byte_index]
-                # This is necessary because of differences between
-                # Python 2 and Python 3
-                if isinstance(metadata, int):  # Python 3
-                    code = 'uint:8='
-                elif isinstance(metadata, str):  # Python 2
-                    code = 'bytes:1='
-                byte_packets.append((Bits(code + str(metadata)),
-                    Packet(current_stream[data_bytes])))
-                '''
-                byte_packets.append(Packet(bytestream[index+1:index+8]))
-                #current_stream = current_stream[packet_size:]
-                index += packet_size
-            else:
-                # Throw out everything between here and the next start byte.
-                # Note: start searching after byte 0 in case it's
-                # already a start byte
-                index = bytestream.find(start_byte, index+1)
-                if index == -1:
-                    index = bytestream_len
-                #if next_start_index != 0:
-                #        print('Warning: %d extra bytes in data stream!' %
-                #        (next_start_index+1))
-                #current_stream = current_stream[1:][next_start_index:]
-        #if len(current_stream) != 0:
-        #    print('Warning: %d extra bytes at end of data stream!' %
-        #          len(current_stream))
-        return byte_packets
-
     def store_packets(self, packets, data, message):
         '''
         Store the packets in ``self`` and in ``self.chips``
@@ -1293,7 +1256,6 @@ class Controller(object):
         self.nreads += 1
         self.reads.append(new_packets)
         #self.sort_packets(new_packets)
-
 
     def sort_packets(self, collection):
         '''
@@ -1310,19 +1272,6 @@ class Controller(object):
                 chip.reads.append(by_chipid[chip_id])
             elif not self._test_mode:
                 print('Warning chip id %d not in chips.' % chip_id)
-
-    def format_bytestream(self, formatted_packets):
-        bytestreams = []
-        current_bytestream = bytes()
-        for packet in formatted_packets:
-            if len(current_bytestream) + len(packet) <= self.max_write:  #vb
-                current_bytestream += packet
-            else:
-                bytestreams.append(current_bytestream)
-                current_bytestream = bytes()
-                current_bytestream += packet
-        bytestreams.append(current_bytestream)
-        return bytestreams
 
     def save_output(self, filename, message):
         '''Save the data read by each chip to the specified file.'''
@@ -1807,202 +1756,30 @@ class PacketCollection(object):
             to_return[chipid] = new_collection
         return to_return
 
+class FakeIO(object):
+    '''
+    An IO stand-in that sends output to stdout (i.e. print) and reads
+    input from a data member that can be set in advance.
 
-class SerialPort(object):
-    '''Wrapper for various serial port interfaces across platforms'''
-    # Guesses for default port name by platform
-    _default_port_map = {
-        'Default':['/dev/ttyUSB2','/dev/ttyUSB1'], # Same as Linux
-        'Linux':['/dev/ttyAMA0', '/dev/ttyUSB2','/dev/ttyUSB1',
-        '/dev/ttyUSB0'],   # Linux
-        'Darwin':['scan-ftdi',],     # OS X
-    }
-    _logger = None
+    '''
+    def __init__(self):
+        self.is_listening = False
+        self.queue = deque()
 
-    def __init__(self, port=None, baudrate=9600, timeout=None):
-        self.port = port
-        self.resolved_port = ''
-        self.port_type = ''
-        self.baudrate = baudrate
-        self.timeout = timeout
-        self._keep_open = False
-        self.serial_com = None
-        self._initialize_serial_com()
-        self.logger = None
-        if not (self._logger is None):
-            self.logger = self._logger
-        return
+    def send(self, packets):
+        for packet in packets:
+            print(packet)
 
-    @classmethod
-    def guess_port(cls):
-        '''Guess at correct port name based on platform'''
-        platform_default = 'Default'
-        platform_name = platform.system()
-        if platform_name not in cls._default_port_map:
-            platform_name = platform_default
-        default_devs = cls._default_port_map[platform_name]
-        osx_cmd = 'system_profiler SPUSBDataType | grep -C 7 FTDI | grep Serial'
-        for default_dev in default_devs:
-            if default_dev.startswith('/dev'): # pyserial
-                try:
-                    if os.stat(default_dev):
-                        return default_dev
-                except OSError:
-                    continue
-            elif default_dev == 'scan-ftdi':
-                if platform_name == 'Darwin':  # scan for pylibftdi on OS X
-                    # Scan for FTDI devices
-                    result = os.popen(osx_cmd).read()
-                    if len(result) > 0:
-                        idx = result.find('Serial Number:')
-                        dev_name = result[idx+14:idx+24].strip()
-                        print('Autoscan found FTDI device: "%s"' % dev_name)
-                        return dev_name
-            elif not default_dev.startswith('/dev'):  # assume pylibftdi
-                return default_dev
-        raise OSError('Cannot find serial device for platform: %s' %
-                      platform_name)
+    def start_listening(self):
+        self.is_listening = True
 
-    def _ready_port(self):
-        '''Function handle.  Will be reset to appropriate method'''
-        raise NotImplementedError('Serial port type has not been defined.')
+    def stop_listening(self):
+        self.is_listening = False
 
-    def _ready_port_pyserial(self):
-        '''Ready a pyserial port'''
-        if self.serial_com is None:
-            # Create serial port
-            import serial
-            self.serial_com = serial.Serial(self.resolved_port,
-                                            baudrate=self.baudrate,
-                                            timeout=self.timeout)
-        if not self.serial_com.is_open:
-            # Open, if necessary
-            self.serial_com.open()
-        return
-
-    def _ready_port_pylibftdi(self):
-        '''Ready a pylibftdi port'''
-        if self.serial_com is None:
-            # Construct serial port
-            import pylibftdi
-            self.serial_com = pylibftdi.Device(self.resolved_port)
-        if self.serial_com.closed:
-            # Open port
-            self.serial_com.open()
-        # Confirm baudrate (Required for OS X)
-        self._confirm_baudrate()
-        return
-
-    def _ready_port_test(self):
-        if self.serial_com is None:
-            # Get FakeSerialPort from testing module
-            import test.test_larpix as test_lib
-            self.serial_com = test_lib.FakeSerialPort()
-        return
-
-    def _confirm_baudrate(self):
-        '''Check and set the baud rate'''
-        if self.serial_com.baudrate != self.baudrate:
-            # Reset baudrate
-            self.serial_com.baudrate = self.baudrate
-        return
-
-    def _initialize_serial_com(self):
-        '''Initialize the low-level serial com connection'''
-        self.resolved_port = self._resolve_port_name()
-        self.port_type = self._resolve_port_type()
-        if self.port_type is 'pyserial':
-            self._ready_port = self._ready_port_pyserial
-            self._keep_open = False
-        elif self.port_type is 'pylibftdi':
-            self._ready_port = self._ready_port_pylibftdi
-            self._keep_open = True
-        elif self.port_type is 'test':
-            self._ready_port = self._ready_port_test
-            self._keep_open = True
-        else:
-            raise ValueError('Port type must be either pyserial, pylibftdi, or test')
-        return
-
-    def _resolve_port_name(self):
-        '''Resolve the serial port name, based on user request'''
-        if self.port is None:
-            # Must set port
-            raise ValueError('You must choose a serial port for operation')
-        # FIXME: incorporate auto-scan feature
-        if self.port is 'auto':
-            # Try to guess the correct port
-            return self.guess_port()
-        # FIXME: incorporate list option?
-        #elif isinstance(self.port, list):
-        #    # Try to determine best choice from list
-        #    for port_name in list:
-        #        if self._port_exists(port_name):
-        #            return port_name
-        return self.port
-
-    def _resolve_port_type(self):
-        '''Resolve the type of serial port, based on the name'''
-        if self.resolved_port.startswith('/dev'):
-            # Looks like a tty device.  Use pyserial.
-            return 'pyserial'
-        elif self.resolved_port is 'test':
-            # Testing port. Don't use an external library
-            return 'test'
-        elif not self.resolved_port.startswith('/dev'):
-            # Looks like a libftdi raw device.  Use pylibftdi.
-            return 'pylibftdi'
-        raise ValueError('Unknown port: %s' % self.port)
-
-    def open(self):
-        '''Open the port'''
-        self._ready_port()
-        return
-
-    def close(self):
-        '''Close the port'''
-        if self.serial_com is None: return
-        self.serial_com.close()
-
-    def write(self, data):
-        '''Write data to serial port'''
-        self._ready_port()
-        write_time = time.time()
-        self.serial_com.write(data)
-        if self.logger:
-            self.logger.record({'data_type':'write','data':data,'time':write_time})
-        if not self._keep_open:
-            self.close()
-        return
-
-    def read(self, nbytes):
-        '''Read data from serial port'''
-        self._ready_port()
-        read_time = time.time()
-        data = self.serial_com.read(nbytes)
-        if self.logger:
-            self.logger.record({'data_type':'read','data':data,'time':read_time})
-        if not self._keep_open:
-            self.close()
+    def empty_queue(self):
+        if not self.is_listening:
+            raise RuntimeError('Cannot empty queue when not'
+                    ' listening')
+        data = self.queue.popleft()
         return data
 
-def enable_logger(filename=None):
-    '''Enable serial data logger'''
-    if SerialPort._logger is None:
-        from larpix.datalogger import DataLogger
-        SerialPort._logger = DataLogger(filename)
-    if not SerialPort._logger.is_enabled():
-        SerialPort._logger.enable()
-    return
-
-def disable_logger():
-    '''Disable serial data logger'''
-    if SerialPort._logger is not None:
-        SerialPort._logger.disable()
-    return
-
-def flush_logger():
-    '''Flush serial data logger data to output file'''
-    if SerialPort._logger is not None:
-        SerialPort._logger.flush()
-    return

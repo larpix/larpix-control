@@ -6,9 +6,7 @@ Control the LArPix chip
 
 ## Setup and installation
 
-This code is intended to work on both Python 2.7+ and Python 3.6+,
-but it was designed in Python 3 and is not guaranteed to work in
-Python 2.
+This code is intended to work on both Python 2.7+ and Python 3.6+.
 
 Install larpix-control from pip with
 
@@ -28,8 +26,30 @@ expected. After `pip install`ing this package, you can run the tests
 from the repository root directory with the simple command `pytest`.
 
 You can read the tests to see examples of how to call all of the common
-functions. I imagine they will also come in handy when you're confused
-about the bit order. (Also see the section on endian-ness below.)
+functions.
+
+## Minimal working example
+
+So you're not a tutorials kind of person. Here's a minimal working
+example for you to play around with:
+
+```python
+>>> import larpix.larpix as larpix
+>>> controller = larpix.Controller()
+>>> controller.io = larpix.FakeIO()
+>>> chip1 = larpix.Chip(1, 0)  # (chipID, IO-chain index)
+>>> controller.chips.append(chip1)
+>>> chip1.config.global_threshold = 25
+>>> controller.write_configuration(chip1, 25)
+[ Config write | Chip: 1 | Register: 25 | Value:  16 | Parity: 1 (valid: True) ]
+>>> packet = larpix.Packet(b'\x04\x14\x80\xc4\x03\xf2 ')
+>>> packet_bytes = packet.bytes()
+>>> pretend_input = ([packet], packet_bytes)
+>>> controller.io.queue.append(pretend_input)
+>>> controller.run(0.05, 'test run')
+>>> print(controller.reads[0])
+[ Data | Chip: 1 | Channel: 5 | Timestamp: 123456 | ADC data: 120 | FIFO Half: False | FIFO Full: False | Parity: 1 (valid: True) ]
+```
 
 ## Tutorial
 
@@ -44,6 +64,260 @@ import larpix.larpix as larpix  # use the larpix namespace
 # or ...
 from larpix.larpix import *  # import all larpix classes into the current namespace
 ```
+
+### Create a LArPix Controller
+
+The LArPix Controller translates high-level ideas like "read
+configuration register 10" into communications to and from LArPix ASICs,
+and interprets the received data into a usable format.
+
+Controller objects communicate with LArPix ASICs via an IO interface.
+Currently available IO interfaces are ``SerialPort``, ``ZMQ_IO`` and
+``FakeIO``. We'll work with ``FakeIO`` in this tutorial, but all the
+code will still work with properly initialized versions of the other IO
+interfaces.
+
+Set things up with
+
+```python
+controller = larpix.Controller()
+controller.io = larpix.FakeIO()
+```
+
+The ``FakeIO`` object imitates a real IO interface for testing purposes.
+It directs its output to stdout (i.e. it prints the output), and it
+takes its input from a manually-updated queue. At the end of each
+relevant section of the tutorial will be code for adding the expected
+output to the queue. You'll have to refill the queue each time you run
+the code.
+
+### Set up LArPix Chips
+
+Chip objects represent actual LArPix ASICs. For each ASIC you want to
+communicate with, create a LArPix Chip object and add it to the
+Controller.
+
+```python
+chipid = 5
+io_chain = 0  # Currently unused
+controller.chips.append(larpix.Chip(chipid, io_chain))
+```
+
+Note that the second argument to the constructor is required but
+currently unused.
+
+### Adjust the configuration of the LArPix Chips
+
+Each Chip object manages its own configuration in software.
+Configurations can be adjusted by name using attributes of the Chip's
+configuration:
+
+```python
+chip5 = controller.chips[0]
+chip5.config.global_threshold = 35  # entire register = 1 number
+chip5.config.periodic_reset = 1  # one bit as part of a register
+chip5.config.channel_mask[20] = 1  # one bit per channel
+```
+
+Values are validated, and invalid values will raise exceptions.
+
+Note: Changing the configuration of a Chip object does *not* change the
+configuration on the ASIC.
+
+Once the configuration is set, the new values must be sent to the LArPix
+ASICs. There is an appropriate Controller method for that:
+
+```python
+controller.write_configuration(chip5)  # send all registers
+controller.write_configuration(chip5, 32)  # send only register 32
+controller.write_configuration(chip5, [32, 50])  # send registers 32 and 50
+```
+
+Register addresses can be looked up using the configuration object:
+
+```python
+global_threshold_reg = chip5.config.global_threshold_address
+```
+
+For configurations which extend over multiple registers, the relevant
+attribute will end in ``_addresses``. Certain configurations share a
+single register, whose attribute has all of the names in it. View the
+documentation or source code to find the name to look up. (Or look at
+the LArPix data sheet.)
+
+### Reading the configuration from LArPix ASICs
+
+The current configuration state of the LArPix ASICs can be requested by
+sending out "configuration read" requests using the Controller:
+
+```python
+controller.read_configuration(chip5)
+```
+
+The same variations to read only certain registers are implemented for
+reading as for writing.
+
+The responses from the LArPix ASICs are stored for inspection. See the
+section on "Inspecting received data" for more.
+
+FakeIO queue code:
+
+```python
+packets = chip5.get_configuration_packets(larpix.Packet.CONFIG_READ_PACKET)
+bytestream = b'bytes for the config read packets'
+controller.io.queue.append((packets, bytestream))
+```
+
+### Receiving data from LArPix ASICs
+
+When it is first initialized, the LArPix Controller ignores and discards
+all data that it receives from LArPix. The Controller must be activated
+by calling ``start_listening()``. All received data will then be
+accumulated in an implementation-dependent queue or buffer, depending
+on the IO interface used. To read the data from the buffer, call the
+controller's ``read()`` method, which returns both the raw bytestream
+received as well as a list of LArPix Packet objects which have been
+extracted from the bytestream. To stop listening for new data, call
+``stop_listening()``. Finally, to store the data in the controller
+object, call the ``store_packets`` method. All together:
+
+```python
+controller.start_listening()
+# Data arrives...
+packets, bytestream = controller.read()
+# More data arrives...
+packets2, bytestream2 = controller.read()
+controller.stop_listening()
+message = 'First data arrived!'
+message2 = 'More data arrived!'
+controller.store_packets(packets, bytestream, message)
+controller.store_packets(packets, bytestream2, message2)
+```
+
+There is a common pattern for reading data, namely to start listening,
+then check in periodically for new data, and then after a certain amount
+of time has passed, stop listening and store all the data as one
+collection. The method ``run(timelimit, message)`` accomplishes just this.
+
+```python
+duration = 10  # seconds
+message = '10-second data run'
+controller.run(duration, message)
+```
+
+FakeIO queue code for the first code block:
+
+```python
+packets = [Packet()] * 40
+bytestream = b'bytes from the first set of packets'
+controller.io.queue.append((packets, bytestream))
+packets2 = [Packet()] * 30
+bytestream2 = b'bytes from the second set of packets'
+controller.io.queue.append((packets2, bytestream2))
+```
+
+fakeIO queue code for the second code block:
+
+```python
+packets = [Packet()] * 5
+bytestream = b'[bytes from read #%d] '
+for i in range(100):
+    controller.io.queue.append((packets, bytestream%i))
+```
+
+### Inspecting received data
+
+Once data is stored in the controller, it is available in the ``reads``
+attribute as a list of all data runs. Each element of the list is a
+PacketCollection object, which functions like a list of Packet objects
+each representing one LArPix packet.
+
+PacketCollection objects can be indexed like a list:
+
+```python
+run1 = controller.runs[0]
+first_packet = run1[0]  # Packet object
+first_ten_packets = run1[0:10]  # smaller PacketCollection object
+
+first_packet_bits = run1[0, 'bits']  # string representation of bits in packet
+first_ten_packet_bits = run1[0:10, 'bits']  # list of strings
+```
+
+PacketCollections can be printed to display the contents of the Packets
+they contain. To prevent endless scrolling, only the first ten and last ten
+packets are displayed, and the number of omitted packets is noted. To
+view the omitted packets, use a slice around the area of interest.
+
+```python
+print(run1)  # prints the contents of the packets
+print(run1[10:30])  # prints 20 packets from the middle of the run
+```
+
+In interactive Python, returned objects are not printed, but rather
+their "representation" is printed (cf. the ``__repr__`` method). The
+representation of PacketCollections is a listing of the number of
+packets, the "read id" (a.k.a. the run number), and the message
+associated with the PacketCollection when it was created.
+
+### Individual LArPix Packets
+
+LArPix Packet objects represent individual LArPix UART packets. They
+have attributes which can be used to inspect or modify the contents of
+the packet.
+
+```python
+packet = run1[0]
+# all packets
+packet.packet_type  # unique in that it gives the bits representation
+packet.chipid  # all other properties return Python numbers
+packet.parity_bit_value
+# data packets
+packet.channel_id
+packet.dataword
+packet.timestamp
+packet.fifo_half_flag  # 1 or 0
+packet.fifo_full_flag  # 1 or 0
+# config packets
+packet.register_address
+packet.register_data
+# test packets
+packet.test_counter
+```
+
+Internally, packets are represented as an array of bits, and the
+different attributes use Python "properties" to seamlessly convert
+between the bits representation and a more intuitive integer
+representation. The bits representation can be inspected with the
+``bits`` attribute.
+
+Packet objects do not restrict you from adjusting an attribute for an
+inappropriate packet type. For example, you can create a data packet and
+then set ``packet.register_address = 5``. This will adjust the packet
+bits corresponding to a configuration packet's "register\_address"
+region, which is probably not what you want for your data packet.
+
+Packets have a parity bit which enforces odd parity, i.e. the sum of
+all the individual bits in a packet must be an odd number. The parity
+bit can be accessed as above using the ``parity_bit_value`` attribute.
+The correct parity bit can be computed using ``compute_parity()``,
+and the validity of a packet's parity can be checked using
+``has_valid_parity()``. When constructing a new packet, the correct
+parity bit can be assigned using ``assign_parity()``.
+
+Individual packets can be printed to show a human-readable
+interpretation of the packet contents. The printed version adjusts its
+output based on the packet type, so a data packet will show the data
+word, timestamp, etc., while a configuration packet will show the register
+address and register data.
+
+Like with PacketCollections, Packets also have a "representation" view
+based on the bytes that make up the packet. This can be useful for
+creating new packets since a Packet's representation is also a vaild
+call to the Packet constructor. So the output from an interactive
+session can be copied as input or into a script to create the same
+packet.
+
+## Miscellaneous implementation details
 
 ### Endian-ness
 
@@ -62,26 +336,6 @@ the least significant bit of a bytestring is the *last bit* of the
 *first byte*. For example, if bits[15:0] of a packet are
 `0000 0010 0000 0001` ( = 0x0201 = 513), then the bytes will be sent out as
 `b'\x01\x02'`.
-
-### Creating a LArPix Chip
-
-The `Chip` object represents a single LArPix chip and knows about
-everything happening on the chip regarding configuration, data sent in,
-and data read out. To create a Chip, just provide the chip ID number
-(hard-wired into the PCB) and the index for the IO Chain (daisy chain)
-that the chip is part of:
-
-```python
-myChip = Chip(100, 0)
-```
-
-The Chip object uses these ID values when it creates data packets to
-ensure that the packet reaches the correct chip. And other objects use
-the ID values to ensure that received data from the physical chip makes
-its way to the right Chip object.
-
-The chip's configuration register is represented by the `myChip.config`
-attribute, which is an instance of the `Configuration` object.
 
 ### The Configuration object
 
@@ -141,103 +395,5 @@ Configurations can be saved by calling `chip.config.write` with the
 desired filename.
 
 Once the Chip object has been configured, the configuration must be sent
-to the physical chip. This is accomplished with the `Controller` object,
-which we'll discuss next.
+to the physical chip.
 
-### Communicating with the physical LArPix chip
-
-Communication between the computer and the physical LArPix chip is
-handled by the `Controller` object and uses a Serial interface. (The
-interface specification is given in the fpga\_interface.txt file. It's
-based on RS-232 8N1.) To initialize a Controller object, simply provide
-the port you'd like to communicate over. For the envisioned normal
-application (with an FTDI chip as USB-serial bridge), this will likely
-be something like `/dev/ttyUSB0`.
-
-```python
-controller = Controller('/dev/ttyUSB0')
-```
-
-An important attribute of the Controller object is `chips`, which is a
-list of Chip objects controlled by the particular Controller. Add a
-single Chip object to the list with `controller.chips.append(myChip)`,
-or add a whole list with `controller.chips.extend(list_of_chips)`.
-
-You might want to change the following
-attributes at some point, but their defaults should work in most cases:
-
- - `baudrate`: default = 1000000 baud. Controls the number of bits per
-   second, including RS-232 start and stop bits.
- - `timeout`: default = 1 second. Controls how long to wait before
-   ending a read command
- - `max_write`: default = 8192 bytes. Controls the maximum number of
-   bytes to send with a single write command. The limit is entirely due
-   to the buffer capacity of the FTDI chip.
-
-#### Sending data
-
-The only data that LArPix can receive is configuration data. To send all
-of the configuration packets in write mode, simply call
-
-```python
-myChip = Chip(chip_id, io_chain)
-# Edit the configuration
-# ...
-myController = Controller('/dev/ttyUSB0')
-myController.write_configuration(myChip)
-```
-
-To send only a particular configuration register or list of
-configuration registers, pass the register or list of registers to the
-function:
-
-```python
-register_to_update = 51
-myController.write_configuration(myChip, register_to_update)
-# or pass a list ...
-registers_to_update = [0, 5, 42]
-myController.write_configuration(myChip, registers_to_update)
-```
-
-There is currently not a way to specify which register to update by
-passing a string or other way of identifying the register by name.
-
-Similar functionality exists to read the configuration data. This
-requires both sending data to and receiving data from the LArPix chip.
-To send the "read configuration" commands, call `read_configuration`
-exactly the same way you would call `write_configuration`. Read on to
-learn about receiving data from LArPix in more detail.
-
-#### Receiving data
-
-There are 3 reasons to receive data from LArPix: because it's real data
-(ADC counts, etc.), because it's configuration data that has been
-requested, or because it's test data from either the UART test or the
-FIFO test.
-
-The simplest way to receive data from LArPix is to just listen for a
-certain amount of time and save all the packets received. This is
-accomplished with the `run` method:
-
-```python
-myController.run(10)  # listens for 10 seconds
-```
-
-This method makes sense for physics runs or any special runs that aren't
-provided by the following other methods.
-
-To read configuration data, call `read_configuration`, as mentioned
-earlier.
-
-To make it easy to run tests, the following methods will configure the
-chip, run the test, and record the data received: `run_testpulse`,
-`run_fifo_test`, and `run_analog_monitor_test`.
-
-#### Accessing received data
-
-Every method that reads data processes the data from a bytestream into a
-Packet object. The Packet objects are appended to the list stored in the
-`reads` attribute of the correct Chip object, as defined by the `chipid`
-returned by the Packet. It's worth noting here that the Controller
-object is only aware of Chip objects listed in the `controller.chips`
-attribute.

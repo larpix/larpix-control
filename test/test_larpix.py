@@ -5,13 +5,16 @@ Use the pytest framework to write tests for the larpix module.
 from __future__ import print_function
 import pytest
 from larpix.larpix import (Chip, Packet, Configuration, Controller,
-        PacketCollection, Smart_List)
+        PacketCollection, Smart_List, FakeIO)
 from larpix.Timestamp import *
 #from bitstring import BitArray
 from bitarray import bitarray
 import larpix.bitarrayhelper as bah
 import json
 import os
+
+def list_of_packets_str(packets):
+    return '\n'.join(map(str, packets)) + '\n'
 
 class FakeSerialPort(object):
     '''
@@ -189,7 +192,7 @@ def test_chip_export_reads_all():
     assert chip.new_reads_index == 1
 
 def test_controller_save_output(tmpdir):
-    controller = Controller(port='test')
+    controller = Controller()
     chip = Chip(1, 0)
     p = Packet()
     chip.reads.append(p)
@@ -218,7 +221,7 @@ def test_controller_save_output(tmpdir):
 
 @pytest.mark.skip
 def test_controller_load(tmpdir):
-    controller = Controller(port='test')
+    controller = Controller()
     chip = Chip(1, 0)
     p = Packet()
     p.chipid = 1
@@ -229,7 +232,7 @@ def test_controller_load(tmpdir):
     name = str(tmpdir.join('test.json'))
     expected_message = 'this is a test'
     controller.save_output(name, expected_message)
-    new_controller = Controller(port='test')
+    new_controller = Controller()
     result_message = new_controller.load(name)
     assert result_message == expected_message
     assert new_controller.reads == controller.reads
@@ -1501,26 +1504,26 @@ def test_configuration_from_dict_reg_reset_cycles():
     assert result == expected
 
 def test_controller_init_chips():
-    controller = Controller(port='test')
+    controller = Controller()
     result = list(map(repr, controller._init_chips()))
     expected = list(map(repr, (Chip(i, 0) for i in range(256))))
     assert result == expected
 
 def test_controller_get_chip():
-    controller = Controller(port='test')
+    controller = Controller()
     chip = Chip(1, 3)
     controller.chips.append(chip)
     assert controller.get_chip(1, 3) == chip
 
 def test_controller_get_chip_all_chips():
-    controller = Controller(port='test')
+    controller = Controller()
     controller.use_all_chips = True
     result = controller.get_chip(5, 0)
     expected = controller.all_chips[5]
     assert result == expected
 
 def test_controller_get_chip_error():
-    controller = Controller(port='test')
+    controller = Controller()
     chip = Chip(1, 3)
     controller.chips.append(chip)
     with pytest.raises(ValueError, message='Should fail: bad chipid'):
@@ -1528,259 +1531,163 @@ def test_controller_get_chip_error():
     with pytest.raises(ValueError, message='Should fail: bad chainid'):
         controller.get_chip(1, 1)
 
-def test_controller_serial_read_mock():
-    controller = Controller(port='test')
-    FakeSerialPort.data_to_mock_read = bytes(bytearray(10))
-    result = controller.serial_read(0.1)
-    expected = bytes(bytearray(10))
+def test_controller_read():
+    controller = Controller()
+    controller.io = FakeIO()
+    controller.io.queue.append(([Packet()], b'\x00\x00'))
+    controller.start_listening()
+    result = controller.read()
+    controller.stop_listening()
+    expected =([Packet()], b'\x00\x00')
     assert result == expected
 
-def test_controller_serial_write_mock(capfd):
-    controller = Controller(port='test')
-    to_write = [b's12345678q', b's87654321q',]
-    controller.serial_write(to_write)
+def test_controller_send(capfd):
+    controller = Controller()
+    controller.io = FakeIO()
+    to_send = [Packet(b'1234567'), Packet(b'abcdefg')]
+    controller.send(to_send)
     result, err = capfd.readouterr()
-    expected = ' END'.join(map(bytes2str, to_write)) + ' END'
-    assert result == expected
-
-def test_controller_serial_write_read_mock(capfd):
-    controller = Controller(port='test')
-
-    to_write = [b's12345678q', b's9862983aq']
-    FakeSerialPort.data_to_mock_read = bytes(bytearray(range(256)))
-    read_result = controller.serial_write_read(to_write, 0.1)
-    write_result, err = capfd.readouterr()
-    read_expected = bytes(bytearray(range(256)))
-    write_expected = ' END'.join(map(bytes2str, to_write)) + ' END'
-    assert read_result == read_expected
-    assert write_result == write_expected
-
-def test_controller_format_UART():
-    controller = Controller(port='test')
-    chip = Chip(2, 4)
-    packet = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)[10]
-    result = controller.format_UART(chip, packet)
-    expected = b'\x73' + packet.bytes() + b'\x04\x71'
-    assert result == expected
-
-def test_controller_format_bytestream():
-    controller = Controller(port='test')
-    chip = Chip(2, 4)
-    packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
-    fpackets = [controller.format_UART(chip, p) for p in packets]
-    result = controller.format_bytestream(fpackets[:1])
-    assert result == fpackets[:1]
-    result = controller.format_bytestream(fpackets[:2])
-    assert result == [b''.join(fpackets[:2])]
-    test_total_packets = 2000
-    result = controller.format_bytestream(fpackets[:1]*test_total_packets)
-    expected = []
-    total_packets = test_total_packets
-    while total_packets >= int(controller.max_write/Configuration.fpga_packet_size):
-        expected.append(b''.join(fpackets[:1]*int(controller.max_write/Configuration.fpga_packet_size)))
-        total_packets -= int(controller.max_write/Configuration.fpga_packet_size)
-    if total_packets > 0:
-        expected.append(b''.join(fpackets[:1]*int(total_packets)))
+    expected = list_of_packets_str(to_send)
     assert result == expected
 
 
 def test_controller_read_configuration(capfd):
-    controller = Controller(port='test')
-    controller._test_mode = True
-    chip = Chip(2, 4)
+    controller = Controller()
+    controller.io = FakeIO()
+    chip = Chip(2, 0)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
-    expected_bytes = b''.join(controller.format_UART(chip, conf_data_i) for
-            conf_data_i in conf_data)
-    expected = packets2mock_serialstream(controller, chip, conf_data)
-    FakeSerialPort.data_to_mock_read = expected_bytes
+    sent_expected = list_of_packets_str(conf_data)
+    controller.io.queue.append((conf_data,b'hi'))
+    received_expected = PacketCollection(conf_data, b'hi', read_id=0,
+            message='configuration read')
     controller.read_configuration(chip)
-    result, err = capfd.readouterr()
-    assert result == expected
+    received_result = controller.reads[-1]
+    sent_result, err = capfd.readouterr()
+    assert sent_result == sent_expected
+    assert received_result == received_expected
+
 
 def test_controller_read_configuration_reg(capfd):
-    controller = Controller(port='test')
-    controller._test_mode = True
-    chip = Chip(2, 4)
-    conf_data = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)[0]
-    expected_bytes = controller.format_UART(chip, conf_data)
-    expected = bytes2str(controller.format_UART(chip, conf_data)) + ' END'
-    FakeSerialPort.data_to_mock_read = expected_bytes
+    controller = Controller()
+    controller.io = FakeIO()
+    chip = Chip(2, 0)
+    conf_data = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)[0:1]
+    sent_expected = list_of_packets_str(conf_data)
+    controller.io.queue.append((conf_data,b'hi'))
+    received_expected = PacketCollection(conf_data, b'hi', read_id=0,
+            message='configuration read')
     controller.read_configuration(chip, 0)
-    result, err = capfd.readouterr()
-    assert result == expected
+    received_result = controller.reads[-1]
+    sent_result, err = capfd.readouterr()
+    assert sent_result == sent_expected
+    assert received_result == received_expected
 
 def test_controller_write_configuration(capfd):
-    controller = Controller(port='test')
-    controller._test_mode = True
-    chip = Chip(2, 4)
+    controller = Controller()
+    controller.io = FakeIO()
+    chip = Chip(2, 0)
     controller.write_configuration(chip)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
-    expected = packets2mock_serialstream(controller, chip, conf_data)
+    expected = list_of_packets_str(conf_data)
     result, err = capfd.readouterr()
     assert result == expected
 
 def test_controller_write_configuration_one_reg(capfd):
-    controller = Controller(port='test')
-    controller._test_mode = True
-    chip = Chip(2, 4)
+    controller = Controller()
+    controller.io = FakeIO()
+    chip = Chip(2, 0)
     controller.write_configuration(chip, 0)
-    conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[0]
-    expected = bytes2str(controller.format_UART(chip, conf_data)) + ' END'
+    conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[0:1]
+    expected = list_of_packets_str(conf_data)
     result, err = capfd.readouterr()
     assert result == expected
 
 def test_controller_write_configuration_write_read(capfd):
-    controller = Controller(port='test')
-    controller.timeout=0.01
+    controller = Controller()
+    controller.io = FakeIO()
     chip = Chip(2, 0)
     controller.chips.append(chip)
-    to_read = b's\x08\x0034567\x00q'
-    FakeSerialPort.data_to_mock_read = to_read
+    to_read = ([Packet(b'1234567')], b'hi')
+    controller.io.queue.append(to_read)
+    expected_read = PacketCollection(*to_read, read_id=0,
+            message='configuration write')
     controller.write_configuration(chip, registers=5, write_read=0.1)
-    assert controller.reads[0].bytestream == to_read
-    conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[5]
-    expected = bytes2str(controller.format_UART(chip, conf_data)) + ' END'
-    result, err = capfd.readouterr()
-    assert result == expected
+    result_read = controller.reads[0]
+    assert result_read == expected_read
+    conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[5:6]
+    expected_sent = list_of_packets_str(conf_data)
+    result_sent, err = capfd.readouterr()
+    assert result_sent == expected_sent
 
 def test_controller_multi_write_configuration(capfd):
-    controller = Controller(port='test')
-    controller._test_mode = True
-    chip = Chip(2, 4)
-    chip2 = Chip(3, 4)
+    controller = Controller()
+    controller.io = FakeIO()
+    chip = Chip(2, 0)
+    chip2 = Chip(3, 0)
     controller.multi_write_configuration((chip, chip2))
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
     conf_data2 = chip2.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
-    final_string_1 = packets2mock_serialstream(controller, chip, conf_data)
-    final_string_2 = packets2mock_serialstream(controller, chip2, conf_data2)
+    final_string_1 = list_of_packets_str(conf_data)
+    final_string_2 = list_of_packets_str(conf_data2)
     expected = final_string_1 + final_string_2
     result, err = capfd.readouterr()
     assert result == expected
 
 def test_controller_multi_write_configuration_specify_registers(capfd):
-    controller = Controller(port='test')
-    controller._test_mode = True
-    chip = Chip(2, 4)
-    chip2 = Chip(3, 4)
+    controller = Controller()
+    controller.io = FakeIO()
+    chip = Chip(2, 0)
+    chip2 = Chip(3, 0)
     controller.multi_write_configuration([(chip, 0), chip2])
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[:1]
     conf_data2 = chip2.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
-    final_string_1 = packets2mock_serialstream(controller, chip, conf_data)
-    final_string_2 = packets2mock_serialstream(controller, chip2, conf_data2)
+    final_string_1 = list_of_packets_str(conf_data)
+    final_string_2 = list_of_packets_str(conf_data2)
     expected = final_string_1 + final_string_2
     result, err = capfd.readouterr()
     assert result == expected
 
 
 def test_controller_multi_read_configuration(capfd):
-    controller = Controller(port='test')
+    controller = Controller()
+    controller.io = FakeIO()
     controller.use_all_chips = True
-    controller._test_mode = True
-    chip = Chip(2, 4)
-    chip2 = Chip(3, 4)
-    controller.multi_read_configuration((chip, chip2))
+    chip = Chip(2, 0)
+    chip2 = Chip(3, 0)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
     conf_data2 = chip2.get_configuration_packets(Packet.CONFIG_READ_PACKET)
-    final_string_1 = packets2mock_serialstream(controller, chip, conf_data)
-    final_string_2 = packets2mock_serialstream(controller, chip2, conf_data2)
-    expected = final_string_1 + final_string_2
-    result, err = capfd.readouterr()
-    assert result == expected
+    final_string_1 = list_of_packets_str(conf_data)
+    final_string_2 = list_of_packets_str(conf_data2)
+    expected_sent = final_string_1 + final_string_2
+    controller.io.queue.append((conf_data+conf_data2, b'hi'))
+    expected_read = PacketCollection(conf_data+conf_data2, b'hi',
+            read_id=0, message='multi configuration read')
+    controller.multi_read_configuration((chip, chip2))
+    result_sent, err = capfd.readouterr()
+    result_read = controller.reads[-1]
+    assert result_sent == expected_sent
+    assert result_read == expected_read
 
 def test_controller_multi_read_configuration_specify_registers(capfd):
-    controller = Controller(port='test')
+    controller = Controller()
+    controller.io = FakeIO()
     controller.use_all_chips = True
-    controller._test_mode = True
     chip = Chip(2, 4)
     chip2 = Chip(3, 4)
-    controller.multi_read_configuration([(chip, 0), chip2])
     conf_data = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)[:1]
     conf_data2 = chip2.get_configuration_packets(Packet.CONFIG_READ_PACKET)
-    final_string_1 = packets2mock_serialstream(controller, chip, conf_data)
-    final_string_2 = packets2mock_serialstream(controller, chip2, conf_data2)
-    expected = final_string_1 + final_string_2
-    result, err = capfd.readouterr()
-    assert result == expected
+    final_string_1 = list_of_packets_str(conf_data)
+    final_string_2 = list_of_packets_str(conf_data2)
+    expected_sent = final_string_1 + final_string_2
+    controller.io.queue.append((conf_data+conf_data2, b'hi'))
+    expected_read = PacketCollection(conf_data+conf_data2, b'hi',
+            read_id=0, message='multi configuration read')
+    controller.multi_read_configuration([(chip, 0), chip2])
+    result_sent, err = capfd.readouterr()
+    result_read = controller.reads[-1]
+    assert result_sent == expected_sent
+    assert result_read == expected_read
 
-def test_controller_get_configuration_bytestreams():
-    controller = Controller(port='test')
-    chip = Chip(0, 0)
-    controller.chips.append(chip)
-    result = controller.get_configuration_bytestreams(chip,
-            Packet.CONFIG_WRITE_PACKET, [1, 0])
-    all_packets = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
-    bytestream_reg_0 = controller.format_UART(chip, all_packets[0])
-    bytestream_reg_1 = controller.format_UART(chip, all_packets[1])
-    expected = [bytestream_reg_0 + bytestream_reg_1]
-    assert result == expected
-
-def test_controller_parse_input():
-    controller = Controller(port='test')
-    chip = Chip(2, 4)
-    controller.chips.append(chip)
-    packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
-    fpackets = [controller.format_UART(chip, p) for p in packets]
-    bytestream = b''.join(controller.format_bytestream(fpackets))
-    result = controller.parse_input(bytestream)
-    expected = packets
-    assert result == expected
-
-def test_controller_parse_input_dropped_data_byte():
-    # Test whether the parser can recover from dropped bytes
-    controller = Controller(port='test')
-    chip = Chip(2, 4)
-    controller.chips.append(chip)
-    packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
-    fpackets = [controller.format_UART(chip, p) for p in packets]
-    bytestream = b''.join(controller.format_bytestream(fpackets))
-    # Drop a byte in the first packet
-    bytestream_faulty = bytestream[:5] + bytestream[6:]
-    result = controller.parse_input(bytestream_faulty)
-    #skipped = [(slice(0, 9), bytestream_faulty[0:9])]
-    expected = packets[1:]
-    assert result == expected
-
-def test_controller_parse_input_dropped_start_byte():
-    controller = Controller(port='test')
-    chip = Chip(2, 4)
-    controller.chips.append(chip)
-    packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
-    fpackets = [controller.format_UART(chip, p) for p in packets]
-    bytestream = b''.join(controller.format_bytestream(fpackets))
-    # Drop the first start byte
-    bytestream_faulty = bytestream[1:]
-    #skipped = [(slice(0, 9), bytestream_faulty[0:9])]
-    result = controller.parse_input(bytestream_faulty)
-    expected = packets[1:]
-    assert result == expected
-
-def test_controller_parse_input_dropped_stop_byte():
-    controller = Controller(port='test')
-    chip = Chip(2, 4)
-    controller.chips.append(chip)
-    packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
-    fpackets = [controller.format_UART(chip, p) for p in packets]
-    bytestream = b''.join(controller.format_bytestream(fpackets))
-    # Drop the first stop byte
-    bytestream_faulty = bytestream[:9] + bytestream[10:]
-    #skipped = [(slice(0, 9), bytestream_faulty[0:9])]
-    result = controller.parse_input(bytestream_faulty)
-    expected = packets[1:]
-    assert result == expected
-
-def test_controller_parse_input_dropped_stopstart_bytes():
-    controller = Controller(port='test')
-    chip = Chip(2, 4)
-    controller.chips.append(chip)
-    packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
-    fpackets = [controller.format_UART(chip, p) for p in packets]
-    bytestream = b''.join(controller.format_bytestream(fpackets))
-    # Drop the first stop byte
-    bytestream_faulty = bytestream[:9] + bytestream[11:]
-    #skipped = [(slice(0, 18), bytestream_faulty[:18])]
-    result = controller.parse_input(bytestream_faulty)
-    expected = packets[2:]
-    assert result == expected
 
 def test_packetcollection_getitem_int():
     expected = Packet()
