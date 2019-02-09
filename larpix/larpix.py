@@ -597,11 +597,6 @@ class Configuration(object):
         for channel in list_of_channels:
             self.channel_mask[channel] = 1
 
-    def enable_normal_operation(self):
-        #TODO Ask Dan what this means
-        # Load configuration for a normal physics run
-        pass
-
     def enable_external_trigger(self, list_of_channels=None):
         '''
         Shortcut for enabling the external trigger functionality for the
@@ -704,7 +699,6 @@ class Configuration(object):
             low_bit = chunk * 8 - 1
             return bitarray(self.csa_bypass_select[high_bit:low_bit:-1])
 
-    #TODO
     def csa_monitor_select_data(self, chunk):
         if chunk == 0:
             return bitarray(self.csa_monitor_select[7::-1])
