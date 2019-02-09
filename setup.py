@@ -12,9 +12,12 @@ here = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
+with open(os.path.join(here, 'VERSION')) as f:
+    version = f.read()
+
 setup(
         name='larpix-control',
-        version='0.7.0',
+        version=version,
         description='Control the LArPix chip',
         long_description=long_description,
         url='https://github.com/samkohn/larpix-control',
