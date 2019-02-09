@@ -30,6 +30,8 @@ class SerialPort(object):
     stop_byte = b'\x71'
     max_write = 250
     def __init__(self, port=None, baudrate=9600, timeout=0):
+        if port is None:
+            port = self._guess_port()
         self.port = port
         self.resolved_port = ''
         self.port_type = ''
@@ -148,7 +150,7 @@ class SerialPort(object):
         return (packets, data_in)
 
     @classmethod
-    def guess_port(cls):
+    def _guess_port(cls):
         '''Guess at correct port name based on platform'''
         platform_default = 'Default'
         platform_name = platform.system()
@@ -244,7 +246,7 @@ class SerialPort(object):
         # FIXME: incorporate auto-scan feature
         if self.port is 'auto':
             # Try to guess the correct port
-            return self.guess_port()
+            return self._guess_port()
         # FIXME: incorporate list option?
         #elif isinstance(self.port, list):
         #    # Try to determine best choice from list

@@ -145,8 +145,7 @@ def get_chip_ids(**settings):
 def quickcontroller(board='pcb-1', interactive=False, io=None):
     '''Quick jump through all controller creation and config steps'''
     if io is None:
-        port = SerialPort.guess_port()
-        io = SerialPort(port=port, baudrate=1000000,
+        io = SerialPort(baudrate=1000000,
                 timeout=0.01)
     larpix.enable_logger()
     cont = create_controller(io=io)
