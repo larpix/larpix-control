@@ -16,7 +16,7 @@ class SerialPort(object):
 
            - ``'/dev/anything'`` ==> Linux ==> pySerial
            - ``'scan-ftdi'`` ==> MacOS ==> libFTDI
-           - ``('zmq', push_address, pull_address)`` ==> ZeroMQ
+
     '''
     # Guesses for default port name by platform
     _default_port_map = {
@@ -64,7 +64,6 @@ class SerialPort(object):
         # parse the bytestream into Packets + metadata
         byte_packets = []
         skip_slices = []
-        #current_stream = bytestream
         bytestream_len = len(bytestream)
         last_possible_start = bytestream_len - packet_size
         index = 0
@@ -83,7 +82,6 @@ class SerialPort(object):
                     Packet(current_stream[data_bytes])))
                 '''
                 byte_packets.append(Packet(bytestream[index+1:index+8]))
-                #current_stream = current_stream[packet_size:]
                 index += packet_size
             else:
                 # Throw out everything between here and the next start byte.
@@ -92,13 +90,6 @@ class SerialPort(object):
                 index = bytestream.find(start_byte, index+1)
                 if index == -1:
                     index = bytestream_len
-                #if next_start_index != 0:
-                #        print('Warning: %d extra bytes in data stream!' %
-                #        (next_start_index+1))
-                #current_stream = current_stream[1:][next_start_index:]
-        #if len(current_stream) != 0:
-        #    print('Warning: %d extra bytes at end of data stream!' %
-        #          len(current_stream))
         return byte_packets
 
     @staticmethod
@@ -216,9 +207,6 @@ class SerialPort(object):
     def _ready_port_test(self):
         return True
 
-    def _ready_port_zmq(self):
-        return True
-
     def _confirm_baudrate(self):
         '''Check and set the baud rate'''
         if self.serial_com.baudrate != self.baudrate:
@@ -244,10 +232,6 @@ class SerialPort(object):
             self._ready_port = self._ready_port_test
             import test.test_larpix as test_lib
             self.serial_com = test_lib.FakeSerialPort()
-        elif self.port_type is 'zmq':
-            self._ready_port = self._ready_port_zmq
-            from larpix.zmqcontroller import Serial_ZMQ
-            self.serial_com = Serial_ZMQ(self.port[1], self.timeout)
         else:
             raise ValueError('Port type must be either pyserial, pylibftdi, or test')
         return
@@ -257,16 +241,9 @@ class SerialPort(object):
         if self.port is None:
             # Must set port
             raise ValueError('You must choose a serial port for operation')
-        # FIXME: incorporate auto-scan feature
         if self.port is 'auto':
             # Try to guess the correct port
             return self._guess_port()
-        # FIXME: incorporate list option?
-        #elif isinstance(self.port, list):
-        #    # Try to determine best choice from list
-        #    for port_name in list:
-        #        if self._port_exists(port_name):
-        #            return port_name
         return self.port
 
     def _resolve_port_type(self):
@@ -281,9 +258,6 @@ class SerialPort(object):
             elif not self.resolved_port.startswith('/dev'):
                 # Looks like a libftdi raw device.  Use pylibftdi.
                 return 'pylibftdi'
-        elif self.resolved_port[0] == 'zmq':
-            # ZeroMQ communication
-            return 'zmq'
         raise ValueError('Unknown port: %s' % self.port)
 
     def _open(self):
@@ -373,3 +347,4 @@ def _test_serial_loopback(port_name='auto', enable_logging=False):
 
 if '__main__' == __name__:
     _test_serial_loopback()
+
