@@ -3,6 +3,15 @@ import zmq
 from .larpix import Packet
 
 class ZMQ_IO(object):
+    '''
+    The ZMQ_IO object interfaces with the Bern LArPix v2 module using
+    the ZeroMQ communications protocol.
+
+    This object handles the required communications, and also has extra
+    methods for additional functionality, including system reset, packet
+    count, clock frequency, and more.
+
+    '''
     def __init__(self, address):
         self.context = zmq.Context()
         self.sender = self.context.socket(zmq.REQ)
