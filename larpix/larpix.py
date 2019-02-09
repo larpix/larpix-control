@@ -110,7 +110,7 @@ class Chip(object):
         self.new_reads_index = len(self.reads)
         return data
 
-class _Smart_List(list): #vb
+class _Smart_List(list):
     '''
     A list type which checks its elements to be within given bounds.
     Used for Configuration attributes where there's a distinct value for

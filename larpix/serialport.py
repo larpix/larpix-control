@@ -56,7 +56,7 @@ class SerialPort(object):
 
     @staticmethod
     def _parse_input(bytestream):
-        packet_size = Configuration.fpga_packet_size  #vb
+        packet_size = Configuration.fpga_packet_size
         start_byte = SerialPort.start_byte[0]
         stop_byte = SerialPort.stop_byte[0]
         metadata_byte_index = 8
@@ -97,7 +97,7 @@ class SerialPort(object):
         bytestreams = []
         current_bytestream = bytes()
         for packet in formatted_packets:
-            if len(current_bytestream) + len(packet) <= SerialPort.max_write:  #vb
+            if len(current_bytestream) + len(packet) <= SerialPort.max_write:
                 current_bytestream += packet
             else:
                 bytestreams.append(current_bytestream)
