@@ -29,5 +29,6 @@ setup(
         keywords='dune physics',
         packages=find_packages(),
         install_requires=['pyserial','bitstring','pytest',
-            'larpix-geometry>=0.3.0', 'bitarray', 'pyzmq'],
+            'larpix-geometry>=0.3.0', 'bitarray', 'pyzmq',
+            'sphinx_rtd_theme'],
 )
