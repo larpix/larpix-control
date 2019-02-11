@@ -1,10 +1,10 @@
 from __future__ import absolute_import
 from functools import total_ordering
 import sys
+from math import fmod
+
 if sys.version_info > (3,):
     long = int
-
-from math import fmod
 
 @total_ordering
 class Timestamp(object):

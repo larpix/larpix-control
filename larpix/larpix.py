@@ -3,15 +3,15 @@ A module to control the LArPix chip.
 
 '''
 from __future__ import absolute_import
-
 import time
-from bitarray import bitarray
-from . import bitarrayhelper as bah
 import json
 import os
 import errno
 import math
 
+from bitarray import bitarray
+
+from . import bitarrayhelper as bah
 from . import configs
 
 class Chip(object):

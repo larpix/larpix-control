@@ -1,5 +1,6 @@
 import time
 import zmq
+
 from .larpix import Packet
 
 class ZMQ_IO(object):

@@ -2,12 +2,12 @@
 A module to assist loading serial data logs for debugging
 '''
 from __future__ import absolute_import
-
 from datetime import datetime
+from math import sqrt
+
 from .dataloader import DataLoader
 from ..larpix import Controller
 from ..larpix import Packet
-from math import sqrt
 
 class LogAnalyzer(DataLoader):
     '''Analyzer of LArPix serial log transmissions'''

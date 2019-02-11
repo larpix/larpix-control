@@ -2,7 +2,6 @@
 A module for serial data formatting and parsing
 '''
 from __future__ import absolute_import
-
 import struct
 
 class DataFormatter(object):

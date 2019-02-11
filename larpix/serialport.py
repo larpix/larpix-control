@@ -6,6 +6,7 @@ from __future__ import absolute_import
 import time
 import os
 import platform
+
 from .larpix import (Configuration, Packet)
 
 class SerialPort(object):

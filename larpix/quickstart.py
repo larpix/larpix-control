@@ -3,11 +3,12 @@ Quickstart commands for test boards
 '''
 
 from __future__ import absolute_import
+import sys
+
 import .larpix as larpix
 from .serialport import SerialPort
 
 ## For interactive mode
-import sys
 VERSION = sys.version_info
 if VERSION[0] < 3:
     input = raw_input

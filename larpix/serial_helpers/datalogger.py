@@ -2,8 +2,8 @@
 A module to assist serial data logging and debugging
 '''
 from __future__ import absolute_import
-
 import os, time, atexit
+
 from .dataformatter import default_formatter
 
 class DataLogger(object):

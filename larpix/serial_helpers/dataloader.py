@@ -2,8 +2,8 @@
 A module to assist loading serial data logs for debugging
 '''
 from __future__ import absolute_import
-
 import os
+
 from .dataformatter import DataFormatter
 
 class DataLoader(object):
