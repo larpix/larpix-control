@@ -17,81 +17,6 @@ import os
 def list_of_packets_str(packets):
     return '\n'.join(map(str, packets)) + '\n'
 
-class FakeSerialPort(object):
-    '''
-    This class implements the interface of the pyserial Serial class so
-    that we can test the serial_read, serial_write, etc. methods of the
-    Controller class.
-
-    '''
-    data_to_mock_read = None
-    def __init__(self, port=None, baudrate=9600, timeout=None):
-        self.port = port
-        self.baudrate = baudrate
-        self.timeout = timeout
-        self.read_index = 0
-
-    def write(self, data):
-        print(bytes2str(data), sep='', end=' END')
-
-    def read(self, nbytes):
-        read_index = self.read_index
-        data = FakeSerialPort.data_to_mock_read[read_index:read_index+nbytes]
-        self.read_index = read_index+nbytes
-        return data
-
-    def open(self):
-        pass
-
-    def close(self):
-        pass
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, traceback):
-        pass
-
-def bytes2str(bytestream):
-    return ' '.join('{:02x}'.format(byte) for byte in
-            bytearray(bytestream))
-
-def packets2mock_serialstream(controller, chip, listofpackets):
-    final_string = ''
-    for i, packet in enumerate(listofpackets):
-        packet_bytes = controller.format_UART(chip,packet)
-        packet_string = bytes2str(packet_bytes)
-        final_string += packet_string + ' '
-        if i % (controller.max_write/Configuration.fpga_packet_size) == ((controller.max_write/Configuration.fpga_packet_size)-1):
-            final_string += 'END'
-    if len(final_string)% controller.max_write > 0:
-        final_string += 'END'
-    return final_string
-
-def test_FakeSerialPort_write(capfd):
-    serial = FakeSerialPort()
-    to_write = b'Hello'
-    serial.write(b'Hello')
-    out, err = capfd.readouterr()
-    expected = bytes2str(to_write) + ' END'
-    assert out == expected
-
-def test_FakeSerialPort_read():
-    serial = FakeSerialPort()
-    expected = bytes(bytearray(10))
-    FakeSerialPort.data_to_mock_read = expected
-    data = serial.read(10)
-    assert data == expected
-
-def test_FakeSerialPort_read_multi():
-    serial = FakeSerialPort()
-    expected = bytes(bytearray(range(10)))
-    FakeSerialPort.data_to_mock_read = expected
-    data = serial.read(5)
-    data += serial.read(5)
-    data += serial.read(5)
-    assert data == expected
-
 def test_chip_str():
     chip = Chip(1, 2)
     result = str(chip)
@@ -219,27 +144,6 @@ def test_controller_save_output(tmpdir):
                 ]
             }
     assert result == expected
-
-@pytest.mark.skip
-def test_controller_load(tmpdir):
-    controller = Controller()
-    chip = Chip(1, 0)
-    p = Packet()
-    p.chipid = 1
-    controller.chips.append(chip)
-    collection = PacketCollection([p], p.bytes(), 'hi', 0)
-    controller.reads.append(collection)
-    controller.sort_packets(collection)
-    name = str(tmpdir.join('test.json'))
-    expected_message = 'this is a test'
-    controller.save_output(name, expected_message)
-    new_controller = Controller()
-    result_message = new_controller.load(name)
-    assert result_message == expected_message
-    assert new_controller.reads == controller.reads
-    for new_chip, old_chip in zip(new_controller.chips, controller.chips):
-        assert repr(new_chip) == repr(old_chip)
-        assert new_chip.reads == old_chip.reads
 
 def test_packet_bits_bytes():
     assert Packet.num_bytes == Packet.size // 8 + 1
@@ -1013,10 +917,6 @@ def test_configuration_enable_channels_default():
     c.disable_channels()
     c.enable_channels()
     assert c.channel_mask == expected
-
-@pytest.mark.xfail
-def test_configuration_enable_normal_operation():
-    assert 1 == 0
 
 def test_configuration_enable_external_trigger():
     c = Configuration()
