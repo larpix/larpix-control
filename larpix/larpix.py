@@ -1096,13 +1096,13 @@ class Controller(object):
         mess_with_listening = write_read != 0 and not already_listening
         if mess_with_listening:
             self.start_listening()
-            stop_time = time.time() + write_Read
+            stop_time = time.time() + write_read
         self.send(packets)
         if mess_with_listening:
             time.sleep(stop_time - time.time())
             packets, bytestream = self.read()
             self.stop_listening()
-            self.store_packets(packets, data, message)
+            self.store_packets(packets, bytestream, message)
 
     def multi_read_configuration(self, chip_reg_pairs, timeout=1,
             message=None):

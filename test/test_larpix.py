@@ -50,6 +50,17 @@ def test_chip_sync_configuration():
     expected = [bitarray([0]*8)] * Configuration.num_registers
     assert result == expected
 
+def test_chip_sync_configuration_slice():
+    chip = Chip(1, 0)
+    packet_type = Packet.CONFIG_READ_PACKET
+    packets = chip.get_configuration_packets(packet_type)
+    chip.reads.append(PacketCollection(packets[:10]))
+    chip.reads.append(PacketCollection(packets[10:]))
+    chip.sync_configuration(index=slice(None, None, None))
+    result = chip.config.all_data()
+    expected = [bitarray([0]*8)] * Configuration.num_registers
+    assert result == expected
+
 def test_chip_export_reads():
     chip = Chip(1, 2)
     packet = Packet()
@@ -1534,6 +1545,24 @@ def test_controller_multi_write_configuration(capfd):
     result, err = capfd.readouterr()
     assert result == expected
 
+def test_controller_multi_write_configuration_write_read(capfd):
+    controller = Controller()
+    controller.io = FakeIO()
+    to_read = ([Packet(b'1234567')], b'hi')
+    controller.io.queue.append(to_read)
+    expected_read = PacketCollection(*to_read, read_id=0,
+            message='configuration write')
+    chip = Chip(2, 0)
+    chip2 = Chip(3, 0)
+    controller.multi_write_configuration((chip, chip2), write_read=0.01)
+    conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
+    conf_data2 = chip2.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
+    final_string_1 = list_of_packets_str(conf_data)
+    final_string_2 = list_of_packets_str(conf_data2)
+    expected = final_string_1 + final_string_2
+    result, err = capfd.readouterr()
+    assert result == expected
+
 def test_controller_multi_write_configuration_specify_registers(capfd):
     controller = Controller()
     controller.io = FakeIO()
@@ -1756,6 +1785,14 @@ def test_timestamp_ambiguous_rollover():
             cpu_time=3, adc_time=6, adj_adc_time=expected_adj_adc_time)
     assert t1 == expected
 
+def test_Smart_List_init_wrong_type():
+    with pytest.raises(ValueError, message='Should fail: wrong type'):
+        sl = _Smart_List(5, 0, 40)
+
+def test_Smart_List_init_out_of_bounds():
+    with pytest.raises(ValueError, message='Should fail: out of bounds'):
+        sl = _Smart_List([-1], 0, 40)
+
 def test_Smart_List_assignment():
     result = _Smart_List([1,2,3],0,40)
     expected = [1,2,3]
@@ -1768,6 +1805,11 @@ def test_Smart_List_error():
     sl = _Smart_List([1,2,3],0,40)
     with pytest.raises(ValueError, message='Should fail: out of bounds'):
         sl[0] = 41
+
+def test_Smart_List_slice_error():
+    sl = _Smart_List(list(range(10)), 0, 40)
+    with pytest.raises(ValueError, message='Should fail: out of bounds'):
+        sl[5:7] = [40, 41, 40]
 
 def test_Smart_List_config_error():
     c = Configuration()
