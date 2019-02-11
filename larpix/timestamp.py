@@ -3,8 +3,11 @@ from functools import total_ordering
 import sys
 from math import fmod
 
+__all__ = ['Timestamp']
+
 if sys.version_info > (3,):
     long = int
+    __all__ += ['long']
 
 @total_ordering
 class Timestamp(object):

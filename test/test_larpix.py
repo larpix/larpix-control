@@ -7,7 +7,7 @@ import pytest
 from larpix.larpix import (Chip, Packet, Configuration, Controller,
         PacketCollection, _Smart_List)
 from larpix.fakeio import FakeIO
-from larpix.Timestamp import *
+from larpix.timestamp import *  # use long = int in py3
 #from bitstring import BitArray
 from bitarray import bitarray
 import larpix.bitarrayhelper as bah
