@@ -5,7 +5,7 @@ Tests for parsing and formatting for the SerialPort IO interface.
 from __future__ import print_function
 import pytest
 from larpix.serialport import SerialPort
-from larpix.larpix import (Chip, Packet, Configuration)
+from larpix.larpix import (Chip, Packet)
 
 def test_serialport_format_UART():
     chip = Chip(2, 0)
@@ -26,9 +26,9 @@ def test_serialport_format_bytestream():
     result = SerialPort.format_bytestream(fpackets[:1]*test_total_packets)
     expected = []
     total_packets = test_total_packets
-    while total_packets >= int(SerialPort.max_write/Configuration.fpga_packet_size):
-        expected.append(b''.join(fpackets[:1]*int(SerialPort.max_write/Configuration.fpga_packet_size)))
-        total_packets -= int(SerialPort.max_write/Configuration.fpga_packet_size)
+    while total_packets >= int(SerialPort.max_write/SerialPort.fpga_packet_size):
+        expected.append(b''.join(fpackets[:1]*int(SerialPort.max_write/SerialPort.fpga_packet_size)))
+        total_packets -= int(SerialPort.max_write/SerialPort.fpga_packet_size)
     if total_packets > 0:
         expected.append(b''.join(fpackets[:1]*int(total_packets)))
     assert result == expected
