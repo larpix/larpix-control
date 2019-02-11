@@ -7,7 +7,7 @@ import time
 import os
 import platform
 
-from .larpix import (Configuration, Packet)
+from .larpix import Packet
 
 class SerialPort(object):
     '''Wrapper for various serial port interfaces across platforms.
@@ -30,6 +30,7 @@ class SerialPort(object):
     start_byte = b'\x73'
     stop_byte = b'\x71'
     max_write = 250
+    fpga_packet_size = 10
     def __init__(self, port=None, baudrate=9600, timeout=0):
         if port is None:
             port = self._guess_port()
@@ -57,7 +58,7 @@ class SerialPort(object):
 
     @staticmethod
     def _parse_input(bytestream):
-        packet_size = Configuration.fpga_packet_size
+        packet_size = SerialPort.fpga_packet_size
         start_byte = SerialPort.start_byte[0]
         stop_byte = SerialPort.stop_byte[0]
         metadata_byte_index = 8

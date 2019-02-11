@@ -144,7 +144,6 @@ class Configuration(object):
 
     '''
 
-    fpga_packet_size = 10
     num_registers = 63
     pixel_trim_threshold_addresses = list(range(0, 32))
     global_threshold_address = 32
