@@ -178,6 +178,27 @@ class Configuration(object):
                            'channel_mask',
                            'external_trigger_mask',
                            'reset_cycles']
+    '''
+    This attribute lists the names of all available configuration
+    registers. Each register name is available as its own attribute for
+    inspecting and setting the value of the corresponding register.
+
+    Certain configuration values are set channel-by-channel. These are
+    represented by a list of values. For example:
+
+        >>> conf.pixel_trim_thresholds[2:5]
+        [16, 16, 16]
+        >>> conf.channel_mask[20] = 1
+        >>> conf.external_trigger_mask = [0] * 32
+
+    Additionally, other configuration values take up more than or less
+    than one complete register. These are still set by referencing the
+    appropriate name. For example, ``cross_trigger_mode`` shares a
+    register with a few other values, and adjusting the value of the
+    ``cross_trigger_mode`` attribute will leave the other values
+    unchanged.
+
+    '''
 
     TEST_OFF = 0x0
     TEST_UART = 0x1
