@@ -6,13 +6,13 @@ from __future__ import absolute_import
 
 import time
 from bitarray import bitarray
-import larpix.bitarrayhelper as bah
+from . import bitarrayhelper as bah
 import json
 import os
 import errno
 import math
 
-import larpix.configs as configs
+from . import configs
 
 class Chip(object):
     '''

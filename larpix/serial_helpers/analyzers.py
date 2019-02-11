@@ -5,8 +5,8 @@ from __future__ import absolute_import
 
 from datetime import datetime
 from .dataloader import DataLoader
-from larpix.larpix import Controller
-from larpix.larpix import Packet
+from ..larpix import Controller
+from ..larpix import Packet
 from math import sqrt
 
 class LogAnalyzer(DataLoader):

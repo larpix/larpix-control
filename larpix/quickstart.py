@@ -3,8 +3,8 @@ Quickstart commands for test boards
 '''
 
 from __future__ import absolute_import
-import larpix.larpix as larpix
-from larpix.serialport import SerialPort
+import .larpix as larpix
+from .serialport import SerialPort
 
 ## For interactive mode
 import sys
