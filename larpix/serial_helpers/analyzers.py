@@ -4,7 +4,7 @@ A module to assist loading serial data logs for debugging
 from __future__ import absolute_import
 
 from datetime import datetime
-from larpix.dataloader import DataLoader
+from .dataloader import DataLoader
 from larpix.larpix import Controller
 from larpix.larpix import Packet
 from math import sqrt
