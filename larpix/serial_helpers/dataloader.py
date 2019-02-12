@@ -2,9 +2,9 @@
 A module to assist loading serial data logs for debugging
 '''
 from __future__ import absolute_import
-
 import os
-from larpix.dataformatter import DataFormatter
+
+from .dataformatter import DataFormatter
 
 class DataLoader(object):
     '''Simple low-level serial data log file loader'''

@@ -1,10 +1,10 @@
-larpix package
-==============
-
-larpix\.larpix module
+LArPix Control Core
 ---------------------
 
 .. automodule:: larpix.larpix
-    :members:
-    :undoc-members:
-    :show-inheritance:
+
+Configuration registers
+^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoattribute:: larpix.larpix.Configuration.register_names
+

@@ -6,7 +6,8 @@ from __future__ import absolute_import
 import time
 import os
 import platform
-from larpix.larpix import (Configuration, Packet)
+
+from .larpix import Packet
 
 class SerialPort(object):
     '''Wrapper for various serial port interfaces across platforms.
@@ -16,7 +17,7 @@ class SerialPort(object):
 
            - ``'/dev/anything'`` ==> Linux ==> pySerial
            - ``'scan-ftdi'`` ==> MacOS ==> libFTDI
-           - ``('zmq', push_address, pull_address)`` ==> ZeroMQ
+
     '''
     # Guesses for default port name by platform
     _default_port_map = {
@@ -29,7 +30,10 @@ class SerialPort(object):
     start_byte = b'\x73'
     stop_byte = b'\x71'
     max_write = 250
+    fpga_packet_size = 10
     def __init__(self, port=None, baudrate=9600, timeout=0):
+        if port is None:
+            port = self._guess_port()
         self.port = port
         self.resolved_port = ''
         self.port_type = ''
@@ -45,7 +49,7 @@ class SerialPort(object):
         return
 
     @staticmethod
-    def format_UART(packet):
+    def _format_UART(packet):
         packet_bytes = packet.bytes()
         daisy_chain_byte = b'\x00'
         formatted_packet = (SerialPort.start_byte + packet_bytes +
@@ -53,8 +57,8 @@ class SerialPort(object):
         return formatted_packet
 
     @staticmethod
-    def parse_input(bytestream):
-        packet_size = Configuration.fpga_packet_size  #vb
+    def _parse_input(bytestream):
+        packet_size = SerialPort.fpga_packet_size
         start_byte = SerialPort.start_byte[0]
         stop_byte = SerialPort.stop_byte[0]
         metadata_byte_index = 8
@@ -62,7 +66,6 @@ class SerialPort(object):
         # parse the bytestream into Packets + metadata
         byte_packets = []
         skip_slices = []
-        #current_stream = bytestream
         bytestream_len = len(bytestream)
         last_possible_start = bytestream_len - packet_size
         index = 0
@@ -81,7 +84,6 @@ class SerialPort(object):
                     Packet(current_stream[data_bytes])))
                 '''
                 byte_packets.append(Packet(bytestream[index+1:index+8]))
-                #current_stream = current_stream[packet_size:]
                 index += packet_size
             else:
                 # Throw out everything between here and the next start byte.
@@ -90,13 +92,6 @@ class SerialPort(object):
                 index = bytestream.find(start_byte, index+1)
                 if index == -1:
                     index = bytestream_len
-                #if next_start_index != 0:
-                #        print('Warning: %d extra bytes in data stream!' %
-                #        (next_start_index+1))
-                #current_stream = current_stream[1:][next_start_index:]
-        #if len(current_stream) != 0:
-        #    print('Warning: %d extra bytes at end of data stream!' %
-        #          len(current_stream))
         return byte_packets
 
     @staticmethod
@@ -104,7 +99,7 @@ class SerialPort(object):
         bytestreams = []
         current_bytestream = bytes()
         for packet in formatted_packets:
-            if len(current_bytestream) + len(packet) <= SerialPort.max_write:  #vb
+            if len(current_bytestream) + len(packet) <= SerialPort.max_write:
                 current_bytestream += packet
             else:
                 bytestreams.append(current_bytestream)
@@ -119,36 +114,50 @@ class SerialPort(object):
         to the LArPix ASICs.
 
         '''
-        packet_bytes = [self.format_UART(p) for p in packets]
+        packet_bytes = [self._format_UART(p) for p in packets]
         bytestreams = self.format_bytestream(packet_bytes)
         for bytestream in bytestreams:
-            self.write(bytestream)
+            self._write(bytestream)
 
     def start_listening(self):
-        self.open()
+        '''
+        Start listening for incoming LArPix data by opening the serial
+        port.
+
+        '''
+        self._open()
         self.is_listening = True
 
     def stop_listening(self, read):
+        '''
+        Stop listening for LArPix data by closing the serial port.
+
+        '''
         if read:
             data = self.empty_queue()
         else:
             data = None
-        self.close()
+        self._close()
         self.is_listening = False
         return data
 
     def empty_queue(self):
+        '''
+        Empty the incoming data buffer and return ``(packets,
+        bytestream)``.
+
+        '''
         data_in = b''
         keep_reading = True
         while keep_reading:
-            new_data = self.read(self.max_write)
+            new_data = self._read(self.max_write)
             data_in += new_data
             keep_reading = (len(new_data) == self.max_write)
-        packets = self.parse_input(data_in)
+        packets = self._parse_input(data_in)
         return (packets, data_in)
 
     @classmethod
-    def guess_port(cls):
+    def _guess_port(cls):
         '''Guess at correct port name based on platform'''
         platform_default = 'Default'
         platform_name = platform.system()
@@ -200,9 +209,6 @@ class SerialPort(object):
     def _ready_port_test(self):
         return True
 
-    def _ready_port_zmq(self):
-        return True
-
     def _confirm_baudrate(self):
         '''Check and set the baud rate'''
         if self.serial_com.baudrate != self.baudrate:
@@ -228,10 +234,6 @@ class SerialPort(object):
             self._ready_port = self._ready_port_test
             import test.test_larpix as test_lib
             self.serial_com = test_lib.FakeSerialPort()
-        elif self.port_type is 'zmq':
-            self._ready_port = self._ready_port_zmq
-            from larpix.zmqcontroller import Serial_ZMQ
-            self.serial_com = Serial_ZMQ(self.port[1], self.timeout)
         else:
             raise ValueError('Port type must be either pyserial, pylibftdi, or test')
         return
@@ -241,16 +243,9 @@ class SerialPort(object):
         if self.port is None:
             # Must set port
             raise ValueError('You must choose a serial port for operation')
-        # FIXME: incorporate auto-scan feature
         if self.port is 'auto':
             # Try to guess the correct port
-            return self.guess_port()
-        # FIXME: incorporate list option?
-        #elif isinstance(self.port, list):
-        #    # Try to determine best choice from list
-        #    for port_name in list:
-        #        if self._port_exists(port_name):
-        #            return port_name
+            return self._guess_port()
         return self.port
 
     def _resolve_port_type(self):
@@ -265,33 +260,30 @@ class SerialPort(object):
             elif not self.resolved_port.startswith('/dev'):
                 # Looks like a libftdi raw device.  Use pylibftdi.
                 return 'pylibftdi'
-        elif self.resolved_port[0] == 'zmq':
-            # ZeroMQ communication
-            return 'zmq'
         raise ValueError('Unknown port: %s' % self.port)
 
-    def open(self):
+    def _open(self):
         '''Open the port'''
         self._ready_port()
         return
 
-    def close(self):
+    def _close(self):
         '''Close the port'''
         if self.serial_com is None: return
         self.serial_com.close()
 
-    def write(self, data):
+    def _write(self, data):
         '''Write data to serial port'''
         self._ready_port()
         write_time = time.time()
         self.serial_com.write(data)
         if not self.is_listening:
-            self.close()
+            self._close()
         if self.logger:
             self.logger.record({'data_type':'write','data':data,'time':write_time})
         return
 
-    def read(self, nbytes):
+    def _read(self, nbytes):
         '''Read data from serial port'''
         self._ready_port()
         read_time = time.time()
@@ -303,7 +295,7 @@ class SerialPort(object):
 def enable_logger(filename=None):
     '''Enable serial data logger'''
     if SerialPort._logger is None:
-        from larpix.datalogger import DataLogger
+        from .serial_helpers.datalogger import DataLogger
         SerialPort._logger = DataLogger(filename)
     if not SerialPort._logger.is_enabled():
         SerialPort._logger.enable()
@@ -320,3 +312,41 @@ def flush_logger():
     if SerialPort._logger is not None:
         SerialPort._logger.flush()
     return
+
+def _test_serial_loopback(port_name='auto', enable_logging=False):
+    '''Write stream of integers to serial port.  Read back and see if
+    loopback data is correct.'''
+    baudrate = 1000000
+    timeout=0.1
+    if enable_logging:
+        enable_logger()
+    serial_port = SerialPort(port_name)
+    serial_port.baudrate = baudrate
+    print(' serial baudrate:',serial_port.baudrate)
+    serial_port._open()
+    test_length = 256
+    n_errors = 0
+    max_read_length = 8192
+    for iter_idx in range(10):
+        write_data = range(iter_idx*10,iter_idx*10+test_length)
+        write_data = [elem % 256 for elem in write_data]
+        write_bits = bytearray(write_data)
+        serial_port._write(write_bits)
+        read_bits = b''
+        read_bits += serial_port._read(max_read_length)
+        print("Testing:" + str([write_bits,]))
+        if str(write_bits) != str(read_bits):
+            print(" Error:")
+            print("  wrote: ", str(write_bits))
+            print("   read: ", str(read_bits))
+            print("   read_bytes / wrote_bytes: %d / %d " % (len(read_bits),
+                                                             test_length))
+            n_errors += 1
+        else:
+            print(' OK')
+    serial_port._close()
+    return n_errors
+
+if '__main__' == __name__:
+    _test_serial_loopback()
+

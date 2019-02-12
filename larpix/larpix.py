@@ -3,17 +3,16 @@ A module to control the LArPix chip.
 
 '''
 from __future__ import absolute_import
-
 import time
-from bitarray import bitarray
-import larpix.bitarrayhelper as bah
-from collections import deque
 import json
 import os
 import errno
 import math
 
-import larpix.configs as configs
+from bitarray import bitarray
+
+from . import bitarrayhelper as bah
+from . import configs
 
 class Chip(object):
     '''
@@ -23,6 +22,11 @@ class Chip(object):
     '''
     num_channels = 32
     def __init__(self, chip_id, io_chain):
+        '''
+        Create a new Chip object with the given ``chip_id`` and
+        ``io_chain`` (daisy chain index).
+
+        '''
         self.chip_id = chip_id
         self.io_chain = io_chain
         self.data_to_send = []
@@ -37,6 +41,12 @@ class Chip(object):
         return 'Chip(%d, %d)' % (self.chip_id, self.io_chain)
 
     def get_configuration_packets(self, packet_type, registers=None):
+        '''
+        Return a list of Packet objects to read or write (depending on
+        ``packet_type``) the specified configuration registers (or all
+        registers by default).
+
+        '''
         if registers is None:
             registers = range(Configuration.num_registers)
         conf = self.config
@@ -100,11 +110,17 @@ class Chip(object):
         self.new_reads_index = len(self.reads)
         return data
 
-class Smart_List(list): #vb
+class _Smart_List(list):
+    '''
+    A list type which checks its elements to be within given bounds.
+    Used for Configuration attributes where there's a distinct value for
+    each LArPix channel.
+
+    '''
 
     def __init__(self, values, low, high):
-        if not (type(values) == list or type(values) == Smart_List):
-            raise ValueError("Smart_List is not list")
+        if not (type(values) == list or type(values) == _Smart_List):
+            raise ValueError("_Smart_List is not list")
         if any([value > high or value < low for value in values]):
             raise ValueError("value out of bounds")
         list.__init__(self, values)
@@ -122,13 +138,21 @@ class Smart_List(list): #vb
                     raise ValueError("value out of bounds")
             list.__setitem__(self, key, value)
 
+    def __setslice__(self, i, j, value):
+        '''
+        Only used in Python 2, where __setslice__ is deprecated but
+        contaminates the namespace of this subclass.
+
+        '''
+        self.__setitem__(slice(i, j, None), value)
+
+
 class Configuration(object):
     '''
     Represents the desired configuration state of a LArPix chip.
 
     '''
 
-    fpga_packet_size = 10
     num_registers = 63
     pixel_trim_threshold_addresses = list(range(0, 32))
     global_threshold_address = 32
@@ -163,6 +187,27 @@ class Configuration(object):
                            'channel_mask',
                            'external_trigger_mask',
                            'reset_cycles']
+    '''
+    This attribute lists the names of all available configuration
+    registers. Each register name is available as its own attribute for
+    inspecting and setting the value of the corresponding register.
+
+    Certain configuration values are set channel-by-channel. These are
+    represented by a list of values. For example:
+
+        >>> conf.pixel_trim_thresholds[2:5]
+        [16, 16, 16]
+        >>> conf.channel_mask[20] = 1
+        >>> conf.external_trigger_mask = [0] * 32
+
+    Additionally, other configuration values take up more than or less
+    than one complete register. These are still set by referencing the
+    appropriate name. For example, ``cross_trigger_mode`` shares a
+    register with a few other values, and adjusting the value of the
+    ``cross_trigger_mode`` attribute will leave the other values
+    unchanged.
+
+    '''
 
     TEST_OFF = 0x0
     TEST_UART = 0x1
@@ -271,6 +316,13 @@ class Configuration(object):
         return d
 
     def get_nondefault_registers(self):
+        '''
+        Return a dict of all registers that are not set to the default
+        configuration (i.e. of the ASIC on power-up). The keys are the
+        register name where there's a difference, and the values are
+        tuples of (current, default) configuration values.
+
+        '''
         return self.compare(Configuration())
 
     @property
@@ -281,7 +333,7 @@ class Configuration(object):
     def pixel_trim_thresholds(self, values):
         low = 0
         high = 31
-        if not (type(values) == list or type(values) == Smart_List):
+        if not (type(values) == list or type(values) == _Smart_List):
             raise ValueError("pixel_trim_threshold is not list")
         if not len(values) == Chip.num_channels:
             raise ValueError("pixel_trim_threshold length is not %d" % Chip.num_channels)
@@ -290,7 +342,7 @@ class Configuration(object):
         if any(value > high or value < low for value in values):
             raise ValueError("pixel_trim_threshold out of bounds")
 
-        self._pixel_trim_thresholds = Smart_List(values, low, high)
+        self._pixel_trim_thresholds = _Smart_List(values, low, high)
 
     @property
     def global_threshold(self):
@@ -352,7 +404,7 @@ class Configuration(object):
     def csa_bypass_select(self, values):
         low = 0
         high = 1
-        if not (type(values) == list or type(values) == Smart_List):
+        if not (type(values) == list or type(values) == _Smart_List):
             raise ValueError("csa_bypass_select is not list")
         if not len(values) == Chip.num_channels:
             raise ValueError("csa_bypass_select length is not %d" % Chip.num_channels)
@@ -361,7 +413,7 @@ class Configuration(object):
         if any(value > high or value < low for value in values):
             raise ValueError("csa_bypass_select out of bounds")
 
-        self._csa_bypass_select = Smart_List(values, low, high)
+        self._csa_bypass_select = _Smart_List(values, low, high)
 
     @property
     def csa_monitor_select(self):
@@ -371,7 +423,7 @@ class Configuration(object):
     def csa_monitor_select(self, values):
         low = 0
         high = 1
-        if not (type(values) == list or type(values) == Smart_List):
+        if not (type(values) == list or type(values) == _Smart_List):
             raise ValueError("csa_monitor_select is not list")
         if not len(values) == Chip.num_channels:
             raise ValueError("csa_monitor_select length is not %d" % Chip.num_channels)
@@ -380,7 +432,7 @@ class Configuration(object):
         if any(value > high or value < low for value in values):
             raise ValueError("csa_monitor_select out of bounds")
 
-        self._csa_monitor_select = Smart_List(values, low, high)
+        self._csa_monitor_select = _Smart_List(values, low, high)
 
     @property
     def csa_testpulse_enable(self):
@@ -553,50 +605,81 @@ class Configuration(object):
         self._reset_cycles = value
 
     def enable_channels(self, list_of_channels=None):
+        '''
+        Shortcut for changing the channel mask for the given
+        channels to "enable" (i.e. 0).
+
+        '''
         if list_of_channels is None:
             list_of_channels = range(Chip.num_channels)
         for channel in list_of_channels:
             self.channel_mask[channel] = 0
 
     def disable_channels(self, list_of_channels=None):
+        '''
+        Shortcut for changing the channel mask for the given channels
+        to "disable" (i.e. 1).
+
+        '''
         if list_of_channels is None:
             list_of_channels = range(Chip.num_channels)
         for channel in list_of_channels:
             self.channel_mask[channel] = 1
 
-    def enable_normal_operation(self):
-        #TODO Ask Dan what this means
-        # Load configuration for a normal physics run
-        pass
-
     def enable_external_trigger(self, list_of_channels=None):
+        '''
+        Shortcut for enabling the external trigger functionality for the
+        given channels. (I.e. disabling the mask.)
+
+        '''
         if list_of_channels is None:
             list_of_channels = range(Chip.num_channels)
         for channel in list_of_channels:
             self.external_trigger_mask[channel] = 0
 
     def disable_external_trigger(self, list_of_channels=None):
+        '''
+        Shortcut for disabling the external trigger functionality for
+        the given channels. (I.e. enabling the mask.)
+
+        '''
         if list_of_channels is None:
             list_of_channels = range(Chip.num_channels)
         for channel in list_of_channels:
             self.external_trigger_mask[channel] = 1
 
     def enable_testpulse(self, list_of_channels=None):
+        '''
+        Shortcut for enabling the test pulser for the given channels.
+
+        '''
         if list_of_channels is None:
             list_of_channels = range(Chip.num_channels)
         for channel in list_of_channels:
             self.csa_testpulse_enable[channel] = 0
 
     def disable_testpulse(self, list_of_channels=None):
+        '''
+        Shortcut for disabling the test pulser for the given channels.
+
+        '''
         if list_of_channels is None:
             list_of_channels = range(Chip.num_channels)
         for channel in list_of_channels:
             self.csa_testpulse_enable[channel] = 1
 
     def enable_analog_monitor(self, channel):
+        '''
+        Shortcut for enabling the analog monitor on the given channel.
+
+        '''
         self.csa_monitor_select[channel] = 1
 
     def disable_analog_monitor(self):
+        '''
+        Shortcut for disabling the analog monitor (on all channels).
+
+        '''
         self.csa_monitor_select = [0] * Chip.num_channels
 
     def all_data(self):
@@ -645,7 +728,6 @@ class Configuration(object):
             low_bit = chunk * 8 - 1
             return bitarray(self.csa_bypass_select[high_bit:low_bit:-1])
 
-    #TODO
     def csa_monitor_select_data(self, chunk):
         if chunk == 0:
             return bitarray(self.csa_monitor_select[7::-1])
@@ -711,12 +793,22 @@ class Configuration(object):
             return bits[:8]
 
     def to_dict(self):
+        '''
+        Export the configuration register names and values into a dict.
+
+        '''
         d = {}
         for register_name in self.register_names:
             d[register_name] = getattr(self, register_name)
         return d
 
     def from_dict(self, d):
+        '''
+        Use a dict of ``{register_name, value}`` to update the current
+        configuration. Not all registers must be in the dict - only
+        those present will be updated.
+
+        '''
         for register_name in self.register_names:
             if register_name in d:
                 setattr(self, register_name, d[register_name])
@@ -752,6 +844,10 @@ class Configuration(object):
         return  #phew
 
     def write(self, filename, force=False, append=False):
+        '''
+        Save the configuration to a JSON file.
+
+        '''
         if os.path.isfile(filename):
             if not force:
                 raise IOError(errno.EEXIST,
@@ -763,6 +859,11 @@ class Configuration(object):
         return 0
 
     def load(self, filename):
+        '''
+        Load a JSON file and use the contents to update the current
+        configuration.
+
+        '''
         data = configs.load(filename)
         self.from_dict(data)
 
@@ -773,30 +874,31 @@ class Controller(object):
     Reading data:
 
     The specific interface for reading data is selected by specifying
-    an ``io`` object to be ``Controller.io``. These objects all have
+    the ``io`` attribute. These objects all have
     similar behavior for reading in new data. On initialization, the
     object will discard any LArPix packets sent from ASICs. To begin
-    saving incoming packets, call ``Controller.start_listening()``.
+    saving incoming packets, call ``start_listening()``.
     Data will then build up in some form of internal register or queue.
-    The queue can be emptied with a call to ``Controller.read()``,
+    The queue can be emptied with a call to ``read()``,
     which empties the queue and returns a list of Packet objects that
     were in the queue. The ``io`` object will still be listening for
     new packets during and after this process. If the queue/register
     fills up, data may be discarded/lost. To stop saving incoming
     packets and retrieve any packets still in the queue, call
-    ``Controller.stop_listening()``. While the Controller is listening,
+    ``stop_listening()``. While the Controller is listening,
     packets can be sent using the appropriate methods without
     interrupting the incoming data stream.
 
     Properties and attributes:
 
     - ``chips``: the ``Chip`` objects that the controller controls
-    - ``all_chip``: all possible ``Chip`` objects (considering there are
+    - ``all_chips``: all possible ``Chip`` objects (considering there are
       a finite number of chip IDs), initialized on object construction
     - ``reads``: list of all the PacketCollections that have been sent
       back to this controller. PacketCollections are created by
-      ``run``, ``write_configuration``, and ``read_configuration``, but
-      not by any of the ``serial_*`` methods.
+      ``run``, ``write_configuration``, ``read_configuration``,
+      ``multi_write_configuration``, ``multi_read_configuration``, and
+      ``store_packets``.
     - ``use_all_chips``: if ``True``, look up chip objects in
       ``self.all_chips``, else look up in ``self.chips`` (default:
       ``False``)
@@ -818,6 +920,11 @@ class Controller(object):
         return [Chip(i, iochain) for i in range(256)]
 
     def get_chip(self, chip_id, io_chain):
+        '''
+        Retrieve the Chip object that this Controller associates with
+        the given ``chip_id`` and ``io_chain``.
+
+        '''
         if self.use_all_chips:
             chip_list = self.all_chips
         else:
@@ -998,13 +1105,13 @@ class Controller(object):
         mess_with_listening = write_read != 0 and not already_listening
         if mess_with_listening:
             self.start_listening()
-            stop_time = time.time() + write_Read
+            stop_time = time.time() + write_read
         self.send(packets)
         if mess_with_listening:
             time.sleep(stop_time - time.time())
             packets, bytestream = self.read()
             self.stop_listening()
-            self.store_packets(packets, data, message)
+            self.store_packets(packets, bytestream, message)
 
     def multi_read_configuration(self, chip_reg_pairs, timeout=1,
             message=None):
@@ -1015,7 +1122,7 @@ class Controller(object):
         Chip objects (to read entire configuration) or (chip, registers)
         tuples to read only the specified register(s). Registers could
         be ``None`` (i.e. all), an ``int`` for that register only, or an
-        iterable of ``int``s.
+        iterable of ints.
 
         Examples:
 
@@ -1061,6 +1168,11 @@ class Controller(object):
             self.store_packets(packets, bytestream, message)
 
     def run(self, timelimit, message):
+        '''
+        Read data from the LArPix ASICs for the given ``timelimit`` and
+        associate the received Packets with the given ``message``.
+
+        '''
         sleeptime = 0.1
         self.start_listening()
         start_time = time.time()
@@ -1077,8 +1189,9 @@ class Controller(object):
 
     def verify_configuration(self, chip_id=None, io_chain=0):
         '''
-        Read chip configuration from specified chip and return a bool that is True if the
-        read chip configuration matches the current configuration stored in chip instance
+        Read chip configuration from specified chip and return ``True`` if the
+        read chip configuration matches the current configuration stored in chip instance.
+
         Also returns a dict containing the values of registers that are different
         (read register, stored register)
         '''
@@ -1287,6 +1400,35 @@ class Packet(object):
     '''
     A single 54-bit LArPix UART data packet.
 
+    LArPix Packet objects have attributes for inspecting and modifying
+    the contents of the packet.
+
+    Internally, packets are represented as an array of bits, and the
+    different attributes use Python "properties" to seamlessly convert
+    between the bits representation and a more intuitive integer
+    representation. The bits representation can be inspected with the
+    ``bits`` attribute.
+
+    Packet objects do not restrict you from adjusting an attribute for an
+    inappropriate packet type. For example, you can create a data packet and
+    then set ``packet.register_address = 5``. This will adjust the packet
+    bits corresponding to a configuration packet's "register\_address"
+    region, which is probably not what you want for your data packet.
+
+    Packets have a parity bit which enforces odd parity, i.e. the sum of
+    all the individual bits in a packet must be an odd number. The parity
+    bit can be accessed as above using the ``parity_bit_value`` attribute.
+    The correct parity bit can be computed using ``compute_parity()``,
+    and the validity of a packet's parity can be checked using
+    ``has_valid_parity()``. When constructing a new packet, the correct
+    parity bit can be assigned using ``assign_parity()``.
+
+    Individual packets can be printed to show a human-readable
+    interpretation of the packet contents. The printed version adjusts its
+    output based on the packet type, so a data packet will show the data
+    word, timestamp, etc., while a configuration packet will show the register
+    address and register data.
+
     '''
     size = 54
     num_bytes = 7
@@ -1377,6 +1519,17 @@ class Packet(object):
         return 'Packet(' + str(self.bytes()) + ')'
 
     def bytes(self):
+        '''
+        Construct the bytes that make up the packet.
+
+        Byte 0 is the first byte that would be sent out and contains the
+        first 8 bits of the packet (i.e. packet type and part of the
+        chip ID).
+
+        *Note*: The internal bits representation of the packet has a
+        different endian-ness compared to the output of this method.
+
+        '''
         # Here's the only other place we have to deal with the
         # endianness issue by reversing the order
         padded_output = self._bit_padding + self.bits
@@ -1680,7 +1833,7 @@ class PacketCollection(object):
         - data packets:
              - channel
              - timestamp
-             - adc_count
+             - adc_counts
              - fifo_half
              - fifo_full
         - test packets:
@@ -1755,31 +1908,4 @@ class PacketCollection(object):
             new_collection.parent = self
             to_return[chipid] = new_collection
         return to_return
-
-class FakeIO(object):
-    '''
-    An IO stand-in that sends output to stdout (i.e. print) and reads
-    input from a data member that can be set in advance.
-
-    '''
-    def __init__(self):
-        self.is_listening = False
-        self.queue = deque()
-
-    def send(self, packets):
-        for packet in packets:
-            print(packet)
-
-    def start_listening(self):
-        self.is_listening = True
-
-    def stop_listening(self):
-        self.is_listening = False
-
-    def empty_queue(self):
-        if not self.is_listening:
-            raise RuntimeError('Cannot empty queue when not'
-                    ' listening')
-        data = self.queue.popleft()
-        return data
 

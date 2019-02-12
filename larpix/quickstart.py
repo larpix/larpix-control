@@ -3,12 +3,12 @@ Quickstart commands for test boards
 '''
 
 from __future__ import absolute_import
-import larpix.larpix as larpix
-from larpix.serialport import SerialPort
-from larpix.tasks import get_chip_ids
+import sys
+
+import .larpix as larpix
+from .serialport import SerialPort
 
 ## For interactive mode
-import sys
 VERSION = sys.version_info
 if VERSION[0] < 3:
     input = raw_input
@@ -105,12 +105,48 @@ def flush_stale_data(controller):
     controller.run(1,'flush_buffer')
     controller.reads = []
     return
-    
+
+def get_chip_ids(**settings):
+    '''
+    Return a list of Chip objects representing the chips on the board.
+
+    Checks if a chip is present by adjusting one channel's pixel trim
+    threshold and checking to see that the correct configuration is read
+    back in.
+    '''
+    logger = logging.getLogger(__name__)
+    logger.info('Executing get_chip_ids')
+    if 'controller' in settings:
+        controller = settings['controller']
+    else:
+        controller = larpix.Controller(settings['port'])
+    controller.use_all_chips = True
+    stored_timeout = controller.timeout
+    controller.timeout=0.1
+    chips = []
+    chip_regs = [(c, 0) for c in controller.all_chips]
+    controller.multi_read_configuration(chip_regs, timeout=0.1)
+    for chip in controller.all_chips:
+        if len(chip.reads) == 0:
+            print('Chip ID %d: No packet recieved' %
+                  chip.chip_id)
+            continue
+        if len(chip.reads[0]) != 1:
+            print('Cannot determine if chip %d exists because more'
+                    'than 1 packet was received (expected 1)' %
+                    chip.chip_id)
+            continue
+        if chip.reads[0][0].register_data != 0:
+            chips.append(chip)
+            logger.info('Found chip %s' % chip)
+    controller.timeout = stored_timeout
+    controller.use_all_chips = False
+    return chips
+
 def quickcontroller(board='pcb-1', interactive=False, io=None):
     '''Quick jump through all controller creation and config steps'''
     if io is None:
-        port = SerialPort.guess_port()
-        io = SerialPort(port=port, baudrate=1000000,
+        io = SerialPort(baudrate=1000000,
                 timeout=0.01)
     larpix.enable_logger()
     cont = create_controller(io=io)

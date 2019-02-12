@@ -2,9 +2,9 @@
 A module to assist serial data logging and debugging
 '''
 from __future__ import absolute_import
-
 import os, time, atexit
-from larpix.dataformatter import default_formatter
+
+from .dataformatter import default_formatter
 
 class DataLogger(object):
     '''Simple low-level serial data logger for debugging purposes'''

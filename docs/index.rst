@@ -3,20 +3,18 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to larpix-control's documentation!
-==========================================
+LArPix-Control Software Documentation
+=====================================
+
+Here is the documentation for LArPix Control.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
 
-   api/modules
+   api/larpix
+   api/serialport
+   api/zmq_io
+   api/fakeio
 
 
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+:ref:`genindex`

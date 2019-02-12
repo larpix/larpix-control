@@ -5,8 +5,9 @@ Use the pytest framework to write tests for the larpix module.
 from __future__ import print_function
 import pytest
 from larpix.larpix import (Chip, Packet, Configuration, Controller,
-        PacketCollection, Smart_List, FakeIO)
-from larpix.Timestamp import *
+        PacketCollection, _Smart_List)
+from larpix.fakeio import FakeIO
+from larpix.timestamp import *  # use long = int in py3
 #from bitstring import BitArray
 from bitarray import bitarray
 import larpix.bitarrayhelper as bah
@@ -15,81 +16,6 @@ import os
 
 def list_of_packets_str(packets):
     return '\n'.join(map(str, packets)) + '\n'
-
-class FakeSerialPort(object):
-    '''
-    This class implements the interface of the pyserial Serial class so
-    that we can test the serial_read, serial_write, etc. methods of the
-    Controller class.
-
-    '''
-    data_to_mock_read = None
-    def __init__(self, port=None, baudrate=9600, timeout=None):
-        self.port = port
-        self.baudrate = baudrate
-        self.timeout = timeout
-        self.read_index = 0
-
-    def write(self, data):
-        print(bytes2str(data), sep='', end=' END')
-
-    def read(self, nbytes):
-        read_index = self.read_index
-        data = FakeSerialPort.data_to_mock_read[read_index:read_index+nbytes]
-        self.read_index = read_index+nbytes
-        return data
-
-    def open(self):
-        pass
-
-    def close(self):
-        pass
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, traceback):
-        pass
-
-def bytes2str(bytestream):
-    return ' '.join('{:02x}'.format(byte) for byte in
-            bytearray(bytestream))
-
-def packets2mock_serialstream(controller, chip, listofpackets):
-    final_string = ''
-    for i, packet in enumerate(listofpackets):
-        packet_bytes = controller.format_UART(chip,packet)
-        packet_string = bytes2str(packet_bytes)
-        final_string += packet_string + ' '
-        if i % (controller.max_write/Configuration.fpga_packet_size) == ((controller.max_write/Configuration.fpga_packet_size)-1):
-            final_string += 'END'
-    if len(final_string)% controller.max_write > 0:
-        final_string += 'END'
-    return final_string
-
-def test_FakeSerialPort_write(capfd):
-    serial = FakeSerialPort()
-    to_write = b'Hello'
-    serial.write(b'Hello')
-    out, err = capfd.readouterr()
-    expected = bytes2str(to_write) + ' END'
-    assert out == expected
-
-def test_FakeSerialPort_read():
-    serial = FakeSerialPort()
-    expected = bytes(bytearray(10))
-    FakeSerialPort.data_to_mock_read = expected
-    data = serial.read(10)
-    assert data == expected
-
-def test_FakeSerialPort_read_multi():
-    serial = FakeSerialPort()
-    expected = bytes(bytearray(range(10)))
-    FakeSerialPort.data_to_mock_read = expected
-    data = serial.read(5)
-    data += serial.read(5)
-    data += serial.read(5)
-    assert data == expected
 
 def test_chip_str():
     chip = Chip(1, 2)
@@ -120,6 +46,17 @@ def test_chip_sync_configuration():
     packets = chip.get_configuration_packets(packet_type)
     chip.reads.append(PacketCollection(packets))
     chip.sync_configuration()
+    result = chip.config.all_data()
+    expected = [bitarray([0]*8)] * Configuration.num_registers
+    assert result == expected
+
+def test_chip_sync_configuration_slice():
+    chip = Chip(1, 0)
+    packet_type = Packet.CONFIG_READ_PACKET
+    packets = chip.get_configuration_packets(packet_type)
+    chip.reads.append(PacketCollection(packets[:10]))
+    chip.reads.append(PacketCollection(packets[10:]))
+    chip.sync_configuration(index=slice(None, None, None))
     result = chip.config.all_data()
     expected = [bitarray([0]*8)] * Configuration.num_registers
     assert result == expected
@@ -218,27 +155,6 @@ def test_controller_save_output(tmpdir):
                 ]
             }
     assert result == expected
-
-@pytest.mark.skip
-def test_controller_load(tmpdir):
-    controller = Controller()
-    chip = Chip(1, 0)
-    p = Packet()
-    p.chipid = 1
-    controller.chips.append(chip)
-    collection = PacketCollection([p], p.bytes(), 'hi', 0)
-    controller.reads.append(collection)
-    controller.sort_packets(collection)
-    name = str(tmpdir.join('test.json'))
-    expected_message = 'this is a test'
-    controller.save_output(name, expected_message)
-    new_controller = Controller()
-    result_message = new_controller.load(name)
-    assert result_message == expected_message
-    assert new_controller.reads == controller.reads
-    for new_chip, old_chip in zip(new_controller.chips, controller.chips):
-        assert repr(new_chip) == repr(old_chip)
-        assert new_chip.reads == old_chip.reads
 
 def test_packet_bits_bytes():
     assert Packet.num_bytes == Packet.size // 8 + 1
@@ -1013,10 +929,6 @@ def test_configuration_enable_channels_default():
     c.enable_channels()
     assert c.channel_mask == expected
 
-@pytest.mark.xfail
-def test_configuration_enable_normal_operation():
-    assert 1 == 0
-
 def test_configuration_enable_external_trigger():
     c = Configuration()
     expected = [0, 1] * 16
@@ -1560,7 +1472,7 @@ def test_controller_read_configuration(capfd):
     controller.io.queue.append((conf_data,b'hi'))
     received_expected = PacketCollection(conf_data, b'hi', read_id=0,
             message='configuration read')
-    controller.read_configuration(chip)
+    controller.read_configuration(chip, timeout=0.01)
     received_result = controller.reads[-1]
     sent_result, err = capfd.readouterr()
     assert sent_result == sent_expected
@@ -1576,7 +1488,7 @@ def test_controller_read_configuration_reg(capfd):
     controller.io.queue.append((conf_data,b'hi'))
     received_expected = PacketCollection(conf_data, b'hi', read_id=0,
             message='configuration read')
-    controller.read_configuration(chip, 0)
+    controller.read_configuration(chip, 0, timeout=0.01)
     received_result = controller.reads[-1]
     sent_result, err = capfd.readouterr()
     assert sent_result == sent_expected
@@ -1633,6 +1545,24 @@ def test_controller_multi_write_configuration(capfd):
     result, err = capfd.readouterr()
     assert result == expected
 
+def test_controller_multi_write_configuration_write_read(capfd):
+    controller = Controller()
+    controller.io = FakeIO()
+    to_read = ([Packet(b'1234567')], b'hi')
+    controller.io.queue.append(to_read)
+    expected_read = PacketCollection(*to_read, read_id=0,
+            message='configuration write')
+    chip = Chip(2, 0)
+    chip2 = Chip(3, 0)
+    controller.multi_write_configuration((chip, chip2), write_read=0.01)
+    conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
+    conf_data2 = chip2.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
+    final_string_1 = list_of_packets_str(conf_data)
+    final_string_2 = list_of_packets_str(conf_data2)
+    expected = final_string_1 + final_string_2
+    result, err = capfd.readouterr()
+    assert result == expected
+
 def test_controller_multi_write_configuration_specify_registers(capfd):
     controller = Controller()
     controller.io = FakeIO()
@@ -1662,7 +1592,7 @@ def test_controller_multi_read_configuration(capfd):
     controller.io.queue.append((conf_data+conf_data2, b'hi'))
     expected_read = PacketCollection(conf_data+conf_data2, b'hi',
             read_id=0, message='multi configuration read')
-    controller.multi_read_configuration((chip, chip2))
+    controller.multi_read_configuration((chip, chip2), timeout=0.01)
     result_sent, err = capfd.readouterr()
     result_read = controller.reads[-1]
     assert result_sent == expected_sent
@@ -1682,7 +1612,7 @@ def test_controller_multi_read_configuration_specify_registers(capfd):
     controller.io.queue.append((conf_data+conf_data2, b'hi'))
     expected_read = PacketCollection(conf_data+conf_data2, b'hi',
             read_id=0, message='multi configuration read')
-    controller.multi_read_configuration([(chip, 0), chip2])
+    controller.multi_read_configuration([(chip, 0), chip2], timeout=0.01)
     result_sent, err = capfd.readouterr()
     result_read = controller.reads[-1]
     assert result_sent == expected_sent
@@ -1855,8 +1785,16 @@ def test_timestamp_ambiguous_rollover():
             cpu_time=3, adc_time=6, adj_adc_time=expected_adj_adc_time)
     assert t1 == expected
 
+def test_Smart_List_init_wrong_type():
+    with pytest.raises(ValueError, message='Should fail: wrong type'):
+        sl = _Smart_List(5, 0, 40)
+
+def test_Smart_List_init_out_of_bounds():
+    with pytest.raises(ValueError, message='Should fail: out of bounds'):
+        sl = _Smart_List([-1], 0, 40)
+
 def test_Smart_List_assignment():
-    result = Smart_List([1,2,3],0,40)
+    result = _Smart_List([1,2,3],0,40)
     expected = [1,2,3]
     assert result == expected
     result[0] = 20
@@ -1864,9 +1802,14 @@ def test_Smart_List_assignment():
     assert result == expected
 
 def test_Smart_List_error():
-    sl = Smart_List([1,2,3],0,40)
+    sl = _Smart_List([1,2,3],0,40)
     with pytest.raises(ValueError, message='Should fail: out of bounds'):
         sl[0] = 41
+
+def test_Smart_List_slice_error():
+    sl = _Smart_List(list(range(10)), 0, 40)
+    with pytest.raises(ValueError, message='Should fail: out of bounds'):
+        sl[5:7] = [40, 41, 40]
 
 def test_Smart_List_config_error():
     c = Configuration()
