@@ -138,6 +138,15 @@ class _Smart_List(list):
                     raise ValueError("value out of bounds")
             list.__setitem__(self, key, value)
 
+    def __setslice__(self, i, j, value):
+        '''
+        Only used in Python 2, where __setslice__ is deprecated but
+        contaminates the namespace of this subclass.
+
+        '''
+        self.__setitem__(slice(i, j, None), value)
+
+
 class Configuration(object):
     '''
     Represents the desired configuration state of a LArPix chip.
