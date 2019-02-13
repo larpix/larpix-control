@@ -5,8 +5,9 @@ Quickstart commands for test boards
 from __future__ import absolute_import
 import sys
 
-import .larpix as larpix
-from .serialport import SerialPort
+import larpix.larpix as larpix
+from .serialport import SerialPort, enable_logger
+
 
 ## For interactive mode
 VERSION = sys.version_info
@@ -37,7 +38,7 @@ board_info_map = dict([(elem['name'],elem) for elem in board_info_list])
 
 def create_controller(timeout=0.01, io=None):
     '''Create a default controller'''
-    c = larpix.Controller(timeout=timeout)
+    c = larpix.Controller()
     c.io = io
     return c
 
@@ -148,7 +149,7 @@ def quickcontroller(board='pcb-1', interactive=False, io=None):
     if io is None:
         io = SerialPort(baudrate=1000000,
                 timeout=0.01)
-    larpix.enable_logger()
+    enable_logger()
     cont = create_controller(io=io)
     init_controller(cont,board)
     silence_chips(cont, interactive)

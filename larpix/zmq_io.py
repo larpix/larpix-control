@@ -17,6 +17,8 @@ class ZMQ_IO(object):
         self.context = zmq.Context()
         self.sender = self.context.socket(zmq.REQ)
         self.receiver = self.context.socket(zmq.SUB)
+        self.hwm = 20000
+        self.receiver.set_hwm(self.hwm)
         send_address = address + ':5555'
         receive_address = address + ':5556'
         self.sender.connect(send_address)
@@ -48,14 +50,18 @@ class ZMQ_IO(object):
     def empty_queue(self):
         packets = []
         bytestream_list = []
-        while self.poller.poll(0):
+        bytestream = b''
+        n_recv = 0
+        while self.poller.poll(0) and n_recv < self.hwm:
             message = self.receiver.recv()
+            n_recv += 1
             bytestream_list.append(message)
             if len(message) % 8 == 0:
                 for start_index in range(0, len(message), 8):
                     packet_bytes = message[start_index:start_index+7]
                     packets.append(Packet(packet_bytes))
-            bytestream = b''.join(bytestream_list)
+        print('len(bytestream_list) = %d' % len(bytestream_list))
+        bytestream = b''.join(bytestream_list)
         return packets, bytestream
 
     def reset(self):
