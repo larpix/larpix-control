@@ -13,6 +13,8 @@ class ZMQ_IO(object):
     count, clock frequency, and more.
 
     '''
+    _logger = None
+
     def __init__(self, address):
         self.context = zmq.Context()
         self.sender = self.context.socket(zmq.REQ)
@@ -27,13 +29,21 @@ class ZMQ_IO(object):
         self.is_listening = False
         self.poller = zmq.Poller()
         self.poller.register(self.receiver, zmq.POLLIN)
+        self.logger = None
+        if not (self._logger is None):
+            self.logger = self._logger
 
     def send(self, packets):
         self.sender_replies = []
         for packet in packets:
+            send_time = time.time()
+
             tosend = b'SNDWORD 0x00%s 0' % packet.bytes()[::-1].hex().encode()
             self.sender.send(tosend)
             self.sender_replies.append(self.sender.recv())
+
+            if self.logger:
+                self.logger.record({'data_type':'write','data':packet.bytes(),'time':send_time})
 
     def start_listening(self):
         if self.is_listening:
@@ -52,6 +62,7 @@ class ZMQ_IO(object):
         bytestream_list = []
         bytestream = b''
         n_recv = 0
+        read_time = time.time()
         while self.poller.poll(0) and n_recv < self.hwm:
             message = self.receiver.recv()
             n_recv += 1
@@ -60,8 +71,11 @@ class ZMQ_IO(object):
                 for start_index in range(0, len(message), 8):
                     packet_bytes = message[start_index:start_index+7]
                     packets.append(Packet(packet_bytes))
-        print('len(bytestream_list) = %d' % len(bytestream_list))
+
+        #print('len(bytestream_list) = %d' % len(bytestream_list))
         bytestream = b''.join(bytestream_list)
+        if self.logger:
+            self.logger.record({'data_type':'read','data':bytestream,'time':read_time})
         return packets, bytestream
 
     def reset(self):
@@ -110,4 +124,25 @@ class ZMQ_IO(object):
         self.sender.send(b'PING_HB')
         result = self.sender.recv()
         return result[:2] == b'OK'
+
+def enable_logger(filename=None):
+    '''Enable serial data logger'''
+    if ZMQ_IO._logger is None:
+        from larpix.serial_helpers.datalogger import DataLogger
+        ZMQ_IO._logger = DataLogger(filename)
+    if not ZMQ_IO._logger.is_enabled():
+        ZMQ_IO._logger.enable()
+    return
+
+def disable_logger():
+    '''Disable serial data logger'''
+    if ZMQ_IO._logger is not None:
+        ZMQ_IO_logger.disable()
+    return
+
+def flush_logger():
+    '''Flush serial data logger data to output file'''
+    if ZMQ_IO._logger is not None:
+        ZMQ_IO._logger.flush()
+    return
 
