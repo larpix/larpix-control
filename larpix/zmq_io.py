@@ -75,7 +75,7 @@ class ZMQ_IO(object):
         #print('len(bytestream_list) = %d' % len(bytestream_list))
         bytestream = b''.join(bytestream_list)
         if self.logger:
-            self.logger.record({'data_type':'read','data':bytestream,'time':read_time})
+            self.logger.record({'data_type':'read','data':b''.join([packet.bytes() for packet in packets]),'time':read_time})
         return packets, bytestream
 
     def reset(self):
