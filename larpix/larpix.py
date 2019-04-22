@@ -1011,7 +1011,9 @@ class Controller(object):
             stop_time = time.time() + write_read
         self.send(packets)
         if mess_with_listening:
-            time.sleep(stop_time - time.time())
+            sleep_time = stop_time - time.time()
+            if sleep_time > 0:
+                time.sleep(sleep_time)
             packets, bytestream = self.read()
             self.stop_listening()
             self.store_packets(packets, bytestream, message)
@@ -1052,7 +1054,9 @@ class Controller(object):
             stop_time = time.time() + timeout
         self.send(packets)
         if not already_listening:
-            time.sleep(stop_time - time.time())
+            sleep_time = stop_time - time.time()
+            if sleep_time > 0:
+                time.sleep(sleep_time)
             packets, bytestream = self.read()
             self.stop_listening()
             self.store_packets(packets, bytestream, message)
@@ -1108,7 +1112,10 @@ class Controller(object):
             stop_time = time.time() + write_read
         self.send(packets)
         if mess_with_listening:
-            time.sleep(stop_time - time.time())
+            sleep_time = stop_time - time.time()
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+            #time.sleep(stop_time - time.time())
             packets, bytestream = self.read()
             self.stop_listening()
             self.store_packets(packets, bytestream, message)
@@ -1162,7 +1169,10 @@ class Controller(object):
             stop_time = time.time() + timeout
         self.send(packets)
         if not already_listening:
-            time.sleep(stop_time - time.time())
+            sleep_time = stop_time - time.time()
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+            #time.sleep(stop_time - time.time())
             packets, bytestream = self.read()
             self.stop_listening()
             self.store_packets(packets, bytestream, message)

@@ -22,7 +22,7 @@ class SerialPort(object):
     # Guesses for default port name by platform
     _default_port_map = {
         'Default':['/dev/ttyUSB2','/dev/ttyUSB1'], # Same as Linux
-        'Linux':['/dev/serial0','/dev/ttyAMA0', '/dev/ttyUSB2','/dev/ttyUSB1',
+        'Linux':['/dev/serial0', '/dev/ttyAMA0', '/dev/ttyUSB2','/dev/ttyUSB1',
         '/dev/ttyUSB0'],   # Linux
         'Darwin':['scan-ftdi',],     # OS X
     }
@@ -31,7 +31,7 @@ class SerialPort(object):
     stop_byte = b'\x71'
     max_write = 250
     fpga_packet_size = 10
-    def __init__(self, port=None, baudrate=9600, timeout=0):
+    def __init__(self, port=None, baudrate=1000000, timeout=0):
         if port is None:
             port = self._guess_port()
         self.port = port
@@ -128,18 +128,13 @@ class SerialPort(object):
         self._open()
         self.is_listening = True
 
-    def stop_listening(self, read):
+    def stop_listening(self):
         '''
         Stop listening for LArPix data by closing the serial port.
 
         '''
-        if read:
-            data = self.empty_queue()
-        else:
-            data = None
         self._close()
         self.is_listening = False
-        return data
 
     def empty_queue(self):
         '''
@@ -295,7 +290,7 @@ class SerialPort(object):
 def enable_logger(filename=None):
     '''Enable serial data logger'''
     if SerialPort._logger is None:
-        from .serial_helpers.datalogger import DataLogger
+        from larpix.serial_helpers.datalogger import DataLogger
         SerialPort._logger = DataLogger(filename)
     if not SerialPort._logger.is_enabled():
         SerialPort._logger.enable()
