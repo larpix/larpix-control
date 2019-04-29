@@ -35,15 +35,15 @@ class ZMQ_IO(object):
 
     def send(self, packets):
         self.sender_replies = []
-        for packet in packets:
-            send_time = time.time()
-
-            tosend = b'SNDWORD 0x00%s 0' % packet.bytes()[::-1].hex().encode()
+        send_time = time.time()
+        msg_datas = self.encode(packets)
+        for msg_data in msg_datas:
+            tosend = b'SNDWORD ' + msg_data
             self.sender.send(tosend)
             self.sender_replies.append(self.sender.recv())
 
             if self.logger:
-                self.logger.record({'data_type':'write','data':packet.bytes(),'time':send_time})
+                self.logger.record({'data_type':'write','data':msg_data,'time':send_time})
 
     def start_listening(self):
         if self.is_listening:
@@ -57,6 +57,25 @@ class ZMQ_IO(object):
         self.is_listening = False
         self.receiver.setsockopt(zmq.UNSUBSCRIBE, b'')
 
+    def decode(self, msgs):
+        '''
+        Convert a list ZMQ messages into packets
+        '''
+        packets = []
+        for msg in msgs:
+            if len(msg) % 8 == 0:
+                for start_index in range(0, len(msg), 8):
+                    packet_bytes = message[start_index:start_index+7]
+                    packets.append(Packet(packet_bytes))
+        return packets
+
+    def encode(self, packets):
+        '''
+        Encode a list of packets into ZMQ messages
+        '''
+        msg_data = [b'0x00%s 0' % packet.bytes()[::-1].hex().encode() for packet in packets]
+        return msg_data
+
     def empty_queue(self):
         packets = []
         bytestream_list = []
@@ -67,15 +86,13 @@ class ZMQ_IO(object):
             message = self.receiver.recv()
             n_recv += 1
             bytestream_list.append(message)
-            if len(message) % 8 == 0:
-                for start_index in range(0, len(message), 8):
-                    packet_bytes = message[start_index:start_index+7]
-                    packets.append(Packet(packet_bytes))
+            packets += self.decode([message])
 
         #print('len(bytestream_list) = %d' % len(bytestream_list))
         bytestream = b''.join(bytestream_list)
         if self.logger:
-            self.logger.record({'data_type':'read','data':b''.join([packet.bytes() for packet in packets]),'time':read_time})
+            for msg in bytestream_list:
+                self.logger.record({'data_type':'read','data':msg,'time':read_time})
         return packets, bytestream
 
     def reset(self):

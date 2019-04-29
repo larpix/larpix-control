@@ -108,13 +108,29 @@ class SerialPort(object):
         bytestreams.append(current_bytestream)
         return bytestreams
 
+    def encode(self, packets):
+        '''
+        Encodes a list of packets into a list of bytestream messages
+        '''
+        return [self._format_UART(packet) for packet in packets]
+
+    def decode(self, msgs):
+        '''
+        Decodes a list of serial port bytestreams to packets
+        '''
+        packets = []
+        byte_packet_list = [self._parse_input(msg) for msg in msgs]
+        for packet_list in byte_packet_list:
+            packets += packet_list
+        return packets
+
     def send(self, packets):
         '''
         Format the packets as a bytestream and send it to the FPGA and on
         to the LArPix ASICs.
 
         '''
-        packet_bytes = [self._format_UART(p) for p in packets]
+        packet_bytes = self.encode(packets)
         bytestreams = self.format_bytestream(packet_bytes)
         for bytestream in bytestreams:
             self._write(bytestream)
@@ -148,7 +164,7 @@ class SerialPort(object):
             new_data = self._read(self.max_write)
             data_in += new_data
             keep_reading = (len(new_data) == self.max_write)
-        packets = self._parse_input(data_in)
+        packets = self.decode([data_in])
         return (packets, data_in)
 
     @classmethod
