@@ -1219,7 +1219,7 @@ def test_configuration_read_default():
     c = Configuration()
     expected = c.to_dict()
     c.global_threshold = 100
-    c.load('default.json')
+    c.load('chip/default.json')
     result = c.to_dict()
     assert result == expected
 
