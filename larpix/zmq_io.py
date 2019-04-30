@@ -57,7 +57,8 @@ class ZMQ_IO(object):
         self.is_listening = False
         self.receiver.setsockopt(zmq.UNSUBSCRIBE, b'')
 
-    def decode(self, msgs):
+    @staticmethod
+    def decode(msgs):
         '''
         Convert a list ZMQ messages into packets
         '''
@@ -65,11 +66,12 @@ class ZMQ_IO(object):
         for msg in msgs:
             if len(msg) % 8 == 0:
                 for start_index in range(0, len(msg), 8):
-                    packet_bytes = message[start_index:start_index+7]
+                    packet_bytes = msg[start_index:start_index+7]
                     packets.append(Packet(packet_bytes))
         return packets
 
-    def encode(self, packets):
+    @staticmethod
+    def encode(packets):
         '''
         Encode a list of packets into ZMQ messages
         '''

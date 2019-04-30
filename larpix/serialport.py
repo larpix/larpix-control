@@ -108,18 +108,20 @@ class SerialPort(object):
         bytestreams.append(current_bytestream)
         return bytestreams
 
-    def encode(self, packets):
+    @staticmethod
+    def encode(packets):
         '''
         Encodes a list of packets into a list of bytestream messages
         '''
-        return [self._format_UART(packet) for packet in packets]
+        return [SerialPort._format_UART(packet) for packet in packets]
 
-    def decode(self, msgs):
+    @staticmethod
+    def decode(msgs):
         '''
         Decodes a list of serial port bytestreams to packets
         '''
         packets = []
-        byte_packet_list = [self._parse_input(msg) for msg in msgs]
+        byte_packet_list = [SerialPort._parse_input(msg) for msg in msgs]
         for packet_list in byte_packet_list:
             packets += packet_list
         return packets

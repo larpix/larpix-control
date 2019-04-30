@@ -11,7 +11,7 @@ from ..larpix import Packet
 
 class LogAnalyzer(DataLoader):
     '''Analyzer of LArPix serial log transmissions'''
-    def __init__(self, decoder=None, filename=None):
+    def __init__(self, filename=None, decoder=None):
         '''Constructor
         `decoder` is a handle to the function that should be used convert raw bytes into data packets, e.g. `ZMQ_IO.decode` or `Serial.decode`
         '''
@@ -23,7 +23,11 @@ class LogAnalyzer(DataLoader):
 
     def next_transmission(self):
         '''Parse next set of packets in controller transmission log'''
-        block_desc = self.next_block()
+        block_desc = None
+        try:
+            block_desc = self.next_block()
+        except ValueError:
+            return None
         if block_desc is None:
             return None
         if block_desc['block_type'] == 'data':
