@@ -60,7 +60,7 @@ class ZMQ_IO(object):
                 for start_index in range(0, len(message), 8):
                     packet_bytes = message[start_index:start_index+7]
                     packets.append(Packet(packet_bytes))
-        print('len(bytestream_list) = %d' % len(bytestream_list))
+        #print('len(bytestream_list) = %d' % len(bytestream_list))
         bytestream = b''.join(bytestream_list)
         return packets, bytestream
 
