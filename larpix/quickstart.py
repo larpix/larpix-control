@@ -23,7 +23,7 @@ board_info_list = [
      'file':None,
      'chip_list':[(chip_id,0) for chip_id in range(0,256)],},
     {'name':'pcb-5',
-     'file':'chain/pcb-5_chip_info.json'
+     'file':'chain/pcb-5_chip_info.json',
      'chip_list':[(246,0),(245,0),(252,0),(243,0)],},
     {'name':'pcb-4',
      'file':'chain/pcb-4_chip_info.json',

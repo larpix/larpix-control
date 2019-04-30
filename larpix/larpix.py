@@ -961,7 +961,7 @@ class Controller(object):
             io_chain = chip_info[1]
             chips.append(Chip(chip_id, io_chain))
         self.chips = chips
-        return chip_set['name']
+        return board_info['name']
 
     def send(self, packets):
         '''
