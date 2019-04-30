@@ -12,9 +12,7 @@ Here is the documentation for LArPix Control.
    :maxdepth: 2
 
    api/larpix
-   api/serialport
-   api/zmq_io
-   api/fakeio
-
+   api/io/index
+   api/configs/index
 
 :ref:`genindex`
