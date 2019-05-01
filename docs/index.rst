@@ -15,6 +15,6 @@ Here is the documentation for LArPix Control.
    api/serialport
    api/zmq_io
    api/fakeio
-
+   api/logger/index
 
 :ref:`genindex`

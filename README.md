@@ -36,8 +36,11 @@ example for you to play around with:
 
 ```python
 >>> import larpix.larpix as larpix
+>>> from larpix.logger.stdout_logger import StdoutLogger
 >>> controller = larpix.Controller()
 >>> controller.io = larpix.FakeIO()
+>>> controller.logger = StdoutLogger(buffer_length=0)
+>>> controller.logger.open()
 >>> chip1 = larpix.Chip(1, 0)  # (chipID, IO-chain index)
 >>> controller.chips.append(chip1)
 >>> chip1.config.global_threshold = 25

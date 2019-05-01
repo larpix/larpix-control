@@ -911,6 +911,7 @@ class Controller(object):
         self.reads = []
         self.nreads = 0
         self.io = None
+        self.logger = None
 
     def _init_chips(self, nchips = 256, iochain = 0):
         '''
@@ -940,7 +941,10 @@ class Controller(object):
         Send the specified packets to the LArPix ASICs.
 
         '''
+        timestamp = time.time()
         self.io.send(packets)
+        if self.logger:
+            self.logger.record(packets, data_type='SEND', timestamp=timestamp)
 
     def start_listening(self):
         '''
@@ -966,7 +970,10 @@ class Controller(object):
         recent.
 
         '''
+        timestamp = time.time()
         packets, bytestream = self.io.empty_queue()
+        if self.logger:
+            self.logger.record(packets, data_type='READ', timestamp=timestamp)
         return packets, bytestream
 
     def write_configuration(self, chip, registers=None, write_read=0,
