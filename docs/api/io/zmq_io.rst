@@ -1,5 +1,5 @@
 ZeroMQ IO Interface
 -------------------
 
-.. automodule:: larpix.zmq_io
+.. automodule:: larpix.io.zmq_io
 

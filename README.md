@@ -36,7 +36,7 @@ example for you to play around with:
 
 ```python
 >>> import larpix.larpix as larpix
->>> from larpix.fakeio import FakeIO
+>>> from larpix.io.fakeio import FakeIO
 >>> from larpix.logger.stdout_logger import StdoutLogger
 >>> controller = larpix.Controller()
 >>> controller.io = FakeIO()

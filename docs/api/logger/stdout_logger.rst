@@ -1,5 +1,5 @@
 Stdout Logger Interface
 -----------------------
 
-.. automodule:: larpix.stdout_logger
+.. automodule:: larpix.logger.stdout_logger
 
