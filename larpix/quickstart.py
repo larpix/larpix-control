@@ -7,6 +7,7 @@ import sys
 
 import larpix.larpix as larpix
 from .serialport import SerialPort, enable_logger
+from .zmq_io import ZMQ_IO
 
 
 ## For interactive mode
@@ -19,18 +20,18 @@ if VERSION[0] < 3:
 #List of LArPix test board configurations
 board_info_list = [
     {'name':'unknown',
+     'file':None,
      'chip_list':[(chip_id,0) for chip_id in range(0,256)],},
     {'name':'pcb-5',
-     'chip_list':[(246,0),(245,0),(252,0),(243,0)],},
+     'file':'chain/pcb-5_chip_info.json'},
     {'name':'pcb-4',
-     'chip_list':[(207,0),(63,0),(250,0),(249,0)],},
+     'file':'chain/pcb-4_chip_info.json'},
     {'name':'pcb-1',
-     'chip_list':[(246,0),(245,0),(252,0),(243,0)],},
+     'file':'chain/pcb-1_chip_info.json'},
+    {'name':'pcb-2',
+     'file':'chain/pcb-2_chip_info.json'},
     {'name':'pcb-10',
-     'chip_list':[(3,0),(5,0),(6,0),(9,0),(10,0),(12,0),
-                  (63,0),(60,0),(58,0),(54,0),(57,0),(53,0),(51,0),(48,0),
-                  (80,0),(83,0),(85,0),(86,0),(89,0),(90,0),(92,0),(95,0),
-                  (99,0),(101,0),(102,0),(105,0),(106,0),(108,0)]}
+     'file':'chain/pcb-10_chip_info.json'}
 ]
 
 #Create handy map by board name
@@ -42,13 +43,16 @@ def create_controller(timeout=0.01, io=None):
     c.io = io
     return c
 
-def init_controller(controller, board='pcb-5'):
+def init_controller(controller, board='pcb-2'):
     '''Initialize controller'''
     if not board in board_info_map.keys():
         board = 'unknown'
     board_info = board_info_map[board]
-    for chip_info in board_info['chip_list']:
-        controller.chips.append( larpix.Chip(chip_info[0],chip_info[1]) )
+    if board_info['file']:
+        controller.load(board_info['file'])
+    else:
+        for chip_info in board_info['chip_list']:
+            controller.chips.append( larpix.Chip(chip_info[0],chip_info[1]) )
     controller.board_info = board_info
     return controller
 
@@ -147,8 +151,9 @@ def get_chip_ids(**settings):
 def quickcontroller(board='pcb-1', interactive=False, io=None):
     '''Quick jump through all controller creation and config steps'''
     if io is None:
-        io = SerialPort(baudrate=1000000,
-                timeout=0.01)
+        io = ZMQ_IO('tcp://10.0.1.6')
+    #    io = SerialPort(baudrate=1000000,
+    #            timeout=0.01)
     enable_logger()
     cont = create_controller(io=io)
     init_controller(cont,board)

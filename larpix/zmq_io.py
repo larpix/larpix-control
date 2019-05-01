@@ -89,7 +89,6 @@ class ZMQ_IO(object):
             n_recv += 1
             bytestream_list.append(message)
             packets += self.decode([message])
-
         #print('len(bytestream_list) = %d' % len(bytestream_list))
         bytestream = b''.join(bytestream_list)
         if self.logger:

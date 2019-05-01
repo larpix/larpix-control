@@ -214,7 +214,7 @@ class Configuration(object):
     TEST_FIFO = 0x2
     def __init__(self):
         # Actual setup
-        self.load('default.json')
+        self.load('chip/default.json')
 
         # Annoying things we have to do because the configuration
         # register follows complex semantics:
@@ -935,6 +935,34 @@ class Controller(object):
                 return chip
         raise ValueError('Could not find chip (%d, %d) (using all_chips'
                 '? %s)' % (chip_id, io_chain, self.use_all_chips))
+
+    def load(self, filename):
+        '''
+        Loads the specified file that describes the chip ids and IO network
+        '''
+        return self.load_daisy_chain(filename)
+
+    def load_daisy_chain(self, filename):
+        '''
+        Loads the specified file in a basic daisy chain format
+        Daisy chain file format is:
+        ```
+        {
+                "name": "<board name>",
+                "chip_list": [[<chip id>,<daisy chain>],...]
+        }
+        ```
+        Position in daisy chain is specified by position in `chip_set` list
+        returns board name of the loaded chipset configuration
+        '''
+        board_info = configs.load(filename)
+        chips = []
+        for chip_info in board_info['chip_list']:
+            chip_id = chip_info[0]
+            io_chain = chip_info[1]
+            chips.append(Chip(chip_id, io_chain))
+        self.chips = chips
+        return board_info['name']
 
     def send(self, packets):
         '''
