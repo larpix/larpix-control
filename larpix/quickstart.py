@@ -23,23 +23,15 @@ board_info_list = [
      'file':None,
      'chip_list':[(chip_id,0) for chip_id in range(0,256)],},
     {'name':'pcb-5',
-     'file':'chain/pcb-5_chip_info.json',
-     'chip_list':[(246,0),(245,0),(252,0),(243,0)],},
+     'file':'chain/pcb-5_chip_info.json'},
     {'name':'pcb-4',
-     'file':'chain/pcb-4_chip_info.json',
-     'chip_list':[(207,0),(63,0),(250,0),(249,0)],},
+     'file':'chain/pcb-4_chip_info.json'},
     {'name':'pcb-1',
-     'file':'chain/pcb-1_chip_info.json',
-     'chip_list':[(246,0),(245,0),(252,0),(243,0)],},
+     'file':'chain/pcb-1_chip_info.json'},
     {'name':'pcb-2',
-     'file':'chain/pcb-2_chip_info.json',
-     'chip_list':[(3,0),(5,0),(10,0),(12,0)],},
+     'file':'chain/pcb-2_chip_info.json'},
     {'name':'pcb-10',
-     'file':'chain/pcb-10_chip_info.json',
-     'chip_list':[(3,0),(5,0),(6,0),(9,0),(10,0),(12,0),
-                  (63,0),(60,0),(58,0),(54,0),(57,0),(53,0),(51,0),(48,0),
-                  (80,0),(83,0),(85,0),(86,0),(89,0),(90,0),(92,0),(95,0),
-                  (99,0),(101,0),(102,0),(105,0),(106,0),(108,0)]}
+     'file':'chain/pcb-10_chip_info.json'}
 ]
 
 #Create handy map by board name
