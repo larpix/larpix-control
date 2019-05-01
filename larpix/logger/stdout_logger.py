@@ -1,15 +1,17 @@
 import time
 
-from .larpix import Packet
+from larpix.larpix import Packet
 
 class StdoutLogger(object):
     '''
-    The StdOutLogger is logger class that acts as a test logger class. All objects
+    The StdoutLogger is logger class that acts as a test logger class. All objects
     are displayed according to their string representation and routed to stdout.
 
     :param buffer_length: how many data messages to hang on to before flushing buffer to stdout
+    :param mode: how logger file should be opened (not implemented in ``StdoutLogger``)
     '''
-    def __init__(self, buffer_length=0):
+    def __init__(self, filename=None, buffer_length=0, mode='wa'):
+        self.filename = filename
         self._buffer = []
         self._is_enabled = False
         self._is_open = False

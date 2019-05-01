@@ -4,7 +4,6 @@ Tests for basic logging functionality
 '''
 from __future__ import print_function
 import pytest
-from larpix.fakeio import FakeIO
 from larpix.larpix import Packet
 from larpix.logger.stdout_logger import StdoutLogger
 

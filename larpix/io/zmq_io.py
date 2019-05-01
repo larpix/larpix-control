@@ -1,7 +1,7 @@
 import time
 import zmq
 
-from .larpix import Packet
+from larpix.larpix import Packet
 
 class ZMQ_IO(object):
     '''
@@ -142,25 +142,3 @@ class ZMQ_IO(object):
         self.sender.send(b'PING_HB')
         result = self.sender.recv()
         return result[:2] == b'OK'
-
-def enable_logger(filename=None):
-    '''Enable serial data logger'''
-    if ZMQ_IO._logger is None:
-        from larpix.serial_helpers.datalogger import DataLogger
-        ZMQ_IO._logger = DataLogger(filename)
-    if not ZMQ_IO._logger.is_enabled():
-        ZMQ_IO._logger.enable()
-    return
-
-def disable_logger():
-    '''Disable serial data logger'''
-    if ZMQ_IO._logger is not None:
-        ZMQ_IO_logger.disable()
-    return
-
-def flush_logger():
-    '''Flush serial data logger data to output file'''
-    if ZMQ_IO._logger is not None:
-        ZMQ_IO._logger.flush()
-    return
-

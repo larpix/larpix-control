@@ -7,7 +7,7 @@ import time
 import os
 import platform
 
-from .larpix import Packet
+from larpix.larpix import Packet
 
 class SerialPort(object):
     '''Wrapper for various serial port interfaces across platforms.
