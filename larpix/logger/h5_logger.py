@@ -20,7 +20,7 @@ class HDF5Logger(object):
     data_desc = {
         'raw_packet' : [
             ('record_timestamp','f8'),
-            ('type','S10'),
+            ('type','i8'),
             ('chipid','i8'),
             ('parity','i1'),
             ('valid_parity','i1'),
@@ -117,7 +117,10 @@ class HDF5Logger(object):
                 else:
                     data_list += [-1]
             elif key in dict_rep:
-                data_list += [dict_rep[key]]
+                if key == 'type':
+                    data_list += [int(packet.packet_type.to01(), 2)]
+                else:
+                    data_list += [dict_rep[key]]
             else:
                 data_list += [-1]
         return np.array(tuple(data_list),dtype=cls.data_desc['raw_packet'])
@@ -187,7 +190,7 @@ class HDF5Logger(object):
         if self.is_open():
             return
         if not self.filename:
-            self.filename = default_filename()
+            self.filename = self._default_filename()
         self.datafile = h5py.File(self.filename)
         self._is_open = True
         self._is_enabled = enable

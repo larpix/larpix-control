@@ -6,8 +6,8 @@ from __future__ import absolute_import
 import sys
 
 import larpix.larpix as larpix
-from .serialport import SerialPort, enable_logger
-from .zmq_io import ZMQ_IO
+from larpix.io.serialport import SerialPort, enable_logger
+from larpix.io.zmq_io import ZMQ_IO
 
 
 ## For interactive mode
