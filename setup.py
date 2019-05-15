@@ -31,7 +31,13 @@ setup(
         ],
         keywords='dune physics',
         packages=find_packages(),
-        install_requires=['pyserial','bitstring','pytest',
-            'larpix-geometry>=0.3.0', 'bitarray', 'pyzmq',
-            'sphinx_rtd_theme'],
+        install_requires=[
+            'pyserial ~=3.4',
+            'bitstring ~=3.1',
+            'pytest ~=4.2',
+            'larpix-geometry ==0.3.0',
+            'bitarray ~=0.8',
+            'pyzmq ~= 16.0',
+            'sphinx_rtd_theme ~= 0.4.2'
+            ],
 )
