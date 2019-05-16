@@ -42,4 +42,5 @@ setup(
             'numpy ~= 1.16.1',
             'h5py ~= 2.9.0'
             ],
+        include_package_data=True,
 )
