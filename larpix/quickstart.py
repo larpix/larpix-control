@@ -52,7 +52,8 @@ def init_controller(controller, board='pcb-2'):
         controller.load(board_info['file'])
     else:
         for chip_info in board_info['chip_list']:
-            controller.chips.append( larpix.Chip(chip_info[0],chip_info[1]) )
+            key = (chip_info[1], chip_info[0]) # daisy_chain_id, chip_id
+            controller.chips[key] = larpix.Chip(chip_info[0], key)
     controller.board_info = board_info
     return controller
 
@@ -128,8 +129,8 @@ def get_chip_ids(**settings):
     controller.use_all_chips = True
     stored_timeout = controller.timeout
     controller.timeout=0.1
-    chips = []
-    chip_regs = [(c, 0) for c in controller.all_chips]
+    chips = {}
+    chip_regs = [(c.chip_key, 0) for c in controller.all_chips]
     controller.multi_read_configuration(chip_regs, timeout=0.1)
     for chip in controller.all_chips:
         if len(chip.reads) == 0:
