@@ -21,17 +21,17 @@ if VERSION[0] < 3:
 board_info_list = [
     {'name':'unknown',
      'file':None,
-     'chip_list':[(chip_id,0) for chip_id in range(0,256)],},
+     'chip_list':[('0-{}'.format(chip_id), chip_id) for chip_id in range(0,256)],},
     {'name':'pcb-5',
-     'file':'chain/pcb-5_chip_info.json'},
+     'file':'controller/pcb-5_chip_info.json'},
     {'name':'pcb-4',
-     'file':'chain/pcb-4_chip_info.json'},
+     'file':'controller/pcb-4_chip_info.json'},
     {'name':'pcb-1',
-     'file':'chain/pcb-1_chip_info.json'},
+     'file':'controller/pcb-1_chip_info.json'},
     {'name':'pcb-2',
-     'file':'chain/pcb-2_chip_info.json'},
+     'file':'controller/pcb-2_chip_info.json'},
     {'name':'pcb-10',
-     'file':'chain/pcb-10_chip_info.json'}
+     'file':'controller/pcb-10_chip_info.json'}
 ]
 
 #Create handy map by board name

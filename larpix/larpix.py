@@ -922,7 +922,7 @@ class Controller(object):
     @use_all_chips.setter
     def use_all_chips(self, value):
         warnings.warn('all_chips access is no longer supported, bad things may happen',
-            DeprecationWarning)
+            FutureWarning)
         self._use_all_chips = value
 
     def _init_chips(self, nchips = 256, iochain = 0):
@@ -957,18 +957,41 @@ class Controller(object):
         '''
         Loads the specified file that describes the chip ids and IO network
         '''
-        return self.load_daisy_chain(filename)
+        return self.load_controller(filename)
+
+    def load_controller(self, filename):
+        '''
+        Loads the specified file using the basic key, chip format
+        The key, chip file format is:
+        ``
+        {
+            "name": "<system name>",
+            "chip_list": [[<chip key>,<chip id>],...]
+        }
+        ``
+        The chip key is the Controller access key that gets communicated to/from
+        the io object when sending and receiving packets.
+
+        '''
+        system_info = configs.load(filename)
+        chips = {}
+        for chip_info in system_info['chip_list']:
+            chip_id = chip_info[1]
+            chip_key = chip_info[0]
+            chips[chip_key] = Chip(chip_id, chip_key=chip_key)
+        self.chips = chips
+        return system_info['name']
 
     def load_daisy_chain(self, filename):
         '''
         Loads the specified file in a basic daisy chain format
         Daisy chain file format is:
-        ```
+        ``
         {
                 "name": "<board name>",
                 "chip_list": [[<chip id>,<daisy chain>],...]
         }
-        ```
+        ``
         Position in daisy chain is specified by position in `chip_set` list
         returns board name of the loaded chipset configuration
         '''
