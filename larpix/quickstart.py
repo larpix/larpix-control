@@ -22,6 +22,8 @@ board_info_list = [
     {'name':'unknown',
      'file':None,
      'chip_list':[('0-{}'.format(chip_id), chip_id) for chip_id in range(0,256)],},
+    {'name':'pcb-6',
+     'file':'controller/pcb-6_chip_info.json'},
     {'name':'pcb-5',
      'file':'controller/pcb-5_chip_info.json'},
     {'name':'pcb-4',

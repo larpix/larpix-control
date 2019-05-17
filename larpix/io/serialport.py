@@ -126,7 +126,7 @@ class SerialPort(IO):
         for packet_list in byte_packet_list:
             packets += packet_list
         for packet in packets:
-            packet.chip_key = self.generate_chip_key(chip_id=packet.chipid, io_chain=0)
+            packet.chip_key = cls.generate_chip_key(chip_id=packet.chipid, io_chain=0)
         return packets
 
     @classmethod
