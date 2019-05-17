@@ -1250,11 +1250,17 @@ class Controller(object):
                 if (packet.packet_type == Packet.CONFIG_READ_PACKET and
                     packet.chipid == chip_id):
                     configuration_data[packet.register_address] = packet.register_data
-            chip_configuration = Configuration()
-            chip_configuration.from_dict_registers(configuration_data)
-            if not chip_configuration == chip.config:
+            expected_data = {}
+            for register_address, bits in enumerate(chip.config.all_data()):
+                expected_data[register_address] = int(bits.to01(),2)
+            if not configuration_data == expected_data:
                 return_value = False
-                different_fields = chip_configuration.compare(chip.config)
+                for register_address in expected_data:
+                    if register_address in configuration_data.keys():
+                        if not configuration_data[register_address] == expected_data[register_address]:
+                            different_fields[register_address] = (expected_data[register_address], configuration_data[register_address])
+                    else:
+                        different_fields[register_address] = (expected_data[register_address], None)
         return (return_value, different_fields)
 
     def read_channel_pedestal(self, chip_id, channel, io_chain=0, run_time=0.1):
