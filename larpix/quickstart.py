@@ -60,11 +60,12 @@ def init_controller(controller, board='pcb-2'):
 def silence_chips(controller, interactive):
     '''Silence all chips in controller'''
     #for _ in controller.chips:
-    for chip in controller.chips:
+    for chip_key in controller.chips:
+        chip = controller.get_chip(chip_key)
         if interactive:
             print('Silencing chip %d' % chip.chip_id)
         chip.config.global_threshold = 255
-        controller.write_configuration(chip,32)
+        controller.write_configuration(chip_key,32)
         if interactive:
             input('Just silenced chip %d. <enter> when ready.\n' % chip.chip_id)
     return
@@ -72,15 +73,16 @@ def silence_chips(controller, interactive):
 def disable_chips(controller):
     '''Silence all chips in controller'''
     #for _ in controller.chips:
-    for chip in controller.chips:
+    for chip_key in controller.chips:
+        chip = controller.get_chip(chip_key)
         chip.config.disable_channels()
-        controller.write_configuration(chip,range(52,56))
+        controller.write_configuration(chip_key,range(52,56))
     return
 
 def set_config_physics(controller, interactive):
     '''Set the chips for the default physics configuration'''
     #import time
-    for chip in controller.chips:
+    for chip_key in controller.chips:
         '''if not board is None:
             try:
                 chip.config.load('physics-%s-c%d.json' % (board, chip.chip_id))
@@ -90,20 +92,21 @@ def set_config_physics(controller, interactive):
         else:
             chip.config.load('physics.json')
         controller.write_configuration(chip)'''
+        chip = controller.get_chip(chip_key)
         if interactive:
             x = input('Configuring chip %d. <enter> to continue, q to quit' % chip.chip_id)
             if x == 'q':
                 break
         chip.config.internal_bypass = 1
-        controller.write_configuration(chip,33)
+        controller.write_configuration(chip_key,33)
         chip.config.periodic_reset = 1
-        controller.write_configuration(chip,47)
+        controller.write_configuration(chip_key,47)
         chip.config.global_threshold = 60
-        controller.write_configuration(chip,32)
+        controller.write_configuration(chip_key,32)
         chip.config.reset_cycles = 4096
-        controller.write_configuration(chip,range(60,63))
+        controller.write_configuration(chip_key,range(60,63))
         #time.sleep(2)
-        print('configured chip %d' % chip.chip_id)
+        print('configured chip {}'.format(str(chip)))
     return
 
 def flush_stale_data(controller):
@@ -132,7 +135,8 @@ def get_chip_ids(**settings):
     chips = {}
     chip_regs = [(c.chip_key, 0) for c in controller.all_chips]
     controller.multi_read_configuration(chip_regs, timeout=0.1)
-    for chip in controller.all_chips:
+    for chip_key in controller.all_chips:
+        chip = controller.get_chip(chip_key)
         if len(chip.reads) == 0:
             print('Chip ID %d: No packet recieved' %
                   chip.chip_id)

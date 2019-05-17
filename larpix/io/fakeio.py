@@ -5,7 +5,9 @@ A module for the FakeIO class.
 from __future__ import print_function
 from collections import deque
 
-class FakeIO(object):
+from larpix.io import IO
+
+class FakeIO(IO):
     '''
     An IO stand-in that sends output to stdout (i.e. print) and reads
     input from a data member that can be set in advance.
@@ -26,8 +28,58 @@ class FakeIO(object):
 
     '''
     def __init__(self):
-        self.is_listening = False
+        super().__init__()
         self.queue = deque()
+
+    @classmethod
+    def encode(cls, packets):
+        '''
+        Placeholder for packet encoding
+
+        :returns: ``packets``
+        '''
+        return packets
+
+    @classmethod
+    def decode(cls, msgs):
+        '''
+        Placeholder for message decoding
+
+        :returns: ``msgs``
+        '''
+        return msgs
+
+    @classmethod
+    def is_valid_chip_key(cls, key):
+        return super().is_valid_chip_key(key)
+
+    @classmethod
+    def parse_chip_key(cls, key):
+        '''
+        Placeholder function for parsing chip keys ``chip_key``
+
+        :param key: chip key to be returned ``in dict``
+
+        :returns: ``dict`` with keys ``('chip_key')``
+
+        '''
+        return_dict = super().parse_chip_key(key)
+        return_dict['chip_key'] = key
+        return return_dict
+
+    @classmethod
+    def generate_chip_key(cls, **kwargs):
+        '''
+        Placeholder function for generating a chip key
+
+        :param chip_key: chip key to return
+
+        :returns: ``chip_key`` that was passed into the function
+
+        '''
+        if not 'chip_key' in kwargs:
+            raise ValueError('FakeIO chip keys require an explicit chip_key')
+        return kwargs['chip_key']
 
     def send(self, packets):
         '''
@@ -42,14 +94,14 @@ class FakeIO(object):
         Mock-up of beginning to listen for new packets.
 
         '''
-        self.is_listening = True
+        super().start_listening()
 
     def stop_listening(self):
         '''
         Mock-up of no longer listening for new packets.
 
         '''
-        self.is_listening = False
+        super().stop_listening()
 
     def empty_queue(self):
         '''

@@ -1277,7 +1277,7 @@ class Controller(object):
         data = b''.join(bytestreams)
         self.store_packets(packets, data, message)
 
-    def verify_configuration(self, chip_keys=None):
+    def verify_configuration(self, chip_keys=None, timeout=0.1):
         '''
         Read chip configuration from specified chip(s) and return ``True`` if the
         read chip configuration matches the current configuration stored in chip instance.
@@ -1290,17 +1290,17 @@ class Controller(object):
         return_value = True
         different_fields = {}
         if chip_keys is None:
-            return self.verify_configuration(chip_keys=self.chips.keys())
+            return self.verify_configuration(chip_keys=list(self.chips.keys()))
         elif isinstance(chip_keys, list):
             for chip_key in chip_keys:
-                match, chip_fields = self.verify_configuration(chip_key=chip_key)
+                match, chip_fields = self.verify_configuration(chip_keys=chip_key)
                 if not match:
                     different_fields[chip_key] = chip_fields
                     return_value = False
         else:
             chip_key = chip_keys
             chip = self.get_chip(chip_key)
-            self.read_configuration(chip_key, timeout=0.1)
+            self.read_configuration(chip_key, timeout=timeout)
             configuration_data = {}
             for packet in self.reads[-1]:
                 if (packet.packet_type == Packet.CONFIG_READ_PACKET and
@@ -1408,7 +1408,7 @@ class Controller(object):
                                  write_read=0.1)
         return self.reads[-1]
 
-    def disable_testpulse(self, chip_key, channel_list=range(32)):
+    def disable_testpulse(self, chip_key=None, channel_list=range(32)):
         '''
         Disable testpulser for specified chip/channels. If none specified, disable for
         all chips/channels
@@ -1429,7 +1429,7 @@ class Controller(object):
         '''
         if chip_key is None:
             for chip_key in self.chips.keys():
-                self.disable(chip_key=chip.chip_key, channel_list=channel_list)
+                self.disable(chip_key=chip_key, channel_list=channel_list)
         else:
             chip = self.get_chip(chip_key)
             chip.config.disable_channels(channel_list)

@@ -1,6 +1,7 @@
 bin
 *.swp
-__*
+__py*
+__build*
 *.pyc
 *.log
 .cache

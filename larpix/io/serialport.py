@@ -7,9 +7,10 @@ import time
 import os
 import platform
 
+from larpix.io import IO
 from larpix.larpix import Packet
 
-class SerialPort(object):
+class SerialPort(IO):
     '''Wrapper for various serial port interfaces across platforms.
 
        Automatically loads correct driver based on the supplied port
@@ -32,6 +33,7 @@ class SerialPort(object):
     max_write = 250
     fpga_packet_size = 10
     def __init__(self, port=None, baudrate=1000000, timeout=0):
+        super().__init__()
         if port is None:
             port = self._guess_port()
         self.port = port
@@ -42,7 +44,6 @@ class SerialPort(object):
         self.max_write = 250
         self.serial_com = None
         self._initialize_serial_com()
-        self.is_listening = False
         self.logger = None
         if not (self._logger is None):
             self.logger = self._logger
@@ -108,15 +109,15 @@ class SerialPort(object):
         bytestreams.append(current_bytestream)
         return bytestreams
 
-    @staticmethod
-    def encode(packets):
+    @classmethod
+    def encode(cls, packets):
         '''
         Encodes a list of packets into a list of bytestream messages
         '''
         return [SerialPort._format_UART(packet) for packet in packets]
 
-    @staticmethod
-    def decode(msgs):
+    @classmethod
+    def decode(cls, msgs):
         '''
         Decodes a list of serial port bytestreams to packets
         '''
@@ -124,7 +125,59 @@ class SerialPort(object):
         byte_packet_list = [SerialPort._parse_input(msg) for msg in msgs]
         for packet_list in byte_packet_list:
             packets += packet_list
+        for packet in packets:
+            packet.chip_key = self.generate_chip_key(chip_id=packet.chipid, io_chain=0)
         return packets
+
+    @classmethod
+    def is_valid_chip_key(cls, key):
+        '''
+        Valid chip keys must be strings formatted as:
+        ``'<io_chain>-<chip_id>'``
+
+        '''
+        if not super().is_valid_chip_key(key):
+            return False
+        if not isinstance(key, str):
+            return False
+        parsed_key = key.split('-')
+        if not len(parsed_key) == 2:
+            return False
+        try:
+            _ = int(parsed_key[0])
+            _ = int(parsed_key[1])
+        except ValueError:
+            return False
+        return True
+
+    @classmethod
+    def parse_chip_key(cls, key):
+        '''
+        Decodes a chip key into ``'chip_id'`` and ``io_chain``
+
+        :returns: ``dict`` with keys ``('chip_id', 'io_chain')``
+        '''
+        return_dict = super().parse_chip_key(key)
+        parsed_key = key.split('-')
+        return_dict['chip_id'] = int(parsed_key[1])
+        return_dict['io_chain'] = int(parsed_key[0])
+        return return_dict
+
+    @classmethod
+    def generate_chip_key(cls, **kwargs):
+        '''
+        Generates a valid ``SerialPort`` chip key
+
+        :param chip_id: ``int`` corresponding to internal chip id
+
+        :param io_chain: ``int`` corresponding to daisy chain number
+
+        '''
+        req_fields = ('chip_id', 'io_chain')
+        if not all([key in kwargs for key in req_fields]):
+            raise ValueError('Missing fields required to generate chip id'
+                ', requires {}, received {}'.format(req_fields, kwargs.keys()))
+        return '{io_chain}-{chip_id}'.format(**kwargs)
 
     def send(self, packets):
         '''
@@ -143,16 +196,16 @@ class SerialPort(object):
         port.
 
         '''
+        super().start_listening()
         self._open()
-        self.is_listening = True
 
     def stop_listening(self):
         '''
         Stop listening for LArPix data by closing the serial port.
 
         '''
+        super().stop_listening()
         self._close()
-        self.is_listening = False
 
     def empty_queue(self):
         '''
