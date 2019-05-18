@@ -11,23 +11,16 @@ from ..larpix import Packet
 
 class LogAnalyzer(DataLoader):
     '''Analyzer of LArPix serial log transmissions'''
-    def __init__(self, filename=None, decoder=None):
-        '''Constructor
-        `decoder` is a handle to the function that should be used convert raw bytes into data packets, e.g. `ZMQ_IO.decode` or `Serial.decode`
-        '''
+    def __init__(self, filename=None):
+        '''Constructor'''
         DataLoader.__init__(self, filename)
         # Merge packets split across transmissions?
         self._stitch_transmissions = False
         self._unused_bytes = bytes()
-        self.decoder = decoder
 
     def next_transmission(self):
         '''Parse next set of packets in controller transmission log'''
-        block_desc = None
-        try:
-            block_desc = self.next_block()
-        except ValueError:
-            return None
+        block_desc = self.next_block()
         if block_desc is None:
             return None
         if block_desc['block_type'] == 'data':
@@ -45,9 +38,7 @@ class LogAnalyzer(DataLoader):
                 if n_extra_bytes != 0:
                     self._unused_bytes = parse_bytes[-n_extra_bytes:]
                     parse_bytes = parse_bytes[:-n_extra_bytes]
-            packets = []
-            if self.decoder:
-                packets = self.decoder([parse_bytes])
+            packets = Controller.parse_input(parse_bytes)
             block_desc['packets'] = packets
         return block_desc
 
