@@ -8,7 +8,7 @@ import sys
 import larpix.larpix as larpix
 from larpix.io.serialport import SerialPort, enable_logger
 from larpix.io.zmq_io import ZMQ_IO
-
+from larpix.logger.h5_logger import HDF5Logger
 
 ## For interactive mode
 VERSION = sys.version_info
@@ -155,14 +155,18 @@ def get_chip_ids(**settings):
     controller.use_all_chips = False
     return chips
 
-def quickcontroller(board='pcb-1', interactive=False, io=None):
+def quickcontroller(board='pcb-1', interactive=False, io=None, logger=None,
+    log_filepath=None):
     '''Quick jump through all controller creation and config steps'''
     if io is None:
         io = ZMQ_IO('tcp://10.0.1.6')
-    #    io = SerialPort(baudrate=1000000,
-    #            timeout=0.01)
+        # io = SerialPort(baudrate=1000000,
+            # timeout=0.01)
     enable_logger()
     cont = create_controller(io=io)
+    if logger is None:
+        cont.logger = HDF5Logger(filename=log_filepath)
+    cont.logger.open()
     init_controller(cont,board)
     silence_chips(cont, interactive)
     if cont.board_info['name'] == 'unknown':

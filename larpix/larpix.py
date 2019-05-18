@@ -1011,7 +1011,10 @@ class Controller(object):
 
         '''
         timestamp = time.time()
-        self.io.send(packets)
+        if self.io:
+            self.io.send(packets)
+        else:
+            warnings.warn('no IO object exists, no packets sent', RuntimeWarning)
         if self.logger:
             self.logger.record(packets, data_type='SEND', timestamp=timestamp)
 
@@ -1020,14 +1023,16 @@ class Controller(object):
         Listen for packets to arrive.
 
         '''
-        self.io.start_listening()
+        if self.io:
+            self.io.start_listening()
 
     def stop_listening(self):
         '''
         Stop listening for new packets to arrive.
 
         '''
-        return self.io.stop_listening()
+        if self.io:
+            return self.io.stop_listening()
 
     def read(self):
         '''
@@ -1040,7 +1045,12 @@ class Controller(object):
 
         '''
         timestamp = time.time()
-        packets, bytestream = self.io.empty_queue()
+        packets = []
+        bytestream = b''
+        if self.io:
+            packets, bytestream = self.io.empty_queue()
+        else:
+            warnings.warn('no IO object exists, no packets will be received', RuntimeWarning)
         if self.logger:
             self.logger.record(packets, data_type='READ', timestamp=timestamp)
         return packets, bytestream
@@ -1081,7 +1091,9 @@ class Controller(object):
         chip = self.get_chip(chip_key)
         packets = chip.get_configuration_packets(
                 Packet.CONFIG_WRITE_PACKET, registers)
-        already_listening = self.io.is_listening
+        already_listening = False
+        if self.io:
+            already_listening = self.io.is_listening
         mess_with_listening = write_read != 0 and not already_listening
         if mess_with_listening:
             self.start_listening()
@@ -1126,7 +1138,9 @@ class Controller(object):
         chip = self.get_chip(chip_key)
         packets = chip.get_configuration_packets(
                 Packet.CONFIG_READ_PACKET, registers)
-        already_listening = self.io.is_listening
+        already_listening = False
+        if self.io:
+            already_listening = self.io.is_listening
         if not already_listening:
             self.start_listening()
             stop_time = time.time() + timeout
@@ -1184,7 +1198,9 @@ class Controller(object):
             one_chip_packets = chip.get_configuration_packets(
                     Packet.CONFIG_WRITE_PACKET, registers)
             packets.extend(one_chip_packets)
-        already_listening = self.io.is_listening
+        already_listening = False
+        if self.io:
+            already_listening = self.io.is_listening
         mess_with_listening = write_read != 0 and not already_listening
         if mess_with_listening:
             self.start_listening()
@@ -1243,7 +1259,9 @@ class Controller(object):
             one_chip_packets = chip.get_configuration_packets(
                     Packet.CONFIG_READ_PACKET, registers)
             packets += one_chip_packets
-        already_listening = self.io.is_listening
+        already_listening = False
+        if self.io:
+            already_listening = self.io.is_listening
         if not already_listening:
             self.start_listening()
             stop_time = time.time() + timeout
@@ -1306,11 +1324,17 @@ class Controller(object):
                 if (packet.packet_type == Packet.CONFIG_READ_PACKET and
                     packet.chip_key == chip_key):
                     configuration_data[packet.register_address] = packet.register_data
-            chip_configuration = Configuration()
-            chip_configuration.from_dict_registers(configuration_data)
-            if not chip_configuration == chip.config:
+            expected_data = {}
+            for register_address, bits in enumerate(chip.config.all_data()):
+                expected_data[register_address] = int(bits.to01(),2)
+            if not configuration_data == expected_data:
                 return_value = False
-                different_fields = chip_configuration.compare(chip.config)
+                for register_address in expected_data:
+                    if register_address in configuration_data.keys():
+                        if not configuration_data[register_address] == expected_data[register_address]:
+                            different_fields[register_address] = (expected_data[register_address], configuration_data[register_address])
+                    else:
+                        different_fields[register_address] = (expected_data[register_address], None)
         return (return_value, different_fields)
 
     def read_channel_pedestal(self, chip_key, channel, run_time=0.1):
