@@ -6,7 +6,8 @@ from __future__ import print_function
 import pytest
 import os
 import numpy as np
-from larpix.larpix import Packet
+from larpix.larpix import Packet, Controller, Chip
+from larpix.io.fakeio import FakeIO
 from larpix.logger.h5_logger import HDF5Logger
 
 test_filename = '.test.h5'
@@ -81,3 +82,23 @@ def test_record():
 
     logger.record([Packet()], timestamp=5.0)
     assert logger._buffer['raw_packet'][0] == HDF5Logger.encode(Packet(), timestamp=5.0)
+
+@fresh_temp_file
+def test_controller_write_capture():
+    controller = Controller()
+    controller.logger = HDF5Logger(filename=test_filename, buffer_length=1)
+    controller.logger.open()
+    chip = Chip(2, 0)
+    controller.write_configuration(chip, 0)
+    packet = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[0]
+    assert len(controller.logger._buffer) == 1
+
+@fresh_temp_file
+def test_controller_read_capture():
+    controller = Controller()
+    controller.io = FakeIO()
+    controller.io.queue.append(([Packet()], b'\x00\x00'))
+    controller.logger = HDF5Logger(filename=test_filename, buffer_length=1)
+    controller.logger.open()
+    controller.run(0.1,'test')
+    assert len(controller.logger._buffer) == 1

@@ -14,7 +14,6 @@ class ZMQ_IO(IO):
     count, clock frequency, and more.
 
     '''
-    _logger = None
 
     def __init__(self, address):
         super().__init__()
@@ -30,9 +29,6 @@ class ZMQ_IO(IO):
         self.sender_replies = []
         self.poller = zmq.Poller()
         self.poller.register(self.receiver, zmq.POLLIN)
-        self.logger = None
-        if not (self._logger is None):
-            self.logger = self._logger
 
     def send(self, packets):
         self.sender_replies = []
@@ -42,9 +38,6 @@ class ZMQ_IO(IO):
             tosend = b'SNDWORD ' + msg_data
             self.sender.send(tosend)
             self.sender_replies.append(self.sender.recv())
-
-            if self.logger:
-                self.logger.record({'data_type':'write','data':msg_data,'time':send_time})
 
     def start_listening(self):
         if self.is_listening:
@@ -143,9 +136,6 @@ class ZMQ_IO(IO):
             packets += self.decode([message])
         #print('len(bytestream_list) = %d' % len(bytestream_list))
         bytestream = b''.join(bytestream_list)
-        if self.logger:
-            for msg in bytestream_list:
-                self.logger.record({'data_type':'read','data':msg,'time':read_time})
         return packets, bytestream
 
     def reset(self):
