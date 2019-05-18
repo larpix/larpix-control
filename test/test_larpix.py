@@ -464,9 +464,10 @@ def test_packet_get_test_counter():
 
 def test_configuration_error_on_unknown_field():
     c = Configuration()
-    with pytest.raises(AttributeError, message='Should fail: attribute is not in known '
-                       'register names'):
+    with pytest.raises(AttributeError):
         c.this_is_a_dummy_attr = 0
+        pytest.fail('Should fail: attribute is not in known '
+                       'register names')
 
 def test_configuration_no_error_on_known_register_name():
     c = Configuration()
@@ -520,14 +521,18 @@ def test_configuration_set_pixel_trim_thresholds():
 
 def test_configuration_set_pixel_trim_thresholds_errors():
     c = Configuration()
-    with pytest.raises(ValueError, message='Should fail: wrong num_channels'):
+    with pytest.raises(ValueError):
         c.pixel_trim_thresholds = [0x05] * (Chip.num_channels-1)
-    with pytest.raises(ValueError, message='Should fail: value too large'):
+        pytest.fail(message='Should fail: wrong num_channels')
+    with pytest.raises(ValueError):
         c.pixel_trim_thresholds = [0x20] * Chip.num_channels
-    with pytest.raises(ValueError, message='Should fail: value negative'):
+        pytest.fail(message='Should fail: values too large')
+    with pytest.raises(ValueError,):
         c.pixel_trim_thresholds = [-10] * Chip.num_channels
-    with pytest.raises(ValueError, message='Should fail: wrong type'):
+        pytest.fail(message='Should fail: value negative')
+    with pytest.raises(ValueError):
         c.pixel_trim_thresholds = 5
+        pytest.fail(message='Should fail: wrong type')
 
 def test_configuration_get_pixel_trim_thresholds():
     c = Configuration()
@@ -543,12 +548,15 @@ def test_configuration_set_global_threshold():
 
 def test_configuration_set_global_threshold_errors():
     c = Configuration()
-    with pytest.raises(ValueError, message='Should fail: value too large'):
+    with pytest.raises(ValueError):
         c.global_threshold = 0x100
-    with pytest.raises(ValueError, message='Should fail: value negative'):
+        pytest.fail(message='Should fail: values too large')
+    with pytest.raises(ValueError):
         c.global_threshold = -10
-    with pytest.raises(ValueError, message='Should fail: wrong type'):
+        pytest.fail(message='Should fail: value negative')
+    with pytest.raises(ValueError):
         c.global_threshold = True
+        pytest.fail(message='Should fail: wrong type')
 
 def test_configuration_get_global_threshold():
     c = Configuration()
@@ -564,10 +572,12 @@ def test_configuration_set_csa_gain():
 
 def test_configuration_set_csa_gain_errors():
     c = Configuration()
-    with pytest.raises(ValueError, message='Should fail: invalid value'):
+    with pytest.raises(ValueError):
         c.csa_gain = 5
-    with pytest.raises(ValueError, message='Should fail: wrong type'):
+        pytest.fail('Should fail: invalid value')
+    with pytest.raises(ValueError):
         c.csa_gain = False
+        pytest.fail('Should fail: wrong type')
 
 def test_configuration_get_csa_gain():
     c = Configuration()
@@ -583,10 +593,12 @@ def test_configuration_set_csa_bypass():
 
 def test_configuration_set_csa_bypass_errors():
     c = Configuration()
-    with pytest.raises(ValueError, message='Should fail: invalid value'):
+    with pytest.raises(ValueError):
         c.csa_bypass = 5
-    with pytest.raises(ValueError, message='Should fail: wrong type'):
+        pytest.fail('Should fail: invalid value')
+    with pytest.raises(ValueError):
         c.csa_bypass = False
+        pytest.fail('Should fail: wrong type')
 
 def test_configuration_get_csa_bypass():
     c = Configuration()
@@ -602,10 +614,12 @@ def test_configuration_set_internal_bypass():
 
 def test_configuration_set_internal_bypass_errors():
     c = Configuration()
-    with pytest.raises(ValueError, message='Should fail: invalid value'):
+    with pytest.raises(ValueError):
         c.internal_bypass = 5
-    with pytest.raises(ValueError, message='Should fail: wrong type'):
+        pytest.fail('Should fail: invalid value')
+    with pytest.raises(ValueError):
         c.internal_bypass = False
+        pytest.fail('Should fail: wrong type')
 
 def test_configuration_get_internal_bypass():
     c = Configuration()
@@ -624,14 +638,18 @@ def test_configuration_set_csa_bypass_select():
 
 def test_configuration_set_csa_bypass_select_errors():
     c = Configuration()
-    with pytest.raises(ValueError, message='Should fail: wrong num_channels'):
+    with pytest.raises(ValueError):
         c.csa_bypass_select = [0x1] * (Chip.num_channels-1)
-    with pytest.raises(ValueError, message='Should fail: value too large'):
+        pytest.fail('Should fail: wrong num_channels')
+    with pytest.raises(ValueError):
         c.csa_bypass_select = [0x2] * Chip.num_channels
-    with pytest.raises(ValueError, message='Should fail: value negative'):
+        pytest.fail('Should fail: value too large')
+    with pytest.raises(ValueError):
         c.csa_bypass_select = [-1] * Chip.num_channels
-    with pytest.raises(ValueError, message='Should fail: wrong type'):
+        pytest.fail('Should fail: value negative')
+    with pytest.raises(ValueError):
         c.csa_bypass_select = 5
+        pytest.fail('Should fail: wrong type')
 
 def test_configuration_get_csa_bypass_select():
     c = Configuration()
@@ -650,14 +668,18 @@ def test_configuration_set_csa_monitor_select():
 
 def test_configuration_set_csa_monitor_select_errors():
     c = Configuration()
-    with pytest.raises(ValueError, message='Should fail: wrong num_channels'):
+    with pytest.raises(ValueError):
         c.csa_monitor_select = [0x1] * (Chip.num_channels-1)
-    with pytest.raises(ValueError, message='Should fail: value too large'):
+        pytest.fail('Should fail: wrong num_channels')
+    with pytest.raises(ValueError):
         c.csa_monitor_select = [0x2] * Chip.num_channels
-    with pytest.raises(ValueError, message='Should fail: value negative'):
+        pytest.fail('Should fail: value too lare')
+    with pytest.raises(ValueError):
         c.csa_monitor_select = [-1] * Chip.num_channels
-    with pytest.raises(ValueError, message='Should fail: wrong type'):
+        pytest.fail('Should fail: value negative')
+    with pytest.raises(ValueError):
         c.csa_monitor_select = 5
+        pytest.fail('Should fail: wrong type')
 
 def test_configuration_get_csa_monitor_select():
     c = Configuration()
@@ -676,14 +698,18 @@ def test_configuration_set_csa_testpulse_enable():
 
 def test_configuration_set_csa_testpulse_enable_errors():
     c = Configuration()
-    with pytest.raises(ValueError, message='Should fail: wrong num_channels'):
+    with pytest.raises(ValueError):
         c.csa_testpulse_enable = [0x1] * (Chip.num_channels-1)
-    with pytest.raises(ValueError, message='Should fail: value too large'):
+        pytest.fail('Should fail: wrong num_channels')
+    with pytest.raises(ValueError):
         c.csa_testpulse_enable = [0x2] * Chip.num_channels
-    with pytest.raises(ValueError, message='Should fail: value negative'):
+        pytest.fail('Should fail: value too large')
+    with pytest.raises(ValueError):
         c.csa_testpulse_enable = [-1] * Chip.num_channels
-    with pytest.raises(ValueError, message='Should fail: wrong type'):
+        pytest.fail('Should fail: value negative')
+    with pytest.raises(ValueError):
         c.csa_testpulse_enable = 5
+        pytest.fail('Should fail: wrong type')
 
 def test_configuration_get_csa_testpulse_enable():
     c = Configuration()
@@ -699,12 +725,15 @@ def test_configuration_set_csa_testpulse_dac_amplitude():
 
 def test_configuration_set_csa_testpulse_dac_amplitude_errors():
     c = Configuration()
-    with pytest.raises(ValueError, message='Should fail: value too large'):
+    with pytest.raises(ValueError):
         c.csa_testpulse_dac_amplitude = 0x100
-    with pytest.raises(ValueError, message='Should fail: value negative'):
+        pytest.fail('Should fail: value too large')
+    with pytest.raises(ValueError):
         c.csa_testpulse_dac_amplitude = -10
-    with pytest.raises(ValueError, message='Should fail: wrong type'):
+        pytest.fail('Should fail: value negative')
+    with pytest.raises(ValueError):
         c.csa_testpulse_dac_amplitude = True
+        pytest.fail('Should fail: wrong type')
 
 def test_configuration_get_csa_testpulse_dac_amplitude():
     c = Configuration()
@@ -720,10 +749,12 @@ def test_configuration_set_test_mode():
 
 def test_configuration_set_test_mode_errors():
     c = Configuration()
-    with pytest.raises(ValueError, message='Should fail: invalid value'):
+    with pytest.raises(ValueError):
         c.test_mode = 5
-    with pytest.raises(ValueError, message='Should fail: wrong type'):
+        pytest.fail('Should fail: invalid value')
+    with pytest.raises(ValueError):
         c.test_mode = False
+        pytest.fail('Should fail: wrong type')
 
 def test_configuration_get_test_mode():
     c = Configuration()
@@ -739,10 +770,12 @@ def test_configuration_set_cross_trigger_mode():
 
 def test_configuration_set_cross_trigger_mode_errors():
     c = Configuration()
-    with pytest.raises(ValueError, message='Should fail: invalid value'):
+    with pytest.raises(ValueError):
         c.cross_trigger_mode = 5
-    with pytest.raises(ValueError, message='Should fail: wrong type'):
+        pytest.fail('Should fail: invalid value')
+    with pytest.raises(ValueError):
         c.cross_trigger_mode = False
+        pytest.fail('Should fail: wrong type')
 
 def test_configuration_get_cross_trigger_mode():
     c = Configuration()
@@ -758,10 +791,12 @@ def test_configuration_set_periodic_reset():
 
 def test_configuration_set_periodic_reset_errors():
     c = Configuration()
-    with pytest.raises(ValueError, message='Should fail: invalid value'):
+    with pytest.raises(ValueError):
         c.periodic_reset = 5
-    with pytest.raises(ValueError, message='Should fail: wrong type'):
+        pytest.fail('Should fail: invalid value')
+    with pytest.raises(ValueError):
         c.periodic_reset = False
+        pytest.fail('Should fail: wrong type')
 
 def test_configuration_get_periodic_reset():
     c = Configuration()
@@ -777,10 +812,12 @@ def test_configuration_set_fifo_diagnostic():
 
 def test_configuration_set_fifo_diagnostic_errors():
     c = Configuration()
-    with pytest.raises(ValueError, message='Should fail: invalid value'):
+    with pytest.raises(ValueError):
         c.fifo_diagnostic = 5
-    with pytest.raises(ValueError, message='Should fail: wrong type'):
+        pytest.fail('Should fail: invalid value')
+    with pytest.raises(ValueError):
         c.fifo_diagnostic = False
+        pytest.fail('Should fail: wrong type')
 
 def test_configuration_get_fifo_diagnostic():
     c = Configuration()
@@ -796,12 +833,15 @@ def test_configuration_set_test_burst_length():
 
 def test_configuration_set_test_burst_length_errors():
     c = Configuration()
-    with pytest.raises(ValueError, message='Should fail: value too large'):
+    with pytest.raises(ValueError):
         c.test_burst_length = 0x10000
-    with pytest.raises(ValueError, message='Should fail: value negative'):
+        pytest.fail('Should fail: value too large')
+    with pytest.raises(ValueError):
         c.test_burst_length = -10
-    with pytest.raises(ValueError, message='Should fail: wrong type'):
+        pytest.fail('Should fail: value negative')
+    with pytest.raises(ValueError):
         c.test_burst_length = True
+        pytest.fail('Should fail: wrong type')
 
 def test_configuration_get_test_burst_length():
     c = Configuration()
@@ -817,12 +857,15 @@ def test_configuration_set_adc_burst_length():
 
 def test_configuration_set_adc_burst_length_errors():
     c = Configuration()
-    with pytest.raises(ValueError, message='Should fail: value too large'):
+    with pytest.raises(ValueError):
         c.adc_burst_length = 0x100
-    with pytest.raises(ValueError, message='Should fail: value negative'):
+        pytest.fail('Should fail: value too large')
+    with pytest.raises(ValueError):
         c.adc_burst_length = -10
-    with pytest.raises(ValueError, message='Should fail: wrong type'):
+        pytest.fail('Should fail: value negative')
+    with pytest.raises(ValueError):
         c.adc_burst_length = True
+        pytest.fail('Should fail: wrong type')
 
 def test_configuration_get_adc_burst_length():
     c = Configuration()
@@ -841,14 +884,18 @@ def test_configuration_set_channel_mask():
 
 def test_configuration_set_channel_mask_errors():
     c = Configuration()
-    with pytest.raises(ValueError, message='Should fail: wrong num_channels'):
+    with pytest.raises(ValueError):
         c.channel_mask = [0x1] * (Chip.num_channels-1)
-    with pytest.raises(ValueError, message='Should fail: value too large'):
+        pytest.fail('Should fail: wrong num_channels')
+    with pytest.raises(ValueError):
         c.channel_mask = [0x2] * Chip.num_channels
-    with pytest.raises(ValueError, message='Should fail: value negative'):
+        pytest.fail('Should fail: value too large')
+    with pytest.raises(ValueError):
         c.channel_mask = [-1] * Chip.num_channels
-    with pytest.raises(ValueError, message='Should fail: wrong type'):
+        pytest.fail('Should fail: value negative')
+    with pytest.raises(ValueError):
         c.channel_mask = 5
+        pytest.fail('Should fail: wrong type')
 
 def test_configuration_get_channel_mask():
     c = Configuration()
@@ -867,14 +914,18 @@ def test_configuration_set_external_trigger_mask():
 
 def test_configuration_set_external_trigger_mask_errors():
     c = Configuration()
-    with pytest.raises(ValueError, message='Should fail: wrong num_channels'):
+    with pytest.raises(ValueError):
         c.external_trigger_mask = [0x1] * (Chip.num_channels-1)
-    with pytest.raises(ValueError, message='Should fail: value too large'):
+        pytest.fail('Should fail: wrong num_channels')
+    with pytest.raises(ValueError):
         c.external_trigger_mask = [0x2] * Chip.num_channels
-    with pytest.raises(ValueError, message='Should fail: value negative'):
+        pytest.fail('Should fail: value too large')
+    with pytest.raises(ValueError):
         c.external_trigger_mask = [-1] * Chip.num_channels
-    with pytest.raises(ValueError, message='Should fail: wrong type'):
+        pytest.fail('Should fail: value negative')
+    with pytest.raises(ValueError):
         c.external_trigger_mask = 5
+        pytest.fail('Should fail: wrong type')
 
 def test_configuration_get_external_trigger_mask():
     c = Configuration()
@@ -890,12 +941,15 @@ def test_configuration_set_reset_cycles():
 
 def test_configuration_set_reset_cycles_errors():
     c = Configuration()
-    with pytest.raises(ValueError, message='Should fail: value too large'):
+    with pytest.raises(ValueError):
         c.reset_cycles = 0x1000000
-    with pytest.raises(ValueError, message='Should fail: value negative'):
+        pytest.fail('Should fail: value too large')
+    with pytest.raises(ValueError):
         c.reset_cycles = -10
-    with pytest.raises(ValueError, message='Should fail: wrong type'):
+        pytest.fail('Should fail: value negative')
+    with pytest.raises(ValueError):
         c.reset_cycles = True
+        pytest.fail('Should fail: wrong type')
 
 def test_configuration_get_reset_cycles():
     c = Configuration()
@@ -1190,8 +1244,9 @@ def test_configuration_write_errors(tmpdir):
     c = Configuration()
     f = tmpdir.join('test_config.json')
     f.write("Test data.....")
-    with pytest.raises(IOError, message='Should fail: force fails'):
+    with pytest.raises(IOError):
         c.write(str(f))
+        pytest.fail('Should fail: force fails')
 
 def test_configuration_write_force(tmpdir):
     c = Configuration()
@@ -1438,10 +1493,12 @@ def test_controller_get_chip_error():
     controller = Controller()
     chip = Chip(1, 3)
     controller.chips.append(chip)
-    with pytest.raises(ValueError, message='Should fail: bad chipid'):
+    with pytest.raises(ValueError):
         controller.get_chip(0, 3)
-    with pytest.raises(ValueError, message='Should fail: bad chainid'):
+        pytest.fail('Should fail: bad chipid')
+    with pytest.raises(ValueError):
         controller.get_chip(1, 1)
+        pytest.fail('Should fail: bad chainid')
 
 def test_controller_read():
     controller = Controller()
@@ -1618,6 +1675,43 @@ def test_controller_multi_read_configuration_specify_registers(capfd):
     assert result_sent == expected_sent
     assert result_read == expected_read
 
+def test_controller_verify_configuration_ok(capfd):
+    controller = Controller()
+    controller.io = FakeIO()
+    chip = Chip(2, 0)
+    controller.chips.append(chip)
+    conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
+    for packet in conf_data: packet.packet_type = Packet.CONFIG_READ_PACKET
+    controller.io.queue.append((conf_data,b'hi'))
+    ok, diff = controller.verify_configuration(chip_id=chip.chip_id, io_chain=chip.io_chain)
+    assert ok
+    assert diff == {}
+
+def test_controller_verify_configuration_missing_packet(capfd):
+    controller = Controller()
+    controller.io = FakeIO()
+    chip = Chip(2, 0)
+    controller.chips.append(chip)
+    conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
+    for packet in conf_data: packet.packet_type = Packet.CONFIG_READ_PACKET
+    del conf_data[5]
+    controller.io.queue.append((conf_data,b'hi'))
+    ok, diff = controller.verify_configuration(chip_id=chip.chip_id, io_chain=chip.io_chain)
+    assert ok == False
+    assert diff == {5: (16, None)}
+
+def test_controller_verify_configuration_bad_value(capfd):
+    controller = Controller()
+    controller.io = FakeIO()
+    chip = Chip(2, 0)
+    controller.chips.append(chip)
+    conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
+    for packet in conf_data: packet.packet_type = Packet.CONFIG_READ_PACKET
+    conf_data[5].register_data = 17
+    controller.io.queue.append((conf_data,b'hi'))
+    ok, diff = controller.verify_configuration(chip_id=chip.chip_id, io_chain=chip.io_chain)
+    assert ok == False
+    assert diff == {5: (16, 17)}
 
 def test_packetcollection_getitem_int():
     expected = Packet()
@@ -1727,8 +1821,9 @@ def test_timestamp_init():
     assert Timestamp.larpix_offset_d * 100 == t.adj_adc_time
 
 def test_timestamp_error():
-    with pytest.raises(ValueError, message='Should fail: value too large'):
+    with pytest.raises(ValueError):
         t = Timestamp.serialized_timestamp(cpu_time=0, adc_time=Timestamp.larpix_offset_d)
+        pytest.fail('Should fail: value too large')
 
 def test_timestamp_same_serial_read():
     clk_counter = 0
@@ -1786,12 +1881,14 @@ def test_timestamp_ambiguous_rollover():
     assert t1 == expected
 
 def test_Smart_List_init_wrong_type():
-    with pytest.raises(ValueError, message='Should fail: wrong type'):
+    with pytest.raises(ValueError):
         sl = _Smart_List(5, 0, 40)
+        pytest.fail('Should fail: wrong type')
 
 def test_Smart_List_init_out_of_bounds():
-    with pytest.raises(ValueError, message='Should fail: out of bounds'):
+    with pytest.raises(ValueError):
         sl = _Smart_List([-1], 0, 40)
+        pytest.fail('Should fail: out of bounds')
 
 def test_Smart_List_assignment():
     result = _Smart_List([1,2,3],0,40)
@@ -1803,17 +1900,20 @@ def test_Smart_List_assignment():
 
 def test_Smart_List_error():
     sl = _Smart_List([1,2,3],0,40)
-    with pytest.raises(ValueError, message='Should fail: out of bounds'):
+    with pytest.raises(ValueError):
         sl[0] = 41
+        pytest.fail('Should fail: out of bounds')
 
 def test_Smart_List_slice_error():
     sl = _Smart_List(list(range(10)), 0, 40)
-    with pytest.raises(ValueError, message='Should fail: out of bounds'):
+    with pytest.raises(ValueError):
         sl[5:7] = [40, 41, 40]
+        pytest.fail('Should fail: out of bounds')
 
 def test_Smart_List_config_error():
     c = Configuration()
     register_dict = { 0: 5, 15: 89 }
-    with pytest.raises(ValueError, message='Should fail: out of bounds'):
+    with pytest.raises(ValueError):
         c.from_dict_registers(register_dict)
+        pytest.fail('Should fail: out of bounds')
 
