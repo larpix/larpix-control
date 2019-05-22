@@ -32,6 +32,8 @@ board_info_list = [
      'file':'controller/pcb-1_chip_info.json'},
     {'name':'pcb-2',
      'file':'controller/pcb-2_chip_info.json'},
+    {'name':'pcb-3',
+     'file':'controller/pcb-3_chip_info.json'},
     {'name':'pcb-10',
      'file':'controller/pcb-10_chip_info.json'}
 ]
