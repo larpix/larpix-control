@@ -8,6 +8,7 @@ import json
 import os
 import errno
 import math
+import warnings
 
 from bitarray import bitarray
 
@@ -911,6 +912,7 @@ class Controller(object):
         self.reads = []
         self.nreads = 0
         self.io = None
+        self.logger = None
 
     def _init_chips(self, nchips = 256, iochain = 0):
         '''
@@ -968,21 +970,29 @@ class Controller(object):
         Send the specified packets to the LArPix ASICs.
 
         '''
-        self.io.send(packets)
+        timestamp = time.time()
+        if self.io:
+            self.io.send(packets)
+        else:
+            warnings.warn('no IO object exists, no packets sent', RuntimeWarning)
+        if self.logger:
+            self.logger.record(packets, data_type='SEND', timestamp=timestamp)
 
     def start_listening(self):
         '''
         Listen for packets to arrive.
 
         '''
-        self.io.start_listening()
+        if self.io:
+            self.io.start_listening()
 
     def stop_listening(self):
         '''
         Stop listening for new packets to arrive.
 
         '''
-        return self.io.stop_listening()
+        if self.io:
+            return self.io.stop_listening()
 
     def read(self):
         '''
@@ -994,7 +1004,15 @@ class Controller(object):
         recent.
 
         '''
-        packets, bytestream = self.io.empty_queue()
+        timestamp = time.time()
+        packets = []
+        bytestream = b''
+        if self.io:
+            packets, bytestream = self.io.empty_queue()
+        else:
+            warnings.warn('no IO object exists, no packets will be received', RuntimeWarning)
+        if self.logger:
+            self.logger.record(packets, data_type='READ', timestamp=timestamp)
         return packets, bytestream
 
     def write_configuration(self, chip, registers=None, write_read=0,
@@ -1032,7 +1050,9 @@ class Controller(object):
             message = 'configuration write: ' + message
         packets = chip.get_configuration_packets(
                 Packet.CONFIG_WRITE_PACKET, registers)
-        already_listening = self.io.is_listening
+        already_listening = False
+        if self.io:
+            already_listening = self.io.is_listening
         mess_with_listening = write_read != 0 and not already_listening
         if mess_with_listening:
             self.start_listening()
@@ -1076,7 +1096,9 @@ class Controller(object):
             message = 'configuration read: ' + message
         packets = chip.get_configuration_packets(
                 Packet.CONFIG_READ_PACKET, registers)
-        already_listening = self.io.is_listening
+        already_listening = False
+        if self.io:
+            already_listening = self.io.is_listening
         if not already_listening:
             self.start_listening()
             stop_time = time.time() + timeout
@@ -1133,7 +1155,9 @@ class Controller(object):
             one_chip_packets = chip.get_configuration_packets(
                     Packet.CONFIG_WRITE_PACKET, registers)
             packets.extend(one_chip_packets)
-        already_listening = self.io.is_listening
+        already_listening = False
+        if self.io:
+            already_listening = self.io.is_listening
         mess_with_listening = write_read != 0 and not already_listening
         if mess_with_listening:
             self.start_listening()
@@ -1191,7 +1215,9 @@ class Controller(object):
             one_chip_packets = chip.get_configuration_packets(
                     Packet.CONFIG_READ_PACKET, registers)
             packets += one_chip_packets
-        already_listening = self.io.is_listening
+        already_listening = False
+        if self.io:
+            already_listening = self.io.is_listening
         if not already_listening:
             self.start_listening()
             stop_time = time.time() + timeout

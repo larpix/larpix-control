@@ -19,7 +19,7 @@ class DataFormatter(object):
     def file_open_chunk(cls):
         '''First chunk in file, to confirm file format is correct'''
         return cls.endian_test_word
-    
+
     @classmethod
     def number_of_chunks(cls,n_bytes):
         '''Determine number of chunks needed for the given number of bytes'''
@@ -27,7 +27,7 @@ class DataFormatter(object):
         if (n_bytes % cls.chunk_size) != 0:
             n_chunks += 1  # must pad to catch remaining bytes
         return n_chunks
-    
+
     @classmethod
     def header_type(cls,header_chunk):
         '''Return the header type, given the first header chunk'''
@@ -53,13 +53,13 @@ class DataFormatter(object):
     def data_continued(cls,block_chunk):
         '''Return true if block data is continued in next block'''
         return False
-    
+
     @classmethod
     def data_version(cls,header_chunk):
         '''Return the data version, given the first file header chunk'''
         return (header_chunk[2],header_chunk[3])
 
-    
+
     @classmethod
     def format_file_header(cls, file_head_desc):
         '''Generate a file header'''
@@ -84,7 +84,7 @@ class DataFormatter(object):
     def format_data_block(cls, data_block_desc):
         '''Generate a data block'''
         raise NotImplementedError
-    
+
     @classmethod
     def parse_data_block(cls, data_block_bytes):
         '''Parse a data block'''
@@ -107,7 +107,7 @@ class DataFormatter(object):
         for scls in cls.__subclasses__():
             formatters += scls.__subclasses__()
         return formatters
-    
+
     @classmethod
     def valid_endian(cls, bytes):
         '''Check bytes to determine if it is the correct endian word'''
@@ -119,7 +119,7 @@ class DataFormatter(object):
         if block_desc['block_type'] is 'file':
             return cls.format_file_header(block_desc)
         raise ValueError('Undefined block type:', block_desc['block_type'])
-    
+
     @classmethod
     def parse_block(cls, block):
         '''Check block type and delegate to correct parser'''
@@ -127,8 +127,8 @@ class DataFormatter(object):
             return cls.parse_file_header(block)
         raise ValueError('Undefined header type:', header_bits)
 
-    
-    
+
+
 class DataFormatter_v1_0(DataFormatter):
     '''Explicit data formatter for data version 1.0'''
     data_version_major = 1
@@ -170,7 +170,7 @@ class DataFormatter_v1_0(DataFormatter):
         data_size = struct.unpack('<I',data_header_chunk[4:8])[0]
         return (cls.header_size_by_desc['data']
                 + cls.number_of_chunks(data_size))
-    
+
     @classmethod
     def format_file_header(cls, file_head_desc):
         '''Generate a file header'''
@@ -227,7 +227,7 @@ class DataFormatter_v1_0(DataFormatter):
             # Pad block to fill chunk_size
             bytes += bytearray([0]*n_pad_bytes)
         return bytes
-    
+
     @classmethod
     def parse_data_block(cls, data_block):
         '''Parse a data block'''
@@ -259,7 +259,7 @@ class DataFormatter_v1_0(DataFormatter):
         elif block_desc['block_type'] is 'data':
             return cls.format_data_block(block_desc)
         raise ValueError('Undefined block type:', block_desc['block_type'])
-    
+
     @classmethod
     def parse_block(cls, block):
         '''Check block type and delegate to correct parser'''
@@ -270,6 +270,6 @@ class DataFormatter_v1_0(DataFormatter):
         raise ValueError('Undefined header type:', header_bits)
 
 
-    
+
 # Define current default formatter
 default_formatter = DataFormatter_v1_0

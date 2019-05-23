@@ -14,5 +14,6 @@ Here is the documentation for LArPix Control.
    api/larpix
    api/io/index
    api/configs/index
+   api/logger/index
 
 :ref:`genindex`

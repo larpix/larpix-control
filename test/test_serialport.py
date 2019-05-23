@@ -4,7 +4,7 @@ Tests for parsing and formatting for the SerialPort IO interface.
 '''
 from __future__ import print_function
 import pytest
-from larpix.serialport import SerialPort
+from larpix.io.serialport import SerialPort
 from larpix.larpix import (Chip, Packet)
 
 def test_serialport_format_UART():

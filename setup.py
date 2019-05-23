@@ -38,6 +38,8 @@ setup(
             'larpix-geometry ==0.3.0',
             'bitarray ~=0.8',
             'pyzmq ~= 16.0',
-            'sphinx_rtd_theme ~= 0.4.2'
+            'sphinx_rtd_theme ~= 0.4.2',
+            'numpy ~= 1.16.1',
+            'h5py ~= 2.9.0'
             ],
 )

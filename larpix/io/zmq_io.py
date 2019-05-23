@@ -1,7 +1,7 @@
 import time
 import zmq
 
-from .larpix import Packet
+from larpix.larpix import Packet
 
 class ZMQ_IO(object):
     '''
@@ -13,6 +13,7 @@ class ZMQ_IO(object):
     count, clock frequency, and more.
 
     '''
+
     def __init__(self, address):
         self.context = zmq.Context()
         self.sender = self.context.socket(zmq.REQ)
@@ -30,8 +31,10 @@ class ZMQ_IO(object):
 
     def send(self, packets):
         self.sender_replies = []
-        for packet in packets:
-            tosend = b'SNDWORD 0x00%s 0' % packet.bytes()[::-1].hex().encode()
+        send_time = time.time()
+        msg_datas = self.encode(packets)
+        for msg_data in msg_datas:
+            tosend = b'SNDWORD ' + msg_data
             self.sender.send(tosend)
             self.sender_replies.append(self.sender.recv())
 
@@ -47,19 +50,38 @@ class ZMQ_IO(object):
         self.is_listening = False
         self.receiver.setsockopt(zmq.UNSUBSCRIBE, b'')
 
+    @staticmethod
+    def decode(msgs):
+        '''
+        Convert a list ZMQ messages into packets
+        '''
+        packets = []
+        for msg in msgs:
+            if len(msg) % 8 == 0:
+                for start_index in range(0, len(msg), 8):
+                    packet_bytes = msg[start_index:start_index+7]
+                    packets.append(Packet(packet_bytes))
+        return packets
+
+    @staticmethod
+    def encode(packets):
+        '''
+        Encode a list of packets into ZMQ messages
+        '''
+        msg_data = [b'0x00%s 0' % packet.bytes()[::-1].hex().encode() for packet in packets]
+        return msg_data
+
     def empty_queue(self):
         packets = []
         bytestream_list = []
         bytestream = b''
         n_recv = 0
+        read_time = time.time()
         while self.poller.poll(0) and n_recv < self.hwm:
             message = self.receiver.recv()
             n_recv += 1
             bytestream_list.append(message)
-            if len(message) % 8 == 0:
-                for start_index in range(0, len(message), 8):
-                    packet_bytes = message[start_index:start_index+7]
-                    packets.append(Packet(packet_bytes))
+            packets += self.decode([message])
         #print('len(bytestream_list) = %d' % len(bytestream_list))
         bytestream = b''.join(bytestream_list)
         return packets, bytestream
@@ -110,4 +132,3 @@ class ZMQ_IO(object):
         self.sender.send(b'PING_HB')
         result = self.sender.recv()
         return result[:2] == b'OK'
-

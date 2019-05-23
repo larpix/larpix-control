@@ -1,5 +1,5 @@
 FakeIO IO Interface
 -------------------
 
-.. automodule:: larpix.fakeio
+.. automodule:: larpix.io.fakeio
 

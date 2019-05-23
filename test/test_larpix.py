@@ -6,7 +6,7 @@ from __future__ import print_function
 import pytest
 from larpix.larpix import (Chip, Packet, Configuration, Controller,
         PacketCollection, _Smart_List)
-from larpix.fakeio import FakeIO
+from larpix.io.fakeio import FakeIO
 from larpix.timestamp import *  # use long = int in py3
 #from bitstring import BitArray
 from bitarray import bitarray
