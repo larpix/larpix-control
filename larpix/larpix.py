@@ -970,6 +970,9 @@ class Controller(object):
                 raise RuntimeError('No io object to validate chip key, run with safe=False to override')
         if valid_chip_key:
             self.chips[chip_key] = Chip(chip_id=chip_id, chip_key=chip_key)
+            return self.chips[chip_key]
+        warnings.warn('Invalid chip key, chip was not added! run with safe=False to override')
+        return None
 
     def load(self, filename, safe=True):
         '''
