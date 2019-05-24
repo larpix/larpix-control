@@ -1713,11 +1713,11 @@ def test_controller_verify_configuration_ok(capfd):
     controller = Controller()
     controller.io = FakeIO()
     chip = Chip(2, 0)
-    controller.chips.append(chip)
+    controller.chips[0] = chip
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
     for packet in conf_data: packet.packet_type = Packet.CONFIG_READ_PACKET
     controller.io.queue.append((conf_data,b'hi'))
-    ok, diff = controller.verify_configuration(chip_id=chip.chip_id, io_chain=chip.io_chain)
+    ok, diff = controller.verify_configuration(chip_keys=chip.chip_key)
     assert ok
     assert diff == {}
 
@@ -1725,12 +1725,12 @@ def test_controller_verify_configuration_missing_packet(capfd):
     controller = Controller()
     controller.io = FakeIO()
     chip = Chip(2, 0)
-    controller.chips.append(chip)
+    controller.chips[0] = chip
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
     for packet in conf_data: packet.packet_type = Packet.CONFIG_READ_PACKET
     del conf_data[5]
     controller.io.queue.append((conf_data,b'hi'))
-    ok, diff = controller.verify_configuration(chip_id=chip.chip_id, io_chain=chip.io_chain)
+    ok, diff = controller.verify_configuration(chip_keys=chip.chip_key)
     assert ok == False
     assert diff == {5: (16, None)}
 
@@ -1738,12 +1738,12 @@ def test_controller_verify_configuration_bad_value(capfd):
     controller = Controller()
     controller.io = FakeIO()
     chip = Chip(2, 0)
-    controller.chips.append(chip)
+    controller.chips[0] = chip
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
     for packet in conf_data: packet.packet_type = Packet.CONFIG_READ_PACKET
     conf_data[5].register_data = 17
     controller.io.queue.append((conf_data,b'hi'))
-    ok, diff = controller.verify_configuration(chip_id=chip.chip_id, io_chain=chip.io_chain)
+    ok, diff = controller.verify_configuration(chip_keys=chip.chip_key)
     assert ok == False
     assert diff == {5: (16, 17)}
 

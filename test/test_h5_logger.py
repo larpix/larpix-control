@@ -88,8 +88,9 @@ def test_controller_write_capture():
     controller = Controller()
     controller.logger = HDF5Logger(filename=test_filename, buffer_length=1)
     controller.logger.open()
-    chip = Chip(2, 0)
-    controller.write_configuration(chip, 0)
+    controller.chips[0] = Chip(2, 0)
+    chip = controller.chips[0]
+    controller.write_configuration(0, 0)
     packet = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[0]
     assert len(controller.logger._buffer) == 1
 

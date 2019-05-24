@@ -953,24 +953,48 @@ class Controller(object):
         # raise ValueError('Could not find chip (%d, %d) (using all_chips'
         #         '? %s)' % (chip_id, io_chain, self.use_all_chips))
 
-    def load(self, filename):
+    def add_chip(self, chip_key, chip_id=0, safe=True):
+        '''
+        Add a specified chip to the Controller chips
+
+        param: chip_key: chip key to specify unique chip
+        param: chip_id: chip id to associate with chip
+        param: safe: check if chip key is valid using current io
+
+        '''
+        valid_chip_key = True
+        if safe:
+            if self.io:
+                valid_chip_key = self.io.is_valid_chip_key(chip_key)
+            else:
+                raise RuntimeError('No io object to validate chip key, run with safe=False to override')
+        if valid_chip_key:
+            self.chips[chip_key] = Chip(chip_id=chip_id, chip_key=chip_key)
+
+    def load(self, filename, safe=True):
         '''
         Loads the specified file that describes the chip ids and IO network
-        '''
-        return self.load_controller(filename)
 
-    def load_controller(self, filename):
+        :param filename: File path to configuration file
+        :param safe: Flag to check chip keys against current io
+        '''
+        return self.load_controller(filename, safe=True)
+
+    def load_controller(self, filename, safe=True):
         '''
         Loads the specified file using the basic key, chip format
         The key, chip file format is:
         ``
         {
             "name": "<system name>",
-            "chip_list": [[<chip key>,<chip id>],...]
+            "chip_list": [[<chip key>, <chip id>],...]
         }
         ``
         The chip key is the Controller access key that gets communicated to/from
         the io object when sending and receiving packets.
+
+        :param filename: File path to configuration file
+        :param safe: Flag to check chip keys against current io
 
         '''
         system_info = configs.load(filename)
@@ -978,11 +1002,22 @@ class Controller(object):
         for chip_info in system_info['chip_list']:
             chip_id = chip_info[1]
             chip_key = chip_info[0]
-            chips[chip_key] = Chip(chip_id, chip_key=chip_key)
+            valid_key = True
+            if safe:
+                if self.io:
+                    valid_chip_key = self.io.is_valid_chip_key(chip_key)
+                else:
+                    raise RuntimeError('No io object to validate chip key, run with'
+                        ' safe=False to override')
+            if valid_key:
+                chips[chip_key] = Chip(chip_id, chip_key=chip_key)
+            else:
+                raise RuntimeError('Chip key {} is invalid for io {}, run with '
+                    'safe=False to override'.format(chip_key, self.io))
         self.chips = chips
         return system_info['name']
 
-    def load_daisy_chain(self, filename):
+    def load_daisy_chain(self, filename, safe=True):
         '''
         Loads the specified file in a basic daisy chain format
         Daisy chain file format is:
@@ -994,6 +1029,9 @@ class Controller(object):
         ``
         Position in daisy chain is specified by position in `chip_set` list
         returns board name of the loaded chipset configuration
+
+        :param filename: File path to configuration file
+        :param safe: Flag to check chip keys against current io
         '''
         board_info = configs.load(filename)
         chips = {}
@@ -1001,7 +1039,19 @@ class Controller(object):
             chip_id = chip_info[0]
             io_chain = chip_info[1]
             key = '{}-{}'.format(io_chain, chip_id)
-            chips[key] = Chip(chip_id, chip_key=key)
+            valid_chip_key = True
+            if safe:
+                if self.io:
+                    valid_chip_key = self.io.is_valid_chip_key(chip_key)
+                else:
+                    raise RuntimeError('No io object to validate chip key, run '
+                        'with safe=False to override')
+            if valid_chip_key:
+                chips[key] = Chip(chip_id, chip_key=key)
+            else:
+                raise RuntimeError('Chip key {} is invalid for io {}, run with '
+                    'safe=False to override'.format(chip_key, self.io))
+
         self.chips = chips
         return board_info['name']
 
@@ -1025,6 +1075,8 @@ class Controller(object):
         '''
         if self.io:
             self.io.start_listening()
+        else:
+            warnings.warn('no IO object exists, you have done nothing', RuntimeWarning)
 
     def stop_listening(self):
         '''
@@ -1033,6 +1085,8 @@ class Controller(object):
         '''
         if self.io:
             return self.io.stop_listening()
+        else:
+            warnings.warn('no IO object exists, you have done nothing', RuntimeWarning)
 
     def read(self):
         '''
