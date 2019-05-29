@@ -1,7 +1,4 @@
-from abc import ABC, abstractmethod
-
-
-class IO(ABC):
+class IO(object):
     '''
     Base class for IO objects that explicitly describes the necessary functions
     required by any IO class implementation. Additional functions are not used
@@ -18,7 +15,6 @@ class IO(ABC):
         self.is_listening = False
 
     @classmethod
-    @abstractmethod
     def encode(cls, packets):
         '''
         Encodes a list of packets into a list of IO message objects
@@ -31,7 +27,6 @@ class IO(ABC):
         pass
 
     @classmethod
-    @abstractmethod
     def decode(cls, msgs):
         '''
         Decodes a list of IO message objects into respective larpix ``Packet`` objects
@@ -44,7 +39,6 @@ class IO(ABC):
         pass
 
     @classmethod
-    @abstractmethod
     def is_valid_chip_key(cls, key):
         '''
         Check if provided key is valid for IO implementation. Chip key should be an immutable python type and not ``tuple``
@@ -63,7 +57,7 @@ class IO(ABC):
         return True
 
     @classmethod
-    @abstractmethod
+
     def parse_chip_key(cls, key):
         '''
         Translate a chip key into a dict of contained information
@@ -79,7 +73,6 @@ class IO(ABC):
         return empty_dict
 
     @classmethod
-    @abstractmethod
     def generate_chip_key(cls, **kwargs):
         '''
         Create a chip key based on supplied info, raise an error if not enough information is provided
@@ -90,7 +83,7 @@ class IO(ABC):
         pass
 
 
-    @abstractmethod
+
     def send(self, packets):
         '''
         Function for sending larpix packet objects
@@ -102,7 +95,7 @@ class IO(ABC):
         '''
         pass
 
-    @abstractmethod
+
     def start_listening(self):
         '''
         Function for starting read communications on IO
@@ -112,7 +105,7 @@ class IO(ABC):
         '''
         self.is_listening = True
 
-    @abstractmethod
+
     def stop_listening(self):
         '''
         Function for halting read communications on IO
@@ -122,7 +115,7 @@ class IO(ABC):
         '''
         self.is_listening = False
 
-    @abstractmethod
+
     def empty_queue(self):
         '''
         Read and remove the current items in the internal queue. The details of
