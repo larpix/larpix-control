@@ -1,9 +1,10 @@
 import time
 import zmq
 
+from larpix.io import IO
 from larpix.larpix import Packet
 
-class ZMQ_IO(object):
+class ZMQ_IO(IO):
     '''
     The ZMQ_IO object interfaces with the Bern LArPix v2 module using
     the ZeroMQ communications protocol.
@@ -15,6 +16,7 @@ class ZMQ_IO(object):
     '''
 
     def __init__(self, address):
+        super(ZMQ_IO, self).__init__()
         self.context = zmq.Context()
         self.sender = self.context.socket(zmq.REQ)
         self.receiver = self.context.socket(zmq.SUB)
@@ -25,7 +27,6 @@ class ZMQ_IO(object):
         self.sender.connect(send_address)
         self.receiver.connect(receive_address)
         self.sender_replies = []
-        self.is_listening = False
         self.poller = zmq.Poller()
         self.poller.register(self.receiver, zmq.POLLIN)
 
@@ -41,17 +42,67 @@ class ZMQ_IO(object):
     def start_listening(self):
         if self.is_listening:
             raise RuntimeError('Already listening')
-        self.is_listening = True
+        super(ZMQ_IO, self).start_listening()
         self.receiver.setsockopt(zmq.SUBSCRIBE, b'')
 
     def stop_listening(self):
         if not self.is_listening:
             raise RuntimeError('Already not listening')
-        self.is_listening = False
+        super(ZMQ_IO, self).stop_listening()
         self.receiver.setsockopt(zmq.UNSUBSCRIBE, b'')
 
-    @staticmethod
-    def decode(msgs):
+    @classmethod
+    def is_valid_chip_key(cls, key):
+        '''
+        Valid chip keys must be strings formatted as:
+        ``'<io_chain>-<chip_id>'``
+
+        '''
+        if not super(cls, cls).is_valid_chip_key(key):
+            return False
+        if not isinstance(key, str):
+            return False
+        parsed_key = key.split('-')
+        if not len(parsed_key) == 2:
+            return False
+        try:
+            _ = int(parsed_key[0])
+            _ = int(parsed_key[1])
+        except ValueError:
+            return False
+        return True
+
+    @classmethod
+    def parse_chip_key(cls, key):
+        '''
+        Decodes a chip key into ``'chip_id'`` and ``io_chain``
+
+        :returns: ``dict`` with keys ``('chip_id', 'io_chain')``
+        '''
+        return_dict = super(cls, cls).parse_chip_key(key)
+        parsed_key = key.split('-')
+        return_dict['chip_id'] = int(parsed_key[1])
+        return_dict['io_chain'] = int(parsed_key[0])
+        return return_dict
+
+    @classmethod
+    def generate_chip_key(cls, **kwargs):
+        '''
+        Generates a valid ``ZMQ_IO`` chip key
+
+        :param chip_id: ``int`` corresponding to internal chip id
+
+        :param io_chain: ``int`` corresponding to daisy chain number
+
+        '''
+        req_fields = ('chip_id', 'io_chain')
+        if not all([key in kwargs for key in req_fields]):
+            raise ValueError('Missing fields required to generate chip id'
+                ', requires {}, received {}'.format(req_fields, kwargs.keys()))
+        return '{io_chain}-{chip_id}'.format(**kwargs)
+
+    @classmethod
+    def decode(cls, msgs):
         '''
         Convert a list ZMQ messages into packets
         '''
@@ -61,10 +112,11 @@ class ZMQ_IO(object):
                 for start_index in range(0, len(msg), 8):
                     packet_bytes = msg[start_index:start_index+7]
                     packets.append(Packet(packet_bytes))
+                    packets[-1].chip_key = cls.generate_chip_key(chip_id=packets[-1].chipid, io_chain=0)
         return packets
 
-    @staticmethod
-    def encode(packets):
+    @classmethod
+    def encode(cls, packets):
         '''
         Encode a list of packets into ZMQ messages
         '''

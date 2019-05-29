@@ -7,6 +7,6 @@ Here is the documentation for the configuration files.
    :maxdepth: 2
 
    chip
-   chain
+   controller
 
 :ref:`genindex`

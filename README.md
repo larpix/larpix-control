@@ -42,18 +42,17 @@ example for you to play around with:
 >>> controller.io = FakeIO()
 >>> controller.logger = StdoutLogger(buffer_length=0)
 >>> controller.logger.open()
->>> chip1 = larpix.Chip(1, 0)  # (chipID, IO-chain index)
->>> controller.chips.append(chip1)
+>>> chip1 = controller.add_chip('0-1', 1)  # (access key, chipID)
 >>> chip1.config.global_threshold = 25
->>> controller.write_configuration(chip1, 25)
-[ Config write | Chip: 1 | Register: 25 | Value:  16 | Parity: 1 (valid: True) ]
+>>> controller.write_configuration('0-1', 25) # chip key 1, register 25
+[ Config write | Chip key: '0-1' | Chip: 1 | Register: 25 | Value:  16 | Parity: 1 (valid: True) ]
 >>> packet = larpix.Packet(b'\x04\x14\x80\xc4\x03\xf2 ')
 >>> packet_bytes = packet.bytes()
 >>> pretend_input = ([packet], packet_bytes)
 >>> controller.io.queue.append(pretend_input)
 >>> controller.run(0.05, 'test run')
 >>> print(controller.reads[0])
-[ Data | Chip: 1 | Channel: 5 | Timestamp: 123456 | ADC data: 120 | FIFO Half: False | FIFO Full: False | Parity: 1 (valid: True) ]
+[ Data | Chip key: None | Chip: 1 | Channel: 5 | Timestamp: 123456 | ADC data: 120 | FIFO Half: False | FIFO Full: False | Parity: 1 (valid: True) ]
 ```
 
 ## Tutorial
@@ -86,7 +85,9 @@ Set things up with
 
 ```python
 controller = larpix.Controller()
-controller.io = larpix.FakeIO()
+controller.io = larpix.io.fakeio.FakeIO()
+controller.logger = larpix.logger.stdout_logger.StdoutLogger(buffer_length=0)
+controller.logger.open()
 ```
 
 The ``FakeIO`` object imitates a real IO interface for testing purposes.
@@ -96,6 +97,12 @@ relevant section of the tutorial will be code for adding the expected
 output to the queue. You'll have to refill the queue each time you run
 the code.
 
+Similarly, the ``StdoutLogger`` mimics the real logger interface for testing. It
+prints nicely formatted records of read / write commands to stdout every
+``buffer_length`` packets. The logger interface requires opening or enabling the
+logger before messages will be stored. Before ending the python session, every
+logger should be closed to flush any remaining packets stored in the buffer.
+
 ### Set up LArPix Chips
 
 Chip objects represent actual LArPix ASICs. For each ASIC you want to
@@ -104,12 +111,14 @@ Controller.
 
 ```python
 chipid = 5
-io_chain = 0  # Currently unused
-controller.chips.append(larpix.Chip(chipid, io_chain))
+chip_key = '0-5'
+chip5 = controller.add_chip(chip_key, chipid)
+chip5 = controller.get_chip(chip_key)
 ```
 
-Note that the second argument to the constructor is required but
-currently unused.
+The `chip_key` field specifies the necessary information for the `controller.io`
+object to route packets to/from the chip. The specifications for this field are
+implemented separately in each `larpix.io` class.
 
 ### Adjust the configuration of the LArPix Chips
 
@@ -118,7 +127,6 @@ Configurations can be adjusted by name using attributes of the Chip's
 configuration:
 
 ```python
-chip5 = controller.chips[0]
 chip5.config.global_threshold = 35  # entire register = 1 number
 chip5.config.periodic_reset = 1  # one bit as part of a register
 chip5.config.channel_mask[20] = 1  # one bit per channel
@@ -133,9 +141,9 @@ Once the configuration is set, the new values must be sent to the LArPix
 ASICs. There is an appropriate Controller method for that:
 
 ```python
-controller.write_configuration(chip5)  # send all registers
-controller.write_configuration(chip5, 32)  # send only register 32
-controller.write_configuration(chip5, [32, 50])  # send registers 32 and 50
+controller.write_configuration(chip_key)  # send all registers
+controller.write_configuration(chip_key, 32)  # send only register 32
+controller.write_configuration(chip_key, [32, 50])  # send registers 32 and 50
 ```
 
 Register addresses can be looked up using the configuration object:
@@ -156,7 +164,7 @@ The current configuration state of the LArPix ASICs can be requested by
 sending out "configuration read" requests using the Controller:
 
 ```python
-controller.read_configuration(chip5)
+controller.read_configuration(chip_key)
 ```
 
 The same variations to read only certain registers are implemented for
@@ -275,6 +283,7 @@ packet = run1[0]
 # all packets
 packet.packet_type  # unique in that it gives the bits representation
 packet.chipid  # all other properties return Python numbers
+packet.chip_key # key for association to a unique chip
 packet.parity_bit_value
 # data packets
 packet.channel_id

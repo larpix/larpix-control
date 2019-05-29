@@ -22,24 +22,24 @@ class Chip(object):
 
     '''
     num_channels = 32
-    def __init__(self, chip_id, io_chain):
+    def __init__(self, chip_id, chip_key):
         '''
-        Create a new Chip object with the given ``chip_id`` and
-        ``io_chain`` (daisy chain index).
+        Create a new Chip object with the given ``chip_id``. The specification
+        of the ``chip_key`` is given by each ``io`` class.
 
         '''
         self.chip_id = chip_id
-        self.io_chain = io_chain
+        self.chip_key = chip_key
         self.data_to_send = []
         self.config = Configuration()
         self.reads = []
         self.new_reads_index = 0
 
     def __str__(self):
-        return 'Chip (id: %d, chain: %d)' % (self.chip_id, self.io_chain)
+        return 'Chip (id: {}, key: {})'.format(self.chip_id, self.chip_key)
 
     def __repr__(self):
-        return 'Chip(%d, %d)' % (self.chip_id, self.io_chain)
+        return 'Chip(chip_id={}, chip_key={})'.format(self.chip_id, self.chip_key)
 
     def get_configuration_packets(self, packet_type, registers=None):
         '''
@@ -59,6 +59,7 @@ class Chip(object):
             packet = Packet()
             packet.packet_type = packet_type
             packet.chipid = self.chip_id
+            packet.chip_key = self.chip_key
             packet.register_address = i
             if packet_type == Packet.CONFIG_WRITE_PACKET:
                 packet.register_data = data
@@ -101,8 +102,8 @@ class Chip(object):
 
         '''
         data = {}
-        data['chipid'] = self.chip_id
-        data['io_chain'] = self.io_chain
+        data['chip_key'] = self.chip_key
+        data['chip_id'] = self.chip_id
         if only_new_reads:
             packets = self.reads[self.new_reads_index:]
         else:
@@ -906,62 +907,154 @@ class Controller(object):
 
     '''
     def __init__(self):
-        self.chips = []
+        self.chips = {}
         self.all_chips = self._init_chips()
-        self.use_all_chips = False
+        self._use_all_chips = False
         self.reads = []
         self.nreads = 0
         self.io = None
         self.logger = None
+
+    @property
+    def use_all_chips(self):
+        return self._use_all_chips
+
+    @use_all_chips.setter
+    def use_all_chips(self, value):
+        warnings.warn('all_chips access is no longer supported, bad things may happen',
+            FutureWarning)
+        self._use_all_chips = value
 
     def _init_chips(self, nchips = 256, iochain = 0):
         '''
         Return all possible chips.
 
         '''
-        return [Chip(i, iochain) for i in range(256)]
+        return_dict = {}
+        for i in range(nchips):
+            key = '{}-{}'.format(iochain, i)
+            return_dict[key] = Chip(i, chip_key=key)
+        return return_dict
 
-    def get_chip(self, chip_id, io_chain):
+    def get_chip(self, chip_key):
         '''
         Retrieve the Chip object that this Controller associates with
-        the given ``chip_id`` and ``io_chain``.
+        the given ``chip_key``.
 
         '''
         if self.use_all_chips:
-            chip_list = self.all_chips
+            chip_dict = self.all_chips
         else:
-            chip_list = self.chips
-        for chip in chip_list:
-            if chip.chip_id == chip_id and chip.io_chain == io_chain:
-                return chip
-        raise ValueError('Could not find chip (%d, %d) (using all_chips'
-                '? %s)' % (chip_id, io_chain, self.use_all_chips))
+            chip_dict = self.chips
+        try:
+            return chip_dict[chip_key]
+        except KeyError:
+            raise ValueError('Could not find chip using key <{}> '.format(chip_key))
+        # raise ValueError('Could not find chip (%d, %d) (using all_chips'
+        #         '? %s)' % (chip_id, io_chain, self.use_all_chips))
 
-    def load(self, filename):
+    def add_chip(self, chip_key, chip_id=0, safe=True):
+        '''
+        Add a specified chip to the Controller chips
+
+        param: chip_key: chip key to specify unique chip
+        param: chip_id: chip id to associate with chip
+        param: safe: check if chip key is valid using current io
+
+        '''
+        valid_chip_key = True
+        if safe:
+            if self.io:
+                valid_chip_key = self.io.is_valid_chip_key(chip_key)
+            else:
+                raise RuntimeError('No io object to validate chip key, run with safe=False to override')
+        if valid_chip_key:
+            self.chips[chip_key] = Chip(chip_id=chip_id, chip_key=chip_key)
+            return self.chips[chip_key]
+        warnings.warn('Invalid chip key, chip was not added! run with safe=False to override')
+        return None
+
+    def load(self, filename, safe=True):
         '''
         Loads the specified file that describes the chip ids and IO network
-        '''
-        return self.load_daisy_chain(filename)
 
-    def load_daisy_chain(self, filename):
+        :param filename: File path to configuration file
+        :param safe: Flag to check chip keys against current io
+        '''
+        return self.load_controller(filename, safe=True)
+
+    def load_controller(self, filename, safe=True):
+        '''
+        Loads the specified file using the basic key, chip format
+        The key, chip file format is:
+        ``
+        {
+            "name": "<system name>",
+            "chip_list": [[<chip key>, <chip id>],...]
+        }
+        ``
+        The chip key is the Controller access key that gets communicated to/from
+        the io object when sending and receiving packets.
+
+        :param filename: File path to configuration file
+        :param safe: Flag to check chip keys against current io
+
+        '''
+        system_info = configs.load(filename)
+        chips = {}
+        for chip_info in system_info['chip_list']:
+            chip_id = chip_info[1]
+            chip_key = chip_info[0]
+            valid_key = True
+            if safe:
+                if self.io:
+                    valid_chip_key = self.io.is_valid_chip_key(chip_key)
+                else:
+                    raise RuntimeError('No io object to validate chip key, run with'
+                        ' safe=False to override')
+            if valid_key:
+                chips[chip_key] = Chip(chip_id, chip_key=chip_key)
+            else:
+                raise RuntimeError('Chip key {} is invalid for io {}, run with '
+                    'safe=False to override'.format(chip_key, self.io))
+        self.chips = chips
+        return system_info['name']
+
+    def load_daisy_chain(self, filename, safe=True):
         '''
         Loads the specified file in a basic daisy chain format
         Daisy chain file format is:
-        ```
+        ``
         {
                 "name": "<board name>",
                 "chip_list": [[<chip id>,<daisy chain>],...]
         }
-        ```
+        ``
         Position in daisy chain is specified by position in `chip_set` list
         returns board name of the loaded chipset configuration
+
+        :param filename: File path to configuration file
+        :param safe: Flag to check chip keys against current io
         '''
         board_info = configs.load(filename)
-        chips = []
+        chips = {}
         for chip_info in board_info['chip_list']:
             chip_id = chip_info[0]
             io_chain = chip_info[1]
-            chips.append(Chip(chip_id, io_chain))
+            key = '{}-{}'.format(io_chain, chip_id)
+            valid_chip_key = True
+            if safe:
+                if self.io:
+                    valid_chip_key = self.io.is_valid_chip_key(chip_key)
+                else:
+                    raise RuntimeError('No io object to validate chip key, run '
+                        'with safe=False to override')
+            if valid_chip_key:
+                chips[key] = Chip(chip_id, chip_key=key)
+            else:
+                raise RuntimeError('Chip key {} is invalid for io {}, run with '
+                    'safe=False to override'.format(chip_key, self.io))
+
         self.chips = chips
         return board_info['name']
 
@@ -985,6 +1078,8 @@ class Controller(object):
         '''
         if self.io:
             self.io.start_listening()
+        else:
+            warnings.warn('no IO object exists, you have done nothing', RuntimeWarning)
 
     def stop_listening(self):
         '''
@@ -993,6 +1088,8 @@ class Controller(object):
         '''
         if self.io:
             return self.io.stop_listening()
+        else:
+            warnings.warn('no IO object exists, you have done nothing', RuntimeWarning)
 
     def read(self):
         '''
@@ -1015,7 +1112,7 @@ class Controller(object):
             self.logger.record(packets, data_type='READ', timestamp=timestamp)
         return packets, bytestream
 
-    def write_configuration(self, chip, registers=None, write_read=0,
+    def write_configuration(self, chip_key, registers=None, write_read=0,
             message=None):
         '''
         Send the configurations stored in chip.config to the LArPix
@@ -1048,6 +1145,7 @@ class Controller(object):
             message = 'configuration write'
         else:
             message = 'configuration write: ' + message
+        chip = self.get_chip(chip_key)
         packets = chip.get_configuration_packets(
                 Packet.CONFIG_WRITE_PACKET, registers)
         already_listening = False
@@ -1066,7 +1164,7 @@ class Controller(object):
             self.stop_listening()
             self.store_packets(packets, bytestream, message)
 
-    def read_configuration(self, chip, registers=None, timeout=1,
+    def read_configuration(self, chip_key, registers=None, timeout=1,
             message=None):
         '''
         Send "configuration read" requests to the LArPix ASIC.
@@ -1094,6 +1192,7 @@ class Controller(object):
             message = 'configuration read'
         else:
             message = 'configuration read: ' + message
+        chip = self.get_chip(chip_key)
         packets = chip.get_configuration_packets(
                 Packet.CONFIG_READ_PACKET, registers)
         already_listening = False
@@ -1127,14 +1226,14 @@ class Controller(object):
 
         These first 2 are equivalent and write the full configurations
 
-        >>> controller.multi_write_configuration([chip1, chip2, ...])
-        >>> controller.multi_write_configuration([(chip1, None), chip2, ...])
+        >>> controller.multi_write_configuration([chip_key1, chip_key2, ...])
+        >>> controller.multi_write_configuration([(chip_key1, None), chip_key2, ...])
 
         These 2 write the specified registers for the specified chips
         in the specified order
 
-        >>> controller.multi_write_configuration([(chip1, 1), (chip2, 2), ...])
-        >>> controller.multi_write_configuration([(chip1, range(10)), chip2, ...])
+        >>> controller.multi_write_configuration([(chip_key1, 1), (chip_key2, 2), ...])
+        >>> controller.multi_write_configuration([(chip_key1, range(10)), chip_key2, ...])
 
         '''
         if message is None:
@@ -1143,15 +1242,16 @@ class Controller(object):
             message = 'multi configuration write: ' + message
         packets = []
         for chip_reg_pair in chip_reg_pairs:
-            if isinstance(chip_reg_pair, Chip):
+            if not isinstance(chip_reg_pair, tuple):
                 chip_reg_pair = (chip_reg_pair, None)
-            chip, registers = chip_reg_pair
+            chip_key, registers = chip_reg_pair
             if registers is None:
                 registers = list(range(Configuration.num_registers))
             elif isinstance(registers, int):
                 registers = [registers]
             else:
                 pass
+            chip = self.get_chip(chip_key)
             one_chip_packets = chip.get_configuration_packets(
                     Packet.CONFIG_WRITE_PACKET, registers)
             packets.extend(one_chip_packets)
@@ -1178,7 +1278,7 @@ class Controller(object):
         Send multiple read configuration commands at once.
 
         ``chip_reg_pairs`` should be a list/iterable whose elements are
-        Chip objects (to read entire configuration) or (chip, registers)
+        chip keys (to read entire configuration) or (chip_key, registers)
         tuples to read only the specified register(s). Registers could
         be ``None`` (i.e. all), an ``int`` for that register only, or an
         iterable of ints.
@@ -1187,14 +1287,14 @@ class Controller(object):
 
         These first 2 are equivalent and read the full configurations
 
-        >>> controller.multi_read_configuration([chip1, chip2, ...])
-        >>> controller.multi_read_configuration([(chip1, None), chip2, ...])
+        >>> controller.multi_read_configuration([chip_key1, chip_key2, ...])
+        >>> controller.multi_read_configuration([(chip_key1, None), chip_key2, ...])
 
         These 2 read the specified registers for the specified chips
         in the specified order
 
-        >>> controller.multi_read_configuration([(chip1, 1), (chip2, 2), ...])
-        >>> controller.multi_read_configuration([(chip1, range(10)), chip2, ...])
+        >>> controller.multi_read_configuration([(chip_key1, 1), (chip_key2, 2), ...])
+        >>> controller.multi_read_configuration([(chip_key1, range(10)), chip_key2, ...])
 
         '''
         if message is None:
@@ -1203,15 +1303,16 @@ class Controller(object):
             message = 'multi configuration read: ' + message
         packets = []
         for chip_reg_pair in chip_reg_pairs:
-            if isinstance(chip_reg_pair, Chip):
+            if not isinstance(chip_reg_pair, tuple):
                 chip_reg_pair = (chip_reg_pair, None)
-            chip, registers = chip_reg_pair
+            chip_key, registers = chip_reg_pair
             if registers is None:
                 registers = list(range(Configuration.num_registers))
             elif isinstance(registers, int):
                 registers = [registers]
             else:
                 pass
+            chip = self.get_chip(chip_key)
             one_chip_packets = chip.get_configuration_packets(
                     Packet.CONFIG_READ_PACKET, registers)
             packets += one_chip_packets
@@ -1251,30 +1352,34 @@ class Controller(object):
         data = b''.join(bytestreams)
         self.store_packets(packets, data, message)
 
-    def verify_configuration(self, chip_id=None, io_chain=0):
+    def verify_configuration(self, chip_keys=None, timeout=0.1):
         '''
-        Read chip configuration from specified chip and return ``True`` if the
+        Read chip configuration from specified chip(s) and return ``True`` if the
         read chip configuration matches the current configuration stored in chip instance.
+        ``chip_keys`` can be a single chip key, a list of chip keys, or ``None``. If
+        ``chip_keys`` is ``None`` all chips will be verified.
 
         Also returns a dict containing the values of registers that are different
         (read register, stored register)
         '''
         return_value = True
         different_fields = {}
-        if chip_id is None:
-            for chip in self.chips:
-                match, chip_fields = self.verify_configuration(chip_id=chip.chip_id,
-                                                        io_chain=io_chain)
+        if chip_keys is None:
+            return self.verify_configuration(chip_keys=list(self.chips.keys()))
+        elif isinstance(chip_keys, list):
+            for chip_key in chip_keys:
+                match, chip_fields = self.verify_configuration(chip_keys=chip_key)
                 if not match:
-                    different_fields[chip.chip_id] = chip_fields
+                    different_fields[chip_key] = chip_fields
                     return_value = False
         else:
-            chip = self.get_chip(chip_id, io_chain)
-            self.read_configuration(chip,timeout=0.1)
+            chip_key = chip_keys
+            chip = self.get_chip(chip_key)
+            self.read_configuration(chip_key, timeout=timeout)
             configuration_data = {}
             for packet in self.reads[-1]:
                 if (packet.packet_type == Packet.CONFIG_READ_PACKET and
-                    packet.chipid == chip_id):
+                    packet.chip_key == chip_key):
                     configuration_data[packet.register_address] = packet.register_data
             expected_data = {}
             for register_address, bits in enumerate(chip.config.all_data()):
@@ -1289,19 +1394,19 @@ class Controller(object):
                         different_fields[register_address] = (expected_data[register_address], None)
         return (return_value, different_fields)
 
-    def read_channel_pedestal(self, chip_id, channel, io_chain=0, run_time=0.1):
+    def read_channel_pedestal(self, chip_key, channel, run_time=0.1):
         '''
         Set channel threshold to 0 and report back on the recieved adcs from channel
         Returns mean, rms, and packet collection
         '''
-        chip = self.get_chip(chip_id, io_chain)
+        chip = self.get_chip(chip_key)
         # Store previous state
         prev_channel_mask = chip.config.channel_mask
         prev_global_threshold = chip.config.global_threshold
         prev_pixel_trim_thresholds = chip.config.pixel_trim_thresholds
         # Set new configuration
-        self.disable(chip_id=chip_id)
-        self.enable(chip_id=chip_id, channel_list=[channel])
+        self.disable(chip_key=chip_key)
+        self.enable(chip_key=chip_key, channel_list=[channel])
         chip.config.global_threshold = 0
         chip.config.pixel_trim_thresholds = [31]*32
         chip.config.pixel_trim_thresholds[channel] = 0
@@ -1310,16 +1415,16 @@ class Controller(object):
                                  [Configuration.global_threshold_address])
         self.run(0.1,'clear buffer')
         # Collect data
-        self.run(run_time,'read_channel_pedestal_c%d_ch%d' % (chip_id, channel))
-        self.disable(chip_id=chip_id)
-        adcs = self.reads[-2].extract('adc_counts', chipid=chip_id, channel=channel)
+        self.run(run_time,'read_channel_pedestal_c{}_ch{}'.format(chip_key, channel))
+        self.disable(chip_key=chip_key)
+        adcs = self.reads[-2].extract('adc_counts', chip_key=chip_key, channel=channel)
         mean = 0
         rms = 0
         if len(adcs) > 0:
             mean = float(sum(adcs)) / len(adcs)
             rms = math.sqrt(float(sum([adc**2 for adc in adcs]))/len(adcs) - mean**2)
         else:
-            print('No packets received from chip %d, channel %d' % (chip_id, channel))
+            print('No packets received from chip {}, channel {}'.format(chip_key, channel))
         # Restore previous state
         chip.config.channel_mask = prev_channel_mask
         chip.config.global_threshold = prev_global_threshold
@@ -1330,104 +1435,99 @@ class Controller(object):
         self.run(2,'clear buffer')
         return (adcs, mean, rms)
 
-    def enable_analog_monitor(self, chip_id, channel, io_chain=0):
+    def enable_analog_monitor(self, chip_key, channel):
         '''
         Enable the analog monitor on a single channel on the specified chip.
         Note: If monitoring a different chip, call disable_analog_monitor first to ensure
         that the monitor to that chip is disconnected.
         '''
-        chip = self.get_chip(chip_id, io_chain)
+        chip = self.get_chip(chip_key)
         chip.config.disable_analog_monitor()
         chip.config.enable_analog_monitor(channel)
-        self.write_configuration(chip, Configuration.csa_monitor_select_addresses)
+        self.write_configuration(chip_key, Configuration.csa_monitor_select_addresses)
         return
 
-    def disable_analog_monitor(self, chip_id=None, channel=None, io_chain=0):
+    def disable_analog_monitor(self, chip_key=None, channel=None):
         '''
         Disable the analog monitor for a specified chip and channel, if none are specified
         disable the analog monitor for all chips in self.chips and all channels
         '''
-        if chip_id is None:
+        if chip_key is None:
             for chip in self.chips:
-                self.disable_analog_monitor(chip_id=chip.chip_id, channel=channel,
-                                       io_chain=io_chain)
+                self.disable_analog_monitor(chip_key=chip_key, channel=channel)
         elif channel is None:
             for channel in range(32):
-                self.disable_analog_monitor(chip_id=chip_id, channel=channel,
-                                            io_chain=io_chain)
+                self.disable_analog_monitor(chip_key=chip_key, channel=channel)
         else:
-            chip = self.get_chip(chip_id, io_chain)
+            chip = self.get_chip(chip_key)
             chip.config.disable_analog_monitor()
-            self.write_configuration(chip, Configuration.csa_monitor_select_addresses)
+            self.write_configuration(chip_key, Configuration.csa_monitor_select_addresses)
         return
 
-    def enable_testpulse(self, chip_id, channel_list, io_chain=0, start_dac=255):
+    def enable_testpulse(self, chip_key, channel_list, start_dac=255):
         '''
         Prepare chip for pulsing - enable testpulser and set a starting dac value for
         specified chip/channel
         '''
-        chip = self.get_chip(chip_id, io_chain)
+        chip = self.get_chip(chip_key)
         chip.config.disable_testpulse()
         chip.config.enable_testpulse(channel_list)
         chip.config.csa_testpulse_dac_amplitude = start_dac
-        self.write_configuration(chip, Configuration.csa_testpulse_enable_addresses +
+        self.write_configuration(chip_key, Configuration.csa_testpulse_enable_addresses +
                                  [Configuration.csa_testpulse_dac_amplitude_address])
         return
 
-    def issue_testpulse(self, chip_id, pulse_dac, min_dac=0, io_chain=0):
+    def issue_testpulse(self, chip_key, pulse_dac, min_dac=0):
         '''
         Reduce the testpulser dac by pulse_dac and write_read to chip for 0.1s
         '''
-        chip = self.get_chip(chip_id, io_chain)
+        chip = self.get_chip(chip_key)
         chip.config.csa_testpulse_dac_amplitude -= pulse_dac
         if chip.config.csa_testpulse_dac_amplitude < min_dac:
             raise ValueError('Minimum DAC exceeded')
-        self.write_configuration(chip, [Configuration.csa_testpulse_dac_amplitude_address],
+        self.write_configuration(chip_key, [Configuration.csa_testpulse_dac_amplitude_address],
                                  write_read=0.1)
         return self.reads[-1]
 
-    def disable_testpulse(self, chip_id=None, channel_list=range(32), io_chain=0):
+    def disable_testpulse(self, chip_key=None, channel_list=range(32)):
         '''
         Disable testpulser for specified chip/channels. If none specified, disable for
         all chips/channels
         '''
-        if chip_id is None:
-            for chip in self.chips:
-                self.disable_testpulse(chip_id=chip.chip_id, channel_list=channel_list,
-                                       io_chain=io_chain)
+        if chip_key is None:
+            for chip_key in self.chips.keys():
+                self.disable_testpulse(chip_key=chip_key, channel_list=channel_list)
         else:
-            chip = self.get_chip(chip_id, io_chain)
+            chip = self.get_chip(chip_key)
             chip.config.disable_testpulse(channel_list)
-            self.write_configuration(chip, Configuration.csa_testpulse_enable_addresses)
+            self.write_configuration(chip_key, Configuration.csa_testpulse_enable_addresses)
         return
 
-    def disable(self, chip_id=None, channel_list=range(32), io_chain=0):
+    def disable(self, chip_key=None, channel_list=range(32)):
         '''
         Update channel mask to disable specified chips/channels. If none specified,
         disable all chips/channels
         '''
-        if chip_id is None:
-            for chip in self.chips:
-                self.disable(chip_id=chip.chip_id, channel_list=channel_list,
-                             io_chain=io_chain)
+        if chip_key is None:
+            for chip_key in self.chips.keys():
+                self.disable(chip_key=chip_key, channel_list=channel_list)
         else:
-            chip = self.get_chip(chip_id, io_chain)
+            chip = self.get_chip(chip_key)
             chip.config.disable_channels(channel_list)
-            self.write_configuration(chip, Configuration.channel_mask_addresses)
+            self.write_configuration(chip_key, Configuration.channel_mask_addresses)
 
-    def enable(self, chip_id=None, channel_list=range(32), io_chain=0):
+    def enable(self, chip_key=None, channel_list=range(32)):
         '''
         Update channel mask to enable specified chips/channels. If none specified,
         enable all chips/channels
         '''
-        if chip_id is None:
-            for chip in self.chips:
-                self.enable(chip_id=chip.chip_id, channel_list=channel_list,
-                            io_chain=io_chain)
+        if chip_key is None:
+            for chip_key in self.chips.keys():
+                self.enable(chip_key=chip_key, channel_list=channel_list)
         else:
-            chip = self.get_chip(chip_id, io_chain)
+            chip = self.get_chip(chip_key)
             chip.config.enable_channels(channel_list)
-            self.write_configuration(chip, Configuration.channel_mask_addresses)
+            self.write_configuration(chip_key, Configuration.channel_mask_addresses)
 
     def store_packets(self, packets, data, message):
         '''
@@ -1447,20 +1547,19 @@ class Controller(object):
         (otherwise).
 
         '''
-        by_chipid = collection.by_chipid()
-        io_chain = 0
-        for chip_id in by_chipid.keys():
-            if chip_id in [x.chip_id for x in self.chips]:
-                chip = self.get_chip(chip_id, io_chain)
-                chip.reads.append(by_chipid[chip_id])
+        by_chip_key = collection.by_chip_key()
+        for chip_key in by_chip_key.keys():
+            if chip_key in self.chips.keys():
+                chip = self.get_chip(chip_key)
+                chip.reads.append(by_chip_key[chip_key])
             elif not self._test_mode:
-                print('Warning chip id %d not in chips.' % chip_id)
+                print('Warning chip key {} not in chips.'.format(chip_key))
 
     def save_output(self, filename, message):
         '''Save the data read by each chip to the specified file.'''
         data = {}
         data['reads'] = [collection.to_dict() for collection in self.reads]
-        data['chips'] = [repr(chip) for chip in self.chips]
+        data['chips'] = [repr(chip) for chip in self.chips.values()]
         data['message'] = message
         with open(filename, 'w') as outfile:
             json.dump(data, outfile, indent=4,
@@ -1559,6 +1658,7 @@ class Packet(object):
 
     def __str__(self):
         string = '[ '
+        string += 'Chip key: {} | '.format(self.chip_key)
         ptype = self.packet_type
         if ptype == Packet.TEST_PACKET:
             string += 'Test | '
@@ -1615,6 +1715,7 @@ class Packet(object):
                 self.CONFIG_READ_PACKET.to01(): 'config read'
                 }
         d = {}
+        d['chip_key'] = self.chip_key
         d['bits'] = self.bits.to01()
         d['type'] = type_map[self.packet_type.to01()]
         d['chipid'] = self.chipid
@@ -1634,6 +1735,17 @@ class Packet(object):
             d['register'] = self.register_address
             d['value'] = self.register_data
         return d
+
+    @property
+    def chip_key(self):
+        try:
+            return self._chip_key
+        except AttributeError:
+            return None
+
+    @chip_key.setter
+    def chip_key(self, value):
+        self._chip_key = value
 
     @property
     def packet_type(self):
@@ -1895,6 +2007,7 @@ class PacketCollection(object):
         Any key used in Packet.export is a valid attribute or selection:
 
         - all packets:
+             - chip_key
              - bits
              - type (data, test, config read, config write)
              - chipid
@@ -1952,6 +2065,32 @@ class PacketCollection(object):
         else:
             raise ValueError('Reached limit on generations: %d' %
                     max_generations)
+
+    def with_chip_key(self, chip_key):
+        '''
+        Return packets with the specified chip key.
+
+        '''
+        return [packet for packet in self.packets if packet.chip_key == chip_key]
+
+    def by_chip_key(self):
+        '''
+        Return a dict of { chipid: PacketCollection }.
+
+        '''
+        chip_groups = {}
+        for packet in self.packets:
+            # append packet to list if list exists, else append to empty
+            # list as a default
+            chip_groups.setdefault(packet.chip_key, []).append(packet)
+        to_return = {}
+        for chip_key in chip_groups:
+            new_collection = PacketCollection(chip_groups[chip_key])
+            new_collection.message = self.message + ' | chip {}'.format(chip_key)
+            new_collection.read_id = self.read_id
+            new_collection.parent = self
+            to_return[chipid] = new_collection
+        return to_return
 
     def with_chipid(self, chipid):
         '''

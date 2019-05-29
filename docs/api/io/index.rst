@@ -1,6 +1,13 @@
 LArPix IO
 =========
 
+.. autoclass:: larpix.io.IO
+
+    .. automethod:: larpix.io.IO.__init__
+
+Implementations
+^^^^^^^^^^^^^^^
+
 Here is the documentation for various implemented IO classes.
 
 .. toctree::
