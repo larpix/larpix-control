@@ -1484,8 +1484,8 @@ def test_configuration_from_dict_reg_reset_cycles():
 
 def test_controller_init_chips():
     controller = Controller()
-    result = list(map(repr, controller._init_chips()))
-    expected = list(map(repr, ('0-{}'.format(i) for i in range(256))))
+    result = set(map(repr, controller._init_chips()))
+    expected = set(map(repr, ('0-{}'.format(i) for i in range(256))))
     assert result == expected
 
 def test_controller_get_chip():

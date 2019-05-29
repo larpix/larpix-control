@@ -28,7 +28,7 @@ class FakeIO(IO):
 
     '''
     def __init__(self):
-        super().__init__()
+        super(FakeIO, self).__init__()
         self.queue = deque()
 
     @classmethod
@@ -51,7 +51,7 @@ class FakeIO(IO):
 
     @classmethod
     def is_valid_chip_key(cls, key):
-        return super().is_valid_chip_key(key)
+        return super(cls, cls).is_valid_chip_key(key)
 
     @classmethod
     def parse_chip_key(cls, key):
@@ -63,7 +63,7 @@ class FakeIO(IO):
         :returns: ``dict`` with keys ``('chip_key')``
 
         '''
-        return_dict = super().parse_chip_key(key)
+        return_dict = super(cls, cls).parse_chip_key(key)
         return_dict['chip_key'] = key
         return return_dict
 
@@ -94,14 +94,14 @@ class FakeIO(IO):
         Mock-up of beginning to listen for new packets.
 
         '''
-        super().start_listening()
+        super(FakeIO, self).start_listening()
 
     def stop_listening(self):
         '''
         Mock-up of no longer listening for new packets.
 
         '''
-        super().stop_listening()
+        super(FakeIO, self).stop_listening()
 
     def empty_queue(self):
         '''

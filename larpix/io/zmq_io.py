@@ -16,7 +16,7 @@ class ZMQ_IO(IO):
     '''
 
     def __init__(self, address):
-        super().__init__()
+        super(ZMQ_IO, self).__init__()
         self.context = zmq.Context()
         self.sender = self.context.socket(zmq.REQ)
         self.receiver = self.context.socket(zmq.SUB)
@@ -42,13 +42,13 @@ class ZMQ_IO(IO):
     def start_listening(self):
         if self.is_listening:
             raise RuntimeError('Already listening')
-        super().start_listening()
+        super(ZMQ_IO, self).start_listening()
         self.receiver.setsockopt(zmq.SUBSCRIBE, b'')
 
     def stop_listening(self):
         if not self.is_listening:
             raise RuntimeError('Already not listening')
-        super().stop_listening()
+        super(ZMQ_IO, self).stop_listening()
         self.receiver.setsockopt(zmq.UNSUBSCRIBE, b'')
 
     @classmethod
@@ -58,7 +58,7 @@ class ZMQ_IO(IO):
         ``'<io_chain>-<chip_id>'``
 
         '''
-        if not super().is_valid_chip_key(key):
+        if not super(cls, cls).is_valid_chip_key(key):
             return False
         if not isinstance(key, str):
             return False
@@ -79,7 +79,7 @@ class ZMQ_IO(IO):
 
         :returns: ``dict`` with keys ``('chip_id', 'io_chain')``
         '''
-        return_dict = super().parse_chip_key(key)
+        return_dict = super(cls, cls).parse_chip_key(key)
         parsed_key = key.split('-')
         return_dict['chip_id'] = int(parsed_key[1])
         return_dict['io_chain'] = int(parsed_key[0])

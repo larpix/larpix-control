@@ -33,7 +33,7 @@ class SerialPort(IO):
     max_write = 250
     fpga_packet_size = 10
     def __init__(self, port=None, baudrate=1000000, timeout=0):
-        super().__init__()
+        super(SerialPort, self).__init__()
         if port is None:
             port = self._guess_port()
         self.port = port
@@ -136,7 +136,7 @@ class SerialPort(IO):
         ``'<io_chain>-<chip_id>'``
 
         '''
-        if not super().is_valid_chip_key(key):
+        if not super(cls, cls).is_valid_chip_key(key):
             return False
         if not isinstance(key, str):
             return False
@@ -157,7 +157,7 @@ class SerialPort(IO):
 
         :returns: ``dict`` with keys ``('chip_id', 'io_chain')``
         '''
-        return_dict = super().parse_chip_key(key)
+        return_dict = super(cls, cls).parse_chip_key(key)
         parsed_key = key.split('-')
         return_dict['chip_id'] = int(parsed_key[1])
         return_dict['io_chain'] = int(parsed_key[0])
@@ -196,7 +196,7 @@ class SerialPort(IO):
         port.
 
         '''
-        super().start_listening()
+        super(SerialPort, self).start_listening()
         self._open()
 
     def stop_listening(self):
@@ -204,7 +204,7 @@ class SerialPort(IO):
         Stop listening for LArPix data by closing the serial port.
 
         '''
-        super().stop_listening()
+        super(SerialPort, self).stop_listening()
         self._close()
 
     def empty_queue(self):
