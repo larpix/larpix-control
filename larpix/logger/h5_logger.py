@@ -8,6 +8,24 @@ class HDF5Logger(object):
     '''
     The HDF5Logger is logger class for logging packets to an hdf5 file format.
 
+    The HDF5 file is be formatted as follows:
+
+    *Groups:* ``_header``
+
+        ``_header`` group: contains additional file information within its ``attrs``.
+        The available fields are indicated in ``HDF5Logger.header_keys``. The header
+        is initialized upon opening the logger.
+
+    *Datasets:* specified by ``HDF5Logger.data_desc`` and ``HDF5Logger.data_desc_map``
+
+        ``HDF5Logger.data_desc``: This describes the name of all datasets as
+        well as the data format. All datasets are stored as mixed-type arrays with
+        a data format indicated by the list ``HDF5Logger.data_desc[<dataset>]``.
+
+        ``HDF5Logger.data_desc_map``: This maps specifies the mapping between
+        larpix core datatypes and the dataset within the HDF5 file. E.g.,
+        ``larpix.Packet`` objects are stored in ``'raw_packet'``.
+
     :param filename: filename to store data (optional, default: ``None``)
     :param buffer_length: how many data messages to hang on to before flushing
         buffer to the file (optional, default: ``10000``)
@@ -93,7 +111,10 @@ class HDF5Logger(object):
     def encode(cls, data, *args, **kwargs):
         '''
         Converts data object into a numpy mixed type array as described by
-        ``data_desc``
+        ``data_desc``. Raises a ``ValueError`` if the data object cannot be
+        encoded.
+
+        :returns: a ``numpy`` mixed-type array representing the data object
 
         '''
         if not isinstance(data, (Packet)):
@@ -105,6 +126,8 @@ class HDF5Logger(object):
     def encode_packet(cls, packet, timestamp=None, *args, **kwargs):
         '''
         Converts packets into numpy mixed typ array according to ``data_desc['raw_packet']``
+
+        :returns: a ``numpy`` mixed-type array representing the data object
 
         '''
         if not isinstance(packet, Packet):
@@ -156,12 +179,14 @@ class HDF5Logger(object):
     def is_enabled(self):
         '''
         Check if logger is enabled
+
         '''
         return self._is_enabled
 
     def enable(self):
         '''
         Allow the logger to record data
+
         '''
         if self.is_enabled():
             return
@@ -170,6 +195,9 @@ class HDF5Logger(object):
     def disable(self):
         '''
         Stop the logger from recording data without closing file
+
+        .. note:: This flushes any data in the buffer before closing
+
         '''
         if not self.is_enabled():
             return
