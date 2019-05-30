@@ -20,6 +20,7 @@ class HDF5Logger(object):
     data_desc = {
         'raw_packet' : [
             ('record_timestamp','f8'),
+            ('chip_key','S32'),
             ('type','i8'),
             ('chipid','i8'),
             ('parity','i1'),
@@ -116,6 +117,8 @@ class HDF5Logger(object):
                     data_list += [timestamp]
                 else:
                     data_list += [-1]
+            elif key == 'chip_key':
+                data_list += [str(dict_rep['chip_key'])]
             elif key in dict_rep:
                 if key == 'type':
                     data_list += [int(packet.packet_type.to01(), 2)]

@@ -26,8 +26,8 @@ setup(
         classifiers=[
             'Development Status :: 2 - Pre-Alpha',
             'Intended Audience :: Science/Research',
-            'Programming Language :: Python :: 2',
             'Programming Language :: Python :: 3',
+            'Programming Language :: Python :: 2'
         ],
         keywords='dune physics',
         packages=find_packages(),
