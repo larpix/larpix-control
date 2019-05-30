@@ -1,5 +1,10 @@
-LArPix Loggers
-==============
+LArPix Logger
+=============
+
+.. autoclass:: larpix.logger.Logger
+
+Implementations
+^^^^^^^^^^^^^^^
 
 Here is the documentation for the various LArPix loggers.
 

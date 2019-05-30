@@ -1,8 +1,9 @@
 import time
 
+from larpix.logger import Logger
 from larpix.larpix import Packet
 
-class StdoutLogger(object):
+class StdoutLogger(Logger):
     '''
     The StdoutLogger is logger class that acts as a test logger class. All objects
     are displayed according to their string representation and routed to stdout.

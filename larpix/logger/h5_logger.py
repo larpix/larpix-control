@@ -2,9 +2,10 @@ import time
 import numpy as np
 import h5py
 
+from larpix.logger import Logger
 from larpix.larpix import Packet
 
-class HDF5Logger(object):
+class HDF5Logger(Logger):
     '''
     The HDF5Logger is logger class for logging packets to an hdf5 file format.
 
@@ -29,6 +30,7 @@ class HDF5Logger(object):
     :param filename: filename to store data (optional, default: ``None``)
     :param buffer_length: how many data messages to hang on to before flushing
         buffer to the file (optional, default: ``10000``)
+
     '''
     VERSION = '0.0'
     header_keys = ['version','created']
