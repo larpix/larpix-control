@@ -33,7 +33,6 @@ setup(
         packages=find_packages(),
         install_requires=[
             'pyserial ~=3.4',
-            'bitstring ~=3.1',
             'pytest ~=4.2',
             'larpix-geometry ==0.3.0',
             'bitarray ~=0.8',
