@@ -20,6 +20,7 @@ setup(
         version=version,
         description='Control the LArPix chip',
         long_description=long_description,
+        long_description_content_type="text/markdown",
         url='https://github.com/larpix/larpix-control',
         author='Peter Madigan and Sam Kohn',
         author_email='pmadigan@lbl.gov',
