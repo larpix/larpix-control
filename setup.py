@@ -20,11 +20,11 @@ setup(
         version=version,
         description='Control the LArPix chip',
         long_description=long_description,
-        url='https://github.com/samkohn/larpix-control',
-        author='Sam Kohn',
-        author_email='skohn@lbl.gov',
+        url='https://github.com/larpix/larpix-control',
+        author='Peter Madigan and Sam Kohn',
+        author_email='pmadigan@lbl.gov',
         classifiers=[
-            'Development Status :: 2 - Pre-Alpha',
+            'Development Status :: 4 - Beta',
             'Intended Audience :: Science/Research',
             'Programming Language :: Python :: 3',
             'Programming Language :: Python :: 2'
