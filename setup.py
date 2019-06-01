@@ -38,8 +38,8 @@ setup(
             'bitarray ~=0.8',
             'pyzmq ~= 16.0',
             'sphinx_rtd_theme ~= 0.4.2',
-            'numpy ~= 1.16.1',
-            'h5py ~= 2.9.0'
+            'numpy ~= 1.16',
+            'h5py ~= 2.9'
             ],
         include_package_data=True,
 )
