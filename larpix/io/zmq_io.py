@@ -1,5 +1,6 @@
 import time
 import zmq
+import sys
 
 from larpix.io import IO
 from larpix.larpix import Packet
@@ -120,7 +121,11 @@ class ZMQ_IO(IO):
         '''
         Encode a list of packets into ZMQ messages
         '''
-        msg_data = [b'0x00%s 0' % packet.bytes()[::-1].hex().encode() for packet in packets]
+        msg_data = []
+        if sys.version_info[0] < 3:
+            msg_data = [b'0x00%s 0' % packet.bytes()[::-1].encode('hex') for packet in packets]
+        else:
+            msg_data = [b'0x00%s 0' % packet.bytes()[::-1].hex().encode() for packet in packets]
         return msg_data
 
     def empty_queue(self):
