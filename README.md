@@ -3,7 +3,7 @@
 Control the LArPix chip
 
 [![Documentation Status](https://readthedocs.org/projects/larpix-control/badge/?version=latest)](http://larpix-control.readthedocs.io/en/latest/?badge=latest)
-[![Build Status](https://travis-ci.com/samkohn/larpix-control.svg?branch=master)](https://travis-ci.com/samkohn/larpix-control)
+[![Build Status](https://travis-ci.com/larpix/larpix-control.svg?branch=master)](https://travis-ci.com/larpix/larpix-control)
 
 ## Setup and installation
 
@@ -53,6 +53,24 @@ example for you to play around with:
 >>> controller.run(0.05, 'test run')
 >>> print(controller.reads[0])
 [ Data | Chip key: None | Chip: 1 | Channel: 5 | Timestamp: 123456 | ADC data: 120 | FIFO Half: False | FIFO Full: False | Parity: 1 (valid: True) ]
+```
+
+## Minimal example for setting up a Bern DAQ board to run
+
+Follow the installation instructions above. Then with the DAQ system up and running
+
+```python
+>>> import larpix.larpix as larpix
+>>> from larpix.io.zmq_io import ZMQ_IO
+>>> controller = larpix.Controller()
+>>> controller.io = ZMQ_IO('tcp://<IP address of daq board>')
+>>> controller.load('controller/pcb-<#>_chip_info.json')
+>>> controller.io.ping()
+>>> for key,chip in controller.chips.items():
+...     chip.config.load('chip/quiet.json')
+...     print(key, chip.config)
+...     controller.write_configuration(key)
+>>>
 ```
 
 ## Tutorial
