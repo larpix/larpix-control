@@ -83,6 +83,7 @@ def test_record():
     logger.record([Packet()], timestamp=5.0)
     assert logger._buffer['raw_packet'][0] == HDF5Logger.encode(Packet(), timestamp=5.0)
 
+@pytest.mark.filterwarnings("ignore:no IO object")
 @fresh_temp_file
 def test_controller_write_capture():
     controller = Controller()
