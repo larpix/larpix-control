@@ -11,21 +11,21 @@ from larpix.io.multizmq_io import MultiZMQ_IO
 def test_generate_chip_key():
     chip_id = 125
     io_chain = 2
-    address = 'tcp://localhost'
-    expected = '{}-{}-{}'.format(address, io_chain, chip_id)
+    address = 'localhost'
+    expected = '{}/{}/{}'.format(address, io_chain, chip_id)
     assert MultiZMQ_IO.is_valid_chip_key(expected)
     assert MultiZMQ_IO.generate_chip_key(address=address, chip_id=chip_id, io_chain=io_chain)
 
 def test_parse_chip_key():
     chip_id = 62
     io_chain = 0
-    address = 'tcp://localhost'
+    address = 'localhost'
     expected = {
         'chip_id': chip_id,
         'io_chain': io_chain,
         'address': address
     }
-    key = '{}-{}-{}'.format(address, io_chain, chip_id)
+    key = '{}/{}/{}'.format(address, io_chain, chip_id)
     assert MultiZMQ_IO.is_valid_chip_key(key)
     assert MultiZMQ_IO.parse_chip_key(key) == expected
 

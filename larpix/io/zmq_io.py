@@ -23,8 +23,8 @@ class ZMQ_IO(IO):
         self.receiver = self.context.socket(zmq.SUB)
         self.hwm = 20000
         self.receiver.set_hwm(self.hwm)
-        send_address = address + ':5555'
-        receive_address = address + ':5556'
+        send_address = 'tcp://' + address + ':5555'
+        receive_address = 'tcp://' + address + ':5556'
         self.sender.connect(send_address)
         self.receiver.connect(receive_address)
         self.sender_replies = []
@@ -63,7 +63,7 @@ class ZMQ_IO(IO):
             return False
         if not isinstance(key, str):
             return False
-        parsed_key = key.split('-')
+        parsed_key = key.split('/')
         if not len(parsed_key) == 2:
             return False
         try:
@@ -81,7 +81,7 @@ class ZMQ_IO(IO):
         :returns: ``dict`` with keys ``('chip_id', 'io_chain')``
         '''
         return_dict = super(cls, cls).parse_chip_key(key)
-        parsed_key = key.split('-')
+        parsed_key = key.split('/')
         return_dict['chip_id'] = int(parsed_key[1])
         return_dict['io_chain'] = int(parsed_key[0])
         return return_dict
@@ -100,7 +100,7 @@ class ZMQ_IO(IO):
         if not all([key in kwargs for key in req_fields]):
             raise ValueError('Missing fields required to generate chip id'
                 ', requires {}, received {}'.format(req_fields, kwargs.keys()))
-        return '{io_chain}-{chip_id}'.format(**kwargs)
+        return '{io_chain}/{chip_id}'.format(**kwargs)
 
     @classmethod
     def decode(cls, msgs, io_chain=0, **kwargs):

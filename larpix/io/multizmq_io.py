@@ -35,8 +35,8 @@ class MultiZMQ_IO(IO):
         for receiver in self.receivers.values():
             receiver.set_hwm(self.hwm)
         for address in self.senders.keys():
-            send_address = address + ':5555'
-            receive_address = address + ':5556'
+            send_address = 'tcp://' + address + ':5555'
+            receive_address = 'tcp://' + address + ':5556'
             self.senders[address].connect(send_address)
             self.receivers[address].connect(receive_address)
         self.sender_replies = {}
@@ -59,14 +59,14 @@ class MultiZMQ_IO(IO):
     def start_listening(self):
         if self.is_listening:
             raise RuntimeError('Already listening')
-        super(ZMQ_IO, self).start_listening()
+        super(MultiZMQ_IO, self).start_listening()
         for receiver in self.receivers.values():
             receiver.setsockopt(zmq.SUBSCRIBE, b'')
 
     def stop_listening(self):
         if not self.is_listening:
             raise RuntimeError('Already not listening')
-        super(ZMQ_IO, self).stop_listening()
+        super(MultiZMQ_IO, self).stop_listening()
         for receiver in self.receivers.values():
             receiver.setsockopt(zmq.UNSUBSCRIBE, b'')
 
@@ -74,14 +74,16 @@ class MultiZMQ_IO(IO):
     def is_valid_chip_key(cls, key):
         '''
         Valid chip keys must be strings formatted as:
-        ``'<daq_address>-<io_chain>-<chip_id>'``
+        ``'<daq_address>/<io_chain>/<chip_id>'``
+        Note that ``/`` is a special character and should not be used
+        in daq address
 
         '''
         if not super(cls, cls).is_valid_chip_key(key):
             return False
         if not isinstance(key, str):
             return False
-        parsed_key = key.split('-')
+        parsed_key = key.split('/')
         if not len(parsed_key) == 3:
             return False
         try:
@@ -99,7 +101,7 @@ class MultiZMQ_IO(IO):
         :returns: ``dict`` with keys ``('chip_id', 'io_chain', 'addresss')``
         '''
         return_dict = super(cls, cls).parse_chip_key(key)
-        parsed_key = key.split('-')
+        parsed_key = key.split('/')
         return_dict['chip_id'] = int(parsed_key[2])
         return_dict['io_chain'] = int(parsed_key[1])
         return_dict['address'] = parsed_key[0]
@@ -127,7 +129,7 @@ class MultiZMQ_IO(IO):
             raise ValueError('io_chain must be int')
         if not isinstance(kwargs['address'], str):
             raise ValueError('address must be str')
-        return '{address}-{io_chain}-{chip_id}'.format(**kwargs)
+        return '{address}/{io_chain}/{chip_id}'.format(**kwargs)
 
     @classmethod
     def decode(cls, msgs, io_chain=0, address=None, **kwargs):
@@ -241,7 +243,7 @@ class MultiZMQ_IO(IO):
 
         '''
         self.senders[address].send(b'GETSTAT %d' % io_channel)
-        result = self.sender[address].recv()
+        result = self.senders[address].recv()
         space = result.find(b' ')
         number = int(result[:space])
         return number
@@ -264,5 +266,5 @@ class MultiZMQ_IO(IO):
         result = {}
         for address in addresses:
             received_msg = self.senders[address].recv()
-            result[address] = result[:2] == b'OK'
+            result[address] = received_msg[:2] == b'OK'
         return result

@@ -15,7 +15,7 @@ Here is the documentation for various implemented IO classes.
 
    serialport
    zmq_io
+   multizmq_io
    fakeio
-
 
 :ref:`genindex`
