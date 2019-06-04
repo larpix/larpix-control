@@ -103,7 +103,7 @@ class ZMQ_IO(IO):
         return '{io_chain}-{chip_id}'.format(**kwargs)
 
     @classmethod
-    def decode(cls, msgs):
+    def decode(cls, msgs, io_chain=0, **kwargs):
         '''
         Convert a list ZMQ messages into packets
         '''
@@ -113,7 +113,7 @@ class ZMQ_IO(IO):
                 for start_index in range(0, len(msg), 8):
                     packet_bytes = msg[start_index:start_index+7]
                     packets.append(Packet(packet_bytes))
-                    packets[-1].chip_key = cls.generate_chip_key(chip_id=packets[-1].chipid, io_chain=0)
+                    packets[-1].chip_key = cls.generate_chip_key(chip_id=packets[-1].chipid, io_chain=io_chain)
         return packets
 
     @classmethod

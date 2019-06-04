@@ -8,6 +8,24 @@ import os
 from larpix.larpix import Packet
 from larpix.io.zmq_io import ZMQ_IO
 
+def test_generate_chip_key():
+    chip_id = 125
+    io_chain = 2
+    expected = '{}-{}'.format(io_chain, chip_id)
+    assert ZMQ_IO.is_valid_chip_key(expected)
+    assert ZMQ_IO.generate_chip_key(chip_id=chip_id, io_chain=io_chain)
+
+def test_parse_chip_key():
+    chip_id = 62
+    io_chain = 0
+    expected = {
+        'chip_id': chip_id,
+        'io_chain': io_chain
+    }
+    key = '{}-{}'.format(io_chain, chip_id)
+    assert ZMQ_IO.is_valid_chip_key(key)
+    assert ZMQ_IO.parse_chip_key(key) == expected
+
 def test_encode():
     test_bytes = b'\x00\x01\x02\x03\x04\x05\x06'
     expected = [b'0x0006050403020100 0']

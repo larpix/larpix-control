@@ -27,11 +27,13 @@ class IO(object):
         pass
 
     @classmethod
-    def decode(cls, msgs):
+    def decode(cls, msgs, **kwargs):
         '''
         Decodes a list of IO message objects into respective larpix ``Packet`` objects
 
         :param msgs: ``list`` of IO messages
+
+        :param kwargs: additional contextual information required to decode messages (implementation specific)
 
         :returns: ``list`` of larpix ``Packet`` objects
 
@@ -57,7 +59,6 @@ class IO(object):
         return True
 
     @classmethod
-
     def parse_chip_key(cls, key):
         '''
         Translate a chip key into a dict of contained information
@@ -67,7 +68,7 @@ class IO(object):
         :returns: ``dict`` of IO information contained in key
 
         '''
-        if not self.is_valid_chip_key(key):
+        if not cls.is_valid_chip_key(key):
             raise ValueError('invalid chip key for IO type, see docs for description of valid chip keys')
         empty_dict = {}
         return empty_dict
@@ -81,7 +82,6 @@ class IO(object):
 
         '''
         pass
-
 
 
     def send(self, packets):
