@@ -61,6 +61,7 @@ def test_record():
     logger.record(['test'], timestamp=5.0)
     assert logger._buffer[0] == 'Record 5.0: test'
 
+@pytest.mark.filterwarnings("ignore:no IO object")
 def test_controller_write_capture(capfd):
     controller = Controller()
     controller.logger = StdoutLogger(buffer_length=1)
