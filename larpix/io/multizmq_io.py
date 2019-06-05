@@ -1,14 +1,15 @@
 import time
 import zmq
 import sys
+from collections import defaultdict
 
 from larpix.io import IO
 from larpix.larpix import Packet
 
 class MultiZMQ_IO(IO):
     '''
-    An extension to the ZMQ_IO object to interface with multiple Bern LArPix v2
-    modules using the ZeroMQ communications protocol.
+    The MultiZMQ_IO object interfaces with a network of Bern LArPix v2 modules
+    using Igor's ZeroMQ communications protocol.
 
     This object handles the required communications, and also has extra
     methods for additional functionality, including system reset, packet
@@ -39,22 +40,20 @@ class MultiZMQ_IO(IO):
             receive_address = 'tcp://' + address + ':5556'
             self.senders[address].connect(send_address)
             self.receivers[address].connect(receive_address)
-        self.sender_replies = {}
-        for address in self.senders.keys():
-            self.sender_replies[address] = []
+        self.sender_replies = defaultdict(list)
         self.poller = zmq.Poller()
         for receiver in self.receivers.values():
             self.poller.register(receiver, zmq.POLLIN)
 
     def send(self, packets):
-        self.sender_replies = []
+        self.sender_replies = defaultdict(list)
         send_time = time.time()
         addresses = [self.parse_chip_key(packet.chip_key)['address'] for packet in packets]
         msg_datas = self.encode(packets)
         for address, msg_data in zip(addresses, msg_datas):
             tosend = b'SNDWORD ' + msg_data
             self.senders[address].send(tosend)
-            self.sender_replies.append(self.senders[address].recv())
+            self.sender_replies[address].append(self.senders[address].recv())
 
     def start_listening(self):
         if self.is_listening:
@@ -254,8 +253,7 @@ class MultiZMQ_IO(IO):
 
         :param addresses: ``list`` of daq board addresses to ping, if ``None`` ping all addresses
 
-        :returns: ``dict`` with one entry per address. Value is ``True`` if first two bytes
-        of the response are b'OK'.
+        :returns: ``dict`` with one entry per address. Value is ``True`` if first two bytes of the response are b'OK'.
 
         '''
         if addresses is None:

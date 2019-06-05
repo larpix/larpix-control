@@ -3,12 +3,16 @@ import zmq
 import sys
 
 from larpix.io import IO
+from larpix.io.multizmq_io import MultiZMQ_IO
 from larpix.larpix import Packet
 
 class ZMQ_IO(IO):
     '''
     The ZMQ_IO object interfaces with the Bern LArPix v2 module using
-    the ZeroMQ communications protocol.
+    the ZeroMQ communications protocol. This class wraps the
+    ``io.multizmq_io.MultiZMQ_IO`` class, and enables a slightly simpler chip
+    key formatting in the special case that you are only interfacing with a
+    single daq board.
 
     This object handles the required communications, and also has extra
     methods for additional functionality, including system reset, packet
@@ -18,45 +22,68 @@ class ZMQ_IO(IO):
 
     def __init__(self, address):
         super(ZMQ_IO, self).__init__()
-        self.context = zmq.Context()
-        self.sender = self.context.socket(zmq.REQ)
-        self.receiver = self.context.socket(zmq.SUB)
-        self.hwm = 20000
-        self.receiver.set_hwm(self.hwm)
-        send_address = 'tcp://' + address + ':5555'
-        receive_address = 'tcp://' + address + ':5556'
-        self.sender.connect(send_address)
-        self.receiver.connect(receive_address)
-        self.sender_replies = []
-        self.poller = zmq.Poller()
-        self.poller.register(self.receiver, zmq.POLLIN)
+        self._io = MultiZMQ_IO(addresses=[address])
+        self._address = address
+
+    @property
+    def context(self):
+        return self._io.context
+    @context.setter
+    def context(self, val):
+        self._io.context = val
+
+    @property
+    def sender(self):
+        return self._io.senders[self._address]
+    @sender.setter
+    def sender(self, val):
+        self._io.senders[self._address] = val
+
+    @property
+    def receiver(self):
+        return self._io.receivers[self._address]
+    @receiver.setter
+    def receiver(self, val):
+        self._io.receivers[self._address] = val
+
+    @property
+    def hwm(self):
+        return self._io.hwm
+    @hwm.setter
+    def hwm(self, val):
+        self._io.hwm = val
+
+    @property
+    def poller(self):
+        return self._io.poller
+    @poller.setter
+    def poller(self, val):
+        self._io.poller = val
+
+    @property
+    def sender_replies(self):
+        return self._io.sender_replies[self._address]
+    @sender_replies.setter
+    def sender_replies(self, val):
+        self._io.sender_replies[self._address] = val
 
     def send(self, packets):
-        self.sender_replies = []
-        send_time = time.time()
-        msg_datas = self.encode(packets)
-        for msg_data in msg_datas:
-            tosend = b'SNDWORD ' + msg_data
-            self.sender.send(tosend)
-            self.sender_replies.append(self.sender.recv())
+        for packet in packets:
+            packet.chip_key = self._io.generate_chip_key(address=self._address,
+                **self.parse_chip_key(packet.chip_key))
+        self._io.send(packets)
 
     def start_listening(self):
-        if self.is_listening:
-            raise RuntimeError('Already listening')
-        super(ZMQ_IO, self).start_listening()
-        self.receiver.setsockopt(zmq.SUBSCRIBE, b'')
+        self._io.start_listening()
 
     def stop_listening(self):
-        if not self.is_listening:
-            raise RuntimeError('Already not listening')
-        super(ZMQ_IO, self).stop_listening()
-        self.receiver.setsockopt(zmq.UNSUBSCRIBE, b'')
+        self._io.stop_listening()
 
     @classmethod
     def is_valid_chip_key(cls, key):
         '''
         Valid chip keys must be strings formatted as:
-        ``'<io_chain>-<chip_id>'``
+        ``'<io_chain>/<chip_id>'``
 
         '''
         if not super(cls, cls).is_valid_chip_key(key):
@@ -107,13 +134,9 @@ class ZMQ_IO(IO):
         '''
         Convert a list ZMQ messages into packets
         '''
-        packets = []
-        for msg in msgs:
-            if len(msg) % 8 == 0:
-                for start_index in range(0, len(msg), 8):
-                    packet_bytes = msg[start_index:start_index+7]
-                    packets.append(Packet(packet_bytes))
-                    packets[-1].chip_key = cls.generate_chip_key(chip_id=packets[-1].chipid, io_chain=io_chain)
+        packets = MultiZMQ_IO.decode(msgs, io_chain=io_chain, address=None, **kwargs)
+        for packet in packets:
+            packet.chip_key = cls.generate_chip_key(**MultiZMQ_IO.parse_chip_key(packet.chip_key))
         return packets
 
     @classmethod
@@ -121,26 +144,12 @@ class ZMQ_IO(IO):
         '''
         Encode a list of packets into ZMQ messages
         '''
-        msg_data = []
-        if sys.version_info[0] < 3:
-            msg_data = [b'0x00%s 0' % packet.bytes()[::-1].encode('hex') for packet in packets]
-        else:
-            msg_data = [b'0x00%s 0' % packet.bytes()[::-1].hex().encode() for packet in packets]
-        return msg_data
+        return MultiZMQ_IO.encode(packets)
 
     def empty_queue(self):
-        packets = []
-        bytestream_list = []
-        bytestream = b''
-        n_recv = 0
-        read_time = time.time()
-        while self.poller.poll(0) and n_recv < self.hwm:
-            message = self.receiver.recv()
-            n_recv += 1
-            bytestream_list.append(message)
-            packets += self.decode([message])
-        #print('len(bytestream_list) = %d' % len(bytestream_list))
-        bytestream = b''.join(bytestream_list)
+        packets, bytestream = self._io.empty_queue()
+        for packet in packets:
+            packet.chip_key = self.generate_chip_key(**self._io.parse_chip_key(packet.chip_key))
         return packets, bytestream
 
     def reset(self):
@@ -148,16 +157,14 @@ class ZMQ_IO(IO):
         Send a reset pulse to the LArPix ASICs.
 
         '''
-        self.sender.send(b'SYRESET')
-        return self.sender.recv()
+        return self._io.reset()[self._address]
 
     def set_clock(self, freq_khz):
         '''
         Set the LArPix CLK2X freqency (in kHz).
 
         '''
-        self.sender.send(b'SETFREQ %s' % hex(freq_khz).encode())
-        return self.sender.recv()
+        return self._io.set_clock(freq_khz)[self._address]
 
     def set_testpulse_freq(self, divisor):
         '''
@@ -165,8 +172,7 @@ class ZMQ_IO(IO):
         frequency by ``divisor``.
 
         '''
-        self.sender.send(b'SETFTST %s' % hex(divisor).encode())
-        return self.sender.recv()
+        return self._io.set_testpulse_freq(divisor=divisor, address=self._address)[self._address]
 
     def get_packet_count(self, io_channel):
         '''
@@ -174,11 +180,7 @@ class ZMQ_IO(IO):
         of UART "start" bits processed.
 
         '''
-        self.sender.send(b'GETSTAT %d' % io_channel)
-        result = self.sender.recv()
-        space = result.find(b' ')
-        number = int(result[:space])
-        return number
+        return self._io.get_packet_count(io_channel=io_channel, address=self._address)[self._address]
 
     def ping(self):
         '''
@@ -186,6 +188,4 @@ class ZMQ_IO(IO):
         of the response are b'OK'.
 
         '''
-        self.sender.send(b'PING_HB')
-        result = self.sender.recv()
-        return result[:2] == b'OK'
+        return self._io.ping()[self._address]
