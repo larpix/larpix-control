@@ -29,6 +29,43 @@ from the repository root directory with the simple command `pytest`.
 You can read the tests to see examples of how to call all of the common
 functions.
 
+## File structure
+
+The larpix package contains:
+```
+larpix
+|-- larpix
+|-- io
+|   |-- fakeio
+|   |-- serialport
+|   `-- zmq_io
+|-- logger
+|   |-- h5_logger
+|   `-- stdout_logger
+|-- quickstart
+|-- timestamp
+|-- bitarrayhelper
+|-- serial_helpers
+|   |-- analyzers
+|   |-- dataformatter
+|   |-- dataloader
+|   `-- datalogger
+`-- configs
+    |-- chip
+    |   |-- csa_bypass.json
+    |   |-- default.json
+    |   |-- physics.json
+    |   `-- quiet.json
+    `-- controller
+        |-- pcb-10_chip_info.json
+        |-- pcb-1_chip_info.json
+        |-- pcb-2_chip_info.json
+        |-- pcb-3_chip_info.json
+        |-- pcb-4_chip_info.json
+        |-- pcb-5_chip_info.json
+        `-- pcb-6_chip_info.json
+```
+
 ## Minimal working example
 
 So you're not a tutorials kind of person. Here's a minimal working
