@@ -390,9 +390,11 @@ follow along with the rest of the tutorial. With the DAQ system up and running
 ```
 This should give you a quiet state with no data packets. Occasionally, there can
 be a few packets left in one of the system buffers (LArPix, FPGA, DAQ server). A
-second run command should return without any new packets. If you are still receiving
-data, you can check that the hardware chip configuration match the software chip
-configurations with
+second run command should return without any new packets. 
+
+### Check configurations
+If you are still receiving data, you can check that the hardware chip configuration
+match the software chip configurations with
 ```python
 >>> controller.verify_configuration()
 (True, {})
@@ -411,13 +413,13 @@ Missing packets will show up as
 If your configurations match, and you still receive data then you are likely seeing
 some pickup on the sensor from the environment -- *good luck!*
 
- To enable a single channel
+### Enable a single channel
 ```python
 >>> controller.disable() # mask off all channel
 >>> controller.enable('0-3', [0]) # enable channel 0 of chip 0-3
 ```
 
-To set the global threshold of a chip
+### Set the global threshold of a chip
 ```python
 >>> controller.chips['0-3'].config.global_threshold = 40
 >>> controller.write_configuration('0-3')
@@ -425,7 +427,7 @@ To set the global threshold of a chip
 (True, {})
 ```
 
-To inject a pulse into a specific channel
+### Inject a pulse into a specific channel
 ```python
 >>> controller.enable_testpulse('0-3', [0]) # connect chip 0-3, channel 0 to the test pulse circuit and initialize the internal DAC to 255
 >>> controller.issue_testpulse('0-3', 10) # inject a pulse of size 10DAC by stepping down the DAC
@@ -439,18 +441,6 @@ You will need to periodically reset the DAC to 255, otherwise you will receive a
 >>> controller.issue_testpulse('0-3', 50, min_dac=200) # the min_dac keyword sets the lower bound for the DAC (useful to avoid non-linearities at around 70-80DAC)
 <PacketCollection with XX packets, read_id XX, "configuration write">
 >>> controller.issue_testpulse('0-3', 50, min_dac=200)
----------------------------------------------------------------------------
-ValueError                                Traceback (most recent call last)
-<ipython-input-16-ff048bbdd36a> in <module>
-----> 1 controller.issue_testpulse('0-3', 50, min_dac=200)
-
-~/Documents/Research/Luk/larpix/larpix-control/larpix/larpix.py in issue_testpulse(self, chip_key, pulse_dac, min_dac)
-   1485         chip.config.csa_testpulse_dac_amplitude -= pulse_dac
-   1486         if chip.config.csa_testpulse_dac_amplitude < min_dac:
--> 1487             raise ValueError('Minimum DAC exceeded')
-   1488         self.write_configuration(chip_key, [Configuration.csa_testpulse_dac_amplitude_address],
-   1489                                  write_read=0.1)
-
 ValueError: Minimum DAC exceeded
 >>> controller.enable_testpulse('0-3', [0], start_dac=255)
 >>> controller.issue_testpulse('0-3', 50, min_dac=200)
@@ -458,7 +448,7 @@ ValueError: Minimum DAC exceeded
 
 ```
 
-To enable the analog monitor on a channel
+### Enable the analog monitor on a channel
 ```python
 >>> controller.enable_analog_monitor('0-3', 0) # drive buffer output of channel 0, chip 0-3 out on analog monitor line
 >>> controller.disable_analog_monitor('0-3') # disable the analog monitor on chip 0-3
