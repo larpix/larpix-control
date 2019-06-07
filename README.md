@@ -92,24 +92,6 @@ example for you to play around with:
 [ Data | Chip key: None | Chip: 1 | Channel: 5 | Timestamp: 123456 | ADC data: 120 | FIFO Half: False | FIFO Full: False | Parity: 1 (valid: True) ]
 ```
 
-## Minimal example for setting up a Bern DAQ board to run
-
-Follow the installation instructions above. Then with the DAQ system up and running
-
-```python
->>> import larpix.larpix as larpix
->>> from larpix.io.zmq_io import ZMQ_IO
->>> controller = larpix.Controller()
->>> controller.io = ZMQ_IO('tcp://<IP address of daq board>')
->>> controller.load('controller/pcb-<#>_chip_info.json')
->>> controller.io.ping()
->>> for key,chip in controller.chips.items():
-...     chip.config.load('chip/quiet.json')
-...     print(key, chip.config)
-...     controller.write_configuration(key)
->>>
-```
-
 ## Tutorial
 
 This tutorial runs through how to use all of the main functionality of
@@ -385,6 +367,105 @@ creating new packets since a Packet's representation is also a vaild
 call to the Packet constructor. So the output from an interactive
 session can be copied as input or into a script to create the same
 packet.
+
+## Running with a Bern DAQ board
+
+Since you have completed the tutorial with the `FakeIO` class, you are now ready
+to interface with some LArPix ASICs. If you have a Bern DAQ v2-3 setup you can
+follow along with the rest of the tutorial. With the DAQ system up and running
+```python
+>>> import larpix.larpix as larpix
+>>> from larpix.io.zmq_io import ZMQ_IO
+>>> controller = larpix.Controller()
+>>> controller.io = ZMQ_IO('tcp://<IP address of daq board>')
+>>> controller.load('controller/pcb-<#>_chip_info.json')
+>>> controller.io.ping()
+>>> for key,chip in controller.chips.items():
+...     chip.config.load('chip/quiet.json')
+...     print(key, chip.config)
+...     controller.write_configuration(key)
+>>> controller.run(1,'checking the data rate')
+>>> controller.reads[-1]
+<PacketCollection with 0 packets, read_id 0, 'checking the data rate'>
+```
+This should give you a quiet state with no data packets. Occasionally, there can
+be a few packets left in one of the system buffers (LArPix, FPGA, DAQ server). A
+second run command should return without any new packets. If you are still receiving
+data, you can check that the hardware chip configuration match the software chip
+configurations with
+```python
+>>> controller.verify_configuration()
+(True, {})
+```
+If the configuration read packets don't match the software chip configuration, this
+will return
+```python
+>>> controler.verify_configuration()
+(False, {<register>: (<expected>, <received>), ...})
+```
+Missing packets will show up as
+```python
+>>> controler.verify_configuration()
+(False, {<register>: (<expected>, None), ...})
+```
+If your configurations match, and you still receive data then you are likely seeing
+some pickup on the sensor from the environment -- *good luck!*
+
+ To enable a single channel
+```python
+>>> controller.disable() # mask off all channel
+>>> controller.enable('0-3', [0]) # enable channel 0 of chip 0-3
+```
+
+To set the global threshold of a chip
+```python
+>>> controller.chips['0-3'].config.global_threshold = 40
+>>> controller.write_configuration('0-3')
+>>> controller.verify_configuration('0-3')
+(True, {})
+```
+
+To inject a pulse into a specific channel
+```python
+>>> controller.enable_testpulse('0-3', [0]) # connect chip 0-3, channel 0 to the test pulse circuit and initialize the internal DAC to 255
+>>> controller.issue_testpulse('0-3', 10) # inject a pulse of size 10DAC by stepping down the DAC
+<PacketCollection with XX packets, read_id XX, "configuration write">
+>>> controller.disable_testpulse('0-3') # disconnect test pulse circuit from all channels on chip 0-3
+```
+You will need to periodically reset the DAC to 255, otherwise you will receive a
+`ValueError` once the DAC reaches the minimum specified value.
+```python
+>>> controller.enable_testpulse('0-3', [0], start_dac=255)
+>>> controller.issue_testpulse('0-3', 50, min_dac=200) # the min_dac keyword sets the lower bound for the DAC (useful to avoid non-linearities at around 70-80DAC)
+<PacketCollection with XX packets, read_id XX, "configuration write">
+>>> controller.issue_testpulse('0-3', 50, min_dac=200)
+---------------------------------------------------------------------------
+ValueError                                Traceback (most recent call last)
+<ipython-input-16-ff048bbdd36a> in <module>
+----> 1 controller.issue_testpulse('0-3', 50, min_dac=200)
+
+~/Documents/Research/Luk/larpix/larpix-control/larpix/larpix.py in issue_testpulse(self, chip_key, pulse_dac, min_dac)
+   1485         chip.config.csa_testpulse_dac_amplitude -= pulse_dac
+   1486         if chip.config.csa_testpulse_dac_amplitude < min_dac:
+-> 1487             raise ValueError('Minimum DAC exceeded')
+   1488         self.write_configuration(chip_key, [Configuration.csa_testpulse_dac_amplitude_address],
+   1489                                  write_read=0.1)
+
+ValueError: Minimum DAC exceeded
+>>> controller.enable_testpulse('0-3', [0], start_dac=255)
+>>> controller.issue_testpulse('0-3', 50, min_dac=200)
+<PacketCollection with XX packets, read_id XX, "configuration write">
+
+```
+
+To enable the analog monitor on a channel
+```python
+>>> controller.enable_analog_monitor('0-3', 0) # drive buffer output of channel 0, chip 0-3 out on analog monitor line
+>>> controller.disable_analog_monitor('0-3') # disable the analog monitor on chip 0-3
+```
+While the software enforces that only one channel per chip is being driven out on
+the analog monitor, you must disable the analog monitor if moving between chips.
+
 
 ## Miscellaneous implementation details
 
