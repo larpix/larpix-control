@@ -42,5 +42,8 @@ setup(
             'numpy ~= 1.16',
             'h5py ~= 2.9'
             ],
-        include_package_data=True,
+        package_data={
+            'larpix.configs.chip': 'configs/chip/*.json',
+            'larpix.configs.controller': 'configs/controller/*.json',
+            },
 )
