@@ -2,11 +2,10 @@ import time
 import zmq
 import sys
 
-from larpix.io import IO
 from larpix.io.multizmq_io import MultiZMQ_IO
 from larpix.larpix import Packet
 
-class ZMQ_IO(MultiZMQ_IO, IO):
+class ZMQ_IO(MultiZMQ_IO):
     '''
     The ZMQ_IO object interfaces with the Bern LArPix v2 module using
     the ZeroMQ communications protocol. This class wraps the
@@ -58,7 +57,7 @@ class ZMQ_IO(MultiZMQ_IO, IO):
         ``'<io_chain>-<chip_id>'``
 
         '''
-        if not IO.is_valid_chip_key(key):
+        if not super(MultiZMQ_IO,cls).is_valid_chip_key(key):
             return False
         if not isinstance(key, str):
             return False
@@ -80,7 +79,7 @@ class ZMQ_IO(MultiZMQ_IO, IO):
         :returns: ``dict`` with keys ``('chip_id', 'io_chain')``
         '''
         return_dict = {}
-        return_dict = IO.parse_chip_key(key)
+        return_dict = super(MultiZMQ_IO,cls).parse_chip_key(key)
         if not cls.is_valid_chip_key(key):
             return return_dict
         parsed_key = key.split('-')
