@@ -11,7 +11,7 @@ from larpix.io.zmq_io import ZMQ_IO
 def test_generate_chip_key():
     chip_id = 125
     io_chain = 2
-    expected = '{}/{}'.format(io_chain, chip_id)
+    expected = '{}-{}'.format(io_chain, chip_id)
     assert ZMQ_IO.is_valid_chip_key(expected)
     assert ZMQ_IO.generate_chip_key(chip_id=chip_id, io_chain=io_chain)
 
@@ -22,7 +22,7 @@ def test_parse_chip_key():
         'chip_id': chip_id,
         'io_chain': io_chain
     }
-    key = '{}/{}'.format(io_chain, chip_id)
+    key = '{}-{}'.format(io_chain, chip_id)
     assert ZMQ_IO.is_valid_chip_key(key)
     assert ZMQ_IO.parse_chip_key(key) == expected
 

@@ -78,7 +78,7 @@ class MultiZMQ_IO(IO):
         in daq address
 
         '''
-        if not super(cls, cls).is_valid_chip_key(key):
+        if not super(MultiZMQ_IO, cls).is_valid_chip_key(key):
             return False
         if not isinstance(key, str):
             return False
@@ -99,7 +99,7 @@ class MultiZMQ_IO(IO):
 
         :returns: ``dict`` with keys ``('chip_id', 'io_chain', 'addresss')``
         '''
-        return_dict = super(cls, cls).parse_chip_key(key)
+        return_dict = super(MultiZMQ_IO, cls).parse_chip_key(key)
         parsed_key = key.split('/')
         return_dict['chip_id'] = int(parsed_key[2])
         return_dict['io_chain'] = int(parsed_key[1])

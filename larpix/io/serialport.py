@@ -133,14 +133,14 @@ class SerialPort(IO):
     def is_valid_chip_key(cls, key):
         '''
         Valid chip keys must be strings formatted as:
-        ``'<io_chain>/<chip_id>'``
+        ``'<io_chain>-<chip_id>'``
 
         '''
         if not super(cls, cls).is_valid_chip_key(key):
             return False
         if not isinstance(key, str):
             return False
-        parsed_key = key.split('/')
+        parsed_key = key.split('-')
         if not len(parsed_key) == 2:
             return False
         try:
@@ -158,7 +158,7 @@ class SerialPort(IO):
         :returns: ``dict`` with keys ``('chip_id', 'io_chain')``
         '''
         return_dict = super(cls, cls).parse_chip_key(key)
-        parsed_key = key.split('/')
+        parsed_key = key.split('-')
         return_dict['chip_id'] = int(parsed_key[1])
         return_dict['io_chain'] = int(parsed_key[0])
         return return_dict
@@ -177,7 +177,7 @@ class SerialPort(IO):
         if not all([key in kwargs for key in req_fields]):
             raise ValueError('Missing fields required to generate chip id'
                 ', requires {}, received {}'.format(req_fields, kwargs.keys()))
-        return '{io_chain}/{chip_id}'.format(**kwargs)
+        return '{io_chain}-{chip_id}'.format(**kwargs)
 
     def send(self, packets):
         '''
