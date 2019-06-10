@@ -982,7 +982,7 @@ class Controller(object):
         :param filename: File path to configuration file
         :param safe: Flag to check chip keys against current io
         '''
-        return self.load_controller(filename, safe=True)
+        return self.load_controller(filename, safe=safe)
 
     def load_controller(self, filename, safe=True):
         '''
