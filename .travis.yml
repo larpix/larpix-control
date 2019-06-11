@@ -3,5 +3,16 @@ python:
     - "3.6"
     - "2.7"
 install:
-    - pip install -e .
+    - pip install .
 script: pytest
+deploy:
+    provider: pypi
+    user: samkohn
+    password:
+        secure: TN7OiuQ1nZrpWlDp+H85EYTNTADdwSy7pBsuSb6T7H+1opan8QXAqsSFd9BmLVAmVxUuQ1QcCWsGwtDtQNGPNnwkvscFWA8/Wf7iGXeujktMCdrYx9srB6He4n5aYaANSjSR6YVczSi67d4bpusOCf1n6E9s3U5bV1sywmyrPqLY+liqNxRfuH9DbPFn7EWXCcIE7yvcA2m0Kn8H0vYdaUBicOmOazAdGXTmX3RZSz2QJUObdvSpMx0Az+LPK/IOzGHDJ6yXn/eBKQ1mw6WP6olVya46uf6sz+I+uUEHy9NhWxcqn29dDfIfimV3/LeM685WILBL4M4YI1TcHb2P4U5krsyLkxKTRAeoFwPSJWZPTYowvl7haAtsotkzHceAEOOKwwE7uPfK9wHglpB0N5V6Wn2jTm8Qs5qBNaFKQfs1VrwdjVHTplDJAoQvEOOcqUfITHxdP959PXyZ5XnibyH4r9njEddVZec0buDhQC2saJ0Yn7v1y7OGrOxiG8U8bnSPTnLv7fZm9vd9N3tu8RtWhISCYlNjBoP6q14f42iVA2a9PxG2BO8uAP8XtDqCQzKshAQS0tMuV/1ZO1UfrmJ68NdseQ+7/DdCeRLz8MQ6gOBkKA12uknepBomQfr8XHVP7q+/SjuiotedZZF+Fx6o/enYm9Sw2J7u9Djg2FE=
+    distributions: "sdist bdist_wheel"
+    skip_existing: true
+    on:
+        tags: true
+        all_branches: true
+        python: "3.6"

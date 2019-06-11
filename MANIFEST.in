@@ -1,4 +1,0 @@
-include fpga_interface.txt
-include larpix/configs/*.json
-include larpix/configs/chip/*.json
-include larpix/configs/chain/*.json
