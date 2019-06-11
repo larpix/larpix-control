@@ -1530,6 +1530,21 @@ def test_controller_send(capfd):
     expected = list_of_packets_str(to_send)
     assert result == expected
 
+def test_controller_load():
+    controller = Controller()
+    controller.io = FakeIO()
+    controller.load('controller/pcb-1_chip_info.json')
+
+def test_controller_load_safe_catch():
+    controller = Controller()
+    with pytest.raises(RuntimeError):
+        controller.load('controller/pcb-1_chip_info.json')
+        pytest.fail("Should raise error since there's no IO object"
+                " to check if keys are valid")
+
+def test_controller_load_safe_override():
+    controller = Controller()
+    controller.load('controller/pcb-1_chip_info.json', safe=False)
 
 def test_controller_read_configuration(capfd):
     controller = Controller()

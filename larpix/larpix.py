@@ -3,6 +3,7 @@ A module to control the LArPix chip.
 
 '''
 from __future__ import absolute_import
+from __future__ import print_function
 import time
 import json
 import os
@@ -981,7 +982,7 @@ class Controller(object):
         :param filename: File path to configuration file
         :param safe: Flag to check chip keys against current io
         '''
-        return self.load_controller(filename, safe=True)
+        return self.load_controller(filename, safe=safe)
 
     def load_controller(self, filename, safe=True):
         '''

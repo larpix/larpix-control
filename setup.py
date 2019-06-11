@@ -20,11 +20,12 @@ setup(
         version=version,
         description='Control the LArPix chip',
         long_description=long_description,
-        url='https://github.com/samkohn/larpix-control',
-        author='Sam Kohn',
-        author_email='skohn@lbl.gov',
+        long_description_content_type="text/markdown",
+        url='https://github.com/larpix/larpix-control',
+        author='Peter Madigan and Sam Kohn',
+        author_email='pmadigan@lbl.gov',
         classifiers=[
-            'Development Status :: 2 - Pre-Alpha',
+            'Development Status :: 4 - Beta',
             'Intended Audience :: Science/Research',
             'Programming Language :: Python :: 3',
             'Programming Language :: Python :: 2'
@@ -33,13 +34,16 @@ setup(
         packages=find_packages(),
         install_requires=[
             'pyserial ~=3.4',
-            'bitstring ~=3.1',
             'pytest ~=4.2',
             'larpix-geometry ==0.3.0',
             'bitarray ~=0.8',
             'pyzmq ~= 16.0',
             'sphinx_rtd_theme ~= 0.4.2',
-            'numpy ~= 1.16.1',
-            'h5py ~= 2.9.0'
+            'numpy ~= 1.16',
+            'h5py ~= 2.9'
             ],
+        package_data={
+            'larpix.configs.chip': 'configs/chip/*.json',
+            'larpix.configs.controller': 'configs/controller/*.json',
+            },
 )
