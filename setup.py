@@ -42,4 +42,7 @@ setup(
             'numpy ~= 1.16.1',
             'h5py ~= 2.9.0'
             ],
+        scripts=[
+            'scripts/gen_controller_config.py'
+            ],
 )

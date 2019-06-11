@@ -1,33 +1,34 @@
+#!/usr/bin/env python
 '''
 This script allows you to easily generate a controller configuration file based
 on a specific larpix.io interface. Note that the chip key specification is more
 general than this script can produce, (for now) this script is limited to
 generating chip keys for zmq_io.ZMQ_IO and multizmq_io.MultiZMQ_IO classes.
 Generally, this script can generate string-based keys that contain the chip_id
-within the key. The characters $, [, ], {, and } are reserved for special functions
-and should not be used within keys. To use:
+within the key. The characters $, [, ], {, and } are reserved for special
+functions and should not be used within keys. To use:
 python gen_controller_config.py --name <config name> --key_fmt <formatting strings> --outfile <output file config file> --io <io path, optional>
 
 The formatting string is used to generate chip keys, generally it is a list of
-strings that specify chip keys. Ranges of integer values can be specified within
-a ${}. Examples:
- - --key_fmt 'test-${0-4}' generates 5 chip keys: test-0, test-1, test-2,
-   test-3, test-4
- - --key_fmt 'test-${0,1,4}' generates 3 chip keys test-0, test-1, test-4
-The --key_fmt argument can be passed multiple strings to generate a variety of
-   chip key formats:
- - --key_fmt 'key-${0-2}' 'diff-${0-2}' generates 6 chip keys: key-0, key-1,
-   key-2, diff-0, diff-1, diff-2
-A special argument is used to associate a chip id to a given chip key and must
-be specified within each key formatting argument. To indicate which field
-specifies the chip id use $[], instead of ${}. Examples:
- - --key_fmt 'test-${0,1}-$[0]' generate 2 chip keys (test-0-0, test-1-0), each
-   with the same chip_id (0).
- - --key_fmt 'test-$[0-3]' generates 4 chip keys (test-0, test-1, test-2, test-3),
-   each with a unique chip id (0, 1, 2, 3)
- - --key_fmt 'test-${0,1}-$[0,1]' generates 4 chip keys (test-0-0, test-0-1,
-   test-1-0, test-1-1)
-Only one chip id specification can be used per key formatter.
+strings that specify chip keys. Using ${} and $[] special functions allow you to
+generate chip keys according to a integer list. Each formatting string must
+include one $[] function in order to declare the chip id. For example:
+ - --key_fmt 'test-$[0-2]' generate 3 chip keys (test-0, test-1, test-2) and
+   their associated chip ids (0, 1, 2)
+ - --key_fmt 'test-$[0,1,2]' generates the same
+ - --key_fmt 'test-$[0-1,2]' also generates the same
+For more complex chip keys that have repeated sets of identical chip ids, you
+can use the ${} special function. This operates with the same syntax, but does
+not create a new chip id for each. For example:
+ - --key_fmt 'test-${0-2}-$[0]' generates 5 chip keys (test-0-0, test-1-0,
+   test-2-0), each with the chip id 0
+ - --key_fmt 'test-${0-2}-$[0,1]' generates 6 chip keys (test-0-0, test-0-1,
+ test-1-0, test-1-1, test-2-0, test-2-1) with chip ids (0, 1, 0, 1, 0, 1)
+Finally, the --key_fmt argument can be passed multiple strings to generate a
+variety of chip key formats:
+ - --key_fmt 'key-0-$[0-2]' 'key-1-$[2-4]' 'diff-$[0-2]' generates 9 chip keys
+   (key-0-0, key-0-1, key-0-2, key-1-2, key-1-3, key-1-4, diff-0, diff-1,
+   diff-2) with chip ids (0, 1, 2, 2, 3, 4, 0, 1, 2)
 
 '''
 import argparse
@@ -38,9 +39,7 @@ from itertools import zip_longest
 from larpix import configs
 import larpix
 
-
-
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser(usage=__doc__)
 parser.add_argument('--name', '-n', type=str, required=True, help='''
     configuration name (required)
     ''')
@@ -89,7 +88,7 @@ if os.path.exists(outfile):
             if not io.is_valid_chip_key(chip_key):
                 raise RuntimeError('Previous configuration file key \'{}\' is incompatible with io  {}'.format(chip_key, io))
 else:
-    print('No existing file {} found, generating from scratch'.format(outfile))
+    print('No existing file {} found, generating from scratch...'.format(outfile))
 
 # Declare helper functions
 def append_chip_ids(sub_keys, chip_id_fmt):
@@ -147,7 +146,7 @@ def append_int(sub_keys, chip_ids, int_fmt):
         # print('end loop int', int_sub_str, return_keys, return_ids)
     return return_keys, return_ids
 
-def multi_split(strings, delimiters=[' ','\t','']):
+def multi_split(strings, delimiters=[' ','\t','\n']):
     '''
     Recursively splits a list of strings according to a list of delimiters
     E.g. multi_split(['test, word1', ', word2'],delimiters=[',',' ']) returns
