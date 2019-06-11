@@ -109,7 +109,6 @@ class ZMQ_IO(MultiZMQ_IO):
         Convert a list ZMQ messages into packets
         '''
         packets = MultiZMQ_IO.decode(msgs, io_chain=io_chain, address=None, **kwargs)
-        print(packets[0].chip_key)
         for packet in packets:
             packet.chip_key = cls.generate_chip_key(**MultiZMQ_IO.parse_chip_key(packet.chip_key))
         return packets
