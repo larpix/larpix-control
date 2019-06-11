@@ -4,8 +4,8 @@ on a specific larpix.io interface. Note that the chip key specification is more
 general than this script can produce, (for now) this script is limited to
 generating chip keys for zmq_io.ZMQ_IO and multizmq_io.MultiZMQ_IO classes.
 Generally, this script can generate string-based keys that contain the chip_id
-within the key. To
-use:
+within the key. The characters $, [, ], {, and } are reserved for special functions
+and should not be used within keys. To use:
 python gen_controller_config.py --name <config name> --key_fmt <formatting strings> --outfile <output file config file> --io <io path, optional>
 
 The formatting string is used to generate chip keys, generally it is a list of
