@@ -5,7 +5,7 @@ Use the pytest framework to write tests for the larpix module.
 from __future__ import print_function
 import pytest
 from larpix.larpix import (Chip, Packet, Configuration, Controller,
-        PacketCollection, _Smart_List)
+        PacketCollection, _Smart_List, TimestampPacket)
 from larpix.io.fakeio import FakeIO
 from larpix.timestamp import *  # use long = int in py3
 #from bitstring import BitArray
@@ -1774,6 +1774,12 @@ def test_packetcollection_getitem_int_bits():
     result = collection[0, 'bits']
     expected = ' '.join(packet.bits.to01()[i:i+8] for i in range(0, Packet.size, 8))
     assert result == expected
+    packet2 = TimestampPacket(123)
+    collection2 = PacketCollection([packet2])
+    result2 = collection2[0, 'bits']
+    expected2 = ' '.join(packet2.bits.to01()[i:i+8] for i in range(0,
+        packet2.size, 8))
+    assert result2 == expected2
 
 def test_packetcollection_getitem_slice():
     chip = Chip(0, 0)

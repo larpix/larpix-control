@@ -1571,6 +1571,23 @@ class Controller(object):
                     separators=(',',':'), sort_keys=True)
 
 class TimestampPacket(object):
+    '''
+    A packet-like object which just contains an integer timestamp.
+
+    This class implements many methods used by Packet, so it functions
+    smoothly in lists of packets and in PacketCollection.
+
+    If neither ``timestamp`` nor ``code`` is provided then this
+    TimestampPacket will have a timestamp of ``None`` until it is
+    manually set.
+
+    :param timestamp: optional, integer timestamp of this packet
+    :param code: optional, encoded timestamp as a 7-byte unsigned int
+        obtainable from calling the ``bytes`` method.
+
+    '''
+    size = 56
+    chip_key = None
     def __init__(self, timestamp=None, code=None):
         self.packet_type = 'timestamp'
         if code:
@@ -1594,7 +1611,16 @@ class TimestampPacket(object):
         return {
                 'type': 'timestamp',
                 'timestamp': self.timestamp,
+                'bits': self.bits,
                 }
+
+    @property
+    def bits(self):
+        return bah.fromuint(self.timestamp, self.size)
+
+    @bits.setter
+    def bits(self, value):
+        self.timestamp = bah.touint(value)
 
     def bytes(self):
         return struct.pack('Q', self.timestamp)[:7]  # length-7
@@ -1997,10 +2023,11 @@ class PacketCollection(object):
         '''
         if isinstance(key, slice):
             return [' '.join(p.bits.to01()[i:i+8] for i in
-                range(0, Packet.size, 8)) for p in self.packets[key]]
+                range(0, p.size, 8)) for p in self.packets[key]]
         else:
-            return ' '.join(self.packets[key].bits.to01()[i:i+8] for i in
-                    range(0, Packet.size, 8))
+            p = self.packets[key]
+            return ' '.join(p.bits.to01()[i:i+8] for i in
+                    range(0, p.size, 8))
 
     def to_dict(self):
         '''
@@ -2068,6 +2095,8 @@ class PacketCollection(object):
         >>> # Return the most recently read global threshold from chip 5
         >>> threshold = collection.extract('value', register=32, type='config read', chip=5)[-1]
 
+        .. note:: selecting on ``timestamp`` will also select
+            TimestampPacket values.
         '''
         values = []
         for p in self.packets:
