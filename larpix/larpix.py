@@ -1590,6 +1590,12 @@ class TimestampPacket(object):
     def __repr__(self):
         return 'TimestampPacket(%d)' % self.timestamp
 
+    def __eq__(self, other):
+        return self.timestamp == other.timestamp
+
+    def __ne__(self, other):
+        return not (self == other)
+
     def export(self):
         return {
                 'type': 'timestamp',
