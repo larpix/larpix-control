@@ -11,7 +11,7 @@ from larpix.io.fakeio import FakeIO
 from larpix.logger.h5_logger import HDF5Logger
 
 def test_enable(tmpdir):
-    logger = HDF5Logger(directory=tmpdir,buffer_length=1)
+    logger = HDF5Logger(directory=str(tmpdir),buffer_length=1)
     logger.open()
 
     logger.enable()
@@ -20,7 +20,7 @@ def test_enable(tmpdir):
     assert len(logger._buffer['raw_packet']) == 1
 
 def test_disable(tmpdir):
-    logger = HDF5Logger(directory=tmpdir)
+    logger = HDF5Logger(directory=str(tmpdir))
     logger.open()
 
     logger.disable()
@@ -29,14 +29,14 @@ def test_disable(tmpdir):
     assert len(logger._buffer['raw_packet']) == 0
 
 def test_open(tmpdir):
-    logger = HDF5Logger(directory=tmpdir)
+    logger = HDF5Logger(directory=str(tmpdir))
     logger.open()
 
     assert logger.is_enabled()
     assert logger.is_open()
 
 def test_flush(tmpdir):
-    logger = HDF5Logger(directory=tmpdir, buffer_length=5)
+    logger = HDF5Logger(directory=str(tmpdir), buffer_length=5)
     logger.open()
 
     logger.record([Packet()])
@@ -49,7 +49,7 @@ def test_flush(tmpdir):
     assert len(logger._buffer['raw_packet']) == 0
 
 def test_close(tmpdir):
-    logger = HDF5Logger(directory=tmpdir)
+    logger = HDF5Logger(directory=str(tmpdir))
     logger.open()
 
     logger.close()
@@ -57,7 +57,7 @@ def test_close(tmpdir):
     assert not logger.is_open()
 
 def test_record(tmpdir):
-    logger = HDF5Logger(directory=tmpdir, buffer_length=1)
+    logger = HDF5Logger(directory=str(tmpdir), buffer_length=1)
     logger.open()
 
     logger.record([Packet()], timestamp=5.0)
@@ -66,7 +66,7 @@ def test_record(tmpdir):
 @pytest.mark.filterwarnings("ignore:no IO object")
 def test_controller_write_capture(tmpdir):
     controller = Controller()
-    controller.logger = HDF5Logger(directory=tmpdir, buffer_length=1)
+    controller.logger = HDF5Logger(directory=str(tmpdir), buffer_length=1)
     controller.logger.open()
     controller.chips[0] = Chip(2, 0)
     chip = controller.chips[0]
@@ -78,7 +78,7 @@ def test_controller_read_capture(tmpdir):
     controller = Controller()
     controller.io = FakeIO()
     controller.io.queue.append(([Packet()], b'\x00\x00'))
-    controller.logger = HDF5Logger(directory=tmpdir, buffer_length=1)
+    controller.logger = HDF5Logger(directory=str(tmpdir), buffer_length=1)
     controller.logger.open()
     controller.run(0.1,'test')
     assert len(controller.logger._buffer) == 1
