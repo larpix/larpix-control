@@ -5,32 +5,48 @@ import numpy as np
 
 from larpix.larpix import Packet, TimestampPacket
 
-dtype = [
-        ('chip_key','S32'),
-        ('type','S12'),
-        ('chipid','u1'),
-        ('parity','u1'),
-        ('valid_parity','u1'),
-        ('counter','u4'),
-        ('channel','u1'),
-        ('timestamp','u8'),
-        ('adc_counts','u1'),
-        ('fifo_half','u1'),
-        ('fifo_full','u1'),
-        ('register','u1'),
-        ('value','u1')
-        ]
+# {version: {dset_name: [structured dtype fields]}}
+dtypes = {
+        '0.0': {
+            'raw_packet': [
+                ('chip_key','S32'),
+                ('type','S12'),
+                ('chipid','u1'),
+                ('parity','u1'),
+                ('valid_parity','u1'),
+                ('counter','u4'),
+                ('channel','u1'),
+                ('timestamp','u8'),
+                ('adc_counts','u1'),
+                ('fifo_half','u1'),
+                ('fifo_full','u1'),
+                ('register','u1'),
+                ('value','u1')
+                ]
+            }
+        }
 
-def to_file(filename, packet_list):
-    with h5py.File(filename, 'w') as f:
+def to_file(filename, packet_list, mode='a', version='0.0'):
+    with h5py.File(filename, mode) as f:
         # Create header
-        header = f.create_group('_header')
-        header.attrs['version'] = '0.0'
-        header.attrs['created'] = time.time()
+        if '_header' not in f.keys():
+            header = f.create_group('_header')
+            header.attrs['version'] = version
+            header.attrs['created'] = time.time()
+        else:
+            header = f['_header']
+        header.attrs['modified'] = time.time()
 
         # Create dataset
-        dset = f.create_dataset('raw_packet', shape=(len(packet_list),), maxshape=(None,),
-                dtype=dtype)
+        dtype = dtypes[version]['raw_packet']
+        if 'raw_packet' not in f.keys():
+            dset = f.create_dataset('raw_packet', shape=(len(packet_list),),
+                    maxshape=(None,), dtype=dtype)
+            start_index = 0
+        else:
+            dset = f['raw_packet']
+            start_index = dset.shape[0]
+            dset.resize(start_index + len(packet_list), axis=0)
 
         # Fill dataset
         encoded_packets = []
@@ -38,7 +54,7 @@ def to_file(filename, packet_list):
             dict_rep = packet.export()
             encoded_packets.append(tuple(
                 (dict_rep.get(key, 0) for key, _ in dtype)))
-        dset[:] = encoded_packets
+        dset[start_index:] = encoded_packets
 
 def from_file(filename):
     with h5py.File(filename, 'r') as f:
