@@ -108,7 +108,7 @@ class FakeIO(IO):
         if isinstance(timestamps, int):
             timestamps = list(range(timestamps, timestamps+npositions))
         for position, timestamp in reversed(list(zip(positions, timestamps))):
-            packets.insert(position, TimestampPacket(timestamp=timestamp))
+            packets.insert(position, TimestampPacket(timestamp))
 
     def send(self, packets):
         '''

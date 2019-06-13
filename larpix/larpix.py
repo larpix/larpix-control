@@ -1571,10 +1571,10 @@ class Controller(object):
                     separators=(',',':'), sort_keys=True)
 
 class TimestampPacket(object):
-    def __init__(self, timestamp_bytes=None, timestamp=None):
+    def __init__(self, timestamp=None, code=None):
         self.packet_type = 'timestamp'
-        if timestamp_bytes:
-            self.timestamp = struct.unpack('<Q', timestamp_bytes+b'\x00')[0]
+        if code:
+            self.timestamp = struct.unpack('<Q', code + b'\x00')[0]
         else:
             self.timestamp = timestamp
 
