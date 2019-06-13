@@ -6,6 +6,7 @@ import h5py
 
 from larpix.logger import Logger
 from larpix.larpix import Packet, TimestampPacket
+from larpix.format.hdf5format import to_file, dtypes
 
 class HDF5Logger(Logger):
     '''
@@ -19,11 +20,10 @@ class HDF5Logger(Logger):
         The available fields are indicated in ``HDF5Logger.header_keys``. The header
         is initialized upon opening the logger.
 
-    *Datasets:* specified by ``HDF5Logger.data_desc`` and ``HDF5Logger.data_desc_map``
+    *Datasets:* specified by ``HDF5Logger.dataset_list`` and ``HDF5Logger.data_desc_map``
 
-        ``HDF5Logger.data_desc``: This describes the name of all datasets as
-        well as the data format. All datasets are stored as mixed-type arrays with
-        a data format indicated by the list ``HDF5Logger.data_desc[<dataset>]``.
+        ``HDF5Logger.dataset_list``: Lists the datasets that are
+        produced.
 
         ``HDF5Logger.data_desc_map``: This maps specifies the mapping between
         larpix core datatypes and the dataset within the HDF5 file. E.g.,
@@ -38,28 +38,11 @@ class HDF5Logger(Logger):
 
     '''
     VERSION = '0.0'
-    header_keys = ['version','created']
     data_desc_map = {
         Packet: 'raw_packet',
         TimestampPacket: 'raw_packet',
     }
-    data_desc = {
-        'raw_packet' : [
-            ('chip_key','S32'),
-            ('type','S12'),
-            ('chipid','u1'),
-            ('parity','u1'),
-            ('valid_parity','u1'),
-            ('counter','u4'),
-            ('channel','u1'),
-            ('timestamp','u8'),
-            ('adc_counts','u1'),
-            ('fifo_half','u1'),
-            ('fifo_full','u1'),
-            ('register','u1'),
-            ('value','u1')
-        ]
-    }
+    dataset_list = list(dtypes[VERSION].keys())
 
     def __init__(self, filename=None, buffer_length=10000,
             directory=''):
@@ -68,8 +51,8 @@ class HDF5Logger(Logger):
         self.datafile = None
         self.buffer_length = buffer_length
 
-        self._buffer = dict([(dataset, []) for dataset in self.data_desc.keys()])
-        self._write_idx = dict([(dataset, 0) for dataset in self.data_desc.keys()])
+        self._buffer = dict([(dataset, []) for dataset in
+            self.dataset_list])
         self._is_enabled = False
         self._is_open = False
 
@@ -87,61 +70,6 @@ class HDF5Logger(Logger):
             log_specifier = time.strftime(time_format, timestamp)
         log_postfix = '.h5'
         return (log_prefix + '_' + log_specifier + '_' + log_postfix)
-
-    def _create_header(self):
-        '''
-        Create datafile header
-
-        '''
-        if not self.is_open():
-            return
-        if '_header' in self.datafile.keys():
-            return
-        header = self.datafile.create_group('_header')
-        for header_key in self.header_keys:
-            if header_key == 'version':
-                header.attrs[header_key] = self.VERSION
-            elif header_key == 'created':
-                header.attrs[header_key] = time.time()
-
-    def _create_datasets(self):
-        '''
-        Create any missing datasets in file according to ``data_desc``
-
-        '''
-        if not self.is_open():
-            return
-        for dataset_name in self.data_desc.keys():
-            if not dataset_name in self.datafile.keys():
-                self.datafile.create_dataset(dataset_name, (0,), maxshape=(None,),
-                    dtype=self.data_desc[dataset_name])
-
-    @classmethod
-    def encode(cls, data, *args, **kwargs):
-        '''
-        Converts data object into a numpy mixed type array as described by
-        ``data_desc``. Raises a ``ValueError`` if the data object cannot be
-        encoded.
-
-        :returns: a ``numpy`` mixed-type array representing the data object
-
-        '''
-        if isinstance(data, (Packet, TimestampPacket)):
-            return cls.encode_packet(data, *args, **kwargs)
-        raise ValueError('h5_logger can only encode Packet objects')
-
-    @classmethod
-    def encode_packet(cls, packet, *args, **kwargs):
-        '''
-        Converts packets into numpy mixed typ array according to ``data_desc['raw_packet']``
-
-        :returns: a ``numpy`` mixed-type array representing the data object
-
-        '''
-        dict_rep = packet.export()
-        data_list = tuple(dict_rep.get(key, 0) for key, _ in
-                cls.data_desc['raw_packet'])
-        return np.array(data_list, dtype=cls.data_desc['raw_packet'])
 
     def record(self, data, timestamp=None, *args, **kwargs):
         '''
@@ -163,7 +91,7 @@ class HDF5Logger(Logger):
 
         for data_obj in data:
             dataset = self.data_desc_map[type(data_obj)]
-            self._buffer[dataset] += [self.encode(data_obj, timestamp=timestamp)]
+            self._buffer[dataset].append(data_obj)
 
         if any([len(buff) > self.buffer_length for dataset, buff in self._buffer.items()]):
             self.flush()
@@ -215,14 +143,9 @@ class HDF5Logger(Logger):
         if not self.filename:
             self.filename = self._default_filename()
         self.filename = os.path.join(self.directory, self.filename)
-        self.datafile = h5py.File(self.filename)
+        to_file(self.filename, [], version=self.VERSION)
         self._is_open = True
         self._is_enabled = enable
-
-        self._create_header()
-        self._create_datasets()
-        for dataset in self.data_desc.keys():
-            self._write_idx[dataset] = self.datafile[dataset].shape[0]
 
     def close(self):
         '''
@@ -233,7 +156,6 @@ class HDF5Logger(Logger):
         if not self.is_open():
             return
         self.flush()
-        self.datafile.close()
         self._is_open = False
         self._is_enabled = False
 
@@ -243,14 +165,6 @@ class HDF5Logger(Logger):
         '''
         if not self.is_open():
             return
-        for dataset in self.data_desc.keys():
-            if self._buffer[dataset]:
-                to_store = np.array(self._buffer[dataset])
-                new_entries = to_store.shape[0]
-                curr_idx = self._write_idx[dataset]
-                next_idx = curr_idx + new_entries
-                if next_idx >= self.datafile[dataset].shape[0]:
-                    self.datafile[dataset].resize(next_idx, axis=0)
-                self.datafile[dataset][curr_idx:next_idx] = to_store
-                self._buffer[dataset] = []
-                self._write_idx[dataset] = next_idx
+        to_file(self.filename, self._buffer['raw_packet'],
+                version=self.VERSION)
+        self._buffer['raw_packet'] = []
