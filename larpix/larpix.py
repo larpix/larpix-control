@@ -1345,15 +1345,9 @@ class Controller(object):
         start_time = time.time()
         packets = []
         bytestreams = []
-        timestamp = TimestampPacket(timestamp=int(time.time()))
-        self.logger.record([timestamp], data_type='READ')
-        packets.append(timestamp)
         while time.time() - start_time < timelimit:
             time.sleep(sleeptime)
             read_packets, read_bytestream = self.read()
-            timestamp = TimestampPacket(timestamp=int(time.time()))
-            self.logger.record([timestamp], data_type='READ')
-            read_packets.append(timestamp)
             packets.extend(read_packets)
             bytestreams.append(read_bytestream)
         self.stop_listening()
