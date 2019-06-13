@@ -3,7 +3,7 @@ import time
 import h5py
 import numpy as np
 
-from larpix.larpix import Packet
+from larpix.larpix import Packet, TimestampPacket
 
 dtype = [
         ('chip_key','S32'),
@@ -47,6 +47,9 @@ def from_file(filename):
                     f['_header'].attrs['version'])
         packets = []
         for row in f['raw_packet']:
+            if row[1] == b'timestamp':
+                packets.append(TimestampPacket(row[7]))
+                continue
             p = Packet()
             p.type = {
                     b'data': Packet.DATA_PACKET,

@@ -5,7 +5,7 @@ import numpy as np
 import h5py
 
 from larpix.logger import Logger
-from larpix.larpix import Packet
+from larpix.larpix import Packet, TimestampPacket
 
 class HDF5Logger(Logger):
     '''
@@ -40,7 +40,8 @@ class HDF5Logger(Logger):
     VERSION = '0.0'
     header_keys = ['version','created']
     data_desc_map = {
-        Packet: 'raw_packet'
+        Packet: 'raw_packet',
+        TimestampPacket: 'raw_packet',
     }
     data_desc = {
         'raw_packet' : [
@@ -125,21 +126,18 @@ class HDF5Logger(Logger):
         :returns: a ``numpy`` mixed-type array representing the data object
 
         '''
-        if not isinstance(data, (Packet)):
-            raise ValueError('h5_logger can only encode Packet objects')
-        if isinstance(data, Packet):
+        if isinstance(data, (Packet, TimestampPacket)):
             return cls.encode_packet(data, *args, **kwargs)
+        raise ValueError('h5_logger can only encode Packet objects')
 
     @classmethod
-    def encode_packet(cls, packet, timestamp=None, *args, **kwargs):
+    def encode_packet(cls, packet, *args, **kwargs):
         '''
         Converts packets into numpy mixed typ array according to ``data_desc['raw_packet']``
 
         :returns: a ``numpy`` mixed-type array representing the data object
 
         '''
-        if not isinstance(packet, Packet):
-            raise ValueError('packet must be of type Packet')
         dict_rep = packet.export()
         data_list = tuple(dict_rep.get(key, 0) for key, _ in
                 cls.data_desc['raw_packet'])

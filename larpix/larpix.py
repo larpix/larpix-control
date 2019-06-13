@@ -10,6 +10,7 @@ import os
 import errno
 import math
 import warnings
+import struct
 
 from bitarray import bitarray
 
@@ -1344,9 +1345,15 @@ class Controller(object):
         start_time = time.time()
         packets = []
         bytestreams = []
+        timestamp = TimestampPacket(timestamp=int(time.time()))
+        self.logger.record([timestamp], data_type='READ')
+        packets.append(timestamp)
         while time.time() - start_time < timelimit:
             time.sleep(sleeptime)
             read_packets, read_bytestream = self.read()
+            timestamp = TimestampPacket(timestamp=int(time.time()))
+            self.logger.record([timestamp], data_type='READ')
+            read_packets.append(timestamp)
             packets.extend(read_packets)
             bytestreams.append(read_bytestream)
         self.stop_listening()
@@ -1568,6 +1575,28 @@ class Controller(object):
         with open(filename, 'w') as outfile:
             json.dump(data, outfile, indent=4,
                     separators=(',',':'), sort_keys=True)
+
+class TimestampPacket(object):
+    def __init__(self, timestamp_bytes=None, timestamp=None):
+        if timestamp_bytes:
+            self.timestamp = struct.unpack('<Q', timestamp_bytes+b'\x00')[0]
+        else:
+            self.timestamp = timestamp
+
+    def __str__(self):
+        return '[ Timestamp: %d ]' % self.timestamp
+
+    def __repr__(self):
+        return 'TimestampPacket(%d)' % self.timestamp
+
+    def export(self):
+        return {
+                'type': 'timestamp',
+                'timestamp': self.timestamp,
+                }
+
+    def bytes(self):
+        return struct.pack('Q', self.timestamp)[:7]  # length-7
 
 class Packet(object):
     '''
