@@ -44,20 +44,19 @@ class HDF5Logger(Logger):
     }
     data_desc = {
         'raw_packet' : [
-            ('record_timestamp','f8'),
             ('chip_key','S32'),
-            ('type','i8'),
-            ('chipid','i8'),
-            ('parity','i1'),
-            ('valid_parity','i1'),
-            ('counter','i8'),
-            ('channel','i8'),
-            ('timestamp','i8'),
-            ('adc_counts','i8'),
-            ('fifo_half','i1'),
-            ('fifo_full','i1'),
-            ('register','i8'),
-            ('value','i8')
+            ('type','S12'),
+            ('chipid','u1'),
+            ('parity','u1'),
+            ('valid_parity','u1'),
+            ('counter','u4'),
+            ('channel','u1'),
+            ('timestamp','u8'),
+            ('adc_counts','u1'),
+            ('fifo_half','u1'),
+            ('fifo_full','u1'),
+            ('register','u1'),
+            ('value','u1')
         ]
     }
 
@@ -142,23 +141,9 @@ class HDF5Logger(Logger):
         if not isinstance(packet, Packet):
             raise ValueError('packet must be of type Packet')
         dict_rep = packet.export()
-        data_list = []
-        for key, dtype in cls.data_desc['raw_packet']:
-            if key == 'record_timestamp':
-                if timestamp:
-                    data_list += [timestamp]
-                else:
-                    data_list += [-1]
-            elif key == 'chip_key':
-                data_list += [str(dict_rep['chip_key'])]
-            elif key in dict_rep:
-                if key == 'type':
-                    data_list += [int(packet.packet_type.to01(), 2)]
-                else:
-                    data_list += [dict_rep[key]]
-            else:
-                data_list += [-1]
-        return np.array(tuple(data_list),dtype=cls.data_desc['raw_packet'])
+        data_list = tuple(dict_rep.get(key, 0) for key, _ in
+                cls.data_desc['raw_packet'])
+        return np.array(data_list, dtype=cls.data_desc['raw_packet'])
 
     def record(self, data, timestamp=None, *args, **kwargs):
         '''
