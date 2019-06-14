@@ -1,4 +1,6 @@
 import time
+import os
+
 import numpy as np
 import h5py
 
@@ -27,9 +29,12 @@ class HDF5Logger(Logger):
         larpix core datatypes and the dataset within the HDF5 file. E.g.,
         ``larpix.Packet`` objects are stored in ``'raw_packet'``.
 
-    :param filename: filename to store data (optional, default: ``None``)
+    :param filename: filename to store data (appended to ``directory``)
+        (optional, default: ``None``)
     :param buffer_length: how many data messages to hang on to before flushing
         buffer to the file (optional, default: ``10000``)
+    :param directory: the directory to save the data in (optional,
+        default: '')
 
     '''
     VERSION = '0.0'
@@ -56,8 +61,10 @@ class HDF5Logger(Logger):
         ]
     }
 
-    def __init__(self, filename=None, buffer_length=10000):
+    def __init__(self, filename=None, buffer_length=10000,
+            directory=''):
         self.filename = filename
+        self.directory = directory
         self.datafile = None
         self.buffer_length = buffer_length
 
@@ -224,6 +231,7 @@ class HDF5Logger(Logger):
             return
         if not self.filename:
             self.filename = self._default_filename()
+        self.filename = os.path.join(self.directory, self.filename)
         self.datafile = h5py.File(self.filename)
         self._is_open = True
         self._is_enabled = enable
