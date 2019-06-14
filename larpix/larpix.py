@@ -1611,7 +1611,7 @@ class TimestampPacket(object):
         return {
                 'type': 'timestamp',
                 'timestamp': self.timestamp,
-                'bits': self.bits,
+                'bits': self.bits.to01(),
                 }
 
     @property
