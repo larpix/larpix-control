@@ -79,10 +79,10 @@ example for you to play around with:
 >>> controller.io = FakeIO()
 >>> controller.logger = StdoutLogger(buffer_length=0)
 >>> controller.logger.open()
->>> chip1 = controller.add_chip('0/1', 1)  # (access key, chipID)
+>>> chip1 = controller.add_chip('0-1', 1)  # (access key, chipID)
 >>> chip1.config.global_threshold = 25
->>> controller.write_configuration('0/1', 25) # chip key 1, register 25
-[ Config write | Chip key: '0/1' | Chip: 1 | Register: 25 | Value:  16 | Parity: 1 (valid: True) ]
+>>> controller.write_configuration('0-1', 25) # chip key 1, register 25
+[ Config write | Chip key: '0-1' | Chip: 1 | Register: 25 | Value:  16 | Parity: 1 (valid: True) ]
 >>> packet = larpix.Packet(b'\x04\x14\x80\xc4\x03\xf2 ')
 >>> packet_bytes = packet.bytes()
 >>> pretend_input = ([packet], packet_bytes)
@@ -148,7 +148,7 @@ Controller.
 
 ```python
 chipid = 5
-chip_key = '0/5'
+chip_key = '0-5'
 chip5 = controller.add_chip(chip_key, chipid)
 chip5 = controller.get_chip(chip_key)
 ```
@@ -467,7 +467,7 @@ follow along with the rest of the tutorial. With the DAQ system up and running
 >>> import larpix.larpix as larpix
 >>> from larpix.io.zmq_io import ZMQ_IO
 >>> controller = larpix.Controller()
->>> controller.io = ZMQ_IO('tcp://<IP address of daq board>')
+>>> controller.io = ZMQ_IO('<IP address of daq board>')
 >>> controller.load('controller/pcb-<#>_chip_info.json')
 >>> controller.io.ping()
 >>> for key,chip in controller.chips.items():
