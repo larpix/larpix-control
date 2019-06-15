@@ -1400,6 +1400,9 @@ class Controller(object):
         Set channel threshold to 0 and report back on the recieved adcs from channel
         Returns mean, rms, and packet collection
         '''
+        warnings.warn('read_channel_pedestal is not supported, bad things may '
+            'happen!', DeprecationWarning)
+
         chip = self.get_chip(chip_key)
         # Store previous state
         prev_channel_mask = chip.config.channel_mask
@@ -1411,14 +1414,14 @@ class Controller(object):
         chip.config.global_threshold = 0
         chip.config.pixel_trim_thresholds = [31]*32
         chip.config.pixel_trim_thresholds[channel] = 0
-        self.write_configuration(chip, Configuration.channel_mask_addresses +
+        self.write_configuration(chip_key, Configuration.channel_mask_addresses +
                                  Configuration.pixel_trim_threshold_addresses +
                                  [Configuration.global_threshold_address])
         self.run(0.1,'clear buffer')
         # Collect data
         self.run(run_time,'read_channel_pedestal_c{}_ch{}'.format(chip_key, channel))
         self.disable(chip_key=chip_key)
-        adcs = self.reads[-2].extract('adc_counts', chip_key=chip_key, channel=channel)
+        adcs = self.reads[-1].extract('adc_counts', chip_key=chip_key, channel=channel)
         mean = 0
         rms = 0
         if len(adcs) > 0:
@@ -1430,7 +1433,7 @@ class Controller(object):
         chip.config.channel_mask = prev_channel_mask
         chip.config.global_threshold = prev_global_threshold
         chip.config.pixel_trim_thresholds = prev_pixel_trim_thresholds
-        self.write_configuration(chip, Configuration.channel_mask_addresses +
+        self.write_configuration(chip_key, Configuration.channel_mask_addresses +
                                  Configuration.pixel_trim_threshold_addresses +
                                  [Configuration.global_threshold_address])
         self.run(2,'clear buffer')
