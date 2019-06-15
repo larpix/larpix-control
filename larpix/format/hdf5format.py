@@ -1,3 +1,81 @@
+'''
+This module gives access to the LArPix+HDF5 file format.
+
+File format description
+=======================
+
+All LArPix+HDF5 files use the HDF5 format so that they
+can be read and written using any language that has an HDF5 binding.
+
+LArPix+HDF5 files are self-describing in that they contain a format
+version which identifies the structure of the file.
+
+File Header
+-----------
+
+The file header can be found in the ``/_header`` HDF5 group. At a
+minimum, the header will contain the following HDF5 attributes:
+
+    - ``version``: a string containing the LArPix+HDF5 version
+    - ``created``: a Unix timestamp of the file's creation time
+    - ``modified``: a Unix timestamp of the files last-modified time
+
+File Data
+---------
+
+The file data is saved in HDF5 datasets, and the specific data format
+depends on the LArPix+HDF5 version.
+
+For version 0.0, there is only one dataset: ``raw_packet``. This dataset
+contains a list of all of the packets sent and received during a
+particular time interval.
+
+    - Shape: ``(N,)``, ``N >= 0``
+
+    - Datatype: a compound datatype (called "structured type" in
+      h5py/numpy). Not all fields are relevant for each packet. Unused
+      fields are set to a default value of 0 or the empty string.
+      Keys/fields:
+
+        - ``chip_key`` (``S32``/32-character string): the chip key
+          identifying the ASIC associated with this packet
+
+        - ``type`` (``S12``/12-character string): a text representation
+          of the packet type (data, test, config read, config write, or
+          timestamp)
+
+        - ``chipid`` (``u1``/unsigned byte): the LArPix chipid
+
+        - ``parity`` (``u1``/unsigned byte): the packet parity bit (0 or
+          1)
+
+        - ``valid_parity`` (``u1``/unsigned byte): 1 if the packet
+          parity is valid (odd), 0 if it is invalid
+
+        - ``counter`` (``u4``/unsigned 4-byte int): the test counter
+          value
+
+        - ``channel`` (``u1``/unsigned byte): the ASIC channel
+
+        - ``timestamp`` (``u8``/unsigned 8-byte long int): the timestamp
+          associated with the packet
+
+        - ``adc_counts`` (``u1``/unsigned byte): the ADC data word
+
+        - ``fifo_half`` (``u1``/unsigned byte): 1 if the FIFO half full
+          flag is present, 0 otherwise.
+
+        - ``fifo_full`` (``u1``/unsigned byte): 1 if the FIFO full flag
+          is present, 0 otherwise.
+
+        - ``register`` (``u1``/unsigned byte): the configuration
+          register index
+
+        - ``value`` (``u1``/unsigned byte): the configuration register
+          value
+
+
+'''
 import time
 
 import h5py
@@ -26,7 +104,7 @@ dtypes = {
             }
         }
 
-def to_file(filename, packet_list, mode='a', version='0.0'):
+def to_file(filename, packet_list, mode='a', version='1.0'):
     with h5py.File(filename, mode) as f:
         # Create header
         if '_header' not in f.keys():
