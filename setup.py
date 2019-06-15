@@ -42,6 +42,9 @@ setup(
             'numpy ~= 1.16',
             'h5py ~= 2.9'
             ],
+        scripts=[
+            'scripts/gen_controller_config.py'
+            ],
         package_data={
             'larpix.configs.chip': 'configs/chip/*.json',
             'larpix.configs.controller': 'configs/controller/*.json',
