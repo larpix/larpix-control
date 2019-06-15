@@ -1400,6 +1400,9 @@ class Controller(object):
         Set channel threshold to 0 and report back on the recieved adcs from channel
         Returns mean, rms, and packet collection
         '''
+        warnings.warn('read_channel_pedestal is not supported, bad things may '
+            'happen!', DeprecationWarning)
+
         chip = self.get_chip(chip_key)
         # Store previous state
         prev_channel_mask = chip.config.channel_mask
