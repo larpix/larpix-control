@@ -3,6 +3,7 @@ Quickstart commands for test boards
 '''
 
 from __future__ import absolute_import
+from __future__ import print_function
 import sys
 
 import larpix.larpix as larpix

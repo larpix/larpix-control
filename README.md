@@ -29,6 +29,43 @@ from the repository root directory with the simple command `pytest`.
 You can read the tests to see examples of how to call all of the common
 functions.
 
+## File structure
+
+The larpix package contains:
+```
+larpix
+|-- larpix
+|-- io
+|   |-- fakeio
+|   |-- serialport
+|   `-- zmq_io
+|-- logger
+|   |-- h5_logger
+|   `-- stdout_logger
+|-- quickstart
+|-- timestamp
+|-- bitarrayhelper
+|-- serial_helpers
+|   |-- analyzers
+|   |-- dataformatter
+|   |-- dataloader
+|   `-- datalogger
+`-- configs
+    |-- chip
+    |   |-- csa_bypass.json
+    |   |-- default.json
+    |   |-- physics.json
+    |   `-- quiet.json
+    `-- controller
+        |-- pcb-10_chip_info.json
+        |-- pcb-1_chip_info.json
+        |-- pcb-2_chip_info.json
+        |-- pcb-3_chip_info.json
+        |-- pcb-4_chip_info.json
+        |-- pcb-5_chip_info.json
+        `-- pcb-6_chip_info.json
+```
+
 ## Minimal working example
 
 So you're not a tutorials kind of person. Here's a minimal working
@@ -53,24 +90,6 @@ example for you to play around with:
 >>> controller.run(0.05, 'test run')
 >>> print(controller.reads[0])
 [ Data | Chip key: None | Chip: 1 | Channel: 5 | Timestamp: 123456 | ADC data: 120 | FIFO Half: False | FIFO Full: False | Parity: 1 (valid: True) ]
-```
-
-## Minimal example for setting up a Bern DAQ board to run
-
-Follow the installation instructions above. Then with the DAQ system up and running
-
-```python
->>> import larpix.larpix as larpix
->>> from larpix.io.zmq_io import ZMQ_IO
->>> controller = larpix.Controller()
->>> controller.io = ZMQ_IO('<IP address of daq board>')
->>> controller.load('controller/pcb-<#>_chip_info.json')
->>> controller.io.ping()
->>> for key,chip in controller.chips.items():
-...     chip.config.load('chip/quiet.json')
-...     print(key, chip.config)
-...     controller.write_configuration(key)
->>>
 ```
 
 ## Tutorial
@@ -348,6 +367,185 @@ creating new packets since a Packet's representation is also a vaild
 call to the Packet constructor. So the output from an interactive
 session can be copied as input or into a script to create the same
 packet.
+
+### Logging communications with LArPix ASICs using the HDF5Logger
+
+To create a permanent record of communications with the LArPix ASICs, an
+`HDF5Logger` is used. To create a new logger
+
+```python
+controller.logger = HDF5Logger(filename=None, buffer_length=10000) # a filename of None uses the default filename formatting
+controller.logger.open() # opens hdf5 file and starts tracking all communications
+```
+
+Now whenever you send or receive packets, they will be captured by the logger
+and added to the logger's buffer. Once `buffer_length` packets have been
+captured the packets will be written out to the file. You can force the logger
+to dump the currently held packets at any time using `HDF5Logger.flush()`
+
+```python
+controller.verify_configuration()
+controller.logger.flush()
+```
+
+In the event that you want to temporarily stop tracking communications,
+the `disable` and `enable` commands do exactly what you think they might.
+
+```python
+controller.logger.disable() # stop tracking
+# any communication here is ignored
+controller.logger.enable() # start tracking again
+controller.logger.is_enabled() # returns True if tracking
+```
+
+Once you have finished your tests, be sure to close the logger. If you do not,
+the file may become corrupted and you may lose data. We strongly recommend
+wrapping logger code with a `try, except` statement if you can. Any remaining
+packets in the buffer are flushed to the file upon closing.
+
+```python
+controller.close()
+```
+
+### Viewing data from the HDF5Logger
+
+Currently, there is no built-in support for generating `larpix-control` objects
+directly from the HDF5 file (someday), but the storage format is simple enough
+that you should be able to get meaningful information without it. To open the
+HDF5 file from python
+
+```python
+import h5py
+datafile = h5py.File('<filename>')
+```
+
+Within the datafile there is one group (`'_header'`) and one dataset
+(`'raw_packet'`). The header group contains some useful meta information about
+when the datafile was created and the file format version number, stored as
+attributes.
+
+```python
+list(datafile.keys()) # ['_header', 'raw_packet']
+list(datafile['_header'].attrs) # ['created', 'version']
+```
+
+The packets are stored sequentially as a `numpy` mixed-type arrays within the
+rows of the HDF5 dataset. The columns refer to the element of the numpy mixed
+type array. The specifics of the data type and entries are set by the
+`HDF5Logger.data_desc` dict - see the larpix-control docs for more information.
+You can read-in packets simply by accessing their respective position within the
+HDF5 dataset.
+
+```python
+raw_value = datafile['raw_packet'][0] # e.g. (1.56030174e+09, b'0-246', 3, 246, 1, 1, -1, -1, -1, -1, -1, -1, 0, 0)
+raw_values = datafile['raw_packet'][-100:] # last 100 packets in file
+```
+
+If you want to make use of `numpy`'s mixed type arrays, you can convert the
+raw values to the proper encoding via
+
+```python
+import numpy as np
+packet_repr = np.array(raw_values, HDF5Logger.data_desc['raw_packet'])
+packet_repr[0]['chip_key'] # chip key for packet, e.g. b'0-246'
+packet_repr['adc_counts'] # list of ADC values for each packet
+packet_repr.dtype # description of data type (with names of each column)
+```
+
+Don't forget to close the file when you are done.
+
+```python
+datafile.close()
+```
+
+## Running with a Bern DAQ board
+
+Since you have completed the tutorial with the `FakeIO` class, you are now ready
+to interface with some LArPix ASICs. If you have a Bern DAQ v2-3 setup you can
+follow along with the rest of the tutorial. With the DAQ system up and running
+```python
+>>> import larpix.larpix as larpix
+>>> from larpix.io.zmq_io import ZMQ_IO
+>>> controller = larpix.Controller()
+>>> controller.io = ZMQ_IO('tcp://<IP address of daq board>')
+>>> controller.load('controller/pcb-<#>_chip_info.json')
+>>> controller.io.ping()
+>>> for key,chip in controller.chips.items():
+...     chip.config.load('chip/quiet.json')
+...     print(key, chip.config)
+...     controller.write_configuration(key)
+>>> controller.run(1,'checking the data rate')
+>>> controller.reads[-1]
+<PacketCollection with 0 packets, read_id 0, 'checking the data rate'>
+```
+This should give you a quiet state with no data packets. Occasionally, there can
+be a few packets left in one of the system buffers (LArPix, FPGA, DAQ server). A
+second run command should return without any new packets.
+
+### Check configurations
+If you are still receiving data, you can check that the hardware chip configuration
+match the software chip configurations with
+```python
+>>> controller.verify_configuration()
+(True, {})
+```
+If the configuration read packets don't match the software chip configuration, this
+will return
+```python
+>>> controller.verify_configuration()
+(False, {<register>: (<expected>, <received>), ...})
+```
+Missing packets will show up as
+```python
+>>> controller.verify_configuration()
+(False, {<register>: (<expected>, None), ...})
+```
+If your configurations match, and you still receive data then you are likely seeing
+some pickup on the sensor from the environment -- *good luck!*
+
+### Enable a single channel
+```python
+>>> controller.disable() # mask off all channel
+>>> controller.enable('0-3', [0]) # enable channel 0 of chip 0-3
+```
+
+### Set the global threshold of a chip
+```python
+>>> controller.chips['0-3'].config.global_threshold = 40
+>>> controller.write_configuration('0-3')
+>>> controller.verify_configuration('0-3')
+(True, {})
+```
+
+### Inject a pulse into a specific channel
+```python
+>>> controller.enable_testpulse('0-3', [0]) # connect chip 0-3, channel 0 to the test pulse circuit and initialize the internal DAC to 255
+>>> controller.issue_testpulse('0-3', 10) # inject a pulse of size 10DAC by stepping down the DAC
+<PacketCollection with XX packets, read_id XX, "configuration write">
+>>> controller.disable_testpulse('0-3') # disconnect test pulse circuit from all channels on chip 0-3
+```
+You will need to periodically reset the DAC to 255, otherwise you will receive a
+`ValueError` once the DAC reaches the minimum specified value.
+```python
+>>> controller.enable_testpulse('0-3', [0], start_dac=255)
+>>> controller.issue_testpulse('0-3', 50, min_dac=200) # the min_dac keyword sets the lower bound for the DAC (useful to avoid non-linearities at around 70-80DAC)
+<PacketCollection with XX packets, read_id XX, "configuration write">
+>>> controller.issue_testpulse('0-3', 50, min_dac=200)
+ValueError: Minimum DAC exceeded
+>>> controller.enable_testpulse('0-3', [0], start_dac=255)
+>>> controller.issue_testpulse('0-3', 50, min_dac=200)
+<PacketCollection with XX packets, read_id XX, "configuration write">
+
+```
+
+### Enable the analog monitor on a channel
+```python
+>>> controller.enable_analog_monitor('0-3', 0) # drive buffer output of channel 0, chip 0-3 out on analog monitor line
+>>> controller.disable_analog_monitor('0-3') # disable the analog monitor on chip 0-3
+```
+While the software enforces that only one channel per chip is being driven out on
+the analog monitor, you must disable the analog monitor if moving between chips.
+
 
 ## Miscellaneous implementation details
 
