@@ -1589,7 +1589,7 @@ class TimestampPacket(object):
     size = 56
     chip_key = None
     def __init__(self, timestamp=None, code=None):
-        self.packet_type = 'timestamp'
+        self.packet_type = 4
         if code:
             self.timestamp = struct.unpack('<Q', code + b'\x00')[0]
         else:
@@ -1777,7 +1777,8 @@ class Packet(object):
         d = {}
         d['chip_key'] = self.chip_key
         d['bits'] = self.bits.to01()
-        d['type'] = type_map[self.packet_type.to01()]
+        d['type_str'] = type_map[self.packet_type.to01()]
+        d['type'] = bah.touint(self.packet_type)
         d['chipid'] = self.chipid
         d['parity'] = self.parity_bit_value
         d['valid_parity'] = self.has_valid_parity()
@@ -2070,7 +2071,8 @@ class PacketCollection(object):
         - all packets:
              - chip_key
              - bits
-             - type (data, test, config read, config write)
+             - type_str (data, test, config read, config write)
+             - type (0, 1, 2, 3)
              - chipid
              - parity
              - valid_parity

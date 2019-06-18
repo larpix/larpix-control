@@ -40,9 +40,9 @@ particular time interval.
         - ``chip_key`` (``S32``/32-character string): the chip key
           identifying the ASIC associated with this packet
 
-        - ``type`` (``S12``/12-character string): a text representation
-          of the packet type (data, test, config read, config write, or
-          timestamp)
+        - ``type`` (``u1``/unsigned byte): the packet type code, which
+          can be interpreted according to the map stored in the
+          raw_packet attribute 'packet_types'
 
         - ``chipid`` (``u1``/unsigned byte): the LArPix chipid
 
@@ -88,7 +88,7 @@ dtypes = {
         '0.0': {
             'raw_packet': [
                 ('chip_key','S32'),
-                ('type','S12'),
+                ('type','u1'),
                 ('chipid','u1'),
                 ('parity','u1'),
                 ('valid_parity','u1'),
@@ -120,6 +120,13 @@ def to_file(filename, packet_list, mode='a', version='0.0'):
         if 'raw_packet' not in f.keys():
             dset = f.create_dataset('raw_packet', shape=(len(packet_list),),
                     maxshape=(None,), dtype=dtype)
+            dset.attrs['packet_types'] = '''
+0: 'data',
+1: 'test',
+2: 'config write',
+3: 'config read',
+4: 'timestamp',
+'''
             start_index = 0
         else:
             dset = f['raw_packet']
