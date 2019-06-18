@@ -104,7 +104,7 @@ dtypes = {
             }
         }
 
-def to_file(filename, packet_list, mode='a', version='1.0'):
+def to_file(filename, packet_list, mode='a', version='0.0'):
     with h5py.File(filename, mode) as f:
         # Create header
         if '_header' not in f.keys():
