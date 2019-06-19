@@ -52,9 +52,6 @@ particular time interval.
         - ``valid_parity`` (``u1``/unsigned byte): 1 if the packet
           parity is valid (odd), 0 if it is invalid
 
-        - ``counter`` (``u4``/unsigned 4-byte int): the test counter
-          value
-
         - ``channel`` (``u1``/unsigned byte): the ASIC channel
 
         - ``timestamp`` (``u8``/unsigned 8-byte long int): the timestamp
@@ -74,6 +71,8 @@ particular time interval.
         - ``value`` (``u1``/unsigned byte): the configuration register
           value
 
+        - ``counter`` (``u4``/unsigned 4-byte int): the test counter
+          value
 
 '''
 import time
@@ -92,7 +91,6 @@ dtypes = {
                 ('chipid','u1'),
                 ('parity','u1'),
                 ('valid_parity','u1'),
-                ('counter','u4'),
                 ('channel','u1'),
                 ('timestamp','u8'),
                 ('adc_counts','u1'),
@@ -100,6 +98,7 @@ dtypes = {
                 ('fifo_full','u1'),
                 ('register','u1'),
                 ('value','u1')
+                ('counter','u4'),
                 ]
             }
         }
@@ -138,7 +137,8 @@ def to_file(filename, packet_list, mode='a', version='0.0'):
         for packet in packet_list:
             dict_rep = packet.export()
             encoded_packets.append(tuple(
-                (dict_rep.get(key, 0) for key, _ in dtype)))
+                (dict_rep.get(key, b'') if val_type[0] == 'S'  # string
+                    else dict_rep.get(key, 0) for key, val_type in dtype)))
         dset[start_index:] = encoded_packets
 
 def from_file(filename):
@@ -148,31 +148,26 @@ def from_file(filename):
                     f['_header'].attrs['version'])
         packets = []
         for row in f['raw_packet']:
-            if row[1] == b'timestamp':
+            if row[1] == 4:
                 packets.append(TimestampPacket(row[7]))
                 continue
             p = Packet()
-            p.type = {
-                    b'data': Packet.DATA_PACKET,
-                    b'test': Packet.TEST_PACKET,
-                    b'config write': Packet.CONFIG_WRITE_PACKET,
-                    b'config read': Packet.CONFIG_READ_PACKET,
-                    }[row[1]]
             p.chip_key = row[0]
+            p.packet_type = row[1]
             p.chipid = row[2]
             p.parity = row[3]
-            if p.type == Packet.DATA_PACKET:
-                p.channel = row[6]
-                p.timestamp = row[7]
-                p.dataword = row[8]
-                p.fifo_half_flag = row[9]
-                p.fifo_full_flag = row[10]
-            elif p.type == Packet.TEST_PACKET:
-                p.counter = row[5]
+            if p.packet_type == Packet.DATA_PACKET:
+                p.channel = row[5]
+                p.timestamp = row[6]
+                p.dataword = row[7]
+                p.fifo_half_flag = row[8]
+                p.fifo_full_flag = row[9]
+            elif p.packet_type == Packet.TEST_PACKET:
+                p.counter = row[12]
             elif (p.type == Packet.CONFIG_WRITE_PACKET
-                    or p.type == Packet.CONFIG_READ_PACKET):
-                p.register_address = row[11]
-                p.register_data = row[12]
+                    or p.packet_type == Packet.CONFIG_READ_PACKET):
+                p.register_address = row[10]
+                p.register_data = row[11]
             packets.append(p)
         return {
                 'packets': packets,
