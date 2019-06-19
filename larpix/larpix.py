@@ -1609,7 +1609,8 @@ class TimestampPacket(object):
 
     def export(self):
         return {
-                'type': 'timestamp',
+                'type_str': 'timestamp',
+                'type': self.packet_type,
                 'timestamp': self.timestamp,
                 'bits': self.bits.to01(),
                 }

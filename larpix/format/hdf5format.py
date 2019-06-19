@@ -154,7 +154,7 @@ def from_file(filename):
         packets = []
         for row in f['raw_packet']:
             if row[1] == 4:
-                packets.append(TimestampPacket(row[7]))
+                packets.append(TimestampPacket(row[6]))
                 continue
             if row[1] == 5:
                 packets.append(DirectionPacket(row[13]))
@@ -163,7 +163,7 @@ def from_file(filename):
             p.chip_key = row[0]
             p.packet_type = row[1]
             p.chipid = row[2]
-            p.parity = row[3]
+            p.parity_bit_value = row[3]
             if p.packet_type == Packet.DATA_PACKET:
                 p.channel = row[5]
                 p.timestamp = row[6]
@@ -180,5 +180,6 @@ def from_file(filename):
         return {
                 'packets': packets,
                 'created': f['_header'].attrs['created'],
+                'modified': f['_header'].attrs['modified'],
                 'version': f['_header'].attrs['version'],
                 }
