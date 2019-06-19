@@ -12,11 +12,14 @@ class Logger(object):
         '''
         pass
 
-    def record(self, data, timestamp=None, *args, **kwargs):
+    def record(self, data, direction=None, timestamp=None, *args, **kwargs):
         '''
         Log specified data.
 
         :param data: ``list`` of data to be written to log. Valid data types are specified by logger implementation. Raises a ``ValueError`` if datatype is invalid.
+        :param direction: optional, 0 if packets were sent to ASICs, 1 if packets
+            were received from ASICs. If specified, will add a
+            DirectionPacket to the logger.
         :param timestamp: a unix timestamp to be associated with this log entry
 
         '''

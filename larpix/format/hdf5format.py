@@ -74,13 +74,16 @@ particular time interval.
         - ``counter`` (``u4``/unsigned 4-byte int): the test counter
           value
 
+        - ``direction`` (``u1``/unsigned byte): 0 if packet was sent to
+          ASICs, 1 if packet was received from ASICs.
+
 '''
 import time
 
 import h5py
 import numpy as np
 
-from larpix.larpix import Packet, TimestampPacket
+from larpix.larpix import Packet, TimestampPacket, DirectionPacket
 
 # {version: {dset_name: [structured dtype fields]}}
 dtypes = {
@@ -97,8 +100,9 @@ dtypes = {
                 ('fifo_half','u1'),
                 ('fifo_full','u1'),
                 ('register','u1'),
-                ('value','u1')
+                ('value','u1'),
                 ('counter','u4'),
+                ('direction', 'u1'),
                 ]
             }
         }
@@ -125,6 +129,7 @@ def to_file(filename, packet_list, mode='a', version='0.0'):
 2: 'config write',
 3: 'config read',
 4: 'timestamp',
+5: 'direction',
 '''
             start_index = 0
         else:
@@ -151,6 +156,9 @@ def from_file(filename):
             if row[1] == 4:
                 packets.append(TimestampPacket(row[7]))
                 continue
+            if row[1] == 5:
+                packets.append(DirectionPacket(row[13]))
+                continue
             p = Packet()
             p.chip_key = row[0]
             p.packet_type = row[1]
@@ -164,7 +172,7 @@ def from_file(filename):
                 p.fifo_full_flag = row[9]
             elif p.packet_type == Packet.TEST_PACKET:
                 p.counter = row[12]
-            elif (p.type == Packet.CONFIG_WRITE_PACKET
+            elif (p.packet_type == Packet.CONFIG_WRITE_PACKET
                     or p.packet_type == Packet.CONFIG_READ_PACKET):
                 p.register_address = row[10]
                 p.register_data = row[11]

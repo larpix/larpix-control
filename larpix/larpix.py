@@ -1071,7 +1071,7 @@ class Controller(object):
         else:
             warnings.warn('no IO object exists, no packets sent', RuntimeWarning)
         if self.logger:
-            self.logger.record(packets, data_type='SEND', timestamp=timestamp)
+            self.logger.record(packets, direction=0, timestamp=timestamp)
 
     def start_listening(self):
         '''
@@ -1111,7 +1111,7 @@ class Controller(object):
         else:
             warnings.warn('no IO object exists, no packets will be received', RuntimeWarning)
         if self.logger:
-            self.logger.record(packets, data_type='READ', timestamp=timestamp)
+            self.logger.record(packets, direction=1, timestamp=timestamp)
         return packets, bytestream
 
     def write_configuration(self, chip_key, registers=None, write_read=0,
@@ -1624,6 +1624,69 @@ class TimestampPacket(object):
 
     def bytes(self):
         return struct.pack('Q', self.timestamp)[:7]  # length-7
+
+class DirectionPacket(object):
+    '''
+    A packet-like object which just contains a transmission direction
+    indicator (input/output).
+
+    This class implements many methods used by Packet, so it functions
+    smoothly in lists of packets and in PacketCollection.
+
+    If neither ``direction`` nor ``code`` is provided then this
+    DirectionPacket will have a direction of ``None`` until it is
+    manually set to 0 or 1.
+
+    :param direction: optional, 0 if packets are sent to ASICs, 1 if
+        packets are received from ASICs
+    :param code: optional, ``b'\\x00'`` if packets are sent to ASICs,
+        ``b'\\x01'`` if packets are received from ASICs.
+
+    '''
+    size=1
+    chip_key=None
+    str_map = {0: 'sending', 1: 'receiving'}
+    def __init__(self, direction=None, code=None):
+        self.packet_type=5
+        if code:
+            self.direction = code[0]
+        else:
+            self.direction = direction
+
+    def __str__(self):
+        return '[ Direction: %d (%s) ]' % (self.direction,
+                self.str_map[self.direction])
+
+    def __repr__(self):
+        return 'DirectionPacket(%d)' % self.direction
+
+    def __eq__(self, other):
+        return (type(self) == type(other)
+                and self.direction == other.direction)
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def export(self):
+        return {
+                'type': 5,
+                'type_str': 'direction',
+                'direction': self.direction,
+                'direction_str': self.str_map[self.direction],
+                'bits': self.bits.to01(),
+                }
+
+    @property
+    def bits(self):
+        return bitarray('%d' % self.direction)
+
+    @bits.setter
+    def bits(self, value):
+        self.direction = int(value[0])
+
+    def bytes(self):
+        return bytes([self.direction])
+
 
 class Packet(object):
     '''
