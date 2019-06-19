@@ -19,15 +19,15 @@ class StdoutLogger(Logger):
         self._is_open = False
         self.buffer_length = buffer_length
 
-    def record(self, data, direction=None, timestamp=None, *args, **kwargs):
+    def record(self, data, direction=None):
         '''
         Send the specified data to stdout
 
         :param data: list of data to be written to log
         :param direction: optional, 0 if packets were sent to ASICs, 1 if packets
             were received from ASICs. If specified, will add a
-            DirectionPacket to the logger.
-        :param timestamp: unix timestamp to be associated with data
+            ``DirectionPacket`` to the logger. If not (or if ``None``), no
+            ``DirectionPacket`` will be added.
         '''
         if not self._is_enabled:
             return
@@ -35,8 +35,6 @@ class StdoutLogger(Logger):
             self.open()
         if not isinstance(data,list):
             raise ValueError('data must be a list')
-        if not timestamp:
-            timestamp = time.time()
 
         if direction is not None:
             direction_packet = DirectionPacket(direction)

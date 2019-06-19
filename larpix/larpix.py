@@ -1071,7 +1071,7 @@ class Controller(object):
         else:
             warnings.warn('no IO object exists, no packets sent', RuntimeWarning)
         if self.logger:
-            self.logger.record(packets, direction=0, timestamp=timestamp)
+            self.logger.record(packets, direction=0)
 
     def start_listening(self):
         '''
@@ -1111,7 +1111,7 @@ class Controller(object):
         else:
             warnings.warn('no IO object exists, no packets will be received', RuntimeWarning)
         if self.logger:
-            self.logger.record(packets, direction=1, timestamp=timestamp)
+            self.logger.record(packets, direction=1)
         return packets, bytestream
 
     def write_configuration(self, chip_key, registers=None, write_read=0,

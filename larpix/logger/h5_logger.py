@@ -72,7 +72,7 @@ class HDF5Logger(Logger):
         log_postfix = '.h5'
         return (log_prefix + '_' + log_specifier + '_' + log_postfix)
 
-    def record(self, data, direction=None, timestamp=None, *args, **kwargs):
+    def record(self, data, direction=None):
         '''
         Send the specified data to log file
         .. note:: buffer is flushed after all ``data`` is placed in buffer, this
@@ -82,7 +82,7 @@ class HDF5Logger(Logger):
         :param direction: optional, 0 if packets were sent to ASICs, 1 if packets
             were received from ASICs. If specified, will add a
             DirectionPacket to the logger.
-        :param timestamp: unix timestamp to be associated with data
+
         '''
         if not self.is_enabled():
             return
@@ -90,8 +90,6 @@ class HDF5Logger(Logger):
             self.open()
         if not isinstance(data, list):
             raise ValueError('data must be a list')
-        if not timestamp:
-            timestamp = time.time()
 
         if direction is not None:
             direction_packet = DirectionPacket(direction)

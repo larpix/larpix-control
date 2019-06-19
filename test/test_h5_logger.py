@@ -60,7 +60,7 @@ def test_record(tmpdir):
     logger = HDF5Logger(directory=str(tmpdir))
     logger.open()
 
-    logger.record([Packet()], timestamp=5.0)
+    logger.record([Packet()])
     assert len(logger._buffer['raw_packet']) == 1
     logger.record([TimestampPacket(timestamp=123)])
     assert len(logger._buffer['raw_packet']) == 2

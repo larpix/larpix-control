@@ -58,7 +58,7 @@ def test_record():
     logger = StdoutLogger(buffer_length=1)
     logger.open()
 
-    logger.record(['test'], timestamp=5.0)
+    logger.record(['test'])
     assert logger._buffer[0] == 'Record: test'
 
 @pytest.mark.filterwarnings("ignore:no IO object")
