@@ -108,6 +108,20 @@ dtypes = {
         }
 
 def to_file(filename, packet_list, mode='a', version='0.0'):
+    '''
+    Save the given packets to the given file.
+
+    This method can be used to update an existing file.
+
+    :param filename: the name of the file to save to
+    :param packet_list: any iterable of objects of type ``Packet``,
+        ``TimestampPacket``, or ``DirectionPacket``.
+    :param mode: optional, the "file mode" to open the data file
+        (default: ``'a'``)
+    :param version: optional, the LArPix+HDF5 format version to use (for
+        backwards compatibility pick an earlier version) (default: '0.0')
+
+    '''
     with h5py.File(filename, mode) as f:
         # Create header
         if '_header' not in f.keys():
@@ -147,6 +161,15 @@ def to_file(filename, packet_list, mode='a', version='0.0'):
         dset[start_index:] = encoded_packets
 
 def from_file(filename):
+    '''
+    Read the data from the given file into LArPix Packet objects.
+
+    :param filename: the name of the file to read
+    :returns packet_dict: a dict with keys ``'packets'`` containing a
+        list of packet objects; and ``'created'``, ``'modified'``, and
+        ``'version'``, containing the file metadata.
+
+    '''
     with h5py.File(filename, 'r') as f:
         if f['_header'].attrs['version'] != '0.0':
             raise RuntimeError('Invalid version (should be 0.0): %s' %
