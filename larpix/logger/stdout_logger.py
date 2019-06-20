@@ -2,7 +2,7 @@ from __future__ import print_function
 import time
 
 from larpix.logger import Logger
-from larpix.larpix import Packet, DirectionPacket
+from larpix.larpix import Packet
 
 class StdoutLogger(Logger):
     '''
@@ -19,15 +19,13 @@ class StdoutLogger(Logger):
         self._is_open = False
         self.buffer_length = buffer_length
 
-    def record(self, data, direction=None):
+    def record(self, data, direction=0):
         '''
         Send the specified data to stdout
 
         :param data: list of data to be written to log
-        :param direction: optional, 0 if packets were sent to ASICs, 1 if packets
-            were received from ASICs. If specified, will add a
-            ``DirectionPacket`` to the logger. If not (or if ``None``), no
-            ``DirectionPacket`` will be added.
+        :param direction: 0 if packets were sent to ASICs, 1 if packets
+            were received from ASICs. optional, default=0
         '''
         if not self._is_enabled:
             return
@@ -35,11 +33,6 @@ class StdoutLogger(Logger):
             self.open()
         if not isinstance(data,list):
             raise ValueError('data must be a list')
-
-        if direction is not None:
-            direction_packet = DirectionPacket(direction)
-            self._buffer.append(['Record: '
-                '{}'.format(str(direction_packet))])
 
         self._buffer += ['Record: {}'.format(str(data_obj)) for data_obj in data]
 

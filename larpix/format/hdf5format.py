@@ -83,7 +83,7 @@ import time
 import h5py
 import numpy as np
 
-from larpix.larpix import Packet, TimestampPacket, DirectionPacket
+from larpix.larpix import Packet, TimestampPacket
 
 # {version: {dset_name: [structured dtype fields]}}
 dtypes = {
@@ -114,8 +114,8 @@ def to_file(filename, packet_list, mode='a', version='0.0'):
     This method can be used to update an existing file.
 
     :param filename: the name of the file to save to
-    :param packet_list: any iterable of objects of type ``Packet``,
-        ``TimestampPacket``, or ``DirectionPacket``.
+    :param packet_list: any iterable of objects of type ``Packet`` or
+        ``TimestampPacket``.
     :param mode: optional, the "file mode" to open the data file
         (default: ``'a'``)
     :param version: optional, the LArPix+HDF5 format version to use (for
@@ -143,7 +143,6 @@ def to_file(filename, packet_list, mode='a', version='0.0'):
 2: 'config write',
 3: 'config read',
 4: 'timestamp',
-5: 'direction',
 '''
             start_index = 0
         else:
@@ -179,9 +178,6 @@ def from_file(filename):
             if row[1] == 4:
                 packets.append(TimestampPacket(row[6]))
                 continue
-            if row[1] == 5:
-                packets.append(DirectionPacket(row[13]))
-                continue
             p = Packet()
             p.chip_key = row[0]
             p.packet_type = row[1]
@@ -199,6 +195,7 @@ def from_file(filename):
                     or p.packet_type == Packet.CONFIG_READ_PACKET):
                 p.register_address = row[10]
                 p.register_data = row[11]
+            p.direction = row[13]
             packets.append(p)
         return {
                 'packets': packets,

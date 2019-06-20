@@ -3,8 +3,7 @@ from __future__ import print_function
 import pytest
 import h5py
 
-from larpix.larpix import (Packet, PacketCollection, TimestampPacket,
-        DirectionPacket)
+from larpix.larpix import (Packet, PacketCollection, TimestampPacket)
 from larpix.format.hdf5format import to_file, from_file
 
 @pytest.fixture
@@ -38,10 +37,6 @@ def config_read_packet():
 @pytest.fixture
 def timestamp_packet():
     return TimestampPacket(timestamp=12345)
-
-@pytest.fixture
-def direction_packet():
-    return DirectionPacket(direction=1)
 
 def test_to_file_empty(tmpfile):
     to_file(tmpfile, [])
@@ -93,27 +88,15 @@ def test_to_file_timestamp_packet(tmpfile, timestamp_packet):
     new_packet.timestamp = row[6]
     assert new_packet == timestamp_packet
 
-def test_to_file_direction_packet(tmpfile, direction_packet):
-    to_file(tmpfile, [direction_packet])
-    f = h5py.File(tmpfile, 'r')
-    assert len(f['raw_packet']) == 1
-    row = f['raw_packet'][0]
-    assert row[1] == 5  # packet_type
-    new_packet = DirectionPacket()
-    new_packet.direction = row[13]
-    assert new_packet == direction_packet
-
 def test_to_file_many_packets(tmpfile, data_packet, config_read_packet,
-        timestamp_packet, direction_packet):
-    to_file(tmpfile, [data_packet, config_read_packet, timestamp_packet,
-        direction_packet])
+        timestamp_packet):
+    to_file(tmpfile, [data_packet, config_read_packet, timestamp_packet])
     f = h5py.File(tmpfile, 'r')
-    assert len(f['raw_packet']) == 4
+    assert len(f['raw_packet']) == 3
 
 def test_from_file_many_packets(tmpfile, data_packet,
-        config_read_packet, timestamp_packet, direction_packet):
-    packets = [data_packet, config_read_packet, timestamp_packet,
-            direction_packet]
+        config_read_packet, timestamp_packet):
+    packets = [data_packet, config_read_packet, timestamp_packet]
     to_file(tmpfile, packets)
     new_packets_dict = from_file(tmpfile)
     assert new_packets_dict['created']
@@ -123,4 +106,3 @@ def test_from_file_many_packets(tmpfile, data_packet,
     assert new_packets[0] == data_packet
     assert new_packets[1] == config_read_packet
     assert new_packets[2] == timestamp_packet
-    assert new_packets[3] == direction_packet

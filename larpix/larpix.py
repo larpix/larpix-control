@@ -1626,69 +1626,6 @@ class TimestampPacket(object):
     def bytes(self):
         return struct.pack('Q', self.timestamp)[:7]  # length-7
 
-class DirectionPacket(object):
-    '''
-    A packet-like object which just contains a transmission direction
-    indicator (input/output).
-
-    This class implements many methods used by Packet, so it functions
-    smoothly in lists of packets and in PacketCollection.
-
-    If neither ``direction`` nor ``code`` is provided then this
-    DirectionPacket will have a direction of ``None`` until it is
-    manually set to 0 or 1.
-
-    :param direction: optional, 0 if packets are sent to ASICs, 1 if
-        packets are received from ASICs
-    :param code: optional, ``b'\\x00'`` if packets are sent to ASICs,
-        ``b'\\x01'`` if packets are received from ASICs.
-
-    '''
-    size=1
-    chip_key=None
-    str_map = {0: 'sending', 1: 'receiving'}
-    def __init__(self, direction=None, code=None):
-        self.packet_type=5
-        if code:
-            self.direction = code[0]
-        else:
-            self.direction = direction
-
-    def __str__(self):
-        return '[ Direction: %d (%s) ]' % (self.direction,
-                self.str_map[self.direction])
-
-    def __repr__(self):
-        return 'DirectionPacket(%d)' % self.direction
-
-    def __eq__(self, other):
-        return (type(self) == type(other)
-                and self.direction == other.direction)
-
-    def __ne__(self, other):
-        return not (self == other)
-
-    def export(self):
-        return {
-                'type': 5,
-                'type_str': 'direction',
-                'direction': self.direction,
-                'direction_str': self.str_map[self.direction],
-                'bits': self.bits.to01(),
-                }
-
-    @property
-    def bits(self):
-        return bitarray('%d' % self.direction)
-
-    @bits.setter
-    def bits(self, value):
-        self.direction = int(value[0])
-
-    def bytes(self):
-        return bytes([self.direction])
-
-
 class Packet(object):
     '''
     A single 54-bit LArPix UART data packet.
@@ -1782,6 +1719,9 @@ class Packet(object):
 
     def __str__(self):
         string = '[ '
+        if hasattr(self, 'direction'):
+            string += {0: 'Out', 1: 'In'}[self.direction]
+            string += ' | '
         string += 'Chip key: {} | '.format(self.chip_key)
         ptype = self.packet_type
         if ptype == Packet.TEST_PACKET:

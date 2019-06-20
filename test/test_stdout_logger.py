@@ -70,7 +70,7 @@ def test_controller_write_capture(capfd):
     chip = controller.chips[0]
     controller.write_configuration(0, 0)
     packet = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[0]
-    assert len(controller.logger._buffer) == 2
+    assert len(controller.logger._buffer) == 1
 
 def test_controller_read_capture(capfd):
     controller = Controller()
@@ -79,4 +79,4 @@ def test_controller_read_capture(capfd):
     controller.logger = StdoutLogger(buffer_length=100)
     controller.logger.open()
     controller.run(0.1,'test')
-    assert len(controller.logger._buffer) == 2
+    assert len(controller.logger._buffer) == 1
