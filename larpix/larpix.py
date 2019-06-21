@@ -1626,6 +1626,64 @@ class TimestampPacket(object):
     def bytes(self):
         return struct.pack('Q', self.timestamp)[:7]  # length-7
 
+class MessagePacket(object):
+    '''
+    A packet-like object which contains a string message and timestamp.
+
+    :param message: a string message of length less than 64
+    :param timestamp: the timestamp of the message
+
+    '''
+    size=72
+    chip_key = None
+    def __init__(self, message, timestamp):
+        self.packet_type = 5
+        self.message = message
+        self.timestamp = timestamp
+
+    def __str__(self):
+        return '[ Message: %s | Timestamp: %d ]' % (self.message,
+                self.timestamp)
+
+    def __repr__(self):
+        return 'MessagePacket(%s, %d)' % (repr(self.message),
+                self.timestamp)
+
+    def __eq__(self, other):
+        return (self.message == other.message
+                and self.timestamp == other.timestamp)
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def export(self):
+        return {
+                'type_str': 'message',
+                'type': self.packet_type,
+                'message': self.message,
+                'timestamp': self.timestamp,
+                'bits': self.bits.to01(),
+                }
+
+    @property
+    def bits(self):
+        b = bitarray()
+        b.frombytes(self.bytes())
+        return b
+
+    @bits.setter
+    def bits(self, value):
+        value_bytes = value.bytes()
+        message_bytes = value_bytes[:64]
+        timestamp_bytes = value_bytes[64:]
+        self.message = message_bytes[:message_bytes.find(b'\x00')].decode()
+        self.timestamp = struct.unpack('Q', timestamp_bytes)[0]
+
+    def bytes(self):
+        return (self.message.ljust(64, '\x00').encode()
+                + struct.pack('Q', self.timestamp))
+
+
 class Packet(object):
     '''
     A single 54-bit LArPix UART data packet.

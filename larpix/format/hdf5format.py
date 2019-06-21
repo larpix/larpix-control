@@ -49,7 +49,9 @@ File Data
 The file data is saved in HDF5 datasets, and the specific data format
 depends on the LArPix+HDF5 version.
 
-For version 1.0, there is only one dataset: ``packets``. This dataset
+For version 1.0, there are two dataset: ``packets`` and ``messages``.
+
+The ``packets`` dataset
 contains a list of all of the packets sent and received during a
 particular time interval.
 
@@ -79,9 +81,10 @@ particular time interval.
 
         - ``timestamp`` (``u8``/unsigned 8-byte long int): the timestamp
           associated with the packet. **Caution**: this field does
-          "double duty" as both the ASIC timestamp in data packets
-          (``type`` == 0), and as the global timestamp in timestamp
-          packets (``type`` == 4).
+          "triple duty" as both the ASIC timestamp in data packets
+          (``type`` == 0), as the global timestamp in timestamp
+          packets (``type`` == 4), and as the message timestamp in
+          message packets (``type`` == 5).
 
         - ``adc_counts`` (``u1``/unsigned byte): the ADC data word
 
@@ -98,7 +101,9 @@ particular time interval.
           value
 
         - ``counter`` (``u4``/unsigned 4-byte int): the test counter
-          value
+          value, or the message index. **Caution**: this field does
+          "double duty" as the counter for test packets (``type`` == 1)
+          and as the message index for message packets (``type`` == 5).
 
         - ``direction`` (``u1``/unsigned byte): 0 if packet was sent to
           ASICs, 1 if packet was received from ASICs.
@@ -112,8 +117,23 @@ particular time interval.
         2: 'config write',
         3: 'config read',
         4: 'timestamp',
+        5: 'message',
 
+The ``messages`` dataset has the full messages referred to by message
+packets in the ``packets`` dataset.
 
+    - Shape: ``(N,)``, ``N >= 0``
+
+    - Datatype: a compound datatype with fields:
+
+        - ``message`` (``S64``/64-character string): the message
+
+        - ``timestamp`` (``u8``/unsigned 8-byte long int): the timestamp
+          associated with the message
+
+        - ``index`` (``u4``/unsigned 4-byte int): the message index,
+          which should be equal to the row index in the ``messages``
+          dataset
 
 '''
 import time
@@ -121,7 +141,7 @@ import time
 import h5py
 import numpy as np
 
-from larpix.larpix import Packet, TimestampPacket
+from larpix.larpix import Packet, TimestampPacket, MessagePacket
 
 #: The most recent / up-to-date LArPix+HDF5 format version
 latest_version = '1.0'
@@ -163,6 +183,11 @@ dtypes = {
                 ('value','u1'),
                 ('counter','u4'),
                 ('direction', 'u1'),
+                ],
+            'messages': [
+                ('message', 'S64'),
+                ('timestamp', 'u8'),
+                ('index', 'u4'),
                 ]
             }
         }
@@ -205,6 +230,11 @@ dtype_property_index_lookup = {
                 'value': 11,
                 'counter': 12,
                 'direction': 13,
+                },
+            'messages': {
+                'message': 0,
+                'timestamp': 1,
+                'index': 2,
                 }
             }
         }
@@ -245,33 +275,57 @@ def to_file(filename, packet_list, mode='a', version=None):
                     'specified: %s' % (file_version, version))
         header.attrs['modified'] = time.time()
 
-        # Create dataset
-        dset_name = next(iter(dtypes[version]))  # assumes only 1 dset
-        dtype = dtypes[version][dset_name]
-        if dset_name not in f.keys():
-            dset = f.create_dataset(dset_name, shape=(len(packet_list),),
-                    maxshape=(None,), dtype=dtype)
-            dset.attrs['packet_types'] = '''
+        # Create datasets
+        if version == '0.0':
+            packet_dset_name = 'raw_packet'
+        else:
+            packet_dset_name = 'packets'
+        packet_dtype = dtypes[version][packet_dset_name]
+        if packet_dset_name not in f.keys():
+            packet_dset = f.create_dataset(packet_dset_name, shape=(len(packet_list),),
+                    maxshape=(None,), dtype=packet_dtype)
+            packet_dset.attrs['packet_types'] = '''
 0: 'data',
 1: 'test',
 2: 'config write',
 3: 'config read',
 4: 'timestamp',
+5: 'message',
 '''
             start_index = 0
         else:
-            dset = f[dset_name]
-            start_index = dset.shape[0]
-            dset.resize(start_index + len(packet_list), axis=0)
+            packet_dset = f[packet_dset_name]
+            start_index = packet_dset.shape[0]
+            packet_dset.resize(start_index + len(packet_list), axis=0)
+        if version != '0.0':
+            message_dset_name = 'messages'
+            message_dtype = dtypes[version][message_dset_name]
+            if message_dset_name not in f.keys():
+                message_dset = f.create_dataset(message_dset_name,
+                        shape=(0,), maxshape=(None,),
+                        dtype=message_dtype)
+                message_start_index = 0
+            else:
+                message_dset = f[message_dset_name]
+                message_start_index = message_dset.shape[0]
 
         # Fill dataset
         encoded_packets = []
-        for packet in packet_list:
+        messages = []
+        for i, packet in enumerate(packet_list):
             dict_rep = packet.export()
             encoded_packets.append(tuple(
                 (dict_rep.get(key, b'') if val_type[0] == 'S'  # string
-                    else dict_rep.get(key, 0) for key, val_type in dtype)))
-        dset[start_index:] = encoded_packets
+                    else dict_rep.get(key, 0) for key, val_type in
+                    packet_dtype)))
+            if isinstance(packet, MessagePacket):
+                messages.append((packet.message, packet.timestamp,
+                    message_start_index + len(messages)))
+
+        packet_dset[start_index:] = encoded_packets
+        if version != '0.0':
+            message_dset.resize(message_start_index + len(messages), axis=0)
+            message_dset[message_start_index:] = messages
 
 def from_file(filename, version=None):
     '''
@@ -314,13 +368,26 @@ def from_file(filename, version=None):
                 'specified: %s' % (file_version, version))
         if version not in dtypes:
             raise RuntimeError('Unknown version: %s' % version)
-        dset_name = next(iter(dtypes[version]))  # assumes only 1 dset
+        if version == '0.0':
+            dset_name = 'raw_packet'
+        else:
+            dset_name = 'packets'
+            message_dset_name = 'messages'
+            message_props = (
+                    dtype_property_index_lookup[version][message_dset_name])
+            message_dset = f[message_dset_name]
         props = dtype_property_index_lookup[version][dset_name]
         packets = []
         for row in f[dset_name]:
-            if row[1] == 4:
+            if row[props['type']] == 4:
                 packets.append(TimestampPacket(row[props['timestamp']]))
                 continue
+            if row[props['type']] == 5:
+                index = row[props['counter']]
+                message_row = message_dset[index]
+                message = message_row[message_props['message']].decode()
+                timestamp = row[props['timestamp']]
+                packets.append(MessagePacket(message, timestamp))
             p = Packet()
             p.chip_key = row[props['chip_key']]
             p.packet_type = row[props['type']]

@@ -3,7 +3,8 @@ from __future__ import print_function
 import pytest
 import h5py
 
-from larpix.larpix import (Packet, PacketCollection, TimestampPacket)
+from larpix.larpix import (Packet, PacketCollection, TimestampPacket,
+        MessagePacket)
 from larpix.format.hdf5format import (to_file, from_file,
         dtype_property_index_lookup)
 
@@ -40,6 +41,11 @@ def config_read_packet():
 @pytest.fixture
 def timestamp_packet():
     p = TimestampPacket(timestamp=12345)
+    return p
+
+@pytest.fixture
+def message_packet():
+    p = MessagePacket('Hello, World!', 1234567)
     return p
 
 def test_to_file_v0_0_empty(tmpfile):
@@ -170,16 +176,35 @@ def test_to_file_v1_0_timestamp_packet(tmpfile, timestamp_packet):
     new_packet.timestamp = row[props['timestamp']]
     assert new_packet == timestamp_packet
 
-def test_to_file_v1_0_many_packets(tmpfile, data_packet, config_read_packet,
-        timestamp_packet):
-    to_file(tmpfile, [data_packet, config_read_packet,
-        timestamp_packet], version='1.0')
+def test_to_file_v1_0_message_packet(tmpfile, message_packet,
+        data_packet):
+    to_file(tmpfile, [data_packet, message_packet], version='1.0')
     f = h5py.File(tmpfile, 'r')
-    assert len(f['packets']) == 3
+    assert len(f['packets']) == 2
+    row = f['packets'][1]
+    props = dtype_property_index_lookup['1.0']['packets']
+    message_props = dtype_property_index_lookup['1.0']['messages']
+    assert row[props['type']] == 5
+    assert row[props['counter']] == 0
+    assert row[props['timestamp']] == 1234567
+    assert len(f['messages']) == 1
+    message_row = f['messages'][0]
+    assert message_row[message_props['index']] == 0
+    assert message_row[message_props['message']] == b'Hello, World!'
+    assert message_row[message_props['timestamp']] == 1234567
+
+def test_to_file_v1_0_many_packets(tmpfile, data_packet, config_read_packet,
+        timestamp_packet, message_packet):
+    to_file(tmpfile, [data_packet, config_read_packet,
+        timestamp_packet, message_packet], version='1.0')
+    f = h5py.File(tmpfile, 'r')
+    assert len(f['packets']) == 4
+    assert len(f['messages']) == 1
 
 def test_from_file_v1_0_many_packets(tmpfile, data_packet,
-        config_read_packet, timestamp_packet):
-    packets = [data_packet, config_read_packet, timestamp_packet]
+        config_read_packet, timestamp_packet, message_packet):
+    packets = [data_packet, config_read_packet, timestamp_packet,
+            message_packet]
     to_file(tmpfile, packets, version='1.0')
     new_packets_dict = from_file(tmpfile)
     assert new_packets_dict['created']
@@ -189,6 +214,7 @@ def test_from_file_v1_0_many_packets(tmpfile, data_packet,
     assert new_packets[0] == data_packet
     assert new_packets[1] == config_read_packet
     assert new_packets[2] == timestamp_packet
+    assert new_packets[3] == message_packet
 
 def test_from_file_incompatible(tmpfile):
     to_file(tmpfile, [], version='0.0')
