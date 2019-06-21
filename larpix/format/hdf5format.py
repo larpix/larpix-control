@@ -78,7 +78,10 @@ particular time interval.
         - ``channel`` (``u1``/unsigned byte): the ASIC channel
 
         - ``timestamp`` (``u8``/unsigned 8-byte long int): the timestamp
-          associated with the packet
+          associated with the packet. **Caution**: this field does
+          "double duty" as both the ASIC timestamp in data packets
+          (``type`` == 0), and as the global timestamp in timestamp
+          packets (``type`` == 4).
 
         - ``adc_counts`` (``u1``/unsigned byte): the ADC data word
 
@@ -99,6 +102,18 @@ particular time interval.
 
         - ``direction`` (``u1``/unsigned byte): 0 if packet was sent to
           ASICs, 1 if packet was received from ASICs.
+
+    - Packet types lookup: the ``packets`` dataset has an attribute
+      ``'packet_types'`` which contains the following lookup table for
+      packets::
+
+        0: 'data',
+        1: 'test',
+        2: 'config write',
+        3: 'config read',
+        4: 'timestamp',
+
+
 
 '''
 import time
