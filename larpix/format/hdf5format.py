@@ -327,7 +327,7 @@ def to_file(filename, packet_list, mode='a', version=None):
             message_dset.resize(message_start_index + len(messages), axis=0)
             message_dset[message_start_index:] = messages
 
-def from_file(filename, version=None):
+def from_file(filename, version=None, start=None, end=None):
     '''
     Read the data from the given file into LArPix Packet objects.
 
@@ -342,6 +342,9 @@ def from_file(filename, version=None):
         the same major version and at least the same minor version. E.g.
         for ``'~1.5'``, versions between v1.5 and v2.0 are compatible.
         If unspecified or ``None``, will use the stored format version.
+    :param start: the index of the first row to read
+    :param end: the index after the last row to read (same semantics as
+        Python ``range``)
     :returns packet_dict: a dict with keys ``'packets'`` containing a
         list of packet objects; and ``'created'``, ``'modified'``, and
         ``'version'``, containing the file metadata.
@@ -378,7 +381,11 @@ def from_file(filename, version=None):
             message_dset = f[message_dset_name]
         props = dtype_property_index_lookup[version][dset_name]
         packets = []
-        for row in f[dset_name]:
+        if start is None and end is None:
+            dset_iter = f[dset_name]
+        else:
+            dset_iter = f[dset_name][start:end]
+        for row in dset_iter:
             if row[props['type']] == 4:
                 packets.append(TimestampPacket(row[props['timestamp']]))
                 continue
