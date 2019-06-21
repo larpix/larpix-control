@@ -7,10 +7,9 @@ with larpix-control:
 
 '''
 import warnings
-from bitarray import bitarray
+import struct
 
 from larpix.larpix import Packet
-import larpix.bitarrayhelper as bah
 
 def dataserver_message_decode(msgs, key_generator=None, version=(1,0), **kwargs):
     '''
@@ -22,20 +21,15 @@ def dataserver_message_decode(msgs, key_generator=None, version=(1,0), **kwargs)
     '''
     packets = []
     for msg in msgs:
-        major_ba, minor_ba = bitarray(), bitarray()
-        major_ba.frombytes(msg[:1])
-        minor_ba.frombytes(msg[1:2])
-        major, minor = [bah.touint(ba) for ba in (major_ba, minor_ba)]
+        major, minor = struct.unpack('BB',msg[:2])
         if (major, minor) != version:
             warnings.warn('Message version mismatch! Expected {}, received {}'.format(version, (major,minor)))
-        msg_type = msg[2:3]
+        msg_type = struct.unpack('c',msg[2:3])[0]
         if msg_type == b'T':
             # FIX ME: once the TimestampPacket is merged in, this need to be updated
-            print('Timestamp message: {}'.format(int.from_bytes(msg[8:],byteorder='little')))
+            print('Timestamp message: {}'.format(struct.unpack('<L',msg[8:])[0]))
         elif msg_type == b'D':
-            io_chain_ba = bitarray()
-            io_chain_ba.frombytes(msg[3:4])
-            io_chain = bah.touint(io_chain_ba)
+            io_chain = struct.unpack('B',msg[3:4])[0]
             payload = msg[8:]
             if len(payload)%8 == 0:
                 for start_index in range(0, len(payload), 8):
@@ -71,21 +65,18 @@ def dataserver_message_encode(packets, key_parser=None, version=(1,0)):
          - byte[8:17] 8-byte Unix timestamp
 
     '''
-    byte_length = 8
+    data_header_fmt='BBcBI'
+    timestamp_header_fmt='BBcBI'
     msgs = []
     for packet in packets:
         msg = b''
-        msg += bah.fromuint(version[0], byte_length).tobytes()
-        msg += bah.fromuint(version[1], byte_length).tobytes()
         if isinstance(packet, Packet):
-            msg += b'D'
+            header = [0]*len(data_header_fmt)
+            header[0:2] = version[0:2]
+            header[2] = b'D'
             if key_parser:
-                msg += bah.fromuint(key_parser(packet.chip_key)['io_chain'], byte_length).tobytes()
-            else:
-                msg += bah.fromuint(0, byte_length).tobytes()
-            msg += bah.fromuint(0, 4*byte_length).tobytes()
-        else:
-            msg += bah.fromuint(0, 5*byte_length).tobytes()
-        msg += packet.bytes() + bah.fromuint(0, byte_length).tobytes()
+                header[3] = key_parser(packet.chip_key)['io_chain']
+            msg = struct.pack(data_header_fmt, *header)
+            msg += packet.bytes() + struct.pack('B',0)
         msgs += [msg]
     return msgs
