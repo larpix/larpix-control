@@ -5,7 +5,15 @@ File format description
 =======================
 
 All LArPix+HDF5 files use the HDF5 format so that they
-can be read and written using any language that has an HDF5 binding.
+can be read and written using any language that has an HDF5 binding. The
+documentation for the Python h5py binding is at <http://docs.h5py.org>.
+
+The ``to_file`` and ``from_file`` methods translate between a list of
+Packet-like objects and an HDF5 data file. ``from_file`` can be used to
+load up the full file all at once or just a subset of rows (supposing
+the full file was too big to fit in memory). To access the data most
+efficiently, do not rely on ``from_file`` and instead perform analysis
+directly on the HDF5 data file.
 
 File Header
 -----------
@@ -134,6 +142,31 @@ packets in the ``packets`` dataset.
         - ``index`` (``u4``/unsigned 4-byte int): the message index,
           which should be equal to the row index in the ``messages``
           dataset
+
+Examples
+--------
+
+Plot a histogram of ADC counts (selecting packet type to be data packets
+only)
+
+>>> import matplotlib.pyplot as plt
+>>> import h5py
+>>> f = h5py.File('output.h5', 'r')
+>>> packets = f['packets']
+>>> plt.hist(packets['adc_counts'][packets['type'] == 0])
+>>> plt.show()
+
+Load the first 10 packets in a file into Packet objects and print any
+MessagePacket packets to the console
+
+>>> from larpix.format.hdf5format import from_file
+>>> from larpix.larpix import MessagePacket
+>>> result = from_file('output.h5', end=10)
+>>> for packet in result['packets']:
+...     if isinstance(packet, MessagePacket):
+...         print(packet)
+
+
 
 '''
 import time
