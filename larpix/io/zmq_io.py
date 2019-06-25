@@ -1,6 +1,7 @@
 import time
 import zmq
 import sys
+import copy
 
 from larpix.io.multizmq_io import MultiZMQ_IO
 from larpix.larpix import Packet
@@ -20,7 +21,7 @@ class ZMQ_IO(MultiZMQ_IO):
     '''
 
     def __init__(self, address):
-        MultiZMQ_IO.__init__(addresses=[address])
+        super(ZMQ_IO, self).__init__(addresses=[address])
         self._address = address
 
     @property
@@ -39,16 +40,18 @@ class ZMQ_IO(MultiZMQ_IO):
 
     @property
     def sender_replies(self):
-        return self.sender_replies[self._address]
+        return super(ZMQ_IO, self).sender_replies[self._address]
     @sender_replies.setter
     def sender_replies(self, val):
-        self.sender_replies[self._address] = val
+        super(ZMQ_IO, self).sender_replies[self._address] = val
 
     def send(self, packets):
-        for packet in packets:
-            packet.chip_key = MultiZMQ_IO.generate_chip_key(address=self._address,
+        # perform a deep copy, so that the original packet list is unchanged
+        new_packets = [copy.deepcopy(packet) for packet in packets]
+        for packet in new_packets:
+            packet.chip_key = super(ZMQ_IO, self).generate_chip_key(address=self._address,
                 **self.parse_chip_key(packet.chip_key))
-        MultiZMQ_IO.send(packets)
+        super(ZMQ_IO, self).send(new_packets)
 
     @classmethod
     def is_valid_chip_key(cls, key):
@@ -57,7 +60,7 @@ class ZMQ_IO(MultiZMQ_IO):
         ``'<io_chain>-<chip_id>'``
 
         '''
-        if not super(MultiZMQ_IO,cls).is_valid_chip_key(key):
+        if not super(MultiZMQ_IO, cls).is_valid_chip_key(key):
             return False
         if not isinstance(key, str):
             return False
@@ -78,10 +81,9 @@ class ZMQ_IO(MultiZMQ_IO):
 
         :returns: ``dict`` with keys ``('chip_id', 'io_chain')``
         '''
+        if not ZMQ_IO.is_valid_chip_key(key):
+            raise ValueError('invalid ZMQ_IO key: {}'.format(key))
         return_dict = {}
-        return_dict = super(MultiZMQ_IO,cls).parse_chip_key(key)
-        if not cls.is_valid_chip_key(key):
-            return return_dict
         parsed_key = key.split('-')
         return_dict['chip_id'] = int(parsed_key[1])
         return_dict['io_chain'] = int(parsed_key[0])
@@ -103,37 +105,32 @@ class ZMQ_IO(MultiZMQ_IO):
                 ', requires {}, received {}'.format(req_fields, kwargs.keys()))
         return '{io_chain}-{chip_id}'.format(**kwargs)
 
-    @classmethod
-    def decode(cls, msgs, io_chain=0, **kwargs):
-        '''
-        Convert a list ZMQ messages into packets
-        '''
-        packets = MultiZMQ_IO.decode(msgs, io_chain=io_chain, address=None, **kwargs)
-        for packet in packets:
-            packet.chip_key = cls.generate_chip_key(**MultiZMQ_IO.parse_chip_key(packet.chip_key))
-        return packets
+    # commented out because the inherited methods work just as well
+    # @classmethod
+    # def decode(cls, msgs, io_chain=0, **kwargs):
+    #     '''
+    #     Convert a list ZMQ messages into packets
+    #     '''
+    #     return super(ZMQ_IO, cls).decode(msgs, io_chain=io_chain, **kwargs)
 
-    def empty_queue(self):
-        packets, bytestream = MultiZMQ_IO.empty_queue()
-        for packet in packets:
-            packet.chip_key = self.generate_chip_key(**MultiZMQ_IO.parse_chip_key(packet.chip_key))
-        return packets, bytestream
+    # def empty_queue(self):
+    #     return super(ZMQ_IO, self).empty_queue()
 
     def reset(self):
         '''
         Send a reset pulse to the LArPix ASICs.
 
         '''
-        return MultiZMQ_IO.reset()[self._address]
+        return super(ZMQ_IO, self).reset(addresses=[self._address])[self._address]
 
-    def set_clock(self, freq_khz, addresses=None):
+    def set_clock(self, freq_khz):
         '''
         Set the LArPix CLK2X freqency (in kHz).
 
         :param freq_khz: CLK2X freq in khz to set
 
         '''
-        return MultiZMQ_IO.set_clock(freq_khz=freq_khz, address=self._address)[self._address]
+        return super(ZMQ_IO, self).set_clock(freq_khz=freq_khz, addresses=[self._address])[self._address]
 
     def set_testpulse_freq(self, divisor):
         '''
@@ -141,7 +138,7 @@ class ZMQ_IO(MultiZMQ_IO):
         frequency by ``divisor``.
 
         '''
-        return MultiZMQ_IO.set_testpulse_freq(divisor=divisor, address=self._address)[self._address]
+        return super(ZMQ_IO, self).set_testpulse_freq(divisor=divisor, address=self._address)
 
     def get_packet_count(self, io_channel):
         '''
@@ -149,7 +146,7 @@ class ZMQ_IO(MultiZMQ_IO):
         of UART "start" bits processed.
 
         '''
-        return MultiZMQ_IO.get_packet_count(io_channel=io_channel, address=self._address)[self._address]
+        return super(ZMQ_IO, self).get_packet_count(io_channel=io_channel, address=self._address)
 
     def ping(self):
         '''
@@ -157,4 +154,4 @@ class ZMQ_IO(MultiZMQ_IO):
         of the response are b'OK'.
 
         '''
-        return MultiZMQ_IO.ping()[self._address]
+        return super(ZMQ_IO, self).ping(addresses=[self._address])[self._address]

@@ -27,7 +27,8 @@ def dataserver_message_decode(msgs, key_generator=None, version=(1,0), **kwargs)
         msg_type = struct.unpack('c',msg[2:3])[0]
         if msg_type == b'T':
             # FIX ME: once the TimestampPacket is merged in, this need to be updated
-            print('Timestamp message: {}'.format(struct.unpack('<L',msg[8:])[0]))
+            timestamp = struct.unpack('L',msg[8:])[0]
+            print('Timestamp message: {}'.format(timestamp))
         elif msg_type == b'D':
             io_chain = struct.unpack('B',msg[3:4])[0]
             payload = msg[8:]
@@ -37,6 +38,8 @@ def dataserver_message_decode(msgs, key_generator=None, version=(1,0), **kwargs)
                     packets.append(Packet(packet_bytes))
                     if key_generator:
                         packets[-1].chip_key = key_generator(chip_id=packets[-1].chipid, io_chain=io_chain, **kwargs)
+        elif msg_type == b'H':
+            print('Heartbeat message: {}'.format(msg[3:]))
     return packets
 
 def dataserver_message_encode(packets, key_parser=None, version=(1,0)):
@@ -51,7 +54,12 @@ def dataserver_message_encode(packets, key_parser=None, version=(1,0)):
 
          - byte[0] = major version
          - byte[1] = minor version
-         - byte[2] = message type ('D':LArPix data, 'T':Timestamp data)
+         - byte[2] = message type ('D':LArPix data, 'T':Timestamp data, 'H': Heartbeat)
+
+        LArPix heartbeat messages:
+         - byte[3] = b'H'
+         - byte[4] = b'B'
+         - byte[5:8] = b'\x00'
 
         LArPix data messages:
 
