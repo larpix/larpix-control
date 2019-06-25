@@ -175,6 +175,7 @@ import h5py
 import numpy as np
 
 from larpix.larpix import Packet, TimestampPacket, MessagePacket
+from larpix.logger import Logger
 
 #: The most recent / up-to-date LArPix+HDF5 format version
 latest_version = '1.0'
@@ -313,6 +314,9 @@ def to_file(filename, packet_list, mode='a', version=None):
             packet_dset_name = 'raw_packet'
         else:
             packet_dset_name = 'packets'
+            direction_index = (
+                    dtype_property_index_lookup[version]['packets']
+                    ['direction'])
         packet_dtype = dtypes[version][packet_dset_name]
         if packet_dset_name not in f.keys():
             packet_dset = f.create_dataset(packet_dset_name, shape=(len(packet_list),),
@@ -347,10 +351,15 @@ def to_file(filename, packet_list, mode='a', version=None):
         messages = []
         for i, packet in enumerate(packet_list):
             dict_rep = packet.export()
-            encoded_packets.append(tuple(
-                (dict_rep.get(key, b'') if val_type[0] == 'S'  # string
+            encoded_packet = [
+                dict_rep.get(key, b'') if val_type[0] == 'S'  # string
                     else dict_rep.get(key, 0) for key, val_type in
-                    packet_dtype)))
+                    packet_dtype]
+            if 'direction' in dict_rep:
+                encoded_packet[direction_index] = {
+                        Logger.WRITE: 0,
+                        Logger.READ: 1}[encoded_packet[direction_index]]
+            encoded_packets.append(tuple(encoded_packet))
             if isinstance(packet, MessagePacket):
                 messages.append((packet.message, packet.timestamp,
                     message_start_index + len(messages)))

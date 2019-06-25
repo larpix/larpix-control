@@ -71,15 +71,16 @@ class HDF5Logger(Logger):
         log_postfix = '.h5'
         return (log_prefix + '_' + log_specifier + '_' + log_postfix)
 
-    def record(self, data, direction=0):
+    def record(self, data, direction=Logger.WRITE):
         '''
         Send the specified data to log file
         .. note:: buffer is flushed after all ``data`` is placed in buffer, this
             means that the buffer size will exceed the set value temporarily
 
         :param data: list of data to be written to log
-        :param direction: 0 if packets were sent to ASICs, 1 if packets
-            were received from ASICs. (default: 0)
+        :param direction: ``Logger.WRITE`` if packets were sent to
+            ASICs, ``Logger.READ`` if packets
+            were received from ASICs. (default: ``Logger.WRITE``)
 
         '''
         if not self.is_enabled():

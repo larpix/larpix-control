@@ -15,6 +15,7 @@ import struct
 from bitarray import bitarray
 
 from . import bitarrayhelper as bah
+from .logger import Logger
 from . import configs
 
 class Chip(object):
@@ -1071,7 +1072,7 @@ class Controller(object):
         else:
             warnings.warn('no IO object exists, no packets sent', RuntimeWarning)
         if self.logger:
-            self.logger.record(packets, direction=0)
+            self.logger.record(packets, direction=self.logger.WRITE)
 
     def start_listening(self):
         '''
@@ -1111,7 +1112,7 @@ class Controller(object):
         else:
             warnings.warn('no IO object exists, no packets will be received', RuntimeWarning)
         if self.logger:
-            self.logger.record(packets, direction=1)
+            self.logger.record(packets, direction=self.logger.READ)
         return packets, bytestream
 
     def write_configuration(self, chip_key, registers=None, write_read=0,
@@ -1778,7 +1779,7 @@ class Packet(object):
     def __str__(self):
         string = '[ '
         if hasattr(self, 'direction'):
-            string += {0: 'Out', 1: 'In'}[self.direction]
+            string += {Logger.WRITE: 'Out', Logger.READ: 'In'}[self.direction]
             string += ' | '
         string += 'Chip key: {} | '.format(self.chip_key)
         ptype = self.packet_type

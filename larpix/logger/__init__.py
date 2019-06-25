@@ -5,6 +5,12 @@ class Logger(object):
     into the larpix core.
 
     '''
+
+    #: Flag to indicate packets were sent to ASICs
+    WRITE = 0
+    #: Flag to indicate packets were received from ASICs
+    READ = 1
+
     def __init__(self, *args, **kwargs):
         '''
         Create new logger instance.
@@ -17,8 +23,9 @@ class Logger(object):
         Log specified data.
 
         :param data: ``list`` of data to be written to log. Valid data types are specified by logger implementation. Raises a ``ValueError`` if datatype is invalid.
-        :param direction: 0 if packets were sent to ASICs, 1 if packets
-            were received from ASICs. optional, default=0
+        :param direction: ``Logger.WRITE`` if packets were sent to
+            ASICs, ``Logger.READ`` if packets
+            were received from ASICs. (default: ``Logger.WRITE``)
 
         '''
         pass
