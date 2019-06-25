@@ -105,17 +105,6 @@ class ZMQ_IO(MultiZMQ_IO):
                 ', requires {}, received {}'.format(req_fields, kwargs.keys()))
         return '{io_chain}-{chip_id}'.format(**kwargs)
 
-    # commented out because the inherited methods work just as well
-    # @classmethod
-    # def decode(cls, msgs, io_chain=0, **kwargs):
-    #     '''
-    #     Convert a list ZMQ messages into packets
-    #     '''
-    #     return super(ZMQ_IO, cls).decode(msgs, io_chain=io_chain, **kwargs)
-
-    # def empty_queue(self):
-    #     return super(ZMQ_IO, self).empty_queue()
-
     def reset(self):
         '''
         Send a reset pulse to the LArPix ASICs.
