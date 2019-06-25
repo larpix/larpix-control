@@ -2,7 +2,7 @@
 
 Control the LArPix chip
 
-[![Documentation Status](https://readthedocs.org/projects/larpix-control/badge/?version=latest)](http://larpix-control.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/larpix-control/badge/?version=stable)](https://larpix-control.readthedocs.io/en/stable/?badge=stable)
 [![Build Status](https://travis-ci.com/larpix/larpix-control.svg?branch=master)](https://travis-ci.com/larpix/larpix-control)
 
 ## Setup and installation
