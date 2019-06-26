@@ -9,7 +9,7 @@ with larpix-control:
 import warnings
 import struct
 
-from larpix.larpix import Packet
+from larpix.larpix import Packet, TimestampPacket
 
 def dataserver_message_decode(msgs, key_generator=None, version=(1,0), **kwargs):
     '''
@@ -26,9 +26,8 @@ def dataserver_message_decode(msgs, key_generator=None, version=(1,0), **kwargs)
             warnings.warn('Message version mismatch! Expected {}, received {}'.format(version, (major,minor)))
         msg_type = struct.unpack('c',msg[2:3])[0]
         if msg_type == b'T':
-            # FIX ME: once the TimestampPacket is merged in, this need to be updated
-            timestamp = struct.unpack('L',msg[8:])[0]
-            print('Timestamp message: {}'.format(timestamp))
+            timestamp = struct.unpack('L',msg[8:15] + b'\x00')[0] # only use 7-bytes
+            packets.append(TimestampPacket(timestamp=timestamp))
         elif msg_type == b'D':
             io_chain = struct.unpack('B',msg[3:4])[0]
             payload = msg[8:]
@@ -59,7 +58,7 @@ def dataserver_message_encode(packets, key_parser=None, version=(1,0)):
         LArPix heartbeat messages:
          - byte[3] = b'H'
          - byte[4] = b'B'
-         - byte[5:8] = b'\x00'
+         - byte[5:7] = b'\x00'
 
         LArPix data messages:
 
@@ -70,7 +69,8 @@ def dataserver_message_encode(packets, key_parser=None, version=(1,0)):
         Timestamp data messages:
 
          - byte[3:7] are unused
-         - byte[8:17] 8-byte Unix timestamp
+         - byte[8:14] = 7-byte Unix timestamp
+         - byte[15] is unused
 
     '''
     data_header_fmt='BBcBI'
@@ -86,5 +86,11 @@ def dataserver_message_encode(packets, key_parser=None, version=(1,0)):
                 header[3] = key_parser(packet.chip_key)['io_chain']
             msg = struct.pack(data_header_fmt, *header)
             msg += packet.bytes() + struct.pack('B',0)
+        elif isinstance(packet, TimestampPacket):
+            header = [0]*len(timestamp_header_fmt)
+            header[0:2] = version[0:2]
+            header[2] = b'T'
+            msg = struct.pack(data_header_fmt, *header)
+            msg += packet.bytes() + b'\x00'
         msgs += [msg]
     return msgs
