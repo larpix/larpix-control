@@ -6,7 +6,7 @@ from __future__ import print_function
 import pytest
 import os
 import numpy as np
-from larpix.larpix import Packet, Controller, Chip
+from larpix.larpix import Packet, Controller, Chip, TimestampPacket
 from larpix.io.fakeio import FakeIO
 from larpix.logger.h5_logger import HDF5Logger
 
@@ -57,11 +57,13 @@ def test_close(tmpdir):
     assert not logger.is_open()
 
 def test_record(tmpdir):
-    logger = HDF5Logger(directory=str(tmpdir), buffer_length=1)
+    logger = HDF5Logger(directory=str(tmpdir))
     logger.open()
 
-    logger.record([Packet()], timestamp=5.0)
-    assert logger._buffer['raw_packet'][0] == HDF5Logger.encode(Packet(), timestamp=5.0)
+    logger.record([Packet()])
+    assert len(logger._buffer['raw_packet']) == 1
+    logger.record([TimestampPacket(timestamp=123)])
+    assert len(logger._buffer['raw_packet']) == 2
 
 @pytest.mark.filterwarnings("ignore:no IO object")
 def test_controller_write_capture(tmpdir, chip):

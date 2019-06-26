@@ -6,9 +6,14 @@ from __future__ import absolute_import
 import time
 import os
 import platform
+import warnings
 
 from larpix.io import IO
 from larpix.larpix import Packet
+
+warnings.simplefilter('default', DeprecationWarning)
+warnings.warn('The serialport module is deprecated and will be removed '
+        'in larpix-control v3.0.0.', DeprecationWarning)
 
 class SerialPort(IO):
     '''Wrapper for various serial port interfaces across platforms.

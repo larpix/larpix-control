@@ -10,10 +10,12 @@ import os
 import errno
 import math
 import warnings
+import struct
 
 from bitarray import bitarray
 
 from . import bitarrayhelper as bah
+from .logger import Logger
 from . import configs
 
 class Key(object):
@@ -1171,7 +1173,7 @@ class Controller(object):
         else:
             warnings.warn('no IO object exists, no packets sent', RuntimeWarning)
         if self.logger:
-            self.logger.record(packets, data_type='SEND', timestamp=timestamp)
+            self.logger.record(packets, direction=self.logger.WRITE)
 
     def start_listening(self):
         '''
@@ -1211,7 +1213,7 @@ class Controller(object):
         else:
             warnings.warn('no IO object exists, no packets will be received', RuntimeWarning)
         if self.logger:
-            self.logger.record(packets, data_type='READ', timestamp=timestamp)
+            self.logger.record(packets, direction=self.logger.READ)
         return packets, bytestream
 
     def write_configuration(self, chip_key, registers=None, write_read=0,
@@ -1673,6 +1675,120 @@ class Controller(object):
             json.dump(data, outfile, indent=4,
                     separators=(',',':'), sort_keys=True)
 
+class TimestampPacket(object):
+    '''
+    A packet-like object which just contains an integer timestamp.
+
+    This class implements many methods used by Packet, so it functions
+    smoothly in lists of packets and in PacketCollection.
+
+    If neither ``timestamp`` nor ``code`` is provided then this
+    TimestampPacket will have a timestamp of ``None`` until it is
+    manually set.
+
+    :param timestamp: optional, integer timestamp of this packet
+    :param code: optional, encoded timestamp as a 7-byte unsigned int
+        obtainable from calling the ``bytes`` method.
+
+    '''
+    size = 56
+    chip_key = None
+    def __init__(self, timestamp=None, code=None):
+        self.packet_type = 4
+        if code:
+            self.timestamp = struct.unpack('<Q', code + b'\x00')[0]
+        else:
+            self.timestamp = timestamp
+
+    def __str__(self):
+        return '[ Timestamp: %d ]' % self.timestamp
+
+    def __repr__(self):
+        return 'TimestampPacket(%d)' % self.timestamp
+
+    def __eq__(self, other):
+        return self.timestamp == other.timestamp
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def export(self):
+        return {
+                'type_str': 'timestamp',
+                'type': self.packet_type,
+                'timestamp': self.timestamp,
+                'bits': self.bits.to01(),
+                }
+
+    @property
+    def bits(self):
+        return bah.fromuint(self.timestamp, self.size)
+
+    @bits.setter
+    def bits(self, value):
+        self.timestamp = bah.touint(value)
+
+    def bytes(self):
+        return struct.pack('Q', self.timestamp)[:7]  # length-7
+
+class MessagePacket(object):
+    '''
+    A packet-like object which contains a string message and timestamp.
+
+    :param message: a string message of length less than 64
+    :param timestamp: the timestamp of the message
+
+    '''
+    size=72
+    chip_key = None
+    def __init__(self, message, timestamp):
+        self.packet_type = 5
+        self.message = message
+        self.timestamp = timestamp
+
+    def __str__(self):
+        return '[ Message: %s | Timestamp: %d ]' % (self.message,
+                self.timestamp)
+
+    def __repr__(self):
+        return 'MessagePacket(%s, %d)' % (repr(self.message),
+                self.timestamp)
+
+    def __eq__(self, other):
+        return (self.message == other.message
+                and self.timestamp == other.timestamp)
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def export(self):
+        return {
+                'type_str': 'message',
+                'type': self.packet_type,
+                'message': self.message,
+                'timestamp': self.timestamp,
+                'bits': self.bits.to01(),
+                }
+
+    @property
+    def bits(self):
+        b = bitarray()
+        b.frombytes(self.bytes())
+        return b
+
+    @bits.setter
+    def bits(self, value):
+        value_bytes = value.bytes()
+        message_bytes = value_bytes[:64]
+        timestamp_bytes = value_bytes[64:]
+        self.message = message_bytes[:message_bytes.find(b'\x00')].decode()
+        self.timestamp = struct.unpack('Q', timestamp_bytes)[0]
+
+    def bytes(self):
+        return (self.message.ljust(64, '\x00').encode()
+                + struct.pack('Q', self.timestamp))
+
+
 class Packet(object):
     '''
     A single 54-bit LArPix UART data packet.
@@ -1768,6 +1884,9 @@ class Packet(object):
         string = '[ '
         string += 'IO group: {} | '.format(self.io_group)
         string += 'IO channel: {} | '.format(self.io_channel)
+        if hasattr(self, 'direction'):
+            string += {Logger.WRITE: 'Out', Logger.READ: 'In'}[self.direction]
+            string += ' | '
         ptype = self.packet_type
         if ptype == Packet.TEST_PACKET:
             string += 'Test | '
@@ -1827,7 +1946,8 @@ class Packet(object):
         d['io_group'] = self.io_group
         d['io_channel'] = self.io_channel
         d['bits'] = self.bits.to01()
-        d['type'] = type_map[self.packet_type.to01()]
+        d['type_str'] = type_map[self.packet_type.to01()]
+        d['type'] = bah.touint(self.packet_type)
         d['chipid'] = self.chipid
         d['parity'] = self.parity_bit_value
         d['valid_parity'] = self.has_valid_parity()
@@ -2084,10 +2204,11 @@ class PacketCollection(object):
         '''
         if isinstance(key, slice):
             return [' '.join(p.bits.to01()[i:i+8] for i in
-                range(0, Packet.size, 8)) for p in self.packets[key]]
+                range(0, p.size, 8)) for p in self.packets[key]]
         else:
-            return ' '.join(self.packets[key].bits.to01()[i:i+8] for i in
-                    range(0, Packet.size, 8))
+            p = self.packets[key]
+            return ' '.join(p.bits.to01()[i:i+8] for i in
+                    range(0, p.size, 8))
 
     def to_dict(self):
         '''
@@ -2131,7 +2252,8 @@ class PacketCollection(object):
              - io_group
              - io_channel
              - bits
-             - type (data, test, config read, config write)
+             - type_str (data, test, config read, config write)
+             - type (0, 1, 2, 3)
              - chipid
              - parity
              - valid_parity
@@ -2156,6 +2278,8 @@ class PacketCollection(object):
         >>> # Return the most recently read global threshold from chip 5
         >>> threshold = collection.extract('value', register=32, type='config read', chip=5)[-1]
 
+        .. note:: selecting on ``timestamp`` will also select
+            TimestampPacket values.
         '''
         values = []
         for p in self.packets:

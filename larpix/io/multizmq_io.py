@@ -5,6 +5,7 @@ from collections import defaultdict
 
 from larpix.io import IO
 from larpix.larpix import Packet
+from larpix.format.message_format import dataserver_message_decode
 
 class MultiZMQ_IO(IO):
     '''
@@ -40,16 +41,23 @@ class MultiZMQ_IO(IO):
             receive_address = 'tcp://' + address + ':5556'
             self.senders[address].connect(send_address)
             self.receivers[address].connect(receive_address)
-        self.sender_replies = defaultdict(list)
+        self._sender_replies = defaultdict(list)
         self.poller = zmq.Poller()
         for receiver in self.receivers.values():
             self.poller.register(receiver, zmq.POLLIN)
 
+    @property
+    def sender_replies(self):
+        return self._sender_replies
+    @sender_replies.setter
+    def sender_replies(self, val):
+        self._sender_replies = val
+
     def send(self, packets):
         self.sender_replies = defaultdict(list)
         send_time = time.time()
-        addresses = [self.parse_chip_key(packet.chip_key)['address'] for packet in packets]
-        msg_datas = self.encode(packets)
+        addresses = [MultiZMQ_IO.parse_chip_key(packet.chip_key)['address'] for packet in packets]
+        msg_datas = MultiZMQ_IO.encode(packets)
         for address, msg_data in zip(addresses, msg_datas):
             tosend = b'SNDWORD ' + msg_data
             self.senders[address].send(tosend)
@@ -99,7 +107,9 @@ class MultiZMQ_IO(IO):
 
         :returns: ``dict`` with keys ``('chip_id', 'io_chain', 'addresss')``
         '''
-        return_dict = super(MultiZMQ_IO, cls).parse_chip_key(key)
+        return_dict = {}
+        if not MultiZMQ_IO.is_valid_chip_key(key):
+            raise ValueError('invalid MultiZMQ_IO key: {}'.format(key))
         parsed_key = key.split('/')
         return_dict['chip_id'] = int(parsed_key[2])
         return_dict['io_chain'] = int(parsed_key[1])
@@ -136,15 +146,7 @@ class MultiZMQ_IO(IO):
         Convert a list ZMQ messages into packets
 
         '''
-        packets = []
-        for msg in msgs:
-            if len(msg) % 8 == 0:
-                for start_index in range(0, len(msg), 8):
-                    packet_bytes = msg[start_index:start_index+7]
-                    packets.append(Packet(packet_bytes))
-                    packets[-1].chip_key = cls.generate_chip_key(
-                        chip_id=packets[-1].chipid, io_chain=io_chain, address=str(address))
-        return packets
+        return dataserver_message_decode(msgs, key_generator=cls.generate_chip_key, version=(1,0), address=address, **kwargs)
 
     @classmethod
     def encode(cls, packets):
@@ -153,9 +155,9 @@ class MultiZMQ_IO(IO):
         '''
         msg_data = []
         if sys.version_info[0] < 3:
-            msg_data = [b'0x00%s 0' % packet.bytes()[::-1].encode('hex') for packet in packets]
+            msg_data = [b'0x00%s %d' % (packet.bytes()[::-1].encode('hex'), cls.parse_chip_key(packet.chip_key)['io_chain']) for packet in packets]
         else:
-            msg_data = [b'0x00%s 0' % packet.bytes()[::-1].hex().encode() for packet in packets]
+            msg_data = [b'0x00%s %d' % (packet.bytes()[::-1].hex().encode(), cls.parse_chip_key(packet.chip_key)['io_chain'])for packet in packets]
         return msg_data
 
     def empty_queue(self):
@@ -266,3 +268,16 @@ class MultiZMQ_IO(IO):
             received_msg = self.senders[address].recv()
             result[address] = received_msg[:2] == b'OK'
         return result
+
+    def cleanup(self):
+        '''
+        Close the ZMQ objects to prevent a memory leak.
+
+        This method is only required if you plan on instantiating a new
+        ``MultiZMQ_IO`` object.
+
+        '''
+        for address in addresses:
+            self.senders[address].close(linger=0)
+            self.receivers[address].close(linger=0)
+            self.context.term()

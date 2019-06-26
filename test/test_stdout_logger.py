@@ -58,13 +58,13 @@ def test_record():
     logger = StdoutLogger(buffer_length=1)
     logger.open()
 
-    logger.record(['test'], timestamp=5.0)
-    assert logger._buffer[0] == 'Record 5.0: test'
+    logger.record(['test'])
+    assert logger._buffer[0] == 'Record: test'
 
 @pytest.mark.filterwarnings("ignore:no IO object")
 def test_controller_write_capture(capfd, chip):
     controller = Controller()
-    controller.logger = StdoutLogger(buffer_length=1)
+    controller.logger = StdoutLogger(buffer_length=100)
     controller.logger.open()
     controller.chips[chip.chip_key] = chip
     controller.write_configuration(chip.chip_key, 0)
@@ -75,7 +75,7 @@ def test_controller_read_capture(capfd):
     controller = Controller()
     controller.io = FakeIO()
     controller.io.queue.append(([Packet()], b'\x00\x00'))
-    controller.logger = StdoutLogger(buffer_length=1)
+    controller.logger = StdoutLogger(buffer_length=100)
     controller.logger.open()
     controller.run(0.1,'test')
     assert len(controller.logger._buffer) == 1
