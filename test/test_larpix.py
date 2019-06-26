@@ -78,7 +78,7 @@ def test_chip_export_reads(chip):
                 {
                     'bits': packet.bits.to01(),
                     'type_str': 'config write',
-                    'type': 'config write',
+                    'type': 2,
                     'chipid': chip.chip_id,
                     'io_channel': chip.chip_key.io_channel,
                     'io_group': chip.chip_key.io_group,
