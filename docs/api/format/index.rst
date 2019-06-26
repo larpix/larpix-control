@@ -7,5 +7,6 @@ The data formats used for LArPix are:
    :maxdepth: 2
 
    hdf5format
+   message_format
 
 :ref:`genindex`

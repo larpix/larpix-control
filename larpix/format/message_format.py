@@ -13,7 +13,7 @@ from larpix.larpix import Packet, TimestampPacket
 
 def dataserver_message_decode(msgs, key_generator=None, version=(1,0), **kwargs):
     '''
-    Convert a list larpix data server messages into packets. A key generator
+    Convert a list of larpix data server messages into packets. A key generator
     should be provided if packets are to be used with an ``larpix.io.IO``
     object. The data server messages provide a ``chip_id`` and ``io_chain`` for
     keys. Additional keyword arguments can be passed along to the key generator.
@@ -50,24 +50,25 @@ def dataserver_message_encode(packets, key_parser=None, version=(1,0)):
     DAQ board messages are formatted using 8-byte words
 
         All messages:
-
          - byte[0] = major version
          - byte[1] = minor version
-         - byte[2] = message type ('D':LArPix data, 'T':Timestamp data, 'H': Heartbeat)
+         - byte[2] = message type
+
+            - ``b'D'``: LArPix data
+            - ``b'T'``: Timestamp data
+            - ``b'H'``: Heartbeat
 
         LArPix heartbeat messages:
-         - byte[3] = b'H'
-         - byte[4] = b'B'
-         - byte[5:7] = b'\x00'
+         - byte[3] = ``b'H'``
+         - byte[4] = ``b'B'``
+         - byte[5:7] are unused
 
         LArPix data messages:
-
-         - byte[3] = io chain
+         - byte[3] = io channel
          - bytes[4:7] are unused
-         - bytes[8:] are the raw LArPix UART bytes
+         - bytes[8:] = raw LArPix 7-byte UART words ending in a single null byte
 
         Timestamp data messages:
-
          - byte[3:7] are unused
          - byte[8:14] = 7-byte Unix timestamp
          - byte[15] is unused
