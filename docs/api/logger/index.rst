@@ -1,7 +1,7 @@
 LArPix Logger
 =============
 
-.. autoclass:: larpix.logger.Logger
+.. automodule:: larpix.logger
 
 Implementations
 ^^^^^^^^^^^^^^^

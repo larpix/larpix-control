@@ -19,12 +19,13 @@ class StdoutLogger(Logger):
         self._is_open = False
         self.buffer_length = buffer_length
 
-    def record(self, data, timestamp=None, *args, **kwargs):
+    def record(self, data, direction=0):
         '''
         Send the specified data to stdout
 
         :param data: list of data to be written to log
-        :param timestamp: unix timestamp to be associated with data
+        :param direction: 0 if packets were sent to ASICs, 1 if packets
+            were received from ASICs. optional, default=0
         '''
         if not self._is_enabled:
             return
@@ -32,10 +33,8 @@ class StdoutLogger(Logger):
             self.open()
         if not isinstance(data,list):
             raise ValueError('data must be a list')
-        if not timestamp:
-            timestamp = time.time()
 
-        self._buffer += ['Record {}: {}'.format(timestamp, str(data_obj)) for data_obj in data]
+        self._buffer += ['Record: {}'.format(str(data_obj)) for data_obj in data]
 
         if len(self._buffer) > self.buffer_length:
             self.flush()

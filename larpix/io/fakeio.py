@@ -6,6 +6,7 @@ from __future__ import print_function
 from collections import deque
 
 from larpix.io import IO
+from larpix.larpix import TimestampPacket
 
 class FakeIO(IO):
     '''
@@ -80,6 +81,34 @@ class FakeIO(IO):
         if not 'chip_key' in kwargs:
             raise ValueError('FakeIO chip keys require an explicit chip_key')
         return kwargs['chip_key']
+
+    @staticmethod
+    def add_timestamps(packets, positions, timestamps=0):
+        '''
+        Insert timestamp packets into a list of packets in the given
+        positions.
+
+        Convenience method for modifying lists of packets to add to the
+        FakeIO queue. Modifies the list in-place.
+
+        The positions are with respect to the indexes of the original
+        list, so that the inserted element is just before the element
+        that originally had that index. e.g.
+
+        >>> add_timestamps([a, b, c, d], [1, 3])
+        [a, TimestampPacket(...), b, c, TimestampPacket(...), d]
+
+        If timestamps is a list, those timestamps will be used for the
+        TimestampPackets. If it is an int, it will be taken as the
+        starting time, and each subsequent packet will be incremented by
+        1. A default starting time of 0 is assumed.
+
+        '''
+        npositions = len(positions)
+        if isinstance(timestamps, int):
+            timestamps = list(range(timestamps, timestamps+npositions))
+        for position, timestamp in reversed(list(zip(positions, timestamps))):
+            packets.insert(position, TimestampPacket(timestamp))
 
     def send(self, packets):
         '''

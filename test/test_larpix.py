@@ -5,7 +5,7 @@ Use the pytest framework to write tests for the larpix module.
 from __future__ import print_function
 import pytest
 from larpix.larpix import (Chip, Packet, Configuration, Controller,
-        PacketCollection, _Smart_List)
+        PacketCollection, _Smart_List, TimestampPacket)
 from larpix.io.fakeio import FakeIO
 from larpix.timestamp import *  # use long = int in py3
 #from bitstring import BitArray
@@ -79,7 +79,8 @@ def test_chip_export_reads():
             'packets': [
                 {
                     'bits': packet.bits.to01(),
-                    'type': 'config write',
+                    'type_str': 'config write',
+                    'type': 2,
                     'chipid': 1,
                     'chip_key': 2,
                     'parity': 1,
@@ -120,7 +121,8 @@ def test_chip_export_reads_all():
             'packets': [
                 {
                     'bits': packet.bits.to01(),
-                    'type': 'config write',
+                    'type_str': 'config write',
+                    'type': 2,
                     'chipid': 0,
                     'parity': 0,
                     'chip_key': 2,
@@ -209,7 +211,8 @@ def test_packet_export_test():
     result = p.export()
     expected = {
             'bits': p.bits.to01(),
-            'type': 'test',
+            'type_str': 'test',
+            'type': 1,
             'chipid': 5,
             'chip_key': None,
             'counter': 32838,
@@ -232,7 +235,8 @@ def test_packet_export_data():
     result = p.export()
     expected = {
             'bits': p.bits.to01(),
-            'type': 'data',
+            'type_str': 'data',
+            'type': 0,
             'chipid': 2,
             'chip_key': 1,
             'channel': 10,
@@ -256,7 +260,8 @@ def test_packet_export_config_read():
     result = p.export()
     expected = {
             'bits': p.bits.to01(),
-            'type': 'config read',
+            'type_str': 'config read',
+            'type': 3,
             'chipid': 10,
             'chip_key': 'test-key',
             'register': 51,
@@ -276,7 +281,8 @@ def test_packet_export_config_write():
     result = p.export()
     expected = {
             'bits': p.bits.to01(),
-            'type': 'config write',
+            'type_str': 'config write',
+            'type': 2,
             'chipid': 10,
             'chip_key': None,
             'register': 51,
@@ -1774,6 +1780,12 @@ def test_packetcollection_getitem_int_bits():
     result = collection[0, 'bits']
     expected = ' '.join(packet.bits.to01()[i:i+8] for i in range(0, Packet.size, 8))
     assert result == expected
+    packet2 = TimestampPacket(123)
+    collection2 = PacketCollection([packet2])
+    result2 = collection2[0, 'bits']
+    expected2 = ' '.join(packet2.bits.to01()[i:i+8] for i in range(0,
+        packet2.size, 8))
+    assert result2 == expected2
 
 def test_packetcollection_getitem_slice():
     chip = Chip(0, 0)
@@ -1824,7 +1836,7 @@ def test_packetcollection_extract():
     expected = [36]
     assert pc.extract('adc_counts', chipid=10) == expected
     expected = [0]
-    assert pc.extract('counter', type='test') == expected
+    assert pc.extract('counter', type_str='test') == expected
 
 def test_packetcollection_to_dict():
     packet = Packet()
@@ -1841,7 +1853,8 @@ def test_packetcollection_to_dict():
             'bytestream': packet.bytes().decode('raw_unicode_escape'),
             'packets': [{
                 'bits': packet.bits.to01(),
-                'type': 'test',
+                'type_str': 'test',
+                'type': 1,
                 'chip_key': None,
                 'chipid': packet.chipid,
                 'parity': 0,

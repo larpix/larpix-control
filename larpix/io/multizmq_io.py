@@ -268,3 +268,16 @@ class MultiZMQ_IO(IO):
             received_msg = self.senders[address].recv()
             result[address] = received_msg[:2] == b'OK'
         return result
+
+    def cleanup(self):
+        '''
+        Close the ZMQ objects to prevent a memory leak.
+
+        This method is only required if you plan on instantiating a new
+        ``MultiZMQ_IO`` object.
+
+        '''
+        for address in addresses:
+            self.senders[address].close(linger=0)
+            self.receivers[address].close(linger=0)
+            self.context.term()
