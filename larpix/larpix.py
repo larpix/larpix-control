@@ -11,6 +11,7 @@ import errno
 import math
 import warnings
 import struct
+import sys
 
 from bitarray import bitarray
 
@@ -1130,7 +1131,7 @@ class Controller(object):
         system_info = configs.load(filename)
         chips = {}
         for chip_keystring in system_info['chip_list']:
-            chip_key = Key(chip_keystring)
+            chip_key = Key(str(chip_keystring))
             chips[chip_key] = Chip(chip_key=chip_key)
         self.chips = chips
         return system_info['name']
