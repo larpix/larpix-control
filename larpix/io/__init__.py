@@ -68,7 +68,7 @@ class IO(object):
         :returns: ``dict`` of IO information contained in key
 
         '''
-        if not cls.is_valid_chip_key(key):
+        if not IO.is_valid_chip_key(key):
             raise ValueError('invalid chip key for IO type, see docs for description of valid chip keys')
         empty_dict = {}
         return empty_dict
