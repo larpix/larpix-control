@@ -64,13 +64,12 @@ def test_record(tmpdir):
     assert logger._buffer['raw_packet'][0] == HDF5Logger.encode(Packet(), timestamp=5.0)
 
 @pytest.mark.filterwarnings("ignore:no IO object")
-def test_controller_write_capture(tmpdir):
+def test_controller_write_capture(tmpdir, chip):
     controller = Controller()
     controller.logger = HDF5Logger(directory=str(tmpdir), buffer_length=1)
     controller.logger.open()
-    controller.chips[0] = Chip(2, 0)
-    chip = controller.chips[0]
-    controller.write_configuration(0, 0)
+    controller.chips[chip.chip_key] = chip
+    controller.write_configuration(chip.chip_key, 0)
     packet = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[0]
     assert len(controller.logger._buffer) == 1
 
