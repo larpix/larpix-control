@@ -5,6 +5,7 @@ from collections import defaultdict
 
 from larpix.io import IO
 from larpix.larpix import Packet
+from larpix.configs import load
 from larpix.format.message_format import dataserver_message_decode
 
 class MultiZMQ_IO(IO):
@@ -16,13 +17,20 @@ class MultiZMQ_IO(IO):
     methods for additional functionality, including system reset, packet
     count, clock frequency, and more.
 
-    '''
+    By default, when creating a MultiZMQ_IO object, the ``io/default.json``
+    configuration will attempt to be loaded unless otherwise specified. The path relative to the pwd is checked first,
+    followed by the path of the larpix-control installation.
 
-    def __init__(self, addresses):
+    '''
+    _valid_config_classes = ['MultiZMQ_IO']
+
+    def __init__(self, addresses, config_filepath=None):
         super(MultiZMQ_IO, self).__init__()
         if not isinstance(addresses, list):
             raise ValueError('MultiZMQ_IO must be instaniated with a list of '
                 'board addresses')
+        self.load(config_filepath)
+
         self.context = zmq.Context()
         self.senders = {}
         self.senders_lookup = {}
@@ -77,47 +85,19 @@ class MultiZMQ_IO(IO):
         for receiver in self.receivers.values():
             receiver.setsockopt(zmq.UNSUBSCRIBE, b'')
 
-    @classmethod
-    def is_valid_chip_key(cls, key):
-        '''
-        Valid chip keys must be strings formatted as:
-        ``'<daq_address>/<io_chain>/<chip_id>'``
-        Note that ``/`` is a special character and should not be used
-        in daq address
-
-        '''
-        if not super(MultiZMQ_IO, cls).is_valid_chip_key(key):
-            return False
-        if not isinstance(key, str):
-            return False
-        parsed_key = key.split('/')
-        if not len(parsed_key) == 3:
-            return False
-        try:
-            _ = int(parsed_key[1])
-            _ = int(parsed_key[2])
-        except ValueError:
-            return False
-        return True
-
-    @classmethod
-    def parse_chip_key(cls, key):
+    def parse_chip_key(self, key):
         '''
         Decodes a chip key into ``'chip_id'``, ``'io_chain'``, and ``'address'``
 
         :returns: ``dict`` with keys ``('chip_id', 'io_chain', 'addresss')``
         '''
         return_dict = {}
-        if not MultiZMQ_IO.is_valid_chip_key(key):
-            raise ValueError('invalid MultiZMQ_IO key: {}'.format(key))
-        parsed_key = key.split('/')
-        return_dict['chip_id'] = int(parsed_key[2])
-        return_dict['io_chain'] = int(parsed_key[1])
-        return_dict['address'] = parsed_key[0]
+        return_dict['chip_id'] = key.chip_id
+        return_dict['io_chain'] = key.io_channel - 1
+        return_dict['address'] = self._io_group_table[key.io_group]
         return return_dict
 
-    @classmethod
-    def generate_chip_key(cls, **kwargs):
+    def generate_chip_key(self, **kwargs):
         '''
         Generates a valid ``MultiZMQ_IO`` chip key
 
@@ -125,7 +105,7 @@ class MultiZMQ_IO(IO):
 
         :param io_chain: ``int`` corresponding to daisy chain number
 
-        :param address: ``str`` corresponding to address of DAQ board
+        :param address: ``str`` corresponding to the address of the DAQ board
 
         '''
         req_fields = ('chip_id', 'io_chain', 'address')
@@ -138,26 +118,28 @@ class MultiZMQ_IO(IO):
             raise ValueError('io_chain must be int')
         if not isinstance(kwargs['address'], str):
             raise ValueError('address must be str')
-        return '{address}/{io_chain}/{chip_id}'.format(**kwargs)
+        return Key.from_dict(dict(
+                io_group = kwargs['address'],
+                io_channel = kwargs['io_chain'] + 1,
+                chip_id = kwargs['chip_id']
+            ))
 
-    @classmethod
-    def decode(cls, msgs, io_chain=0, address=None, **kwargs):
+    def decode(self, msgs, address, **kwargs):
         '''
         Convert a list ZMQ messages into packets
 
         '''
-        return dataserver_message_decode(msgs, key_generator=cls.generate_chip_key, version=(1,0), address=address, **kwargs)
+        return dataserver_message_decode(msgs, key_generator=self.generate_chip_key, version=(1,0), address=address, **kwargs)
 
-    @classmethod
-    def encode(cls, packets):
+    def encode(self, packets):
         '''
         Encode a list of packets into ZMQ messages
         '''
         msg_data = []
         if sys.version_info[0] < 3:
-            msg_data = [b'0x00%s %d' % (packet.bytes()[::-1].encode('hex'), cls.parse_chip_key(packet.chip_key)['io_chain']) for packet in packets]
+            msg_data = [b'0x00%s %d' % (packet.bytes()[::-1].encode('hex'), self.parse_chip_key(packet.chip_key)['io_chain']) for packet in packets]
         else:
-            msg_data = [b'0x00%s %d' % (packet.bytes()[::-1].hex().encode(), cls.parse_chip_key(packet.chip_key)['io_chain'])for packet in packets]
+            msg_data = [b'0x00%s %d' % (packet.bytes()[::-1].hex().encode(), self.parse_chip_key(packet.chip_key)['io_chain'])for packet in packets]
         return msg_data
 
     def empty_queue(self):
@@ -179,7 +161,8 @@ class MultiZMQ_IO(IO):
                     message = socket.recv()
                     n_recv += 1
                     bytestream_list.append(message)
-                    packets += self.decode([message], io_chain=0, address=self.receivers_lookup[socket])
+                    address = self.receivers_lookup[socket]
+                    packets += self.decode([message], address=address)
         #print('len(bytestream_list) = %d' % len(bytestream_list))
         bytestream = b''.join(bytestream_list)
         return packets, bytestream

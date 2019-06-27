@@ -2,9 +2,10 @@ import time
 import zmq
 import sys
 import copy
+import warnings
 
 from larpix.io.multizmq_io import MultiZMQ_IO
-from larpix.larpix import Packet
+from larpix.larpix import Packet, Key
 
 class ZMQ_IO(MultiZMQ_IO):
     '''
@@ -19,9 +20,10 @@ class ZMQ_IO(MultiZMQ_IO):
     count, clock frequency, and more.
 
     '''
+    _valid_config_classes = MultiZMQ_IO._valid_config_classes + ['ZMQ_IO']
 
-    def __init__(self, address):
-        super(ZMQ_IO, self).__init__(addresses=[address])
+    def __init__(self, address, config_filepath=None):
+        super(ZMQ_IO, self).__init__(addresses=[address], config_filepath=config_filepath)
         self._address = address
 
     @property
@@ -53,44 +55,18 @@ class ZMQ_IO(MultiZMQ_IO):
                 **self.parse_chip_key(packet.chip_key))
         super(ZMQ_IO, self).send(new_packets)
 
-    @classmethod
-    def is_valid_chip_key(cls, key):
-        '''
-        Valid chip keys must be strings formatted as:
-        ``'<io_chain>-<chip_id>'``
-
-        '''
-        if not super(MultiZMQ_IO, cls).is_valid_chip_key(key):
-            return False
-        if not isinstance(key, str):
-            return False
-        parsed_key = key.split('-')
-        if not len(parsed_key) == 2:
-            return False
-        try:
-            _ = int(parsed_key[0])
-            _ = int(parsed_key[1])
-        except ValueError:
-            return False
-        return True
-
-    @classmethod
-    def parse_chip_key(cls, key):
+    def parse_chip_key(self, key):
         '''
         Decodes a chip key into ``'chip_id'`` and ``io_chain``
 
         :returns: ``dict`` with keys ``('chip_id', 'io_chain')``
         '''
-        if not ZMQ_IO.is_valid_chip_key(key):
-            raise ValueError('invalid ZMQ_IO key: {}'.format(key))
         return_dict = {}
-        parsed_key = key.split('-')
-        return_dict['chip_id'] = int(parsed_key[1])
-        return_dict['io_chain'] = int(parsed_key[0])
+        return_dict['chip_id'] = key.chip_id
+        return_dict['io_chain'] = key.io_channel - 1
         return return_dict
 
-    @classmethod
-    def generate_chip_key(cls, **kwargs):
+    def generate_chip_key(self, **kwargs):
         '''
         Generates a valid ``ZMQ_IO`` chip key
 
@@ -103,7 +79,11 @@ class ZMQ_IO(MultiZMQ_IO):
         if not all([key in kwargs for key in req_fields]):
             raise ValueError('Missing fields required to generate chip id'
                 ', requires {}, received {}'.format(req_fields, kwargs.keys()))
-        return '{io_chain}-{chip_id}'.format(**kwargs)
+        return Key.from_dict(dict(
+                io_channel = kwargs['io_chain'] + 1,
+                chip_id = kwargs['chip_id'],
+                io_group = self._io_group_lookup[self._address]
+            ))
 
     def reset(self):
         '''
