@@ -72,18 +72,18 @@ So you're not a tutorials kind of person. Here's a minimal working
 example for you to play around with:
 
 ```python
->>> import larpix.larpix as larpix
+>>> from larpix.larpix import Controller, Packet
 >>> from larpix.io.fakeio import FakeIO
 >>> from larpix.logger.stdout_logger import StdoutLogger
->>> controller = larpix.Controller()
+>>> controller = Controller()
 >>> controller.io = FakeIO()
 >>> controller.logger = StdoutLogger(buffer_length=0)
 >>> controller.logger.open()
->>> chip1 = controller.add_chip('0-1', 1)  # (access key, chipID)
+>>> chip1 = controller.add_chip('1-1-1')  # (access key)
 >>> chip1.config.global_threshold = 25
->>> controller.write_configuration('0-1', 25) # chip key 1, register 25
-[ Config write | Chip key: '0-1' | Chip: 1 | Register: 25 | Value:  16 | Parity: 1 (valid: True) ]
->>> packet = larpix.Packet(b'\x04\x14\x80\xc4\x03\xf2 ')
+>>> controller.write_configuration('1-1-1', 25) # chip key, register 25
+[ Config write | Chip key: '1-1-1' | Chip: 1 | Register: 25 | Value:  16 | Parity: 1 (valid: True) ]
+>>> packet = Packet(b'\x04\x14\x80\xc4\x03\xf2 ')
 >>> packet_bytes = packet.bytes()
 >>> pretend_input = ([packet], packet_bytes)
 >>> controller.io.queue.append(pretend_input)
@@ -101,7 +101,7 @@ To access the package contents, use one of the two following `import`
 statements:
 
 ```python
-import larpix.larpix as larpix  # use the larpix namespace
+import larpix  # use the larpix namespace
 # or ...
 from larpix.larpix import *  # import all core larpix classes into the current namespace
 ```
@@ -121,7 +121,7 @@ interfaces.
 Set things up with
 
 ```python
-controller = larpix.Controller()
+controller = larpix.larpix.Controller()
 controller.io = larpix.io.fakeio.FakeIO()
 controller.logger = larpix.logger.stdout_logger.StdoutLogger(buffer_length=0)
 controller.logger.open()
@@ -148,8 +148,8 @@ Controller.
 
 ```python
 chipid = 5
-chip_key = '0-5'
-chip5 = controller.add_chip(chip_key, chipid)
+chip_key = '1-1-5'
+chip5 = controller.add_chip(chip_key)
 chip5 = controller.get_chip(chip_key)
 ```
 
@@ -213,7 +213,7 @@ section on "Inspecting received data" for more.
 FakeIO queue code:
 
 ```python
-packets = chip5.get_configuration_packets(larpix.Packet.CONFIG_READ_PACKET)
+packets = chip5.get_configuration_packets(larpix.larpix.Packet.CONFIG_READ_PACKET)
 bytestream = b'bytes for the config read packets'
 controller.io.queue.append((packets, bytestream))
 ```
@@ -258,10 +258,10 @@ controller.run(duration, message)
 FakeIO queue code for the first code block:
 
 ```python
-packets = [Packet()] * 40
+packets = [larpix.larpix.Packet()] * 40
 bytestream = b'bytes from the first set of packets'
 controller.io.queue.append((packets, bytestream))
-packets2 = [Packet()] * 30
+packets2 = [larpix.larpix.Packet()] * 30
 bytestream2 = b'bytes from the second set of packets'
 controller.io.queue.append((packets2, bytestream2))
 ```
@@ -269,7 +269,7 @@ controller.io.queue.append((packets2, bytestream2))
 fakeIO queue code for the second code block:
 
 ```python
-packets = [Packet()] * 5
+packets = [larpix.larpix.Packet()] * 5
 bytestream = b'[bytes from read #%d] '
 for i in range(100):
     controller.io.queue.append((packets, bytestream%i))
@@ -285,7 +285,7 @@ each representing one LArPix packet.
 PacketCollection objects can be indexed like a list:
 
 ```python
-run1 = controller.runs[0]
+run1 = controller.reads[0]
 first_packet = run1[0]  # Packet object
 first_ten_packets = run1[0:10]  # smaller PacketCollection object
 
@@ -374,6 +374,7 @@ To create a permanent record of communications with the LArPix ASICs, an
 `HDF5Logger` is used. To create a new logger
 
 ```python
+from larpix.logger.h5_logger import HDF5Logger
 controller.logger = HDF5Logger(filename=None, buffer_length=10000) # a filename of None uses the default filename formatting
 controller.logger.open() # opens hdf5 file and starts tracking all communications
 ```
@@ -404,7 +405,7 @@ wrapping logger code with a `try, except` statement if you can. Any remaining
 packets in the buffer are flushed to the file upon closing.
 
 ```python
-controller.close()
+controller.logger.close()
 ```
 
 ### Viewing data from the HDF5Logger
@@ -426,7 +427,7 @@ attributes.
 
 ```python
 list(datafile.keys()) # ['_header', 'raw_packet']
-list(datafile['_header'].attrs) # ['created', 'version']
+list(datafile['_header'].attrs) # ['created', 'modified', version']
 ```
 
 The packets are stored sequentially as a `numpy` mixed-type arrays within the
@@ -445,9 +446,8 @@ If you want to make use of `numpy`'s mixed type arrays, you can convert the
 raw values to the proper encoding via
 
 ```python
-import numpy as np
-packet_repr = np.array(raw_values, HDF5Logger.data_desc['raw_packet'])
-packet_repr[0]['chip_key'] # chip key for packet, e.g. b'0-246'
+packet_repr = raw_values[0:1]
+packet_repr['chip_key'] # chip key for packet, e.g. b'1-1-246'
 packet_repr['adc_counts'] # list of ADC values for each packet
 packet_repr.dtype # description of data type (with names of each column)
 ```
@@ -462,12 +462,25 @@ datafile.close()
 
 Since you have completed the tutorial with the `FakeIO` class, you are now ready
 to interface with some LArPix ASICs. If you have a Bern DAQ v2-3 setup you can
-follow along with the rest of the tutorial. With the DAQ system up and running
+follow along with the rest of the tutorial.
+
+Before you can configure the system, you will need to generate a configuration
+file for the ZMQ_IO or MultiZMQ_IO interface. This provides the mapping from
+chip keys to physical devices. In the case of the ZMQ interface, it maps
+io group #s to the IP address of the DAQ board. A number of example
+configurations are provided in the installation under
+``larpix/configs/io/<config name>.json``, which may work for your purposes. We
+recommend reading the docs about how to create one of these configuration files.
+By default the system looks for configuration in the pwd, before looking for the
+installation files. If you only have one DAQ board on your network, likely
+you will load the ``io/daq-srv<#>.json`` configuration.
+
+With the DAQ system up and running
 ```python
 >>> import larpix.larpix as larpix
 >>> from larpix.io.zmq_io import ZMQ_IO
 >>> controller = larpix.Controller()
->>> controller.io = ZMQ_IO('<IP address of daq board>')
+>>> controller.io = ZMQ_IO('<IP address of daq board>', config_filepath='<path to config>')
 >>> controller.load('controller/pcb-<#>_chip_info.json')
 >>> controller.io.ping()
 >>> for key,chip in controller.chips.items():
@@ -505,43 +518,44 @@ some pickup on the sensor from the environment -- *good luck!*
 
 ### Enable a single channel
 ```python
+>>> chip_key = '1-1-3'
 >>> controller.disable() # mask off all channel
->>> controller.enable('0-3', [0]) # enable channel 0 of chip 0-3
+>>> controller.enable(chip_key, [0]) # enable channel 0 of chip
 ```
 
 ### Set the global threshold of a chip
 ```python
->>> controller.chips['0-3'].config.global_threshold = 40
->>> controller.write_configuration('0-3')
->>> controller.verify_configuration('0-3')
+>>> controller.chips[chip_key].config.global_threshold = 40
+>>> controller.write_configuration(chip_key)
+>>> controller.verify_configuration(chip_key)
 (True, {})
 ```
 
 ### Inject a pulse into a specific channel
 ```python
->>> controller.enable_testpulse('0-3', [0]) # connect chip 0-3, channel 0 to the test pulse circuit and initialize the internal DAC to 255
->>> controller.issue_testpulse('0-3', 10) # inject a pulse of size 10DAC by stepping down the DAC
+>>> controller.enable_testpulse(chip_key, [0]) # connect channel 0 to the test pulse circuit and initialize the internal DAC to 255
+>>> controller.issue_testpulse(chip_key, 10) # inject a pulse of size 10DAC by stepping down the DAC
 <PacketCollection with XX packets, read_id XX, "configuration write">
->>> controller.disable_testpulse('0-3') # disconnect test pulse circuit from all channels on chip 0-3
+>>> controller.disable_testpulse(chip_key) # disconnect test pulse circuit from all channels on chip
 ```
 You will need to periodically reset the DAC to 255, otherwise you will receive a
 `ValueError` once the DAC reaches the minimum specified value.
 ```python
->>> controller.enable_testpulse('0-3', [0], start_dac=255)
->>> controller.issue_testpulse('0-3', 50, min_dac=200) # the min_dac keyword sets the lower bound for the DAC (useful to avoid non-linearities at around 70-80DAC)
+>>> controller.enable_testpulse(chip_key, [0], start_dac=255)
+>>> controller.issue_testpulse(chip_key, 50, min_dac=200) # the min_dac keyword sets the lower bound for the DAC (useful to avoid non-linearities at around 70-80DAC)
 <PacketCollection with XX packets, read_id XX, "configuration write">
->>> controller.issue_testpulse('0-3', 50, min_dac=200)
+>>> controller.issue_testpulse(chip_key, 50, min_dac=200)
 ValueError: Minimum DAC exceeded
->>> controller.enable_testpulse('0-3', [0], start_dac=255)
->>> controller.issue_testpulse('0-3', 50, min_dac=200)
+>>> controller.enable_testpulse(chip_key, [0], start_dac=255)
+>>> controller.issue_testpulse(chip_key, 50, min_dac=200)
 <PacketCollection with XX packets, read_id XX, "configuration write">
 
 ```
 
 ### Enable the analog monitor on a channel
 ```python
->>> controller.enable_analog_monitor('0-3', 0) # drive buffer output of channel 0, chip 0-3 out on analog monitor line
->>> controller.disable_analog_monitor('0-3') # disable the analog monitor on chip 0-3
+>>> controller.enable_analog_monitor(chip_key, 0) # drive buffer output of channel 0 out on analog monitor line
+>>> controller.disable_analog_monitor(chip_key) # disable the analog monitor on chip
 ```
 While the software enforces that only one channel per chip is being driven out on
 the analog monitor, you must disable the analog monitor if moving between chips.
@@ -574,11 +588,7 @@ configuration register. Each row in the configuration table in the LArPix datash
 has a corresponding attribute in the `Configuration` object. Per-channel
 attributes are stored in a list, and all other attributes are stored as
 a simple integer. (This includes everything from single bits to values
-such as "reset cycles," which spans 3 bytes.) **Warning**: there is
-currently no type checking or range checking on these values. Using
-values outside the expected range will lead to undefined behavior,
-including the possibility that Python will crash _or_ that LArPix will
-be sent bad commands.
+such as "reset cycles," which spans 3 bytes.)
 
 `Configuration` objects also have some helper methods for enabling and
 disabling per-channel settings (such as `csa_testpulse_enable` or
