@@ -24,30 +24,37 @@ class Key(object):
     A unique specification for routing data to a particular detector sub-system.
     At the core, a key is represented by 3-unsigned 1-byte integer fields which
     refer to an id code within a layer of the LArPix DAQ system heirarchy.
-    Field 0 represents the 'io group' id number, field 1 represents the io
+    Field 0 represents the io group id number, field 1 represents the io
     channel connecting to a MISO/MOSI pair, and field 2 represents the chip
-    id (hardwired for v1 ASICs, assigned dynamically for v2 ASICs).
+    id. The io group is the device controlling a set of MOSI/MISO pairs, the
+    io channel is a single MOSI/MISO pair controlling a collection of LArPix
+    asics, and the chip id uniquely identifies a chip on a single MISO/MISO
+    network.
 
     Each field should be a 1-byte unsigned integer (0-255) providing a unique
     lookup value for each component in the system. The id values of 0 and 255
-    are reserved for special functions. An id of 0 indicates that this component
-    of the system is irrelevant for the key. An id of 255 indicates all components
-    at this layer. E.g. a key of 1-0-0 refers to the io group with id 1 only,
-    whereas a key of 1-255-0 refers to the set of all io channels on io group
-    with id 1. Similarly a key of 1-255-255 refers to all asics on all the io
-    channels associated with io group id 1.
+    are reserved for special functionality.
 
-    Keys are specified by a string of '<io group>-<io channel>-<chip id>' or by
-    using other Keys
+    A key can be specified by a string of ``'<io group>-<io channel>-<chip id>'`` or by
+    using other Keys.
+
+    Keys are hashed by their string representation and are equivalent to their
+    string representation so::
+
+        key = Key('1-1-1')
+
+        key == '1-1-1' # True
+
+        d = { key: 'example' }
+        d[key] == 'example' # True
+        d['1-1-1'] == 'example' # True
 
     '''
     def __init__(self, key):
-        if isinstance(key, Key):
-            self.keystring = key.keystring
-        elif isinstance(key, str):
-            self.keystring = key
+        if isinstance(key, bytes):
+            self.keystring = key.decode("utf-8")
         else:
-            raise ValueError('key must either be a Key object or a valid keystring')
+            self.keystring = str(key)
 
     def __repr__(self):
         return 'Key(keystring=\'{}\')'.format(self.keystring)
@@ -65,7 +72,11 @@ class Key(object):
 
     @property
     def keystring(self):
-        return str(self)
+        '''
+        Key string specifying key io group, io channel, and chip id in the
+        format: ``'<io group>-<io channel>-<chip id>'``
+        '''
+        return self._keystring
 
     @keystring.setter
     def keystring(self, val):
@@ -75,11 +86,15 @@ class Key(object):
 
     @property
     def chip_id(self):
+        '''
+        1-byte unsigned integer representing the physical chip id (hardwired for
+        v1 ASICs, assigned dynamically for v2 ASICs)
+        '''
         return self.to_dict()['chip_id']
 
     @chip_id.setter
     def chip_id(self, val):
-        self.keystring = str(self.from_dict(dict(
+        self._keystring = str(self.from_dict(dict(
                 chip_id=val,
                 io_channel=self.io_channel,
                 io_group=self.io_group
@@ -87,11 +102,16 @@ class Key(object):
 
     @property
     def io_channel(self):
+        '''
+        1-byte unsigned integer representing the physical io channel. This
+        identifies a single MOSI/MISO pair used to communicate with a single
+        network of up to 256 chips.
+        '''
         return self.to_dict()['io_channel']
 
     @io_channel.setter
     def io_channel(self, val):
-        self.keystring = str(self.from_dict(dict(
+        self._keystring = str(self.from_dict(dict(
                 chip_id=self.chip_id,
                 io_channel=val,
                 io_group=self.io_group
@@ -99,11 +119,15 @@ class Key(object):
 
     @property
     def io_group(self):
+        '''
+        1-byte unsigned integer representing the physical device used to read
+        out up to 256 io channels.
+        '''
         return self.to_dict()['io_group']
 
     @io_group.setter
     def io_group(self, val):
-        self.keystring = str(self.from_dict(dict(
+        self._keystring = str(self.from_dict(dict(
                 chip_id=self.chip_id,
                 io_channel=self.io_channel,
                 io_group=val
@@ -111,6 +135,11 @@ class Key(object):
 
     @staticmethod
     def is_valid_keystring(keystring):
+        '''
+        Check if keystring can be interpreted as a larpix.Key
+
+        :returns: ``True`` if the keystring can be interpreted as a larpix.Key
+        '''
         if not isinstance(keystring, str):
             return False
         parsed_key = keystring.split('-')
@@ -127,6 +156,11 @@ class Key(object):
         return True
 
     def to_dict(self):
+        '''
+        Convert Key into a dict
+
+        :returns: ``dict`` with ``'io_group'``, ``'io_channel'``, and ``'chip_id'``
+        '''
         parsed_key = self.keystring.split('-')
         return_dict = dict(
                 io_group = int(parsed_key[0]),
@@ -137,6 +171,12 @@ class Key(object):
 
     @staticmethod
     def from_dict(d):
+        '''
+        Convert a dict into a Key object, dict must contain ``'io_group'``,
+        ``'io_channel'``, and ``'chip_id'``
+
+        :returns: ``Key``
+        '''
         req_keys = ('io_group', 'io_channel', 'chip_id')
         if not all([key in d for key in req_keys]):
             raise ValueError('dict must specify {}'.format(req_keys))
@@ -197,8 +237,7 @@ class Chip(object):
             packet = Packet()
             packet.packet_type = packet_type
             packet.chipid = self.chip_id
-            packet.io_channel = self.chip_key.io_channel
-            packet.io_group = self.chip_key.io_group
+            packet.chip_key = self.chip_key
             packet.register_address = i
             if packet_type == Packet.CONFIG_WRITE_PACKET:
                 packet.register_data = data
@@ -1484,9 +1523,7 @@ class Controller(object):
             configuration_data = {}
             for packet in self.reads[-1]:
                 if (packet.packet_type == Packet.CONFIG_READ_PACKET and
-                    packet.chipid == chip_key.chip_id and
-                    packet.io_channel == chip_key.io_channel and
-                    packet.io_group == chip_key.io_group):
+                    packet.chip_key == chip_key):
                     configuration_data[packet.register_address] = packet.register_data
             expected_data = {}
             for register_address, bits in enumerate(chip.config.all_data()):
@@ -1527,8 +1564,7 @@ class Controller(object):
         # Collect data
         self.run(run_time,'read_channel_pedestal_c{}_ch{}'.format(chip_key, channel))
         self.disable(chip_key=chip_key)
-        adcs = self.reads[-1].extract('adc_counts', io_group=chip_key.io_group,
-            io_channel=chip_key.io_channel, chipid=chip_key.chip_id, channel=channel)
+        adcs = self.reads[-1].extract('adc_counts', chip_key=chip_key, channel=channel)
         mean = 0
         rms = 0
         if len(adcs) > 0:
@@ -1883,8 +1919,7 @@ class Packet(object):
 
     def __str__(self):
         string = '[ '
-        string += 'IO group: {} | '.format(self.io_group)
-        string += 'IO channel: {} | '.format(self.io_channel)
+        string += 'Chip key: {} | '.format(self.chip_key)
         if hasattr(self, 'direction'):
             string += {Logger.WRITE: 'Out', Logger.READ: 'In'}[self.direction]
             string += ' | '
@@ -1944,8 +1979,7 @@ class Packet(object):
                 self.CONFIG_READ_PACKET.to01(): 'config read'
                 }
         d = {}
-        d['io_group'] = self.io_group
-        d['io_channel'] = self.io_channel
+        d['chip_key'] = self.chip_key
         d['bits'] = self.bits.to01()
         d['type_str'] = type_map[self.packet_type.to01()]
         d['type'] = bah.touint(self.packet_type)
@@ -1968,26 +2002,16 @@ class Packet(object):
         return d
 
     @property
-    def io_channel(self):
+    def chip_key(self):
         try:
-            return self._io_channel
+            return self._chip_key
         except AttributeError:
             return None
 
-    @io_channel.setter
-    def io_channel(self, value):
-        self._io_channel = value
-
-    @property
-    def io_group(self):
-        try:
-            return self._io_group
-        except AttributeError:
-            return None
-
-    @io_group.setter
-    def io_group(self, value):
-        self._io_group = value
+    @chip_key.setter
+    def chip_key(self, value):
+        self._chip_key = Key(value)
+        self.chipid = self._chip_key.chip_id
 
     @property
     def packet_type(self):
@@ -2004,6 +2028,8 @@ class Packet(object):
 
     @chipid.setter
     def chipid(self, value):
+        if not self.chip_key is None:
+            self.chip_key.chip_id = value
         self.bits[Packet.chipid_bits] = bah.fromuint(value,
                 Packet.chipid_bits)
 
@@ -2250,8 +2276,7 @@ class PacketCollection(object):
         Any key used in Packet.export is a valid attribute or selection:
 
         - all packets:
-             - io_group
-             - io_channel
+             - chip_key
              - bits
              - type_str (data, test, config read, config write)
              - type (0, 1, 2, 3)
@@ -2319,9 +2344,7 @@ class PacketCollection(object):
 
         '''
         return [packet for packet in self.packets \
-            if packet.io_group == chip_key.io_group and \
-            packet.io_channel == chip_key.io_channel and \
-            packet.chipid == chip_key.chip_id]
+            if packet.chip_key == chip_key]
 
     def by_chip_key(self):
         '''
@@ -2332,11 +2355,7 @@ class PacketCollection(object):
         for packet in self.packets:
             # append packet to list if list exists, else append to empty
             # list as a default
-            key = Key.from_dict({
-                    'io_group': packet.io_group,
-                    'io_channel': packet.io_channel,
-                    'chip_id': packet.chipid
-                })
+            key = packet.chip_key
             chip_groups.setdefault(key, []).append(packet)
         to_return = {}
         for chip_key in chip_groups:
