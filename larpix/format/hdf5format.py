@@ -437,6 +437,7 @@ def from_file(filename, version=None, start=None, end=None):
                 message = message_row[message_props['message']].decode()
                 timestamp = row[props['timestamp']]
                 packets.append(MessagePacket(message, timestamp))
+                continue
             p = Packet()
             p.chip_key = row[props['chip_key']]
             p.packet_type = row[props['type']]

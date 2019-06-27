@@ -62,8 +62,7 @@ def test_chip_sync_configuration_slice(chip):
 
 def test_chip_export_reads(chip):
     packet = Packet()
-    packet.io_group = chip.chip_key.io_group
-    packet.io_channel = chip.chip_key.io_channel
+    packet.chip_key = chip.chip_key
     packet.packet_type = Packet.CONFIG_WRITE_PACKET
     packet.chipid = chip.chip_id
     packet.register_address = 10
@@ -80,8 +79,7 @@ def test_chip_export_reads(chip):
                     'type_str': 'config write',
                     'type': 2,
                     'chipid': chip.chip_id,
-                    'io_channel': chip.chip_key.io_channel,
-                    'io_group': chip.chip_key.io_group,
+                    'chip_key': chip.chip_key,
                     'parity': 0,
                     'valid_parity': True,
                     'register': 10,
@@ -107,8 +105,7 @@ def test_chip_export_reads_no_new_reads(chip):
 
 def test_chip_export_reads_all(chip):
     packet = Packet()
-    packet.io_group = chip.chip_key.io_group
-    packet.io_channel = chip.chip_key.io_channel
+    packet.chip_key = chip.chip_key
     packet.chipid = chip.chip_id
     packet.packet_type = Packet.CONFIG_WRITE_PACKET
     chip.reads.append(packet)
@@ -124,8 +121,7 @@ def test_chip_export_reads_all(chip):
                     'chipid': chip.chip_id,
                     'type_str': 'config write',
                     'parity': 0,
-                    'io_group': chip.chip_key.io_group,
-                    'io_channel': chip.chip_key.io_channel,
+                    'chip_key': chip.chip_key,
                     'valid_parity': True,
                     'register': 0,
                     'value': 0
@@ -212,8 +208,7 @@ def test_packet_export_test():
             'type_str': 'test',
             'type': 1,
             'chipid': 5,
-            'io_channel': None,
-            'io_group': None,
+            'chip_key': None,
             'counter': 32838,
             'parity': p.parity_bit_value,
             'valid_parity': True,
@@ -224,8 +219,7 @@ def test_packet_export_data():
     p = Packet()
     p.packet_type = Packet.DATA_PACKET
     p.chipid = 2
-    p.io_group = 1
-    p.io_channel = 3
+    p.chip_key = Key('1-3-2')
     p.channel_id = 10
     p.timestamp = 123456
     p.dataword = 180
@@ -238,8 +232,7 @@ def test_packet_export_data():
             'type_str': 'data',
             'type': 0,
             'chipid': 2,
-            'io_group': 1,
-            'io_channel': 3,
+            'chip_key': p.chip_key,
             'channel': 10,
             'timestamp': 123456,
             'adc_counts': 180,
@@ -254,8 +247,7 @@ def test_packet_export_config_read():
     p = Packet()
     p.packet_type = Packet.CONFIG_READ_PACKET
     p.chipid = 10
-    p.io_group = 2
-    p.io_channel = 1
+    p.chip_key = Key('2-1-10')
     p.register_address = 51
     p.register_data = 2
     p.assign_parity()
@@ -265,8 +257,7 @@ def test_packet_export_config_read():
             'type_str': 'config read',
             'type': 3,
             'chipid': 10,
-            'io_group': 2,
-            'io_channel': 1,
+            'chip_key': p.chip_key,
             'register': 51,
             'value': 2,
             'parity': p.parity_bit_value,
@@ -287,8 +278,7 @@ def test_packet_export_config_write():
             'type_str': 'config write',
             'type': 2,
             'chipid': 10,
-            'io_group': None,
-            'io_channel': None,
+            'chip_key': p.chip_key,
             'register': 51,
             'value': 2,
             'parity': p.parity_bit_value,
@@ -1678,11 +1668,11 @@ def test_controller_multi_read_configuration(capfd, chip):
     controller.use_all_chips = True
     key0 = Key(chip.chip_key)
     key0.io_channel = 1
-    key0.io_group = 1
+    key0.chip_key = 1
     key1 = Key(chip.chip_key)
     key1.chip_id += 1
     key1.io_channel = 1
-    key1.io_group = 1
+    key1.chip_key = 1
     chip1 = controller.add_chip(key0)
     chip2 = controller.add_chip(key1)
     conf_data = chip1.get_configuration_packets(Packet.CONFIG_READ_PACKET)
@@ -1839,8 +1829,7 @@ def test_packetcollection_to_dict():
             'packets': [{
                 'bits': packet.bits.to01(),
                 'type': 'test',
-                'io_channel': None,
-                'io_group': None,
+                'chip_key': None,
                 'type_str': 'test',
                 'type': 1,
                 'chipid': packet.chipid,
