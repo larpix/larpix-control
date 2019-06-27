@@ -52,7 +52,7 @@ class Key(object):
     '''
     def __init__(self, key):
         if isinstance(key, bytes):
-            self.keystring = key.decode("utf-8")
+            self.keystring = str(key.decode("utf-8"))
         else:
             self.keystring = str(key)
 
@@ -60,7 +60,7 @@ class Key(object):
         return 'Key(keystring=\'{}\')'.format(self.keystring)
 
     def __str__(self):
-        return self._keystring
+        return self.keystring
 
     def __eq__(self, other):
         if str(self) == str(other):
