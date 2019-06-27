@@ -8,5 +8,6 @@ Here is the documentation for the configuration files.
 
    chip
    controller
+   io
 
 :ref:`genindex`
