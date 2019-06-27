@@ -2,9 +2,10 @@ import time
 import zmq
 import sys
 from collections import defaultdict
+import warnings
 
 from larpix.io import IO
-from larpix.larpix import Packet
+from larpix.larpix import Packet, Key
 from larpix.configs import load
 from larpix.format.message_format import dataserver_message_decode
 
@@ -64,8 +65,8 @@ class MultiZMQ_IO(IO):
     def send(self, packets):
         self.sender_replies = defaultdict(list)
         send_time = time.time()
-        addresses = [MultiZMQ_IO.parse_chip_key(packet.chip_key)['address'] for packet in packets]
-        msg_datas = MultiZMQ_IO.encode(packets)
+        addresses = [self.parse_chip_key(packet.chip_key)['address'] for packet in packets]
+        msg_datas = self.encode(packets)
         for address, msg_data in zip(addresses, msg_datas):
             tosend = b'SNDWORD ' + msg_data
             self.senders[address].send(tosend)
@@ -94,7 +95,13 @@ class MultiZMQ_IO(IO):
         return_dict = {}
         return_dict['chip_id'] = key.chip_id
         return_dict['io_chain'] = key.io_channel - 1
+        if not key.io_group in self._io_group_table:
+            raise KeyError('unspecified io group {}'.format(key.io_group))
+
         return_dict['address'] = self._io_group_table[key.io_group]
+        if not return_dict['address'] in self.receivers:
+            warnings.warn('parsed chip key from socketless address {}\n'
+                'likely your io configuration does not match your chip keys'.format(return_dict['address']))
         return return_dict
 
     def generate_chip_key(self, **kwargs):
@@ -119,7 +126,7 @@ class MultiZMQ_IO(IO):
         if not isinstance(kwargs['address'], str):
             raise ValueError('address must be str')
         return Key.from_dict(dict(
-                io_group = kwargs['address'],
+                io_group = self._io_group_lookup[kwargs['address']],
                 io_channel = kwargs['io_chain'] + 1,
                 chip_id = kwargs['chip_id']
             ))

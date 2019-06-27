@@ -34,8 +34,8 @@ class IO(object):
         if filepath is None:
             filepath = self.default_filepath
         config = configs.load(filepath)
-        if (config['_config_type'] not in self.valid_config_types or
-            config['io_class'] not in self.valid_config_classes):
+        if (config['_config_type'] not in self._valid_config_types or
+            config['io_class'] not in self._valid_config_classes):
             raise RuntimeError('Invalid configuration type for {}'.format(type(self).__name__))
         self._io_group_table = dict(config['io_group'])
         self._io_group_lookup = dict([(value, io_group) for io_group,value in self._io_group_table.items()])

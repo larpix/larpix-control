@@ -47,25 +47,6 @@ class ZMQ_IO(MultiZMQ_IO):
     def sender_replies(self, val):
         super(ZMQ_IO, self).sender_replies[self._address] = val
 
-    def send(self, packets):
-        # perform a deep copy, so that the original packet list is unchanged
-        new_packets = [copy.deepcopy(packet) for packet in packets]
-        for packet in new_packets:
-            packet.chip_key = super(ZMQ_IO, self).generate_chip_key(address=self._address,
-                **self.parse_chip_key(packet.chip_key))
-        super(ZMQ_IO, self).send(new_packets)
-
-    def parse_chip_key(self, key):
-        '''
-        Decodes a chip key into ``'chip_id'`` and ``io_chain``
-
-        :returns: ``dict`` with keys ``('chip_id', 'io_chain')``
-        '''
-        return_dict = {}
-        return_dict['chip_id'] = key.chip_id
-        return_dict['io_chain'] = key.io_channel - 1
-        return return_dict
-
     def generate_chip_key(self, **kwargs):
         '''
         Generates a valid ``ZMQ_IO`` chip key
