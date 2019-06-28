@@ -74,7 +74,7 @@ class FakeIO(IO):
         :returns: ``chip_key`` that was passed into the function
 
         '''
-        if not 'chip_key' in kwargs:
+        if 'chip_key' not in kwargs:
             raise ValueError('FakeIO chip keys require an explicit chip_key')
         return kwargs['chip_key']
 

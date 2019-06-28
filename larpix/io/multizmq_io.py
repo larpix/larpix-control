@@ -89,7 +89,7 @@ class MultiZMQ_IO(IO):
         return_dict = {}
         return_dict['chip_id'] = key.chip_id
         return_dict['io_chain'] = key.io_channel
-        if not key.io_group in self._io_group_table:
+        if key.io_group not in self._io_group_table:
             raise KeyError('unspecified io group {}'.format(key.io_group))
         return_dict['address'] = self._io_group_table[key.io_group]
         return return_dict
@@ -115,7 +115,7 @@ class MultiZMQ_IO(IO):
             raise ValueError('io_chain must be int')
         if not isinstance(kwargs['address'], str):
             raise ValueError('address must be str')
-        if not kwargs['address'] in self._io_group_table.inv:
+        if kwargs['address'] not in self._io_group_table.inv:
             raise KeyError('no known io group for {}'.format(kwargs['address']))
         return Key.from_dict(dict(
                 io_group = self._io_group_table.inv[kwargs['address']],
