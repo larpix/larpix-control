@@ -51,10 +51,6 @@ class FakeIO(IO):
         return msgs
 
     @classmethod
-    def is_valid_chip_key(cls, key):
-        return super(cls, cls).is_valid_chip_key(key)
-
-    @classmethod
     def parse_chip_key(cls, key):
         '''
         Placeholder function for parsing chip keys ``chip_key``
@@ -64,7 +60,7 @@ class FakeIO(IO):
         :returns: ``dict`` with keys ``('chip_key')``
 
         '''
-        return_dict = super(cls, cls).parse_chip_key(key)
+        return_dict = super(FakeIO, cls).parse_chip_key(key)
         return_dict['chip_key'] = key
         return return_dict
 
@@ -78,7 +74,7 @@ class FakeIO(IO):
         :returns: ``chip_key`` that was passed into the function
 
         '''
-        if not 'chip_key' in kwargs:
+        if 'chip_key' not in kwargs:
             raise ValueError('FakeIO chip keys require an explicit chip_key')
         return kwargs['chip_key']
 

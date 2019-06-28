@@ -5,7 +5,8 @@ Use the pytest framework to write tests for the larpix module.
 from __future__ import print_function
 import pytest
 from larpix.larpix import (Chip, Packet, Configuration, Controller,
-        PacketCollection, _Smart_List, TimestampPacket)
+        PacketCollection, _Smart_List, Key, TimestampPacket)
+
 from larpix.io.fakeio import FakeIO
 from larpix.timestamp import *  # use long = int in py3
 #from bitstring import BitArray
@@ -18,14 +19,13 @@ def list_of_packets_str(packets):
     return '\n'.join(map(str, packets)) + '\n'
 
 def test_chip_str():
-    key = 'test-key'
-    chip = Chip(1, key)
+    key = '1-1-1'
+    chip = Chip(key)
     result = str(chip)
-    expected = 'Chip (id: 1, key: test-key)'
+    expected = 'Chip (id: 1, key: 1-1-1)'
     assert result == expected
 
-def test_chip_get_configuration_packets():
-    chip = Chip(3, 1)
+def test_chip_get_configuration_packets(chip):
     packet_type = Packet.CONFIG_WRITE_PACKET
     packets = chip.get_configuration_packets(packet_type)
     # test a sampling of the configuration packets
@@ -41,8 +41,7 @@ def test_chip_get_configuration_packets():
     assert packet.register_address == 40
     assert packet.register_data == 0
 
-def test_chip_sync_configuration():
-    chip = Chip(1, 0)
+def test_chip_sync_configuration(chip):
     packet_type = Packet.CONFIG_READ_PACKET
     packets = chip.get_configuration_packets(packet_type)
     chip.reads.append(PacketCollection(packets))
@@ -51,8 +50,7 @@ def test_chip_sync_configuration():
     expected = [bitarray([0]*8)] * Configuration.num_registers
     assert result == expected
 
-def test_chip_sync_configuration_slice():
-    chip = Chip(1, 0)
+def test_chip_sync_configuration_slice(chip):
     packet_type = Packet.CONFIG_READ_PACKET
     packets = chip.get_configuration_packets(packet_type)
     chip.reads.append(PacketCollection(packets[:10]))
@@ -62,28 +60,27 @@ def test_chip_sync_configuration_slice():
     expected = [bitarray([0]*8)] * Configuration.num_registers
     assert result == expected
 
-def test_chip_export_reads():
-    chip = Chip(1, 2)
+def test_chip_export_reads(chip):
     packet = Packet()
-    packet.chip_key = 2
+    packet.chip_key = chip.chip_key
     packet.packet_type = Packet.CONFIG_WRITE_PACKET
-    packet.chipid = 1
+    packet.chipid = chip.chip_id
     packet.register_address = 10
     packet.register_data = 20
     packet.assign_parity()
     chip.reads.append(packet)
     result = chip.export_reads()
     expected = {
-            'chip_key': 2,
-            'chip_id': 1,
+            'chip_key': chip.chip_key,
+            'chip_id': chip.chip_id,
             'packets': [
                 {
                     'bits': packet.bits.to01(),
                     'type_str': 'config write',
                     'type': 2,
-                    'chipid': 1,
-                    'chip_key': 2,
-                    'parity': 1,
+                    'chipid': chip.chip_id,
+                    'chip_key': chip.chip_key,
+                    'parity': 0,
                     'valid_parity': True,
                     'register': 10,
                     'value': 20
@@ -93,10 +90,9 @@ def test_chip_export_reads():
     assert result == expected
     assert chip.new_reads_index == 1
 
-def test_chip_export_reads_no_new_reads():
-    chip = Chip(1, 2)
+def test_chip_export_reads_no_new_reads(chip):
     result = chip.export_reads()
-    expected = {'chip_id': 1, 'chip_key': 2, 'packets': []}
+    expected = {'chip_id': chip.chip_id, 'chip_key': chip.chip_key, 'packets': []}
     assert result == expected
     assert chip.new_reads_index == 0
     packet = Packet()
@@ -107,25 +103,25 @@ def test_chip_export_reads_no_new_reads():
     assert result == expected
     assert chip.new_reads_index == 1
 
-def test_chip_export_reads_all():
-    chip = Chip(1, 2)
+def test_chip_export_reads_all(chip):
     packet = Packet()
-    packet.chip_key = 2
+    packet.chip_key = chip.chip_key
+    packet.chipid = chip.chip_id
     packet.packet_type = Packet.CONFIG_WRITE_PACKET
     chip.reads.append(packet)
     chip.export_reads()
     result = chip.export_reads(only_new_reads=False)
     expected = {
-            'chip_id': 1,
-            'chip_key': 2,
+            'chip_id': chip.chip_id,
+            'chip_key': chip.chip_key,
             'packets': [
                 {
                     'bits': packet.bits.to01(),
-                    'type_str': 'config write',
                     'type': 2,
-                    'chipid': 0,
+                    'chipid': chip.chip_id,
+                    'type_str': 'config write',
                     'parity': 0,
-                    'chip_key': 2,
+                    'chip_key': chip.chip_key,
                     'valid_parity': True,
                     'register': 0,
                     'value': 0
@@ -135,13 +131,11 @@ def test_chip_export_reads_all():
     assert result == expected
     assert chip.new_reads_index == 1
 
-def test_controller_save_output(tmpdir):
+def test_controller_save_output(tmpdir, chip):
     controller = Controller()
-    chip = Chip(1, 0)
     p = Packet()
-    p.chip_key = 0
     chip.reads.append(p)
-    controller.chips[0] = chip
+    controller.add_chip(chip.chip_key)
     collection = PacketCollection([p], p.bytes(), 'hi', 0)
     controller.reads.append(collection)
     name = str(tmpdir.join('test.json'))
@@ -225,7 +219,7 @@ def test_packet_export_data():
     p = Packet()
     p.packet_type = Packet.DATA_PACKET
     p.chipid = 2
-    p.chip_key = 1
+    p.chip_key = Key('1-3-2')
     p.channel_id = 10
     p.timestamp = 123456
     p.dataword = 180
@@ -238,7 +232,7 @@ def test_packet_export_data():
             'type_str': 'data',
             'type': 0,
             'chipid': 2,
-            'chip_key': 1,
+            'chip_key': p.chip_key,
             'channel': 10,
             'timestamp': 123456,
             'adc_counts': 180,
@@ -253,7 +247,7 @@ def test_packet_export_config_read():
     p = Packet()
     p.packet_type = Packet.CONFIG_READ_PACKET
     p.chipid = 10
-    p.chip_key = 'test-key'
+    p.chip_key = Key('2-1-10')
     p.register_address = 51
     p.register_data = 2
     p.assign_parity()
@@ -263,7 +257,7 @@ def test_packet_export_config_read():
             'type_str': 'config read',
             'type': 3,
             'chipid': 10,
-            'chip_key': 'test-key',
+            'chip_key': p.chip_key,
             'register': 51,
             'value': 2,
             'parity': p.parity_bit_value,
@@ -284,7 +278,7 @@ def test_packet_export_config_write():
             'type_str': 'config write',
             'type': 2,
             'chipid': 10,
-            'chip_key': None,
+            'chip_key': p.chip_key,
             'register': 51,
             'value': 2,
             'parity': p.parity_bit_value,
@@ -1491,31 +1485,36 @@ def test_configuration_from_dict_reg_reset_cycles():
 def test_controller_init_chips():
     controller = Controller()
     result = set(map(repr, controller._init_chips()))
-    expected = set(map(repr, ('0-{}'.format(i) for i in range(256))))
+    expected = set(map(repr, ('1-1-{}'.format(i) for i in range(256))))
     assert result == expected
 
-def test_controller_get_chip():
+def test_controller_get_chip(chip):
     controller = Controller()
-    chip = Chip(1, 3)
-    controller.chips[3] = chip
-    assert controller.get_chip(3) == chip
+    controller.chips[chip.chip_key] = chip
+    assert controller.get_chip(chip.chip_key) == chip
 
 def test_controller_get_chip_all_chips():
     controller = Controller()
     controller.use_all_chips = True
-    result = controller.get_chip('0-5')
-    expected = controller.all_chips['0-5']
+    result = controller.get_chip('1-1-5')
+    expected = controller.all_chips['1-1-5']
     assert result == expected
 
-def test_controller_get_chip_error():
+def test_controller_get_chip_error(chip):
     controller = Controller()
-    chip_key = '3-1'
-    chip = Chip(1, chip_key)
-    controller.chips[chip_key] = chip
-    with pytest.raises(ValueError, message='Should fail: bad chipid'):
-        controller.get_chip('3-2')
-    with pytest.raises(ValueError, message='Should fail: bad chainid'):
-        controller.get_chip('2-1')
+    controller.chips[chip.chip_key] = chip
+    test_key = Key(chip.chip_key)
+    test_key.chip_id += 1
+    with pytest.raises(ValueError, message='Should fail: bad chip id'):
+        controller.get_chip(test_key)
+    test_key = Key(chip.chip_key)
+    test_key.io_channel += 1
+    with pytest.raises(ValueError, message='Should fail: bad channel id'):
+        controller.get_chip(test_key)
+    test_key = Key(chip.chip_key)
+    test_key.io_group += 1
+    with pytest.raises(ValueError, message='Should fail: bad group id'):
+        controller.get_chip(test_key)
 
 def test_controller_read():
     controller = Controller()
@@ -1541,87 +1540,65 @@ def test_controller_load():
     controller.io = FakeIO()
     controller.load('controller/pcb-1_chip_info.json')
 
-def test_controller_load_safe_catch():
-    controller = Controller()
-    with pytest.raises(RuntimeError):
-        controller.load('controller/pcb-1_chip_info.json')
-        pytest.fail("Should raise error since there's no IO object"
-                " to check if keys are valid")
-
-def test_controller_load_safe_override():
-    controller = Controller()
-    controller.load('controller/pcb-1_chip_info.json', safe=False)
-
-def test_controller_read_configuration(capfd):
+def test_controller_read_configuration(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
-    chip_key = '0-2'
-    chip = Chip(2, chip_key)
-    controller.chips[chip_key] = chip
+    controller.chips[chip.chip_key] = chip
     conf_data = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
     sent_expected = list_of_packets_str(conf_data)
     controller.io.queue.append((conf_data,b'hi'))
     received_expected = PacketCollection(conf_data, b'hi', read_id=0,
             message='configuration read')
-    controller.read_configuration(chip_key, timeout=0.01)
+    controller.read_configuration(chip.chip_key, timeout=0.01)
     received_result = controller.reads[-1]
     sent_result, err = capfd.readouterr()
     assert sent_result == sent_expected
     assert received_result == received_expected
 
-
-def test_controller_read_configuration_reg(capfd):
+def test_controller_read_configuration_reg(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
-    chip_key = '0-2'
-    chip = Chip(2, chip_key)
-    controller.chips[chip_key] = chip
+    controller.chips[chip.chip_key] = chip
     conf_data = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)[0:1]
     sent_expected = list_of_packets_str(conf_data)
     controller.io.queue.append((conf_data,b'hi'))
     received_expected = PacketCollection(conf_data, b'hi', read_id=0,
             message='configuration read')
-    controller.read_configuration(chip_key, 0, timeout=0.01)
+    controller.read_configuration(chip.chip_key, 0, timeout=0.01)
     received_result = controller.reads[-1]
     sent_result, err = capfd.readouterr()
     assert sent_result == sent_expected
     assert received_result == received_expected
 
-def test_controller_write_configuration(capfd):
+def test_controller_write_configuration(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
-    chip_key = '0-2'
-    chip = Chip(2, chip_key)
-    controller.chips[chip_key] = chip
-    controller.write_configuration(chip_key)
+    controller.chips[chip.chip_key] = chip
+    controller.write_configuration(chip.chip_key)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
     expected = list_of_packets_str(conf_data)
     result, err = capfd.readouterr()
     assert result == expected
 
-def test_controller_write_configuration_one_reg(capfd):
+def test_controller_write_configuration_one_reg(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
-    chip_key = '0-2'
-    chip = Chip(2, chip_key)
-    controller.chips[chip_key] = chip
-    controller.write_configuration(chip_key, 0)
+    controller.chips[chip.chip_key] = chip
+    controller.write_configuration(chip.chip_key, 0)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[0:1]
     expected = list_of_packets_str(conf_data)
     result, err = capfd.readouterr()
     assert result == expected
 
-def test_controller_write_configuration_write_read(capfd):
+def test_controller_write_configuration_write_read(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
-    key = '0-2'
-    chip = Chip(2, key)
-    controller.chips[key] = chip
+    controller.chips[chip.chip_key] = chip
     to_read = ([Packet(b'1234567')], b'hi')
     controller.io.queue.append(to_read)
     expected_read = PacketCollection(*to_read, read_id=0,
             message='configuration write')
-    controller.write_configuration(key, registers=5, write_read=0.1)
+    controller.write_configuration(chip.chip_key, registers=5, write_read=0.1)
     result_read = controller.reads[0]
     assert result_read == expected_read
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[5:6]
@@ -1629,13 +1606,13 @@ def test_controller_write_configuration_write_read(capfd):
     result_sent, err = capfd.readouterr()
     assert result_sent == expected_sent
 
-def test_controller_multi_write_configuration(capfd):
+def test_controller_multi_write_configuration(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
-    key = '0-2'
-    key2 = '0-3'
-    chip = Chip(2, key)
-    chip2 = Chip(3, key2)
+    key = chip.chip_key
+    key2 = Key(chip.chip_key)
+    key2.chip_id += 1
+    chip2 = Chip(key2)
     controller.chips = {key:chip, key2:chip2}
     controller.multi_write_configuration((key, key2))
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
@@ -1646,17 +1623,17 @@ def test_controller_multi_write_configuration(capfd):
     result, err = capfd.readouterr()
     assert result == expected
 
-def test_controller_multi_write_configuration_write_read(capfd):
+def test_controller_multi_write_configuration_write_read(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
     to_read = ([Packet(b'1234567')], b'hi')
     controller.io.queue.append(to_read)
     expected_read = PacketCollection(*to_read, read_id=0,
             message='configuration write')
-    key ='0-2'
-    key2 = '0-3'
-    chip = Chip(2, key)
-    chip2 = Chip(3, key2)
+    key = chip.chip_key
+    key2 = Key(chip.chip_key)
+    key2.chip_id += 1
+    chip2 = Chip(key2)
     controller.chips = {key:chip, key2:chip2}
     controller.multi_write_configuration((key, key2), write_read=0.01)
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
@@ -1667,13 +1644,13 @@ def test_controller_multi_write_configuration_write_read(capfd):
     result, err = capfd.readouterr()
     assert result == expected
 
-def test_controller_multi_write_configuration_specify_registers(capfd):
+def test_controller_multi_write_configuration_specify_registers(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
-    key = '0-2'
-    key2 = '0-3'
-    chip = Chip(2, key)
-    chip2 = Chip(3, key2)
+    key = chip.chip_key
+    key2 = Key(chip.chip_key)
+    key2.chip_id += 1
+    chip2 = Chip(key2)
     controller.chips = {key:chip, key2:chip2}
     controller.multi_write_configuration([(key, 0), key2])
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[:1]
@@ -1685,17 +1662,20 @@ def test_controller_multi_write_configuration_specify_registers(capfd):
     assert result == expected
 
 
-def test_controller_multi_read_configuration(capfd):
+def test_controller_multi_read_configuration(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
     controller.use_all_chips = True
-    key0 = '0-2'
-    key1 = '0-3'
-    controller.chips[key0] = Chip(chip_id=2, chip_key=key0)
-    controller.chips[key1] = Chip(chip_id=3, chip_key=key1)
-    chip = controller.chips[key0]
-    chip2 = controller.chips[key1]
-    conf_data = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
+    key0 = Key(chip.chip_key)
+    key0.io_channel = 1
+    key0.chip_key = 1
+    key1 = Key(chip.chip_key)
+    key1.chip_id += 1
+    key1.io_channel = 1
+    key1.chip_key = 1
+    chip1 = controller.add_chip(key0)
+    chip2 = controller.add_chip(key1)
+    conf_data = chip1.get_configuration_packets(Packet.CONFIG_READ_PACKET)
     conf_data2 = chip2.get_configuration_packets(Packet.CONFIG_READ_PACKET)
     final_string_1 = list_of_packets_str(conf_data)
     final_string_2 = list_of_packets_str(conf_data2)
@@ -1709,13 +1689,14 @@ def test_controller_multi_read_configuration(capfd):
     assert result_sent == expected_sent
     assert result_read == expected_read
 
-def test_controller_multi_read_configuration_specify_registers(capfd):
+def test_controller_multi_read_configuration_specify_registers(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
-    key0 = '4-2'
-    key1 = '4-3'
-    controller.chips[key0] = Chip(chip_id=2, chip_key=key0)
-    controller.chips[key1] = Chip(chip_id=3, chip_key=key1)
+    key0 = Key(chip.chip_key)
+    key1 = Key(chip.chip_key)
+    key1.chip_id += 1
+    controller.chips[key0] = Chip(chip_key=key0)
+    controller.chips[key1] = Chip(chip_key=key1)
     conf_data = controller.chips[key0].get_configuration_packets(Packet.CONFIG_READ_PACKET)[:1]
     conf_data2 = controller.chips[key1].get_configuration_packets(Packet.CONFIG_READ_PACKET)
     final_string_1 = list_of_packets_str(conf_data)
@@ -1730,11 +1711,10 @@ def test_controller_multi_read_configuration_specify_registers(capfd):
     assert result_sent == expected_sent
     assert result_read == expected_read
 
-def test_controller_verify_configuration_ok(capfd):
+def test_controller_verify_configuration_ok(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
-    chip = Chip(2, 0)
-    controller.chips[0] = chip
+    controller.chips[chip.chip_key] = chip
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
     for packet in conf_data: packet.packet_type = Packet.CONFIG_READ_PACKET
     controller.io.queue.append((conf_data,b'hi'))
@@ -1742,11 +1722,10 @@ def test_controller_verify_configuration_ok(capfd):
     assert ok
     assert diff == {}
 
-def test_controller_verify_configuration_missing_packet(capfd):
+def test_controller_verify_configuration_missing_packet(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
-    chip = Chip(2, 0)
-    controller.chips[0] = chip
+    controller.chips[chip.chip_key] = chip
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
     for packet in conf_data: packet.packet_type = Packet.CONFIG_READ_PACKET
     del conf_data[5]
@@ -1755,11 +1734,10 @@ def test_controller_verify_configuration_missing_packet(capfd):
     assert ok == False
     assert diff == {5: (16, None)}
 
-def test_controller_verify_configuration_bad_value(capfd):
+def test_controller_verify_configuration_bad_value(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
-    chip = Chip(2, 0)
-    controller.chips[0] = chip
+    controller.chips[chip.chip_key] = chip
     conf_data = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
     for packet in conf_data: packet.packet_type = Packet.CONFIG_READ_PACKET
     conf_data[5].register_data = 17
@@ -1787,8 +1765,7 @@ def test_packetcollection_getitem_int_bits():
         packet2.size, 8))
     assert result2 == expected2
 
-def test_packetcollection_getitem_slice():
-    chip = Chip(0, 0)
+def test_packetcollection_getitem_slice(chip):
     packets = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
     collection = PacketCollection(packets, message='hello')
     result = collection[:10]
@@ -1796,8 +1773,7 @@ def test_packetcollection_getitem_slice():
         ' | subset slice(None, 10, None)')
     assert result == expected
 
-def test_packetcollection_getitem_slice_bits():
-    chip = Chip(0, 0)
+def test_packetcollection_getitem_slice_bits(chip):
     packets = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
     collection = PacketCollection(packets, message='hello')
     result = collection[:10, 'bits']
@@ -1805,12 +1781,11 @@ def test_packetcollection_getitem_slice_bits():
         Packet.size, 8)) for p in packets[:10]]
     assert result == expected
 
-def test_packetcollection_origin():
-    chip = Chip(0, 0)
+def test_packetcollection_origin(chip):
     packets = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)
     collection = PacketCollection(packets, message='hello')
-    first_gen = collection.by_chipid()[0]
-    second_gen = first_gen.by_chipid()[0]
+    first_gen = collection.by_chipid()[chip.chip_id]
+    second_gen = first_gen.by_chipid()[chip.chip_id]
     assert first_gen.parent is collection
     assert first_gen.origin() is collection
     assert second_gen.parent is first_gen
@@ -1853,9 +1828,10 @@ def test_packetcollection_to_dict():
             'bytestream': packet.bytes().decode('raw_unicode_escape'),
             'packets': [{
                 'bits': packet.bits.to01(),
+                'type': 'test',
+                'chip_key': None,
                 'type_str': 'test',
                 'type': 1,
-                'chip_key': None,
                 'chipid': packet.chipid,
                 'parity': 0,
                 'valid_parity': True,
@@ -1979,4 +1955,39 @@ def test_Smart_List_config_error():
     with pytest.raises(ValueError):
         c.from_dict_registers(register_dict)
         pytest.fail('Should fail: out of bounds')
+
+def test_key():
+    with pytest.raises(ValueError):
+        k = Key('0.0.0')
+        pytest.fail('key is not proper format')
+    with pytest.raises(ValueError):
+        k = Key('256-0-0')
+        pytest.fail('key value is not 1-byte')
+
+    k = Key('1-2-3')
+    with pytest.raises(ValueError):
+        k.io_channel = -1
+        pytest.fail('key value is not unsigned')
+    with pytest.raises(ValueError):
+        k.io_group = 256
+        pytest.fail('key value is not 1-byte')
+    with pytest.raises(ValueError):
+        k.chip_id = 'f'
+        pytest.fail('key value is not int')
+
+    assert k == '1-2-3'
+    assert Key(k) == k
+    assert k.is_valid_keystring('0-0-256') == False
+    assert k.is_valid_keystring('0-256-0') == False
+    assert k.is_valid_keystring('256-0-0') == False
+    assert k.is_valid_keystring('0 0 0') == False
+    assert k.to_dict() == { 'io_group':1, 'io_channel':2, 'chip_id':3}
+    test_dict = {'io_group':3, 'io_channel':2, 'chip_id':1}
+    assert k.from_dict(test_dict) == Key('3-2-1')
+
+    # test that you can hash a dict with the keys
+    d = {}
+    d[k] = 'test'
+    assert d[k] == 'test'
+
 

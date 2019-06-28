@@ -1,0 +1,7 @@
+{
+    "_config_type": "io",
+    "io_class": "MultiZMQ_IO",
+    "io_group": [
+        [1, "daq-srv3.local"]
+    ]
+}

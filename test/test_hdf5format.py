@@ -4,7 +4,7 @@ import pytest
 import h5py
 
 from larpix.larpix import (Packet, PacketCollection, TimestampPacket,
-        MessagePacket)
+        MessagePacket, Key)
 from larpix.format.hdf5format import (to_file, from_file,
         dtype_property_index_lookup)
 
@@ -22,7 +22,7 @@ def data_packet():
     p.dataword = 120
     p.fifo_half_flag = 1
     p.assign_parity()
-    p.chip_key = 'hello'
+    p.chip_key = Key('1-2-123')
     p.direction = 1
     return p
 
@@ -34,7 +34,7 @@ def config_read_packet():
     p.register_address = 10
     p.register_data = 23
     p.assign_parity()
-    p.chip_key = 'hello'
+    p.chip_key = Key('1-2-123')
     p.direction = 1
     return p
 
