@@ -49,5 +49,6 @@ setup(
         package_data={
             'larpix.configs.chip': 'configs/chip/*.json',
             'larpix.configs.controller': 'configs/controller/*.json',
+            'larpix.configs.io': 'configs/io/*.json'
             },
 )
