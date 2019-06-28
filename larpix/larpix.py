@@ -60,7 +60,7 @@ class Key(object):
             self.keystring = str(key)
 
     def __repr__(self):
-        return 'Key(keystring=\'{}\')'.format(self.keystring)
+        return 'Key(\'{}\')'.format(self.keystring)
 
     def __str__(self):
         return self.keystring
