@@ -39,7 +39,7 @@ class MultiZMQ_IO(IO):
         self.hwm = 20000
         for receiver in self.receivers.values():
             receiver.set_hwm(self.hwm)
-        for address in self.io_group_table.inv:
+        for address in self._io_group_table.inv:
             send_address = 'tcp://' + address + ':5555'
             receive_address = 'tcp://' + address + ':5556'
             self.senders[address].connect(send_address)
@@ -88,7 +88,7 @@ class MultiZMQ_IO(IO):
         '''
         return_dict = {}
         return_dict['chip_id'] = key.chip_id
-        return_dict['io_chain'] = key.io_channel - 1
+        return_dict['io_chain'] = key.io_channel
         if not key.io_group in self._io_group_table:
             raise KeyError('unspecified io group {}'.format(key.io_group))
         return_dict['address'] = self._io_group_table[key.io_group]
@@ -119,7 +119,7 @@ class MultiZMQ_IO(IO):
             raise KeyError('no known io group for {}'.format(kwargs['address']))
         return Key.from_dict(dict(
                 io_group = self._io_group_table.inv[kwargs['address']],
-                io_channel = kwargs['io_chain'] + 1,
+                io_channel = kwargs['io_chain'],
                 chip_id = kwargs['chip_id']
             ))
 

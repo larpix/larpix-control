@@ -38,7 +38,7 @@ class IO(object):
         if (config['_config_type'] not in self._valid_config_types or
             config['io_class'] not in self._valid_config_classes):
             raise RuntimeError('Invalid configuration type for {}'.format(type(self).__name__))
-        self._io_group_table = bidict(config['io_group'])
+        self._io_group_table = bidict.bidict(config['io_group'])
 
     def encode(self, packets):
         '''
