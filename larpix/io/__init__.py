@@ -1,3 +1,5 @@
+import bidict
+
 from larpix import configs
 
 class IO(object):
@@ -21,8 +23,7 @@ class IO(object):
         self.default_filepath = 'io/default.json'
 
         self.is_listening = False
-        self._io_group_table = {}
-        self._io_group_lookup = {}
+        self._io_group_table = bidict.bidict()
 
     def load(self, filepath=None):
         '''
@@ -37,8 +38,7 @@ class IO(object):
         if (config['_config_type'] not in self._valid_config_types or
             config['io_class'] not in self._valid_config_classes):
             raise RuntimeError('Invalid configuration type for {}'.format(type(self).__name__))
-        self._io_group_table = dict(config['io_group'])
-        self._io_group_lookup = dict([(value, io_group) for io_group,value in self._io_group_table.items()])
+        self._io_group_table = bidict(config['io_group'])
 
     def encode(self, packets):
         '''

@@ -40,7 +40,8 @@ setup(
             'pyzmq ~= 16.0',
             'sphinx_rtd_theme ~= 0.4.2',
             'numpy ~= 1.16',
-            'h5py ~= 2.9'
+            'h5py ~= 2.9',
+            'bidict ~= 0.18.0'
             ],
         scripts=[
             'scripts/gen_controller_config.py'

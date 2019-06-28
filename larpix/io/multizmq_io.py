@@ -3,6 +3,7 @@ import zmq
 import sys
 from collections import defaultdict
 import warnings
+import bidict
 
 from larpix.io import IO
 from larpix.larpix import Packet, Key
@@ -25,27 +26,20 @@ class MultiZMQ_IO(IO):
     '''
     _valid_config_classes = ['MultiZMQ_IO']
 
-    def __init__(self, addresses, config_filepath=None):
+    def __init__(self, config_filepath=None):
         super(MultiZMQ_IO, self).__init__()
-        if not isinstance(addresses, list):
-            raise ValueError('MultiZMQ_IO must be instaniated with a list of '
-                'board addresses')
         self.load(config_filepath)
 
         self.context = zmq.Context()
-        self.senders = {}
-        self.senders_lookup = {}
-        self.receivers = {}
-        self.receivers_lookup = {}
-        for address in addresses:
+        self.senders = bidict.bidict()
+        self.receivers = bidict.bidict()
+        for address in self._io_group_table.inv:
             self.senders[address] = self.context.socket(zmq.REQ)
             self.receivers[address] = self.context.socket(zmq.SUB)
-            self.senders_lookup[self.senders[address]] = address
-            self.receivers_lookup[self.receivers[address]] = address
         self.hwm = 20000
         for receiver in self.receivers.values():
             receiver.set_hwm(self.hwm)
-        for address in self.senders.keys():
+        for address in self.io_group_table.inv:
             send_address = 'tcp://' + address + ':5555'
             receive_address = 'tcp://' + address + ':5556'
             self.senders[address].connect(send_address)
@@ -97,11 +91,7 @@ class MultiZMQ_IO(IO):
         return_dict['io_chain'] = key.io_channel - 1
         if not key.io_group in self._io_group_table:
             raise KeyError('unspecified io group {}'.format(key.io_group))
-
         return_dict['address'] = self._io_group_table[key.io_group]
-        if not return_dict['address'] in self.receivers:
-            warnings.warn('parsed chip key from socketless address {}\n'
-                'likely your io configuration does not match your chip keys'.format(return_dict['address']))
         return return_dict
 
     def generate_chip_key(self, **kwargs):
@@ -125,8 +115,10 @@ class MultiZMQ_IO(IO):
             raise ValueError('io_chain must be int')
         if not isinstance(kwargs['address'], str):
             raise ValueError('address must be str')
+        if not kwargs['address'] in self._io_group_table.inv:
+            raise KeyError('no known io group for {}'.format(kwargs['address']))
         return Key.from_dict(dict(
-                io_group = self._io_group_lookup[kwargs['address']],
+                io_group = self._io_group_table.inv[kwargs['address']],
                 io_channel = kwargs['io_chain'] + 1,
                 chip_id = kwargs['chip_id']
             ))
@@ -168,7 +160,7 @@ class MultiZMQ_IO(IO):
                     message = socket.recv()
                     n_recv += 1
                     bytestream_list.append(message)
-                    address = self.receivers_lookup[socket]
+                    address = self.receivers.inv[socket]
                     packets += self.decode([message], address=address)
         #print('len(bytestream_list) = %d' % len(bytestream_list))
         bytestream = b''.join(bytestream_list)

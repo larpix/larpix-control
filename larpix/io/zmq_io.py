@@ -22,9 +22,15 @@ class ZMQ_IO(MultiZMQ_IO):
     '''
     _valid_config_classes = MultiZMQ_IO._valid_config_classes + ['ZMQ_IO']
 
-    def __init__(self, address, config_filepath=None):
-        super(ZMQ_IO, self).__init__(addresses=[address], config_filepath=config_filepath)
+    def __init__(self, config_filepath=None):
+        super(ZMQ_IO, self).__init__(config_filepath=config_filepath)
         self._address = address
+
+    def load(self, filepath=None):
+        super(ZMQ_IO, self).load(filepath)
+        if len(self._io_group_lookup.inv) != 1:
+            raise RuntimeError('multiple adresses found in configuration - use '
+                'MultiZMQ_IO if you\'d like to connect to multiple systems')
 
     @property
     def sender(self):
