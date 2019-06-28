@@ -70,6 +70,9 @@ class Key(object):
             return True
         return False
 
+    def __ne__(self, other):
+        return not self == other
+
     def __hash__(self):
         return hash(str(self))
 
