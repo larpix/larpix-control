@@ -106,6 +106,9 @@ import larpix  # use the larpix namespace
 from larpix.larpix import *  # import all core larpix classes into the current namespace
 ```
 
+The rest of the tutorial will assume you've imported all of the core larpix
+classes via a ``from larpix.larpix import *`` command.
+
 ### Create a LArPix Controller
 
 The LArPix Controller translates high-level ideas like "read
@@ -121,9 +124,11 @@ interfaces.
 Set things up with
 
 ```python
-controller = larpix.larpix.Controller()
-controller.io = larpix.io.fakeio.FakeIO()
-controller.logger = larpix.logger.stdout_logger.StdoutLogger(buffer_length=0)
+from larpix.io.fakeio import FakeIO
+from larpix.logger.stdout_logger import StdoutLogger
+controller = Controller()
+controller.io = FakeIO()
+controller.logger = StdoutLogger(buffer_length=0)
 controller.logger.open()
 ```
 
@@ -154,8 +159,45 @@ chip5 = controller.get_chip(chip_key)
 ```
 
 The `chip_key` field specifies the necessary information for the `controller.io`
-object to route packets to/from the chip. The specifications for this field are
-implemented separately in each `larpix.io` class.
+object to route packets to/from the chip. The details of how this key maps to a
+physical chip is implemented separately for each `larpix.io` class.
+
+The key itself consists of 3 1-byte integer values that represent the 3
+low-level layers in larpix readout:
+
+  - the io group: this is the highest layer and represents a control system that
+  communicates with multiple IO channels
+
+  - the io channel: this is the middle layer and represents a single MOSI/MISO
+  pair
+
+  - the chip id: this is the lowest layer and represents a single chip on a
+  MOSI/MISO network
+
+If you want to interact with chip keys directly, you can instantiate one using
+a valid keystring (three 1-byte integers separated by dashes, e.g. ``'1-1-1'``).
+Please note that the ids of 0 and 255 are reserved for special functions.
+
+```python
+from larpix.larpix import Key
+example_key = Key('1-2-3')
+```
+
+You can grab relevant information from the key via a number of useful methods
+and attributes:
+
+```python
+example_key.io_group  # 1
+example_key.io_channel  # 2
+example_key.chip_id  # 3
+example_key.to_dict() # returns a dict with the above keys / values
+```
+
+If you are using a ``Key`` in a script, we recommend that you generate the keys
+via the ``Key.from_dict()`` method which will protect against updates to the key
+formatting.
+
+You can read the docs to learn more about ``Key`` functionality.
 
 ### Adjust the configuration of the LArPix Chips
 
@@ -213,7 +255,7 @@ section on "Inspecting received data" for more.
 FakeIO queue code:
 
 ```python
-packets = chip5.get_configuration_packets(larpix.larpix.Packet.CONFIG_READ_PACKET)
+packets = chip5.get_configuration_packets(Packet.CONFIG_READ_PACKET)
 bytestream = b'bytes for the config read packets'
 controller.io.queue.append((packets, bytestream))
 ```
@@ -258,10 +300,10 @@ controller.run(duration, message)
 FakeIO queue code for the first code block:
 
 ```python
-packets = [larpix.larpix.Packet()] * 40
+packets = [Packet()] * 40
 bytestream = b'bytes from the first set of packets'
 controller.io.queue.append((packets, bytestream))
-packets2 = [larpix.larpix.Packet()] * 30
+packets2 = [Packet()] * 30
 bytestream2 = b'bytes from the second set of packets'
 controller.io.queue.append((packets2, bytestream2))
 ```
@@ -269,7 +311,7 @@ controller.io.queue.append((packets2, bytestream2))
 fakeIO queue code for the second code block:
 
 ```python
-packets = [larpix.larpix.Packet()] * 5
+packets = [Packet()] * 5
 bytestream = b'[bytes from read #%d] '
 for i in range(100):
     controller.io.queue.append((packets, bytestream%i))
@@ -477,9 +519,9 @@ you will load the ``io/daq-srv<#>.json`` configuration.
 
 With the DAQ system up and running
 ```python
->>> import larpix.larpix as larpix
+>>> from larpix.larpix import Controller
 >>> from larpix.io.zmq_io import ZMQ_IO
->>> controller = larpix.Controller()
+>>> controller = Controller()
 >>> controller.io = ZMQ_IO('<IP address of daq board>', config_filepath='<path to config>')
 >>> controller.load('controller/pcb-<#>_chip_info.json')
 >>> controller.io.ping()

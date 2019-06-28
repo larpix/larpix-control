@@ -25,16 +25,29 @@ def test_min_example(capsys):
     assert capsys.readouterr().out == 'Record: [ Chip key: None | Chip: 1 | Data | Channel: 5 | Timestamp: 123456 | ADC data: 120 | FIFO Half: False | FIFO Full: False | Parity: 1 (valid: True) ]\n[ Chip key: None | Chip: 1 | Data | Channel: 5 | Timestamp: 123456 | ADC data: 120 | FIFO Half: False | FIFO Full: False | Parity: 1 (valid: True) ]\n'
 
 def test_tutorial(capsys, tmpdir, temp_logfilename):
-    import larpix  # use the larpix namespace
-    controller = larpix.larpix.Controller()
-    controller.io = larpix.io.fakeio.FakeIO()
-    controller.logger = larpix.logger.stdout_logger.StdoutLogger(buffer_length=0)
+    from larpix.larpix import Controller, Packet
+
+    from larpix.io.fakeio import FakeIO
+    from larpix.logger.stdout_logger import StdoutLogger
+    controller = Controller()
+    controller.io = FakeIO()
+    controller.logger = StdoutLogger(buffer_length=0)
     controller.logger.open()
 
 
     chip_key = '1-1-5'
     chip5 = controller.add_chip(chip_key)
     chip5 = controller.get_chip(chip_key)
+
+
+    from larpix.larpix import Key
+    example_key = Key('1-2-3')
+
+
+    assert example_key.io_group  == 1
+    assert example_key.io_channel  == 2
+    assert example_key.chip_id  == 3
+    example_key.to_dict()
 
 
     chip5.config.global_threshold = 35  # entire register = 1 number
@@ -50,16 +63,16 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
     global_threshold_reg = chip5.config.global_threshold_address
 
 
-    packets = chip5.get_configuration_packets(larpix.larpix.Packet.CONFIG_READ_PACKET)
+    packets = chip5.get_configuration_packets(Packet.CONFIG_READ_PACKET)
     bytestream = b'bytes for the config read packets'
     controller.io.queue.append((packets, bytestream))
 
     controller.read_configuration(chip_key)
 
-    packets = [larpix.larpix.Packet()] * 40
+    packets = [Packet()] * 40
     bytestream = b'bytes from the first set of packets'
     controller.io.queue.append((packets, bytestream))
-    packets2 = [larpix.larpix.Packet()] * 30
+    packets2 = [Packet()] * 30
     bytestream2 = b'bytes from the second set of packets'
     controller.io.queue.append((packets2, bytestream2))
 
@@ -75,7 +88,7 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
     controller.store_packets(packets, bytestream2, message2)
 
 
-    packets = [larpix.larpix.Packet()] * 5
+    packets = [Packet()] * 5
     bytestream = b'[bytes from read #%d] '
     for i in range(100):
         controller.io.queue.append((packets, bytestream%i))
