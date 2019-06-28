@@ -166,3 +166,16 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
 
 
     datafile.close()
+
+def test_running_with_bern_daq():
+    from larpix.larpix import Controller
+    from larpix.io.zmq_io import ZMQ_IO
+
+    controller = Controller()
+    controller.io = ZMQ_IO(config_filepath='io/daq-srv1.json')
+
+    controller.load('controller/pcb-2_chip_info.json')
+
+    for key,chip in controller.chips.items():
+        chip.config.load('chip/quiet.json')
+        print(key, chip.config)

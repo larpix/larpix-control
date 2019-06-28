@@ -522,7 +522,7 @@ With the DAQ system up and running
 >>> from larpix.larpix import Controller
 >>> from larpix.io.zmq_io import ZMQ_IO
 >>> controller = Controller()
->>> controller.io = ZMQ_IO('<IP address of daq board>', config_filepath='<path to config>')
+>>> controller.io = ZMQ_IO(config_filepath='<path to config>')
 >>> controller.load('controller/pcb-<#>_chip_info.json')
 >>> controller.io.ping()
 >>> for key,chip in controller.chips.items():
