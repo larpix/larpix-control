@@ -33,9 +33,7 @@ class.
 The ``"io_group": [[<group #>, <io class spec.>], ...]`` list is a list of pairs
 used to create a map between the ``io_group`` number and the internal
 representation used by the io class. E.g. the MultiZMQ_IO uses the IP address to
-identify the ``io_group``. With IO classes that have only single io groups
-(ZMQ_IO, SerialPort), this field is ignored when parsing the chip key and so
-does not need to be specified in the configuration file.
+identify the ``io_group``.
 
 '''
 pass

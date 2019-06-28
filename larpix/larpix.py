@@ -1137,13 +1137,16 @@ class Controller(object):
 
     def add_chip(self, chip_key):
         '''
-        Add a specified chip to the Controller chips. Note that this can overwrite
-        a chip if chip key is not unique
+        Add a specified chip to the Controller chips.
 
         param: chip_key: chip key to specify unique chip
 
+        :returns: ``Chip`` that was added
+
         '''
-        self.chips[chip_key] = Chip(chip_key=chip_key)
+        if chip_key in self.chips:
+            raise KeyError('chip with key {} already exists!'.format(chip_key))
+        self.chips[Key(chip_key)] = Chip(chip_key=chip_key)
         return self.chips[chip_key]
 
     def load(self, filename):
@@ -1155,7 +1158,7 @@ class Controller(object):
         '''
         return self.load_controller(filename)
 
-    def load_controller(self, filename, safe=True):
+    def load_controller(self, filename):
         '''
         Loads the specified file using the basic key, chip format
         The key, chip file format is:
@@ -1201,7 +1204,7 @@ class Controller(object):
         for chip_info in board_info['chip_list']:
             chip_id = chip_info[0]
             io_chain = chip_info[1]
-            key = Key.from_dict(io_group=1, io_chain=io_chain, chip_id=chip_id)
+            key = Key.from_dict(io_group=1, io_channel=io_chain, chip_id=chip_id)
             chips[key] = Chip(chip_key=key)
         self.chips = chips
         return board_info['name']

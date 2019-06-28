@@ -5,7 +5,7 @@ on the larpix chip key interface.
 Generally, this script can generate string-based keys that contain the chip_id,
 io channel, and io group within the key. The characters $, {, and } are reserved for special
 functions and should not be used within keys. To use:
-python gen_controller_config.py --name <config name> --key_fmt <formatting strings> --outfile <output file config file> --io <io path, optional>
+python gen_controller_config.py --name <config name> --key_fmt <formatting strings> --outfile <output file config file>
 
 The formatting string is used to generate chip keys, generally it is a list of
 strings that specify chip keys. Using ${} special functions allow you to
@@ -47,13 +47,13 @@ parser.add_argument('--key_fmt', '-k', type=str, required=True, nargs='+',
 parser.add_argument('--outfile', '-o', type=str, required=False, default=None,
     help='''
     output filename (optional, default=<name>_chip_info.json)
-    if file exists, chip keys will be appended or overwritten to the config file
+    if file exists, chip keys will be appended to the config file
     ''')
-parser.add_argument('--io', type=str, required=False, default=None, help='''
-    io class to validate generated keys against (optional, default=%(default)s)
-    path should be relative to the larpix.io module, e.g. 'zmq_io.ZMQ_IO' is a
-    valid path specifier
-    ''')
+# parser.add_argument('--io', type=str, required=False, default=None, help='''
+#     io class to validate generated keys against (optional, default=%(default)s)
+#     path should be relative to the larpix.io module, e.g. 'zmq_io.ZMQ_IO' is a
+#     valid path specifier
+#     ''')
 args = parser.parse_args()
 
 # Load up arguments
@@ -64,7 +64,7 @@ key_fmts = args.key_fmt
 outfile = args.outfile
 if outfile is None:
     outfile = '{}_chip_info.json'.format(name)
-io = args.io
+io = None
 if not io is None:
     module_str = args.io.split('.')
     io_module = None
