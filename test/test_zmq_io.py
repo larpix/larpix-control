@@ -12,7 +12,7 @@ from larpix.format.message_format import dataserver_message_encode
 
 @pytest.fixture
 def io_config(tmpdir):
-    filename = tmpdir.join('test_conf.json')
+    filename = str(tmpdir.join('test_conf.json'))
     config_dict = {
             "_config_type": "io",
             "io_class": "ZMQ_IO",
