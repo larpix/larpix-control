@@ -2076,6 +2076,11 @@ class Packet(object):
 
     @chip_key.setter
     def chip_key(self, value):
+        if value is None:
+            if self.chip_key is None:
+                return
+            delattr(self, '_chip_key')
+            return
         self._chip_key = Key(value)
         self.chipid = self._chip_key.chip_id
 
