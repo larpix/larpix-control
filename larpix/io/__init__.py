@@ -1,3 +1,7 @@
+import bidict
+
+from larpix import configs
+
 class IO(object):
     '''
     Base class for IO objects that explicitly describes the necessary functions
@@ -5,17 +9,38 @@ class IO(object):
     by the larpix core classes.
 
     '''
+    _valid_config_types = ['io']
+    _valid_config_classes = ['IO']
+
     def __init__(self):
         '''
         Declaration of IO object
 
-        :ivar is_listening: flag for ``start_listening`` and ``stop_listening`` commands
+        :ivar is_listening: flag for ``start_listening`` and ``stop_listening``
+        :ivar default_filepath: default configuration path to load
 
         '''
-        self.is_listening = False
+        self.default_filepath = 'io/default.json'
 
-    @classmethod
-    def encode(cls, packets):
+        self.is_listening = False
+        self._io_group_table = bidict.bidict()
+
+    def load(self, filepath=None):
+        '''
+        Loads a specified IO configuration
+
+        :param filepath: path to io configuration file (JSON)
+
+        '''
+        if filepath is None:
+            filepath = self.default_filepath
+        config = configs.load(filepath)
+        if (config['_config_type'] not in self._valid_config_types or
+            config['io_class'] not in self._valid_config_classes):
+            raise RuntimeError('Invalid configuration type for {}'.format(type(self).__name__))
+        self._io_group_table = bidict.bidict(config['io_group'])
+
+    def encode(self, packets):
         '''
         Encodes a list of packets into a list of IO message objects
 
@@ -26,8 +51,7 @@ class IO(object):
         '''
         pass
 
-    @classmethod
-    def decode(cls, msgs, **kwargs):
+    def decode(self, msgs, **kwargs):
         '''
         Decodes a list of IO message objects into respective larpix ``Packet`` objects
 
@@ -40,26 +64,7 @@ class IO(object):
         '''
         pass
 
-    @classmethod
-    def is_valid_chip_key(cls, key):
-        '''
-        Check if provided key is valid for IO implementation. Chip key should be an immutable python type and not ``tuple``
-
-        :param key: key to check validity
-
-        :returns: ``True`` if valid key
-
-        '''
-        if isinstance(key, (list, tuple)):
-            return False
-        try:
-            _ = dict([(key, None)])
-        except TypeError:
-            return False
-        return True
-
-    @classmethod
-    def parse_chip_key(cls, key):
+    def parse_chip_key(self, key):
         '''
         Translate a chip key into a dict of contained information
 
@@ -68,13 +73,10 @@ class IO(object):
         :returns: ``dict`` of IO information contained in key
 
         '''
-        if not IO.is_valid_chip_key(key):
-            raise ValueError('invalid chip key for IO type, see docs for description of valid chip keys')
         empty_dict = {}
         return empty_dict
 
-    @classmethod
-    def generate_chip_key(cls, **kwargs):
+    def generate_chip_key(self, **kwargs):
         '''
         Create a chip key based on supplied info, raise an error if not enough information is provided
 

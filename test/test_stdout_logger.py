@@ -62,13 +62,12 @@ def test_record():
     assert logger._buffer[0] == 'Record: test'
 
 @pytest.mark.filterwarnings("ignore:no IO object")
-def test_controller_write_capture(capfd):
+def test_controller_write_capture(capfd, chip):
     controller = Controller()
     controller.logger = StdoutLogger(buffer_length=100)
     controller.logger.open()
-    controller.chips[0] = Chip(2, 0)
-    chip = controller.chips[0]
-    controller.write_configuration(0, 0)
+    controller.chips[chip.chip_key] = chip
+    controller.write_configuration(chip.chip_key, 0)
     packet = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[0]
     assert len(controller.logger._buffer) == 1
 

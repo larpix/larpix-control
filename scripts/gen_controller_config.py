@@ -1,34 +1,30 @@
 #!/usr/bin/env python
 '''
 This script allows you to easily generate a controller configuration file based
-on a specific larpix.io interface. Note that the chip key specification is more
-general than this script can produce, (for now) this script is limited to
-generating chip keys for zmq_io.ZMQ_IO and multizmq_io.MultiZMQ_IO classes.
-Generally, this script can generate string-based keys that contain the chip_id
-within the key. The characters $, [, ], {, and } are reserved for special
+on the larpix chip key interface.
+Generally, this script can generate string-based keys that contain the chip_id,
+io channel, and io group within the key. The characters $, {, and } are reserved for special
 functions and should not be used within keys. To use:
-python gen_controller_config.py --name <config name> --key_fmt <formatting strings> --outfile <output file config file> --io <io path, optional>
+python gen_controller_config.py --name <config name> --key_fmt <formatting strings> --outfile <output file config file>
 
 The formatting string is used to generate chip keys, generally it is a list of
-strings that specify chip keys. Using ${} and $[] special functions allow you to
-generate chip keys according to a integer list. Each formatting string must
-include one $[] function in order to declare the chip id. For example:
- - --key_fmt 'test-$[0-2]' generate 3 chip keys (test-0, test-1, test-2) and
-   their associated chip ids (0, 1, 2)
- - --key_fmt 'test-$[0,1,2]' generates the same
- - --key_fmt 'test-$[0-1,2]' also generates the same
+strings that specify chip keys. Using ${} special functions allow you to
+generate chip keys according to a integer list. For example:
+ - --key_fmt 'test-${0-2}' generate 3 chip keys (test-0, test-1, test-2)
+ - --key_fmt 'test-${0,1,2}' generates the same
+ - --key_fmt 'test-${0-1,2}' also generates the same
 For more complex chip keys that have repeated sets of identical chip ids, you
-can use the ${} special function. This operates with the same syntax, but does
-not create a new chip id for each. For example:
- - --key_fmt 'test-${0-2}-$[0]' generates 5 chip keys (test-0-0, test-1-0,
-   test-2-0), each with the chip id 0
- - --key_fmt 'test-${0-2}-$[0,1]' generates 6 chip keys (test-0-0, test-0-1,
- test-1-0, test-1-1, test-2-0, test-2-1) with chip ids (0, 1, 0, 1, 0, 1)
+can use multiple instances of the ${} special function. This operates with the
+same syntax. For example:
+ - --key_fmt 'test-${0-2}-${0}' generates 5 chip keys (test-0-0, test-1-0,
+   test-2-0)
+ - --key_fmt 'test-${0-2}-${0,1}' generates 6 chip keys (test-0-0, test-0-1,
+ test-1-0, test-1-1, test-2-0, test-2-1)
 Finally, the --key_fmt argument can be passed multiple strings to generate a
 variety of chip key formats:
- - --key_fmt 'key-0-$[0-2]' 'key-1-$[2-4]' 'diff-$[0-2]' generates 9 chip keys
+ - --key_fmt 'key-0-${0-2}' 'key-1-${2-4}' 'diff-${0-2}' generates 9 chip keys
    (key-0-0, key-0-1, key-0-2, key-1-2, key-1-3, key-1-4, diff-0, diff-1,
-   diff-2) with chip ids (0, 1, 2, 2, 3, 4, 0, 1, 2)
+   diff-2)
 
 '''
 import argparse
@@ -51,24 +47,24 @@ parser.add_argument('--key_fmt', '-k', type=str, required=True, nargs='+',
 parser.add_argument('--outfile', '-o', type=str, required=False, default=None,
     help='''
     output filename (optional, default=<name>_chip_info.json)
-    if file exists, chip keys will be appended or overwritten to the config file
+    if file exists, chip keys will be appended to the config file
     ''')
-parser.add_argument('--io', type=str, required=False, default=None, help='''
-    io class to validate generated keys against (optional, default=%(default)s)
-    path should be relative to the larpix.io module, e.g. 'zmq_io.ZMQ_IO' is a
-    valid path specifier
-    ''')
+# parser.add_argument('--io', type=str, required=False, default=None, help='''
+#     io class to validate generated keys against (optional, default=%(default)s)
+#     path should be relative to the larpix.io module, e.g. 'zmq_io.ZMQ_IO' is a
+#     valid path specifier
+#     ''')
 args = parser.parse_args()
 
 # Load up arguments
 name = args.name
 key_fmts = args.key_fmt
-if not all([key_fmt.count('$[') == 1 for key_fmt in key_fmts]):
-    raise RuntimeError('A single chip key must be specified in each key formatting string')
+# if not all([key_fmt.count('$[') == 1 for key_fmt in key_fmts]):
+#     raise RuntimeError('A single chip key must be specified in each key formatting string')
 outfile = args.outfile
 if outfile is None:
     outfile = '{}_chip_info.json'.format(name)
-io = args.io
+io = None
 if not io is None:
     module_str = args.io.split('.')
     io_module = None
@@ -173,14 +169,15 @@ def generate_keys(key_fmt):
     return_ids = []
 
     # print(key_fmt)
-    str_segments = multi_split([key_fmt], delimiters=['$',']','}'])
+    # str_segments = multi_split([key_fmt], delimiters=['$',']','}'])
+    str_segments = multi_split([key_fmt], delimiters=['$','}'])
     # print(str_segments)
     for str_seg in str_segments:
         if not str_seg:
             continue
-        if str_seg[0] == '[':
-            return_keys, return_ids = append_chip_ids(return_keys, str_seg[1:])
-        elif str_seg[0] == '{':
+        # if str_seg[0] == '[':
+        #     return_keys, return_ids = append_chip_ids(return_keys, str_seg[1:])
+        if str_seg[0] == '{':
             return_keys, return_ids = append_int(return_keys, return_ids, str_seg[1:])
         elif return_keys:
             for idx, key in enumerate(return_keys):
@@ -196,18 +193,19 @@ if not 'chip_list' in configuration.keys():
 # Generate keys
 for key_fmt in key_fmts:
     chip_keys, chip_ids = generate_keys(key_fmt)
-    for chip_key, chip_id in zip(chip_keys, chip_ids):
+    # for chip_key, chip_id in zip(chip_keys, chip_ids):
+    for chip_key in chip_keys:
         # Check if key is valid for io class
         if not io is None:
             if not io.is_valid_chip_key(chip_key):
                 raise RuntimeError('Format specifier led to an invalid chip key \'{}\''.format(chip_key))
         # Check if chip_key is unique (overwrite chip id, if exists)
-        existing_keys = [chip_info[0] for chip_info in configuration['chip_list']]
+        existing_keys = [chip_key for chip_key in configuration['chip_list']]
         if chip_key in existing_keys:
             idx = list(zip(*configuration['chip_list']))[0].index(chip_key)
-            configuration['chip_list'][idx] = [chip_key, chip_id]
+            configuration['chip_list'][idx] = chip_key
         else:
-            configuration['chip_list'].append([chip_key, chip_id])
+            configuration['chip_list'].append(chip_key)
 
 # Save
 with open(outfile, 'w') as of:

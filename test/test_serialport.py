@@ -7,15 +7,13 @@ import pytest
 from larpix.io.serialport import SerialPort
 from larpix.larpix import (Chip, Packet)
 
-def test_serialport_format_UART():
-    chip = Chip(2, 0)
+def test_serialport_format_UART(chip):
     packet = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)[10]
     result = SerialPort._format_UART(packet)
     expected = b'\x73' + packet.bytes() + b'\x00\x71'
     assert result == expected
 
-def test_serialport_format_bytestream():
-    chip = Chip(2, 0)
+def test_serialport_format_bytestream(chip):
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
     fpackets = [SerialPort._format_UART(p) for p in packets]
     result = SerialPort.format_bytestream(fpackets[:1])
@@ -33,8 +31,7 @@ def test_serialport_format_bytestream():
         expected.append(b''.join(fpackets[:1]*int(total_packets)))
     assert result == expected
 
-def test_serialport_parse_input():
-    chip = Chip(2, 0)
+def test_serialport_parse_input(chip):
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
     fpackets = [SerialPort._format_UART(p) for p in packets]
     bytestream = b''.join(SerialPort.format_bytestream(fpackets))
@@ -42,9 +39,8 @@ def test_serialport_parse_input():
     expected = packets
     assert result == expected
 
-def test_serialport_parse_input_dropped_data_byte():
+def test_serialport_parse_input_dropped_data_byte(chip):
     # Test whether the parser can recover from dropped bytes
-    chip = Chip(2, 0)
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
     fpackets = [SerialPort._format_UART(p) for p in packets]
     bytestream = b''.join(SerialPort.format_bytestream(fpackets))
@@ -55,8 +51,7 @@ def test_serialport_parse_input_dropped_data_byte():
     expected = packets[1:]
     assert result == expected
 
-def test_serialport_parse_input_dropped_start_byte():
-    chip = Chip(2, 2)
+def test_serialport_parse_input_dropped_start_byte(chip):
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
     fpackets = [SerialPort._format_UART(p) for p in packets]
     bytestream = b''.join(SerialPort.format_bytestream(fpackets))
@@ -67,8 +62,7 @@ def test_serialport_parse_input_dropped_start_byte():
     expected = packets[1:]
     assert result == expected
 
-def test_serialport_parse_input_dropped_stop_byte():
-    chip = Chip(2, 2)
+def test_serialport_parse_input_dropped_stop_byte(chip):
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
     fpackets = [SerialPort._format_UART(p) for p in packets]
     bytestream = b''.join(SerialPort.format_bytestream(fpackets))
@@ -79,8 +73,7 @@ def test_serialport_parse_input_dropped_stop_byte():
     expected = packets[1:]
     assert result == expected
 
-def test_serialport_parse_input_dropped_stopstart_bytes():
-    chip = Chip(2, 2)
+def test_serialport_parse_input_dropped_stopstart_bytes(chip):
     packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
     fpackets = [SerialPort._format_UART(p) for p in packets]
     bytestream = b''.join(SerialPort.format_bytestream(fpackets))

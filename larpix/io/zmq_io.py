@@ -2,9 +2,10 @@ import time
 import zmq
 import sys
 import copy
+import warnings
 
 from larpix.io.multizmq_io import MultiZMQ_IO
-from larpix.larpix import Packet
+from larpix.larpix import Packet, Key
 
 class ZMQ_IO(MultiZMQ_IO):
     '''
@@ -19,10 +20,17 @@ class ZMQ_IO(MultiZMQ_IO):
     count, clock frequency, and more.
 
     '''
+    _valid_config_classes = MultiZMQ_IO._valid_config_classes + ['ZMQ_IO']
 
-    def __init__(self, address):
-        super(ZMQ_IO, self).__init__(addresses=[address])
-        self._address = address
+    def __init__(self, config_filepath=None):
+        super(ZMQ_IO, self).__init__(config_filepath=config_filepath)
+        self._address = list(self._io_group_table.values())[0]
+
+    def load(self, filepath=None):
+        super(ZMQ_IO, self).load(filepath)
+        if len(self._io_group_table.inv) != 1:
+            raise RuntimeError('multiple adresses found in configuration - use '
+                'MultiZMQ_IO if you\'d like to connect to multiple systems')
 
     @property
     def sender(self):
@@ -45,52 +53,7 @@ class ZMQ_IO(MultiZMQ_IO):
     def sender_replies(self, val):
         super(ZMQ_IO, self).sender_replies[self._address] = val
 
-    def send(self, packets):
-        # perform a deep copy, so that the original packet list is unchanged
-        new_packets = [copy.deepcopy(packet) for packet in packets]
-        for packet in new_packets:
-            packet.chip_key = super(ZMQ_IO, self).generate_chip_key(address=self._address,
-                **self.parse_chip_key(packet.chip_key))
-        super(ZMQ_IO, self).send(new_packets)
-
-    @classmethod
-    def is_valid_chip_key(cls, key):
-        '''
-        Valid chip keys must be strings formatted as:
-        ``'<io_chain>-<chip_id>'``
-
-        '''
-        if not super(MultiZMQ_IO, cls).is_valid_chip_key(key):
-            return False
-        if not isinstance(key, str):
-            return False
-        parsed_key = key.split('-')
-        if not len(parsed_key) == 2:
-            return False
-        try:
-            _ = int(parsed_key[0])
-            _ = int(parsed_key[1])
-        except ValueError:
-            return False
-        return True
-
-    @classmethod
-    def parse_chip_key(cls, key):
-        '''
-        Decodes a chip key into ``'chip_id'`` and ``io_chain``
-
-        :returns: ``dict`` with keys ``('chip_id', 'io_chain')``
-        '''
-        if not ZMQ_IO.is_valid_chip_key(key):
-            raise ValueError('invalid ZMQ_IO key: {}'.format(key))
-        return_dict = {}
-        parsed_key = key.split('-')
-        return_dict['chip_id'] = int(parsed_key[1])
-        return_dict['io_chain'] = int(parsed_key[0])
-        return return_dict
-
-    @classmethod
-    def generate_chip_key(cls, **kwargs):
+    def generate_chip_key(self, **kwargs):
         '''
         Generates a valid ``ZMQ_IO`` chip key
 
@@ -103,7 +66,18 @@ class ZMQ_IO(MultiZMQ_IO):
         if not all([key in kwargs for key in req_fields]):
             raise ValueError('Missing fields required to generate chip id'
                 ', requires {}, received {}'.format(req_fields, kwargs.keys()))
-        return '{io_chain}-{chip_id}'.format(**kwargs)
+        return Key.from_dict(dict(
+                io_channel = kwargs['io_chain'],
+                chip_id = kwargs['chip_id'],
+                io_group = self._io_group_table.inv[self._address]
+            ))
+
+    def decode(self, msgs, **kwargs):
+        '''
+        Convert a list ZMQ messages into packets
+
+        '''
+        return super(ZMQ_IO, self).decode(msgs, address=self._address, **kwargs)
 
     def reset(self):
         '''

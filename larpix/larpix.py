@@ -11,12 +11,183 @@ import errno
 import math
 import warnings
 import struct
+import sys
 
 from bitarray import bitarray
 
 from . import bitarrayhelper as bah
 from .logger import Logger
 from . import configs
+
+class Key(object):
+    '''
+    A unique specification for routing data to a particular detector sub-system.
+    At the core, a key is represented by 3-unsigned 1-byte integer fields which
+    refer to an id code within a layer of the LArPix DAQ system heirarchy.
+    Field 0 represents the io group id number, field 1 represents the io
+    channel connecting to a MISO/MOSI pair, and field 2 represents the chip
+    id. The io group is the device controlling a set of MOSI/MISO pairs, the
+    io channel is a single MOSI/MISO pair controlling a collection of LArPix
+    asics, and the chip id uniquely identifies a chip on a single MISO/MISO
+    network.
+
+    Each field should be a 1-byte unsigned integer (0-255) providing a unique
+    lookup value for each component in the system. The id values of 0 and 255
+    are reserved for special functionality.
+
+    A key can be specified by a string of ``'<io group>-<io channel>-<chip id>'`` or by
+    using other Keys.
+
+    Keys are hashed by their string representation and are equivalent to their
+    string representation so::
+
+        key = Key('1-1-1')
+
+        key == '1-1-1' # True
+
+        d = { key: 'example' }
+        d[key] == 'example' # True
+        d['1-1-1'] == 'example' # True
+
+    '''
+    key_delimiter = '-'
+    key_format = key_delimiter.join(('{io_group}', '{io_channel}', '{chip_id}'))
+
+    def __init__(self, key):
+        if isinstance(key, bytes):
+            self.keystring = str(key.decode("utf-8"))
+        else:
+            self.keystring = str(key)
+
+    def __repr__(self):
+        return 'Key(\'{}\')'.format(self.keystring)
+
+    def __str__(self):
+        return self.keystring
+
+    def __eq__(self, other):
+        if str(self) == str(other):
+            return True
+        return False
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __hash__(self):
+        return hash(str(self))
+
+    @property
+    def keystring(self):
+        '''
+        Key string specifying key io group, io channel, and chip id in the
+        format: ``'<io group>-<io channel>-<chip id>'``
+        '''
+        return self._keystring
+
+    @keystring.setter
+    def keystring(self, val):
+        if not Key.is_valid_keystring(val):
+            raise ValueError('invalid keystring: {}'.format(val))
+        self._keystring = val
+
+    @property
+    def chip_id(self):
+        '''
+        1-byte unsigned integer representing the physical chip id (hardwired for
+        v1 ASICs, assigned dynamically for v2 ASICs)
+        '''
+        return self.to_dict()['chip_id']
+
+    @chip_id.setter
+    def chip_id(self, val):
+        self._keystring = str(Key.from_dict(dict(
+                chip_id=val,
+                io_channel=self.io_channel,
+                io_group=self.io_group
+            )))
+
+    @property
+    def io_channel(self):
+        '''
+        1-byte unsigned integer representing the physical io channel. This
+        identifies a single MOSI/MISO pair used to communicate with a single
+        network of up to 254 chips.
+        '''
+        return self.to_dict()['io_channel']
+
+    @io_channel.setter
+    def io_channel(self, val):
+        self._keystring = str(Key.from_dict(dict(
+                chip_id=self.chip_id,
+                io_channel=val,
+                io_group=self.io_group
+            )))
+
+    @property
+    def io_group(self):
+        '''
+        1-byte unsigned integer representing the physical device used to read
+        out up to 254 io channels.
+        '''
+        return self.to_dict()['io_group']
+
+    @io_group.setter
+    def io_group(self, val):
+        self._keystring = str(Key.from_dict(dict(
+                chip_id=self.chip_id,
+                io_channel=self.io_channel,
+                io_group=val
+            )))
+
+    @staticmethod
+    def is_valid_keystring(keystring):
+        '''
+        Check if keystring can be interpreted as a larpix.Key
+
+        :returns: ``True`` if the keystring can be interpreted as a larpix.Key
+        '''
+        if not isinstance(keystring, str):
+            return False
+        parsed_key = keystring.split(Key.key_delimiter)
+        if not len(parsed_key) == 3:
+            return False
+        try:
+            io_group = int(parsed_key[0])
+            io_channel = int(parsed_key[1])
+            chip_id = int(parsed_key[2])
+            if any([val < 0 or val > 255 for val in (io_group, io_channel, chip_id)]):
+                return False
+        except ValueError:
+            return False
+        return True
+
+    def to_dict(self):
+        '''
+        Convert Key into a dict
+
+        :returns: ``dict`` with ``'io_group'``, ``'io_channel'``, and ``'chip_id'``
+        '''
+        parsed_key = self.keystring.split(Key.key_delimiter)
+        return_dict = dict(
+                io_group = int(parsed_key[0]),
+                io_channel = int(parsed_key[1]),
+                chip_id = int(parsed_key[2]),
+            )
+        return return_dict
+
+    @staticmethod
+    def from_dict(d):
+        '''
+        Convert a dict into a Key object, dict must contain ``'io_group'``,
+        ``'io_channel'``, and ``'chip_id'``
+
+        :returns: ``Key``
+        '''
+        req_keys = ('io_group', 'io_channel', 'chip_id')
+        if not all([key in d for key in req_keys]):
+            raise ValueError('dict must specify {}'.format(req_keys))
+        new_key = Key.key_format.format(**d)
+        return Key(new_key)
 
 class Chip(object):
     '''
@@ -25,24 +196,32 @@ class Chip(object):
 
     '''
     num_channels = 32
-    def __init__(self, chip_id, chip_key):
+    def __init__(self, chip_key):
         '''
-        Create a new Chip object with the given ``chip_id``. The specification
-        of the ``chip_key`` is given by each ``io`` class.
+        Create a new Chip object with the given ``chip_key``. See the ``Key``
+        class for the key specification. Key can be specified by a valid keystring
+        or a ``Key`` object.
 
         '''
-        self.chip_id = chip_id
-        self.chip_key = chip_key
+        self.chip_key = Key(chip_key)
         self.data_to_send = []
         self.config = Configuration()
         self.reads = []
         self.new_reads_index = 0
 
     def __str__(self):
-        return 'Chip (id: {}, key: {})'.format(self.chip_id, self.chip_key)
+        return 'Chip (id: {}, key: {})'.format(self.chip_id, str(self.chip_key))
 
     def __repr__(self):
-        return 'Chip(chip_id={}, chip_key={})'.format(self.chip_id, self.chip_key)
+        return 'Chip(chip_key={})'.format(str(self.chip_key))
+
+    @property
+    def chip_id(self):
+        return self.chip_key.chip_id
+
+    @chip_id.setter
+    def chip_id(self, val):
+        self.chip_key.chip_id = val
 
     def get_configuration_packets(self, packet_type, registers=None):
         '''
@@ -928,15 +1107,15 @@ class Controller(object):
             FutureWarning)
         self._use_all_chips = value
 
-    def _init_chips(self, nchips = 256, iochain = 0):
+    def _init_chips(self, nchips = 256, iochain = 1):
         '''
         Return all possible chips.
 
         '''
         return_dict = {}
         for i in range(nchips):
-            key = '{}-{}'.format(iochain, i)
-            return_dict[key] = Chip(i, chip_key=key)
+            key = '1-{}-{}'.format(iochain, i)
+            return_dict[key] = Chip(chip_key=key)
         return return_dict
 
     def get_chip(self, chip_key):
@@ -956,74 +1135,54 @@ class Controller(object):
         # raise ValueError('Could not find chip (%d, %d) (using all_chips'
         #         '? %s)' % (chip_id, io_chain, self.use_all_chips))
 
-    def add_chip(self, chip_key, chip_id=0, safe=True):
+    def add_chip(self, chip_key):
         '''
-        Add a specified chip to the Controller chips
+        Add a specified chip to the Controller chips.
 
         param: chip_key: chip key to specify unique chip
-        param: chip_id: chip id to associate with chip
-        param: safe: check if chip key is valid using current io
+
+        :returns: ``Chip`` that was added
 
         '''
-        valid_chip_key = True
-        if safe:
-            if self.io:
-                valid_chip_key = self.io.is_valid_chip_key(chip_key)
-            else:
-                raise RuntimeError('No io object to validate chip key, run with safe=False to override')
-        if valid_chip_key:
-            self.chips[chip_key] = Chip(chip_id=chip_id, chip_key=chip_key)
-            return self.chips[chip_key]
-        warnings.warn('Invalid chip key, chip was not added! run with safe=False to override')
-        return None
+        if chip_key in self.chips:
+            raise KeyError('chip with key {} already exists!'.format(chip_key))
+        self.chips[Key(chip_key)] = Chip(chip_key=chip_key)
+        return self.chips[chip_key]
 
-    def load(self, filename, safe=True):
+    def load(self, filename):
         '''
         Loads the specified file that describes the chip ids and IO network
 
         :param filename: File path to configuration file
-        :param safe: Flag to check chip keys against current io
-        '''
-        return self.load_controller(filename, safe=safe)
 
-    def load_controller(self, filename, safe=True):
+        '''
+        return self.load_controller(filename)
+
+    def load_controller(self, filename):
         '''
         Loads the specified file using the basic key, chip format
         The key, chip file format is:
         ``
         {
             "name": "<system name>",
-            "chip_list": [[<chip key>, <chip id>],...]
+            "chip_list": [<chip keystring>,...]
         }
         ``
         The chip key is the Controller access key that gets communicated to/from
         the io object when sending and receiving packets.
 
         :param filename: File path to configuration file
-        :param safe: Flag to check chip keys against current io
 
         '''
         system_info = configs.load(filename)
         chips = {}
-        for chip_info in system_info['chip_list']:
-            chip_id = chip_info[1]
-            chip_key = chip_info[0]
-            valid_key = True
-            if safe:
-                if self.io:
-                    valid_chip_key = self.io.is_valid_chip_key(chip_key)
-                else:
-                    raise RuntimeError('No io object to validate chip key, run with'
-                        ' safe=False to override')
-            if valid_key:
-                chips[chip_key] = Chip(chip_id, chip_key=chip_key)
-            else:
-                raise RuntimeError('Chip key {} is invalid for io {}, run with '
-                    'safe=False to override'.format(chip_key, self.io))
+        for chip_keystring in system_info['chip_list']:
+            chip_key = Key(str(chip_keystring))
+            chips[chip_key] = Chip(chip_key=chip_key)
         self.chips = chips
         return system_info['name']
 
-    def load_daisy_chain(self, filename, safe=True):
+    def load_daisy_chain(self, filename, io_group=1):
         '''
         Loads the specified file in a basic daisy chain format
         Daisy chain file format is:
@@ -1037,27 +1196,16 @@ class Controller(object):
         returns board name of the loaded chipset configuration
 
         :param filename: File path to configuration file
-        :param safe: Flag to check chip keys against current io
+        :param io_group: IO group to use for chip keys
+
         '''
         board_info = configs.load(filename)
         chips = {}
         for chip_info in board_info['chip_list']:
             chip_id = chip_info[0]
             io_chain = chip_info[1]
-            key = '{}-{}'.format(io_chain, chip_id)
-            valid_chip_key = True
-            if safe:
-                if self.io:
-                    valid_chip_key = self.io.is_valid_chip_key(chip_key)
-                else:
-                    raise RuntimeError('No io object to validate chip key, run '
-                        'with safe=False to override')
-            if valid_chip_key:
-                chips[key] = Chip(chip_id, chip_key=key)
-            else:
-                raise RuntimeError('Chip key {} is invalid for io {}, run with '
-                    'safe=False to override'.format(chip_key, self.io))
-
+            key = Key.from_dict(io_group=1, io_channel=io_chain, chip_id=chip_id)
+            chips[key] = Chip(chip_key=key)
         self.chips = chips
         return board_info['name']
 
@@ -1806,10 +1954,10 @@ class Packet(object):
 
     def __str__(self):
         string = '[ '
+        string += 'Chip key: {} | '.format(self.chip_key)
         if hasattr(self, 'direction'):
             string += {Logger.WRITE: 'Out', Logger.READ: 'In'}[self.direction]
             string += ' | '
-        string += 'Chip key: {} | '.format(self.chip_key)
         ptype = self.packet_type
         if ptype == Packet.TEST_PACKET:
             string += 'Test | '
@@ -1928,7 +2076,8 @@ class Packet(object):
 
     @chip_key.setter
     def chip_key(self, value):
-        self._chip_key = value
+        self._chip_key = Key(value)
+        self.chipid = self._chip_key.chip_id
 
     @property
     def packet_type(self):
@@ -1945,6 +2094,8 @@ class Packet(object):
 
     @chipid.setter
     def chipid(self, value):
+        if not self.chip_key is None:
+            self.chip_key.chip_id = value
         self.bits[Packet.chipid_bits] = bah.fromuint(value,
                 Packet.chipid_bits)
 
@@ -2258,7 +2409,8 @@ class PacketCollection(object):
         Return packets with the specified chip key.
 
         '''
-        return [packet for packet in self.packets if packet.chip_key == chip_key]
+        return [packet for packet in self.packets \
+            if packet.chip_key == chip_key]
 
     def by_chip_key(self):
         '''
@@ -2269,7 +2421,8 @@ class PacketCollection(object):
         for packet in self.packets:
             # append packet to list if list exists, else append to empty
             # list as a default
-            chip_groups.setdefault(packet.chip_key, []).append(packet)
+            key = packet.chip_key
+            chip_groups.setdefault(key, []).append(packet)
         to_return = {}
         for chip_key in chip_groups:
             new_collection = PacketCollection(chip_groups[chip_key])
