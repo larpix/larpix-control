@@ -1764,6 +1764,20 @@ class TimestampPacket(object):
                 'bits': self.bits.to01(),
                 }
 
+    def from_dict(self, d):
+        ''' Inverse of export - modify packet based on dict '''
+        if 'type' in d and d['type'] != self.packet_type:
+            raise ValueError('invalid packet type for TimestampPacket')
+        for key, value in d.items():
+            if key == 'type':
+                self.packet_type = value
+            elif key == 'type_str':
+                continue
+            elif key == 'bits':
+                self.bits = bitarray(value)
+            else:
+                setattr(self, key, value)
+
     @property
     def bits(self):
         return bah.fromuint(self.timestamp, self.size)
@@ -1814,6 +1828,20 @@ class MessagePacket(object):
                 'bits': self.bits.to01(),
                 }
 
+    def from_dict(self, d):
+        ''' Inverse of export - modify packet based on dict '''
+        if 'type' in d and d['type'] != self.packet_type:
+            raise ValueError('invalid packet type for MessagePacket')
+        for key, value in d.items():
+            if key == 'type':
+                self.packet_type = value
+            elif key == 'type_str':
+                continue
+            elif key == 'bits':
+                self.bits = bitarray(value)
+            else:
+                setattr(self, key, value)
+
     @property
     def bits(self):
         b = bitarray()
@@ -1822,7 +1850,7 @@ class MessagePacket(object):
 
     @bits.setter
     def bits(self, value):
-        value_bytes = value.bytes()
+        value_bytes = value.tobytes()
         message_bytes = value_bytes[:64]
         timestamp_bytes = value_bytes[64:]
         self.message = message_bytes[:message_bytes.find(b'\x00')].decode()
@@ -2008,6 +2036,37 @@ class Packet(object):
             d['value'] = self.register_data
         return d
 
+    def from_dict(self, d):
+        ''' Inverse of export - modify packet based on dict '''
+        if 'type' in d and d['type'] not in [bah.touint(packet_type) for packet_type in \
+            (Packet.DATA_PACKET, Packet.TEST_PACKET, Packet.CONFIG_WRITE_PACKET, Packet.CONFIG_READ_PACKET)]:
+            raise ValueError('invalid packet type for Packet')
+        for key, value in d.items():
+            if key in ('type_str', 'valid_parity'):
+                continue
+            elif key == 'bits':
+                self.bits = bitarray(value)
+            elif key == 'type':
+                self.packet_type = value
+            elif key == 'register':
+                self.register_address = value
+            elif key == 'value':
+                self.register_data = value
+            elif key == 'adc_counts':
+                self.dataword = value
+            elif key == 'parity':
+                self.parity_bit_value = value
+            elif key == 'counter':
+                self.test_counter = value
+            elif key == 'channel':
+                self.channel_id = value
+            elif key == 'fifo_half':
+                self.fifo_half_flag = value
+            elif key == 'fifo_full':
+                self.fifo_full_flag = value
+            else:
+                setattr(self, key, value)
+
     @property
     def chip_key(self):
         try:
@@ -2017,6 +2076,11 @@ class Packet(object):
 
     @chip_key.setter
     def chip_key(self, value):
+        if value is None:
+            if self.chip_key is None:
+                return
+            delattr(self, '_chip_key')
+            return
         self._chip_key = Key(value)
         self.chipid = self._chip_key.chip_id
 

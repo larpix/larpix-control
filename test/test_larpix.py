@@ -4,9 +4,8 @@ Use the pytest framework to write tests for the larpix module.
 '''
 from __future__ import print_function
 import pytest
-from larpix.larpix import (Chip, Packet, Configuration, Controller,
-        PacketCollection, _Smart_List, Key, TimestampPacket)
-
+from larpix.larpix import (Chip, Packet, Key, Configuration, Controller,
+        PacketCollection, _Smart_List, TimestampPacket, MessagePacket)
 from larpix.io.fakeio import FakeIO
 from larpix.timestamp import *  # use long = int in py3
 #from bitstring import BitArray
@@ -14,6 +13,14 @@ from bitarray import bitarray
 import larpix.bitarrayhelper as bah
 import json
 import os
+
+@pytest.fixture
+def timestamp_packet():
+    return TimestampPacket(123456789)
+
+@pytest.fixture
+def message_packet():
+    return MessagePacket('test',123456789)
 
 def list_of_packets_str(packets):
     return '\n'.join(map(str, packets)) + '\n'
@@ -285,6 +292,40 @@ def test_packet_export_config_write():
             'valid_parity': True,
             }
     assert result == expected
+
+def test_packet_from_dict():
+    p = Packet()
+    p1 = Packet()
+    p.packet_type = Packet.CONFIG_WRITE_PACKET
+    p.chipid = 10
+    p.register_address = 51
+    p.register_data = 2
+    p.assign_parity()
+    packet_dict = {
+            'bits': p.bits.to01(),
+            'type_str': 'config write',
+            'type': 2,
+            'chipid': 10,
+            'chip_key': None,
+            'register': 51,
+            'value': 2,
+            'parity': p.parity_bit_value,
+            'valid_parity': True,
+            }
+    p1.from_dict(packet_dict)
+    assert p == p1
+
+def test_packet_from_dict_export_inv():
+    p = Packet()
+    p1 = Packet()
+    p.packet_type = Packet.CONFIG_WRITE_PACKET
+    p.chipid = 10
+    p.register_address = 51
+    p.register_data = 2
+    p.assign_parity()
+    packet_dict = p.export()
+    p1.from_dict(packet_dict)
+    assert p == p1
 
 def test_packet_set_packet_type():
     p = Packet()
@@ -1752,13 +1793,13 @@ def test_packetcollection_getitem_int():
     result = collection[0]
     assert result == expected
 
-def test_packetcollection_getitem_int_bits():
+def test_packetcollection_getitem_int_bits(timestamp_packet):
     packet = Packet()
     collection = PacketCollection([packet])
     result = collection[0, 'bits']
     expected = ' '.join(packet.bits.to01()[i:i+8] for i in range(0, Packet.size, 8))
     assert result == expected
-    packet2 = TimestampPacket(123)
+    packet2 = timestamp_packet
     collection2 = PacketCollection([packet2])
     result2 = collection2[0, 'bits']
     expected2 = ' '.join(packet2.bits.to01()[i:i+8] for i in range(0,
@@ -1956,6 +1997,58 @@ def test_Smart_List_config_error():
         c.from_dict_registers(register_dict)
         pytest.fail('Should fail: out of bounds')
 
+def test_ts_packet_to_dict(timestamp_packet):
+    packet_dict = {
+            'bits': timestamp_packet.bits.to01(),
+            'type_str': 'timestamp',
+            'type': timestamp_packet.packet_type,
+            'timestamp': timestamp_packet.timestamp,
+            }
+    assert timestamp_packet.export() == packet_dict
+
+def test_ts_packet_from_dict(timestamp_packet):
+    p1 = TimestampPacket()
+    packet_dict = {
+            'bits': timestamp_packet.bits.to01(),
+            'type_str': 'timestamp',
+            'type': timestamp_packet.packet_type,
+            'timestamp': timestamp_packet.timestamp,
+            }
+    p1.from_dict(packet_dict)
+    assert timestamp_packet == p1
+
+def test_ts_packet_from_dict_export_inv(timestamp_packet):
+    p1 = TimestampPacket()
+    p1.from_dict(timestamp_packet.export())
+    assert timestamp_packet == p1
+
+def test_message_packet_to_dict(message_packet):
+    packet_dict = {
+            'bits': message_packet.bits.to01(),
+            'type_str': 'message',
+            'message': message_packet.message,
+            'type': message_packet.packet_type,
+            'timestamp': message_packet.timestamp,
+            }
+    assert message_packet.export() == packet_dict
+
+def test_message_packet_from_dict(message_packet):
+    p1 = MessagePacket(None,None)
+    packet_dict = {
+            'bits': message_packet.bits.to01(),
+            'type_str': 'message',
+            'message': message_packet.message,
+            'type': message_packet.packet_type,
+            'timestamp': message_packet.timestamp,
+            }
+    p1.from_dict(packet_dict)
+    assert message_packet == p1
+
+def test_message_packet_from_dict_export_inv(message_packet):
+    p1 = MessagePacket(None,None)
+    p1.from_dict(message_packet.export())
+    assert message_packet == p1
+
 def test_key():
     with pytest.raises(ValueError):
         k = Key('0.0.0')
@@ -1989,5 +2082,3 @@ def test_key():
     d = {}
     d[k] = 'test'
     assert d[k] == 'test'
-
-
