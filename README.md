@@ -452,18 +452,24 @@ controller.logger.close()
 
 ### Viewing data from the HDF5Logger
 
-Currently, there is no built-in support for generating `larpix-control` objects
-directly from the HDF5 file (someday), but the storage format is simple enough
-that you should be able to get meaningful information without it. To open the
-HDF5 file from python
+The ``HDF5Logger`` uses a format called LArPix+HDF5v1.0 that is specified in
+the ``larpix.format.hdf5format`` module (and
+[documentation](https://larpix-control.readthedocs.io/en/stable/)
+starting in v2.3.0). That module contains a ``to_file`` method which is
+used internally by ``HDF5Logger`` and a ``from_file`` method that you
+can use to load the file contents back into LArPix Control. The
+LArPix+HDF5 format is a "plain HDF5" format that can be inspected with
+``h5py`` or any language's HDF5 binding.
+
+To open the HDF5 file from python
 
 ```python
 import h5py
 datafile = h5py.File('<filename>')
 ```
 
-Within the datafile there is one group (`'_header'`) and one dataset
-(`'raw_packet'`). The header group contains some useful meta information about
+Within the datafile there is one group (`'_header'`) and two datasets
+(``'packets'`` and ``'messages'``). The header group contains some useful meta information about
 when the datafile was created and the file format version number, stored as
 attributes.
 
@@ -475,26 +481,40 @@ list(datafile['_header'].attrs) # ['created', 'modified', version']
 The packets are stored sequentially as a `numpy` mixed-type arrays within the
 rows of the HDF5 dataset. The columns refer to the element of the numpy mixed
 type array. The specifics of the data type and entries are set by the
-`HDF5Logger.data_desc` dict - see the larpix-control docs for more information.
-You can read-in packets simply by accessing their respective position within the
+``larpix.format.hdf5format.dtype`` object - see the larpix-control docs for more information.
+You can inspect a packet as a tuple simply by accessing its respective position within the
 HDF5 dataset.
 
 ```python
-raw_value = datafile['raw_packet'][0] # e.g. (1.56030174e+09, b'0-246', 3, 246, 1, 1, -1, -1, -1, -1, -1, -1, 0, 0)
-raw_values = datafile['raw_packet'][-100:] # last 100 packets in file
+raw_value = datafile['packets'][0] # e.g. (b'0-246', 3, 246, 1, 1, -1, -1, -1, -1, -1, -1, 0, 0)
+raw_values = datafile['packets'][-100:] # last 100 packets in file
 ```
 
 If you want to make use of `numpy`'s mixed type arrays, you can convert the
-raw values to the proper encoding via
+raw values to the proper encoding by retrieving it as a list (of length
+1, for example) via
 
 ```python
-packet_repr = raw_values[0:1]
+packet_repr = raw_values[0:1] # list with one element
 packet_repr['chip_key'] # chip key for packet, e.g. b'1-1-246'
 packet_repr['adc_counts'] # list of ADC values for each packet
 packet_repr.dtype # description of data type (with names of each column)
 ```
 
-Don't forget to close the file when you are done.
+You can also view entire "columns" of data:
+
+```python
+# all packets' ADC counts, including non-data packets
+raw_values['adc_counts']
+# Select based on data type using a numpy bool / "mask" array:
+raw_values['adc_counts'][raw_values['type'] == 0] # all data packets' ADC counts
+```
+
+``h5py`` and ``numpy`` optimize the retrieval of data so you can read
+certain columns or rows without loading the entire data file into memory.
+
+Don't forget to close the file when you are done. (Not necessary in
+interactive python sessions if you are about to quit.)
 
 ```python
 datafile.close()
