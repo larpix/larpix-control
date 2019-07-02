@@ -2014,7 +2014,7 @@ class Packet(object):
                 self.CONFIG_READ_PACKET.to01(): 'config read'
                 }
         d = {}
-        d['chip_key'] = self.chip_key
+        d['chip_key'] = str(self.chip_key) if self.chip_key else None
         d['bits'] = self.bits.to01()
         d['type_str'] = type_map[self.packet_type.to01()]
         d['type'] = bah.touint(self.packet_type)
