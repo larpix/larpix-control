@@ -67,6 +67,7 @@ class HDF5Logger(Logger):
     def record(self, data, direction=Logger.WRITE):
         '''
         Send the specified data to log file
+
         .. note:: buffer is flushed after all ``data`` is placed in buffer, this
             means that the buffer size will exceed the set value temporarily
 
