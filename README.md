@@ -474,7 +474,7 @@ when the datafile was created and the file format version number, stored as
 attributes.
 
 ```python
-list(datafile.keys()) # ['_header', 'raw_packet']
+list(datafile.keys()) # ['_header', 'messages', 'packets']
 list(datafile['_header'].attrs) # ['created', 'modified', version']
 ```
 
