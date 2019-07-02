@@ -12,7 +12,7 @@ import struct
 from larpix.larpix import Packet, TimestampPacket
 
 def dataserver_message_encode(packets, key_parser=None, version=(1,0)):
-    '''
+    r'''
     Convert a list of packets to larpix dataserver messages. DAQ board messages are formatted using 8-byte words with the first word being a header word describing the interpretation of other words in the message. These messages are formatted as follows
 
         All messages:
@@ -48,7 +48,7 @@ def dataserver_message_encode(packets, key_parser=None, version=(1,0)):
         packet = Packet()
         packet.chip_key = Key('1-1-1')
         msgs = datserver_message_encode([packet], key_parser=ex_key_parser)
-        msgs[0] # b'\\x01\\x00D\\x01\\x00\\x00\\x00\\x00\\x04\\x00\\x00\\x00\\x00\\x00\\x00\\x00'
+        msgs[0] # b'\x01\x00D\x01\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00'
         msgs[0][:8] # header
         msgs[0][8:] # data words
 
@@ -84,7 +84,7 @@ def dataserver_message_encode(packets, key_parser=None, version=(1,0)):
     return msgs
 
 def dataserver_message_decode(msgs, key_generator=None, version=(1,0), **kwargs):
-    '''
+    r'''
     Convert a list of larpix data server messages into packets. A key generator
     should be provided if packets are to be used with an ``larpix.io.IO``
     object. The data server messages provide a ``chip_id`` and ``io_chain`` for
@@ -98,9 +98,9 @@ def dataserver_message_decode(msgs, key_generator=None, version=(1,0), **kwargs)
                 io_group=io_group
             ))
 
-        msg = b'\\x01\\x00D\\x01\\x00\\x00\\x00\\x00\\x04\\x00\\x00\\x00\\x00\\x00\\x00'
+        msg = b'\x01\x00D\x01\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00'
         packets = dataserver_message_decode([msg], key_generator=ex_key_gen, io_group=1)
-        packets[0] # Packet(b'\\x04\\x00\\x00\\x00\\x00\\x00\\x00'), key of '1-1-1'
+        packets[0] # Packet(b'\x04\x00\x00\x00\x00\x00\x00'), key of '1-1-1'
 
     :param msgs: list of bytestream messages each starting with a single 8-byte header word, followed by N 8-byte data words
 
