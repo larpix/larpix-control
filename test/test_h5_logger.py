@@ -17,7 +17,7 @@ def test_enable(tmpdir):
     logger.enable()
     assert logger.is_enabled()
     logger.record([Packet()])
-    assert len(logger._buffer['raw_packet']) == 1
+    assert len(logger._buffer['packets']) == 1
 
 def test_disable(tmpdir):
     logger = HDF5Logger(directory=str(tmpdir))
@@ -26,7 +26,7 @@ def test_disable(tmpdir):
     logger.disable()
     assert not logger.is_enabled()
     logger.record([Packet()])
-    assert len(logger._buffer['raw_packet']) == 0
+    assert len(logger._buffer['packets']) == 0
 
 def test_open(tmpdir):
     logger = HDF5Logger(directory=str(tmpdir))
@@ -40,13 +40,13 @@ def test_flush(tmpdir):
     logger.open()
 
     logger.record([Packet()])
-    assert len(logger._buffer['raw_packet']) == 1
+    assert len(logger._buffer['packets']) == 1
     logger.flush()
-    assert len(logger._buffer['raw_packet']) == 0
+    assert len(logger._buffer['packets']) == 0
     logger.record([Packet()]*5)
-    assert len(logger._buffer['raw_packet']) == 5
+    assert len(logger._buffer['packets']) == 5
     logger.record([Packet()])
-    assert len(logger._buffer['raw_packet']) == 0
+    assert len(logger._buffer['packets']) == 0
 
 def test_close(tmpdir):
     logger = HDF5Logger(directory=str(tmpdir))
@@ -61,9 +61,9 @@ def test_record(tmpdir):
     logger.open()
 
     logger.record([Packet()])
-    assert len(logger._buffer['raw_packet']) == 1
+    assert len(logger._buffer['packets']) == 1
     logger.record([TimestampPacket(timestamp=123)])
-    assert len(logger._buffer['raw_packet']) == 2
+    assert len(logger._buffer['packets']) == 2
 
 @pytest.mark.filterwarnings("ignore:no IO object")
 def test_controller_write_capture(tmpdir, chip):
@@ -73,7 +73,7 @@ def test_controller_write_capture(tmpdir, chip):
     controller.chips[chip.chip_key] = chip
     controller.write_configuration(chip.chip_key, 0)
     packet = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[0]
-    assert len(controller.logger._buffer) == 1
+    assert len(controller.logger._buffer['packets']) == 1
 
 def test_controller_read_capture(tmpdir):
     controller = Controller()
@@ -82,4 +82,4 @@ def test_controller_read_capture(tmpdir):
     controller.logger = HDF5Logger(directory=str(tmpdir), buffer_length=1)
     controller.logger.open()
     controller.run(0.1,'test')
-    assert len(controller.logger._buffer) == 1
+    assert len(controller.logger._buffer['packets']) == 1

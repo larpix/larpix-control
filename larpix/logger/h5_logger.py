@@ -6,28 +6,21 @@ import h5py
 
 from larpix.logger import Logger
 from larpix.larpix import Packet, TimestampPacket
-from larpix.format.hdf5format import to_file, dtypes
+from larpix.format.hdf5format import to_file, latest_version
 
 class HDF5Logger(Logger):
     '''
-    The HDF5Logger is logger class for logging packets to an hdf5 file format.
+    The HDF5Logger is a logger class for logging packets to the LArPix+HDF5 format.
 
-    The HDF5 file is be formatted as follows:
+    The file format is implemented in ``larpix.format.hdf5format``,
+    which also contains a function to convert back from LArPix+HDF5 to
+    LArPix packets.
 
-    *Groups:* ``_header``
-
-        ``_header`` group: contains additional file information within its ``attrs``.
-        The available fields are indicated in ``HDF5Logger.header_keys``. The header
-        is initialized upon opening the logger.
-
-    *Datasets:* specified by ``HDF5Logger.dataset_list`` and ``HDF5Logger.data_desc_map``
-
-        ``HDF5Logger.dataset_list``: Lists the datasets that are
-        produced.
-
-        ``HDF5Logger.data_desc_map``: This maps specifies the mapping between
-        larpix core datatypes and the dataset within the HDF5 file. E.g.,
-        ``larpix.Packet`` objects are stored in ``'raw_packet'``.
+    :var data_desc_map: specifies the mapping between
+        objects sent to the logger and the specific logger buffer to store them
+        in. As of LArPix+HDF5 version 1.0 and larpix-control version
+        2.3.0 there is only one buffer called ``'packets'`` which stores
+        all of the data to send to LArPix+HDF5.
 
     :param filename: filename to store data (appended to ``directory``)
         (optional, default: ``None``)
@@ -35,24 +28,24 @@ class HDF5Logger(Logger):
         buffer to the file (optional, default: ``10000``)
     :param directory: the directory to save the data in (optional,
         default: '')
+    :param version: the format version of LArPix+HDF5 to use (optional,
+        default: ``larpix.format.hdf5format.latest_version``)
 
     '''
-    VERSION = '0.0'
     data_desc_map = {
-        Packet: 'raw_packet',
-        TimestampPacket: 'raw_packet',
+        Packet: 'packets',
+        TimestampPacket: 'packets',
     }
-    dataset_list = list(dtypes[VERSION].keys())
 
     def __init__(self, filename=None, buffer_length=10000,
-            directory=''):
+            directory='', version=latest_version):
+        self.version = version
         self.filename = filename
         self.directory = directory
         self.datafile = None
         self.buffer_length = buffer_length
 
-        self._buffer = dict([(dataset, []) for dataset in
-            self.dataset_list])
+        self._buffer = {'packets': []}
         self._is_enabled = False
         self._is_open = False
 
@@ -74,6 +67,7 @@ class HDF5Logger(Logger):
     def record(self, data, direction=Logger.WRITE):
         '''
         Send the specified data to log file
+
         .. note:: buffer is flushed after all ``data`` is placed in buffer, this
             means that the buffer size will exceed the set value temporarily
 
@@ -145,7 +139,7 @@ class HDF5Logger(Logger):
         if not self.filename:
             self.filename = self._default_filename()
         self.filename = os.path.join(self.directory, self.filename)
-        to_file(self.filename, [], version=self.VERSION)
+        to_file(self.filename, [], version=self.version)
         self._is_open = True
         self._is_enabled = enable
 
@@ -167,6 +161,6 @@ class HDF5Logger(Logger):
         '''
         if not self.is_open():
             return
-        to_file(self.filename, self._buffer['raw_packet'],
-                version=self.VERSION)
-        self._buffer['raw_packet'] = []
+        to_file(self.filename, self._buffer['packets'],
+                version=self.version)
+        self._buffer['packets'] = []

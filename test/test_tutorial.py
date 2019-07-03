@@ -151,12 +151,14 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
     datafile = h5py.File(tmpdir.join(temp_logfilename))
 
 
-    assert list(datafile.keys()) == ['_header', 'raw_packet']
+    assert '_header' in datafile.keys()
+    assert 'packets' in datafile.keys()
+    assert 'messages' in datafile.keys()
     assert list(datafile['_header'].attrs) == ['created', 'modified', 'version']
 
 
-    raw_value = datafile['raw_packet'][0] # e.g. (1.56030174e+09, b'0-246', 3, 246, 1, 1, -1, -1, -1, -1, -1, -1, 0, 0)
-    raw_values = datafile['raw_packet'][-100:] # last 100 packets in file
+    raw_value = datafile['packets'][0] # e.g. (b'0-246', 3, 246, 1, 1, -1, -1, -1, -1, -1, -1, 0, 0)
+    raw_values = datafile['packets'][-100:] # last 100 packets in file
 
 
     packet_repr = raw_values[0:1]
