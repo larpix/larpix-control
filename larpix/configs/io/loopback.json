@@ -1,0 +1,7 @@
+{
+    "_config_type": "io",
+    "io_class": "ZMQ_IO",
+    "io_group": [
+        [1, "localhost"]
+    ]
+}
