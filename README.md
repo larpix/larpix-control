@@ -557,6 +557,11 @@ This should give you a quiet state with no data packets. Occasionally, there can
 be a few packets left in one of the system buffers (LArPix, FPGA, DAQ server). A
 second run command should return without any new packets.
 
+If you are using the v1.5 anode, you may need to reconfigure the miso/mosi mapping (since the miso/mosi pair for a daisy chain is not necessarily on a single channel). To do this, pass a `miso_map` or `mosi_map` to the `ZMQ_IO` object on initialization:
+```python
+>>> controller.io = ZMQ_IO(config_filepath='<path to config>', miso_map={2:1}) # relabels packets received on channel 2 as packets from channel 1
+```
+
 ### Check configurations
 If you are still receiving data, you can check that the hardware chip configuration
 match the software chip configurations with
