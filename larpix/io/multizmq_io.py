@@ -26,9 +26,18 @@ class MultiZMQ_IO(IO):
     '''
     _valid_config_classes = ['MultiZMQ_IO']
 
-    def __init__(self, config_filepath=None):
+    def __init__(self, config_filepath=None, miso_map=None, mosi_map=None):
         super(MultiZMQ_IO, self).__init__()
         self.load(config_filepath)
+
+        if miso_map is None:
+            self._miso_map = {}
+        else:
+            self._miso_map = miso_map
+        if mosi_map is None:
+            self._mosi_map = {}
+        else:
+            self._mosi_map = mosi_map
 
         self.context = zmq.Context()
         self.senders = bidict.bidict()
@@ -88,7 +97,10 @@ class MultiZMQ_IO(IO):
         '''
         return_dict = {}
         return_dict['chip_id'] = key.chip_id
-        return_dict['io_chain'] = key.io_channel
+        io_chain = key.io_channel
+        if io_chain in self._mosi_map.keys():
+            io_chain = self._mosi_map[io_chain]
+        return_dict['io_chain'] = io_chain
         if key.io_group not in self._io_group_table:
             raise KeyError('unspecified io group {}'.format(key.io_group))
         return_dict['address'] = self._io_group_table[key.io_group]
@@ -117,9 +129,12 @@ class MultiZMQ_IO(IO):
             raise ValueError('address must be str')
         if kwargs['address'] not in self._io_group_table.inv:
             raise KeyError('no known io group for {}'.format(kwargs['address']))
+        io_channel = kwargs['io_chain']
+        if io_channel in self._miso_map:
+            io_channel = self._miso_map[io_channel]
         return Key.from_dict(dict(
                 io_group = self._io_group_table.inv[kwargs['address']],
-                io_channel = kwargs['io_chain'],
+                io_channel = io_channel,
                 chip_id = kwargs['chip_id']
             ))
 
@@ -135,10 +150,12 @@ class MultiZMQ_IO(IO):
         Encode a list of packets into ZMQ messages
         '''
         msg_data = []
-        if sys.version_info[0] < 3:
-            msg_data = [b'0x00%s %d' % (packet.bytes()[::-1].encode('hex'), self.parse_chip_key(packet.chip_key)['io_chain']) for packet in packets]
-        else:
-            msg_data = [b'0x00%s %d' % (packet.bytes()[::-1].hex().encode(), self.parse_chip_key(packet.chip_key)['io_chain'])for packet in packets]
+        for packet in packets:
+            io_chain = self.parse_chip_key(packet.chip_key)['io_chain']
+            if sys.version_info[0] < 3:
+                msg_data += [b'0x00%s %d' % (packet.bytes()[::-1].encode('hex'), io_chain)]
+            else:
+                msg_data += [b'0x00%s %d' % (packet.bytes()[::-1].hex().encode(), io_chain)]
         return msg_data
 
     def empty_queue(self):
