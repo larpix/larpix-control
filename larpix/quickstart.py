@@ -22,8 +22,8 @@ def silence_chips(controller, interactive):
         chip = controller.get_chip(chip_key)
         if interactive:
             print('Silencing chip %d' % chip.chip_id)
-        chip.config.global_threshold = 255
-        controller.write_configuration(chip_key,32)
+        chip.config.load('chip/quiet.json')
+        controller.write_configuration(chip_key)
         if interactive:
             input('Just silenced chip %d. <enter> when ready.\n' % chip.chip_id)
     return
@@ -36,14 +36,8 @@ def set_config_physics(controller, interactive):
             x = input('Configuring chip %d. <enter> to continue, q to quit' % chip.chip_id)
             if x == 'q':
                 break
-        chip.config.internal_bypass = 1
-        controller.write_configuration(chip_key,33)
-        chip.config.periodic_reset = 1
-        controller.write_configuration(chip_key,47)
-        chip.config.global_threshold = 60
-        controller.write_configuration(chip_key,32)
-        chip.config.reset_cycles = 4096
-        controller.write_configuration(chip_key,range(60,63))
+        chip.config.load('chip/physics.json')
+        controller.write_configuration(chip_key)
         print('configured {}'.format(str(chip)))
     return
 
