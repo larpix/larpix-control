@@ -12,6 +12,7 @@ import math
 import warnings
 import struct
 import sys
+from collections import OrderedDict
 
 from bitarray import bitarray
 
@@ -1089,7 +1090,7 @@ class Controller(object):
 
     '''
     def __init__(self):
-        self.chips = {}
+        self.chips = OrderedDict()
         self.all_chips = self._init_chips()
         self._use_all_chips = False
         self.reads = []
