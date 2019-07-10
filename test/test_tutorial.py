@@ -11,7 +11,7 @@ def test_min_example(capsys):
     controller = Controller()
     controller.io = FakeIO()
     controller.logger = StdoutLogger(buffer_length=0)
-    controller.logger.open()
+    controller.logger.enable()
     chip1 = controller.add_chip('1-1-1')  # (access key)
     chip1.config.global_threshold = 25
     controller.write_configuration('1-1-1', 25) # chip key, register 25
@@ -32,7 +32,7 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
     controller = Controller()
     controller.io = FakeIO()
     controller.logger = StdoutLogger(buffer_length=0)
-    controller.logger.open()
+    controller.logger.enable()
 
 
     chip_key = '1-1-5'
@@ -131,8 +131,10 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
 
     from larpix.logger.h5_logger import HDF5Logger
     controller.logger = HDF5Logger(filename=temp_logfilename, directory=str(tmpdir), buffer_length=10000) # a filename of None uses the default filename formatting
-    controller.logger.open() # opens hdf5 file and starts tracking all communications
+    controller.logger.enable() # opens hdf5 file and starts tracking all communications
 
+    controller.logger = HDF5Logger(filename=temp_logfilename,
+            directory=str(tmpdir), enabled=True)
 
     controller.verify_configuration()
     controller.logger.flush()
@@ -144,7 +146,7 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
     controller.logger.is_enabled() # returns True if tracking
 
 
-    controller.logger.close()
+    controller.logger.disable()
 
 
     import h5py

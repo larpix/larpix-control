@@ -78,7 +78,7 @@ example for you to play around with:
 >>> controller = Controller()
 >>> controller.io = FakeIO()
 >>> controller.logger = StdoutLogger(buffer_length=0)
->>> controller.logger.open()
+>>> controller.logger.enable()
 >>> chip1 = controller.add_chip('1-1-1')  # (access key)
 >>> chip1.config.global_threshold = 25
 >>> controller.write_configuration('1-1-1', 25) # chip key, register 25
@@ -129,7 +129,7 @@ from larpix.logger.stdout_logger import StdoutLogger
 controller = Controller()
 controller.io = FakeIO()
 controller.logger = StdoutLogger(buffer_length=0)
-controller.logger.open()
+controller.logger.enable()
 ```
 
 The ``FakeIO`` object imitates a real IO interface for testing purposes.
@@ -141,9 +141,9 @@ the code.
 
 Similarly, the ``StdoutLogger`` mimics the real logger interface for testing. It
 prints nicely formatted records of read / write commands to stdout every
-``buffer_length`` packets. The logger interface requires opening or enabling the
+``buffer_length`` packets. The logger interface requires enabling the
 logger before messages will be stored. Before ending the python session, every
-logger should be closed to flush any remaining packets stored in the buffer.
+logger should be disabled to flush any remaining packets stored in the buffer.
 
 ### Set up LArPix Chips
 
@@ -418,7 +418,14 @@ To create a permanent record of communications with the LArPix ASICs, an
 ```python
 from larpix.logger.h5_logger import HDF5Logger
 controller.logger = HDF5Logger(filename=None, buffer_length=10000) # a filename of None uses the default filename formatting
-controller.logger.open() # opens hdf5 file and starts tracking all communications
+controller.logger.enable() # starts tracking all communications
+```
+
+You can also initialize and enable the logger in one call by passing the
+``enabled`` keyword argument (which defaults to ``False``):
+
+```
+controller.logger = HDF5Logger(filename=None, enabled=True)
 ```
 
 Now whenever you send or receive packets, they will be captured by the logger
@@ -441,13 +448,13 @@ controller.logger.enable() # start tracking again
 controller.logger.is_enabled() # returns True if tracking
 ```
 
-Once you have finished your tests, be sure to close the logger. If you do not,
-the file may become corrupted and you may lose data. We strongly recommend
+Once you have finished your tests, be sure to disable the logger. If you do not,
+you will lose any data still in the buffer of the logger object. We strongly recommend
 wrapping logger code with a `try, except` statement if you can. Any remaining
-packets in the buffer are flushed to the file upon closing.
+packets in the buffer are flushed to the file upon disabling.
 
 ```python
-controller.logger.close()
+controller.logger.disable()
 ```
 
 ### Viewing data from the HDF5Logger
