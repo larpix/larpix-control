@@ -66,7 +66,7 @@ class Logger(object):
         Returns the value of the internal state "open/closed" (``True``
         if open).
 
-        .. deprecated:: 3.0.0
+        .. deprecated:: 2.4.0
            ``open``, ``close``, and ``is_open`` are deprecated and will
            be removed in the next major release of larpix-control.
 
@@ -83,7 +83,7 @@ class Logger(object):
 
         :param enable: whether to enable this logger
 
-        .. deprecated:: 3.0.0
+        .. deprecated:: 2.4.0
            ``open``, ``close``, and ``is_open`` are deprecated and will
            be removed in the next major release of larpix-control.
 
@@ -102,7 +102,7 @@ class Logger(object):
         Change internal state to "closed" (meaningless) and disable this
         logger (meaningful).
 
-        .. deprecated:: 3.0.0
+        .. deprecated:: 2.4.0
            ``open``, ``close``, and ``is_open`` are deprecated and will
            be removed in the next major release of larpix-control.
 
