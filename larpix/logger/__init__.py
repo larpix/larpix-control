@@ -14,7 +14,7 @@ class Logger(object):
     #: Flag to indicate packets were received from ASICs
     READ = 1
 
-    def __init__(self, *args, enabled=False, **kwargs):
+    def __init__(self, enabled=False, *args, **kwargs):
         '''
         Create new logger instance.
 
