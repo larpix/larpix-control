@@ -36,13 +36,15 @@ class Key(object):
     lookup value for each component in the system. The id values of 0 and 255
     are reserved for special functionality.
 
-    A key can be specified by a string of ``'<io group>-<io channel>-<chip id>'`` or by
+    A key can be specified by a string of ``'<io group>-<io channel>-<chip id>'``, by io group, io channel, and chip id, or by
     using other Keys.
 
     Keys are hashed by their string representation and are equivalent to their
     string representation so::
 
-        key = Key('1-1-1')
+        key = Key(1,1,1) # io group, io channel, chip id
+        key == Key('1-1-1') # True
+        key == Key(key) # True
 
         key == '1-1-1' # True
 
@@ -54,11 +56,22 @@ class Key(object):
     key_delimiter = '-'
     key_format = key_delimiter.join(('{io_group}', '{io_channel}', '{chip_id}'))
 
-    def __init__(self, key):
-        if isinstance(key, bytes):
-            self.keystring = str(key.decode("utf-8"))
+    def __init__(self, *args):
+        if len(args) == 3:
+            self.io_group = args[0]
+            self.io_channel = args[1]
+            self.chip_id = args[2]
+        elif len(args) == 1:
+            if isinstance(args[0], Key):
+                self.io_group = args[0].io_group
+                self.io_channel = args[0].io_channel
+                self.chip_id = args[0].chip_id
+            elif isinstance(args[0], bytes):
+                self.keystring = str(args[0].decode("utf-8"))
+            else:
+                self.keystring = str(args[0])
         else:
-            self.keystring = str(key)
+            raise TypeError('Key() takes 1 or 3 arguments ({} given)'.format(len(args)))
 
     def __repr__(self):
         return 'Key(\'{}\')'.format(self.keystring)
@@ -83,13 +96,22 @@ class Key(object):
         Key string specifying key io group, io channel, and chip id in the
         format: ``'<io group>-<io channel>-<chip id>'``
         '''
-        return self._keystring
+        return Key.key_format.format(
+                io_group = self.io_group,
+                io_channel = self.io_channel,
+                chip_id = self.chip_id
+            )
 
     @keystring.setter
     def keystring(self, val):
-        if not Key.is_valid_keystring(val):
-            raise ValueError('invalid keystring: {}'.format(val))
-        self._keystring = val
+        if not isinstance(val, str):
+            raise TypeError('keystring must be str')
+        parsed_keystring = val.split(Key.key_delimiter)
+        if len(parsed_keystring) != 3:
+            raise ValueError('invalid keystring formatting')
+        self.io_group = int(parsed_keystring[0])
+        self.io_channel = int(parsed_keystring[1])
+        self.chip_id = int(parsed_keystring[2])
 
     @property
     def chip_id(self):
@@ -97,15 +119,14 @@ class Key(object):
         1-byte unsigned integer representing the physical chip id (hardwired for
         v1 ASICs, assigned dynamically for v2 ASICs)
         '''
-        return self.to_dict()['chip_id']
+        return self._chip_id
 
     @chip_id.setter
     def chip_id(self, val):
-        self._keystring = str(Key.from_dict(dict(
-                chip_id=val,
-                io_channel=self.io_channel,
-                io_group=self.io_group
-            )))
+        chip_id = int(val)
+        if chip_id > 255 or chip_id < 0:
+            raise ValueError('chip_id must be 1-byte ({} invalid)'.format(chip_id))
+        self._chip_id = chip_id
 
     @property
     def io_channel(self):
@@ -114,15 +135,14 @@ class Key(object):
         identifies a single MOSI/MISO pair used to communicate with a single
         network of up to 254 chips.
         '''
-        return self.to_dict()['io_channel']
+        return self._io_channel
 
     @io_channel.setter
     def io_channel(self, val):
-        self._keystring = str(Key.from_dict(dict(
-                chip_id=self.chip_id,
-                io_channel=val,
-                io_group=self.io_group
-            )))
+        io_channel = int(val)
+        if io_channel > 255 or io_channel < 0:
+            raise ValueError('io_channel must be 1-byte ({} invalid)'.format(io_channel))
+        self._io_channel = io_channel
 
     @property
     def io_group(self):
@@ -130,15 +150,14 @@ class Key(object):
         1-byte unsigned integer representing the physical device used to read
         out up to 254 io channels.
         '''
-        return self.to_dict()['io_group']
+        return self._io_group
 
     @io_group.setter
     def io_group(self, val):
-        self._keystring = str(Key.from_dict(dict(
-                chip_id=self.chip_id,
-                io_channel=self.io_channel,
-                io_group=val
-            )))
+        io_group = int(val)
+        if io_group > 255 or io_group < 0:
+            raise ValueError('io_group must be 1-byte ({} invalid)'.format(io_group))
+        self._io_group = io_group
 
     @staticmethod
     def is_valid_keystring(keystring):
@@ -149,15 +168,8 @@ class Key(object):
         '''
         if not isinstance(keystring, str):
             return False
-        parsed_key = keystring.split(Key.key_delimiter)
-        if not len(parsed_key) == 3:
-            return False
         try:
-            io_group = int(parsed_key[0])
-            io_channel = int(parsed_key[1])
-            chip_id = int(parsed_key[2])
-            if any([val < 0 or val > 255 for val in (io_group, io_channel, chip_id)]):
-                return False
+            key = Key(keystring)
         except ValueError:
             return False
         return True
@@ -168,11 +180,10 @@ class Key(object):
 
         :returns: ``dict`` with ``'io_group'``, ``'io_channel'``, and ``'chip_id'``
         '''
-        parsed_key = self.keystring.split(Key.key_delimiter)
         return_dict = dict(
-                io_group = int(parsed_key[0]),
-                io_channel = int(parsed_key[1]),
-                chip_id = int(parsed_key[2]),
+                io_group = self.io_group,
+                io_channel = self.io_channel,
+                chip_id = self.chip_id
             )
         return return_dict
 
@@ -187,8 +198,7 @@ class Key(object):
         req_keys = ('io_group', 'io_channel', 'chip_id')
         if not all([key in d for key in req_keys]):
             raise ValueError('dict must specify {}'.format(req_keys))
-        new_key = Key.key_format.format(**d)
-        return Key(new_key)
+        return Key(d['io_group'], d['io_channel'], d['chip_id'])
 
 class Chip(object):
     '''
@@ -2082,6 +2092,8 @@ class Packet(object):
                 return
             delattr(self, '_chip_key')
             return
+        if isinstance(value, Key):
+            self._chip_key = value
         self._chip_key = Key(value)
         self.chipid = self._chip_key.chip_id
 

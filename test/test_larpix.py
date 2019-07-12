@@ -2056,6 +2056,12 @@ def test_key():
     with pytest.raises(ValueError):
         k = Key('256-0-0')
         pytest.fail('key value is not 1-byte')
+    with pytest.raises(ValueError):
+        k = Key(256,0,0)
+        pytest.fail('key value is not 1-byte')
+    with pytest.raises(TypeError):
+        k = Key(250,0,0,1)
+        pytest.fail('too many args')
 
     k = Key('1-2-3')
     with pytest.raises(ValueError):
