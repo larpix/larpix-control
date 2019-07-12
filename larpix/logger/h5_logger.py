@@ -38,7 +38,8 @@ class HDF5Logger(Logger):
     }
 
     def __init__(self, filename=None, buffer_length=10000,
-            directory='', version=latest_version):
+            directory='', version=latest_version, enabled=False):
+        super(HDF5Logger, self).__init__(enabled=enabled)
         self.version = version
         self.filename = filename
         self.directory = directory
@@ -46,8 +47,9 @@ class HDF5Logger(Logger):
         self.buffer_length = buffer_length
 
         self._buffer = {'packets': []}
-        self._is_enabled = False
-        self._is_open = False
+        if not self.filename:
+            self.filename = self._default_filename()
+        self.filename = os.path.join(self.directory, self.filename)
 
     def _default_filename(self, timestamp=None):
         '''
@@ -79,8 +81,6 @@ class HDF5Logger(Logger):
         '''
         if not self.is_enabled():
             return
-        if not self.is_open():
-            self.open()
         if not isinstance(data, list):
             raise ValueError('data must be a list')
 
@@ -92,75 +92,22 @@ class HDF5Logger(Logger):
         if any([len(buff) > self.buffer_length for dataset, buff in self._buffer.items()]):
             self.flush()
 
-    def is_enabled(self):
-        '''
-        Check if logger is enabled
-
-        '''
-        return self._is_enabled
-
     def enable(self):
         '''
-        Allow the logger to record data
+        Enable the logger and set up output file.
 
-        '''
-        if self.is_enabled():
-            return
-        self._is_enabled = True
+        If the file already exists then data will be appended to the end of arrays.
 
-    def disable(self):
+        :param enable: ``True`` if you want to enable the logger after
+            initializing (Optional, default=``True``)
         '''
-        Stop the logger from recording data without closing file
-
-        .. note:: This flushes any data in the buffer before closing
-
-        '''
-        if not self.is_enabled():
-            return
-        self.flush()
-        self._is_enabled = False
-
-    def is_open(self):
-        '''
-        Check if logger is open
-        '''
-        return self._is_open
-
-    def open(self, enable=True):
-        '''
-        Open output file if it is not already. If files already exist then data
-        will be appended to the end of arrays.
-
-        :param enable: ``True`` if you want to enable the logger after opening
-            (Optional, default=``True``)
-        '''
-        if self.is_open():
-            return
-        if not self.filename:
-            self.filename = self._default_filename()
-        self.filename = os.path.join(self.directory, self.filename)
+        super(HDF5Logger, self).enable()
         to_file(self.filename, [], version=self.version)
-        self._is_open = True
-        self._is_enabled = enable
-
-    def close(self):
-        '''
-        Close logger if it is not already
-
-        .. note:: This flushes any data in the buffer before closing
-        '''
-        if not self.is_open():
-            return
-        self.flush()
-        self._is_open = False
-        self._is_enabled = False
 
     def flush(self):
         '''
         Flushes any held data to the output file
         '''
-        if not self.is_open():
-            return
         to_file(self.filename, self._buffer['packets'],
                 version=self.version)
         self._buffer['packets'] = []

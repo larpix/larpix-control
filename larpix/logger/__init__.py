@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter('default', DeprecationWarning)
+
 class Logger(object):
     '''
     Base class for larpix logger objects that explicity describes the necessary
@@ -11,12 +14,13 @@ class Logger(object):
     #: Flag to indicate packets were received from ASICs
     READ = 1
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, enabled=False, *args, **kwargs):
         '''
         Create new logger instance.
 
         '''
-        pass
+        self._enabled = enabled
+        self._open = False
 
     def record(self, data, direction=0, *args, **kwargs):
         '''
@@ -37,48 +41,77 @@ class Logger(object):
         ``disable()`` command should be reflected in the log.
 
         '''
-        pass
+        return self._enabled
 
     def enable(self):
         '''
         Enable logger
 
         '''
-        pass
+        self._enabled = True
 
     def disable(self):
         '''
         Disable logger
 
+        .. note:: This flushes any data in the buffer before disabling
+
         '''
-        pass
+        if self._enabled:
+            self.flush()
+        self._enabled = False
 
     def is_open(self):
         '''
-        Check if logger is open. Opening a logger is only necessary if it is
-        file-based. Regardless of the open/closed status, all data passed into
-        ``record()`` between an ``enable()`` and ``disable()`` command should be
-        reflected in the log.
+        Returns the value of the internal state "open/closed" (``True``
+        if open).
+
+        .. deprecated:: 2.4.0
+           ``open``, ``close``, and ``is_open`` are deprecated and will
+           be removed in the next major release of larpix-control.
 
         '''
-        pass
+        warnings.warn('open/close/is_open are deprecated and will be removed '
+            'in the next major release of larpix-control.',
+            DeprecationWarning, 2)
+        return self._open
 
     def open(self, enable=True):
         '''
-        Open logger if it is not already.
+        Change internal state to "open" (meaningless), and if
+        ``enable``, enable this logger (meaningful).
 
-        .. note:: You must close a logger after opening!
+        :param enable: whether to enable this logger
 
-        :param enable: ``True`` if you want to enable the logger after opening
+        .. deprecated:: 2.4.0
+           ``open``, ``close``, and ``is_open`` are deprecated and will
+           be removed in the next major release of larpix-control.
 
         '''
+        warnings.warn('open/close/is_open are deprecated and will be removed '
+            'in the next major release of larpix-control.',
+            DeprecationWarning, 2)
+        if enable:
+            self.enable()
+        self._open = True
+        return
+
 
     def close(self):
         '''
-        Close logger if it is not already
+        Change internal state to "closed" (meaningless) and disable this
+        logger (meaningful).
+
+        .. deprecated:: 2.4.0
+           ``open``, ``close``, and ``is_open`` are deprecated and will
+           be removed in the next major release of larpix-control.
 
         '''
-        pass
+        warnings.warn('open/close/is_open are deprecated and will be removed '
+            'in the next major release of larpix-control.',
+            DeprecationWarning, 2)
+        self._open = False
+        self.disable()
 
     def flush(self):
         '''
