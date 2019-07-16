@@ -166,19 +166,22 @@ class MultiZMQ_IO(IO):
         :returns: 2-`tuple` containing a list of received packets and the full bytestream
         '''
         packets = []
+        address_list = []
         bytestream_list = []
         bytestream = b''
         n_recv = 0
         read_time = time.time()
+        message = ''
         while self.poller.poll(0) and n_recv < self.hwm:
             events = dict(self.poller.poll(0))
             for socket, n_events in events.items():
                 for _ in range(n_events):
                     message = socket.recv()
                     n_recv += 1
-                    bytestream_list.append(message)
-                    address = self.receivers.inv[socket]
-                    packets += self.decode([message], address=address)
+                    bytestream_list += [message]
+                    address_list += [self.receivers.inv[socket]]
+        for message, address in zip(bytestream_list, address_list):
+            packets += self.decode([message], address=address)
         #print('len(bytestream_list) = %d' % len(bytestream_list))
         bytestream = b''.join(bytestream_list)
         return packets, bytestream
