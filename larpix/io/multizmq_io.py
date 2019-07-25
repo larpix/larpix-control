@@ -132,11 +132,10 @@ class MultiZMQ_IO(IO):
         io_channel = kwargs['io_chain']
         if io_channel in self._miso_map:
             io_channel = self._miso_map[io_channel]
-        return Key.from_dict(dict(
-                io_group = self._io_group_table.inv[kwargs['address']],
-                io_channel = io_channel,
-                chip_id = kwargs['chip_id']
-            ))
+        return Key(self._io_group_table.inv[kwargs['address']],
+                io_channel,
+                kwargs['chip_id']
+            )
 
     def decode(self, msgs, address, **kwargs):
         '''

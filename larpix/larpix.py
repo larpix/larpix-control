@@ -1951,8 +1951,7 @@ class Packet(object):
             self.bits.frombytes(reversed_bytestream)
             # Get rid of the padding (now at the beginning of the
             # bitstream because of the reverse order)
-            self.bits.pop(0)
-            self.bits.pop(0)
+            self.bits = self.bits[2:]
         else:
             raise ValueError('Invalid number of bytes: %s' %
                     len(bytestream))
@@ -2094,8 +2093,10 @@ class Packet(object):
             return
         if isinstance(value, Key):
             self._chip_key = value
-        self._chip_key = Key(value)
-        self.chipid = self._chip_key.chip_id
+        else:
+            self._chip_key = Key(value)
+        if self.chipid != self._chip_key.chip_id:
+            self.chipid = self._chip_key.chip_id
 
     @property
     def packet_type(self):
