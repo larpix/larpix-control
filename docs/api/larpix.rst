@@ -1,10 +1,14 @@
 LArPix Control Core
 ---------------------
 
-.. automodule:: larpix.larpix
+.. automodule:: larpix.controller
+.. automodule:: larpix.chip
+.. automodule:: larpix.key
+.. automodule:: larpix.configuration
+.. automodule:: larpix.packet
 
 Configuration registers
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-.. autoattribute:: larpix.larpix.Configuration.register_names
+.. autoattribute:: larpix.configuration.Configuration.register_names
 
