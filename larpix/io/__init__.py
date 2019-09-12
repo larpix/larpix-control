@@ -64,28 +64,6 @@ class IO(object):
         '''
         pass
 
-    def parse_chip_key(self, key):
-        '''
-        Translate a chip key into a dict of contained information
-
-        :param key: chip key to parse
-
-        :returns: ``dict`` of IO information contained in key
-
-        '''
-        empty_dict = {}
-        return empty_dict
-
-    def generate_chip_key(self, **kwargs):
-        '''
-        Create a chip key based on supplied info, raise an error if not enough information is provided
-
-        :returns: chip key of an immutable python type and not ``tuple``
-
-        '''
-        pass
-
-
     def send(self, packets):
         '''
         Function for sending larpix packet objects

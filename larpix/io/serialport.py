@@ -155,35 +155,6 @@ class SerialPort(IO):
             return False
         return True
 
-    @classmethod
-    def parse_chip_key(cls, key):
-        '''
-        Decodes a chip key into ``'chip_id'`` and ``io_chain``
-
-        :returns: ``dict`` with keys ``('chip_id', 'io_chain')``
-        '''
-        return_dict = super(cls, cls).parse_chip_key(key)
-        parsed_key = key.split('-')
-        return_dict['chip_id'] = int(parsed_key[1])
-        return_dict['io_chain'] = int(parsed_key[0])
-        return return_dict
-
-    @classmethod
-    def generate_chip_key(cls, **kwargs):
-        '''
-        Generates a valid ``SerialPort`` chip key
-
-        :param chip_id: ``int`` corresponding to internal chip id
-
-        :param io_chain: ``int`` corresponding to daisy chain number
-
-        '''
-        req_fields = ('chip_id', 'io_chain')
-        if not all([key in kwargs for key in req_fields]):
-            raise ValueError('Missing fields required to generate chip id'
-                ', requires {}, received {}'.format(req_fields, kwargs.keys()))
-        return '{io_chain}-{chip_id}'.format(**kwargs)
-
     def send(self, packets):
         '''
         Format the packets as a bytestream and send it to the FPGA and on
