@@ -28,3 +28,4 @@ from .packet import TimestampPacket, MessagePacket, Packet, PacketCollection
 
 warnings.filterwarnings('default', category=ImportWarning)
 warnings.warn('larpix.larpix module has been refactored into sub-modules',ImportWarning)
+

@@ -68,7 +68,7 @@ class MultiZMQ_IO(IO):
     def send(self, packets):
         self.sender_replies = defaultdict(list)
         send_time = time.time()
-        addresses = [self.parse_chip_key(packet.chip_key)['address'] for packet in packets]
+        addresses = [self._io_group_table[packet.io_group] for packet in packets]
         msg_datas = self.encode(packets)
         for address, msg_data in zip(addresses, msg_datas):
             tosend = b'SNDWORD ' + msg_data
@@ -89,61 +89,17 @@ class MultiZMQ_IO(IO):
         for receiver in self.receivers.values():
             receiver.setsockopt(zmq.UNSUBSCRIBE, b'')
 
-    def parse_chip_key(self, key):
-        '''
-        Decodes a chip key into ``'chip_id'``, ``'io_chain'``, and ``'address'``
-
-        :returns: ``dict`` with keys ``('chip_id', 'io_chain', 'addresss')``
-        '''
-        return_dict = {}
-        return_dict['chip_id'] = key.chip_id
-        io_chain = key.io_channel
-        if io_chain in self._mosi_map.keys():
-            io_chain = self._mosi_map[io_chain]
-        return_dict['io_chain'] = io_chain
-        if key.io_group not in self._io_group_table:
-            raise KeyError('unspecified io group {}'.format(key.io_group))
-        return_dict['address'] = self._io_group_table[key.io_group]
-        return return_dict
-
-    def generate_chip_key(self, **kwargs):
-        '''
-        Generates a valid ``MultiZMQ_IO`` chip key
-
-        :param chip_id: ``int`` corresponding to internal chip id
-
-        :param io_chain: ``int`` corresponding to daisy chain number
-
-        :param address: ``str`` corresponding to the address of the DAQ board
-
-        '''
-        req_fields = ('chip_id', 'io_chain', 'address')
-        if not all([key in kwargs for key in req_fields]):
-            raise ValueError('Missing fields required to generate chip id'
-                ', requires {}, received {}'.format(req_fields, kwargs.keys()))
-        if not isinstance(kwargs['chip_id'], int):
-            raise ValueError('chip_id must be int')
-        if not isinstance(kwargs['io_chain'], int):
-            raise ValueError('io_chain must be int')
-        if not isinstance(kwargs['address'], str):
-            raise ValueError('address must be str')
-        if kwargs['address'] not in self._io_group_table.inv:
-            raise KeyError('no known io group for {}'.format(kwargs['address']))
-        io_channel = kwargs['io_chain']
-        if io_channel in self._miso_map:
-            io_channel = self._miso_map[io_channel]
-        return Key.from_dict(dict(
-                io_group = self._io_group_table.inv[kwargs['address']],
-                io_channel = io_channel,
-                chip_id = kwargs['chip_id']
-            ))
-
     def decode(self, msgs, address, **kwargs):
         '''
         Convert a list ZMQ messages into packets
 
         '''
-        return dataserver_message_decode(msgs, key_generator=self.generate_chip_key, version=(1,0), address=address, **kwargs)
+        return_packets = dataserver_message_decode(msgs, version=(1,0), io_group=self._io_group_table.inv[address], **kwargs)
+        if self._miso_map.keys():
+            for packet in return_packets:
+                if hasattr(packet, 'io_channel') and packet.io_channel in self._miso_map.keys():
+                    packet.io_channel = self._miso_map[packet.io_channel]
+        return return_packets
 
     def encode(self, packets):
         '''
@@ -151,7 +107,9 @@ class MultiZMQ_IO(IO):
         '''
         msg_data = []
         for packet in packets:
-            io_chain = self.parse_chip_key(packet.chip_key)['io_chain']
+            io_chain = packet.io_channel
+            if io_chain in self._mosi_map.keys():
+                io_chain = self._mosi_map[io_chain]
             if sys.version_info[0] < 3:
                 msg_data += [b'0x00%s %d' % (packet.bytes()[::-1].encode('hex'), io_chain)]
             else:
@@ -279,7 +237,7 @@ class MultiZMQ_IO(IO):
         ``MultiZMQ_IO`` object.
 
         '''
-        for address in addresses:
+        for address in self.senders.keys():
             self.senders[address].close(linger=0)
             self.receivers[address].close(linger=0)
             self.context.term()

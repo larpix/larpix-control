@@ -8,7 +8,6 @@ class Chip(object):
     generation.
 
     '''
-    num_channels = 32
     def __init__(self, chip_key):
         '''
         Create a new Chip object with the given ``chip_key``. See the ``Key``

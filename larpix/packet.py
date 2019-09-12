@@ -225,8 +225,7 @@ class Packet(object):
             self.bits.frombytes(reversed_bytestream)
             # Get rid of the padding (now at the beginning of the
             # bitstream because of the reverse order)
-            self.bits.pop(0)
-            self.bits.pop(0)
+            self.bits = self.bits[2:]
         else:
             raise ValueError('Invalid number of bytes: %s' %
                     len(bytestream))
@@ -354,22 +353,65 @@ class Packet(object):
 
     @property
     def chip_key(self):
-        try:
+        if hasattr(self, '_chip_key'):
             return self._chip_key
-        except AttributeError:
+        if self.io_group is None or self.io_channel is None:
             return None
+        self._chip_key = Key(self.io_group, self.io_channel, self.chipid)
+        return self._chip_key
 
     @chip_key.setter
     def chip_key(self, value):
+        # remove cached key
+        if hasattr(self, '_chip_key'):
+            del self._chip_key
         if value is None:
-            if self.chip_key is None:
-                return
-            delattr(self, '_chip_key')
+            self.io_channel = None
+            self.io_group = None
             return
         if isinstance(value, Key):
-            self._chip_key = value
-        self._chip_key = Key(value)
-        self.chipid = self._chip_key.chip_id
+            self.io_group = value.io_group
+            self.io_channel = value.io_channel
+            self.chipid = value.chip_id
+            return
+        # try again by casting as a Key
+        self.chip_key = Key(value)
+
+    @property
+    def io_group(self):
+        if hasattr(self, '_io_channel'):
+            return self._io_group
+        return None
+
+    @io_group.setter
+    def io_group(self, value):
+        if hasattr(self, '_chip_key'):
+            # remove cached key
+            del self._chip_key
+        if value is None:
+            if hasattr(self, '_io_group'):
+                del self._io_group
+            return
+        # no value validation!
+        self._io_group = value
+
+    @property
+    def io_channel(self):
+        if hasattr(self, '_io_channel'):
+            return self._io_channel
+        return None
+
+    @io_channel.setter
+    def io_channel(self, value):
+        if hasattr(self, '_chip_key'):
+            # remove cached key
+            del self._chip_key
+        if value is None:
+            if hasattr(self, '_io_channel'):
+                del self._io_channel
+            return
+        # no value validation!
+        self._io_channel = value
 
     @property
     def packet_type(self):
@@ -386,8 +428,9 @@ class Packet(object):
 
     @chipid.setter
     def chipid(self, value):
-        if not self.chip_key is None:
-            self.chip_key.chip_id = value
+        if hasattr(self, '_chip_key'):
+            # remove cached key
+            del self._chip_key
         self.bits[Packet.chipid_bits] = bah.fromuint(value,
                 Packet.chipid_bits)
 
@@ -749,4 +792,3 @@ class PacketCollection(object):
             new_collection.parent = self
             to_return[chipid] = new_collection
         return to_return
-
