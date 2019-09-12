@@ -28,30 +28,11 @@ def io_config(tmpdir):
 def zmq_io_obj(io_config):
     return ZMQ_IO(io_config)
 
-def test_generate_chip_key(zmq_io_obj):
-    chip_id = 125
-    io_chain = 2
-    io_group = 1
-    expected = Key('{}-{}-{}'.format(io_group, io_chain, chip_id))
-    assert zmq_io_obj.generate_chip_key(chip_id=chip_id, io_chain=io_chain) == expected
-
-def test_parse_chip_key(zmq_io_obj):
-    chip_id = 62
-    io_chain = 2
-    io_group = 1
-    expected = {
-        'chip_id': chip_id,
-        'io_chain': io_chain,
-        'address': zmq_io_obj._address
-    }
-    key = Key('{}-{}-{}'.format(io_group, io_chain, chip_id))
-    assert zmq_io_obj.parse_chip_key(key) == expected
-
 def test_encode(zmq_io_obj):
     chip_id = 64
     io_chain = 1
     test_packet = Packet(b'\x00\x01\x02\x03\x04\x05\x06')
-    test_packet.chip_key = zmq_io_obj.generate_chip_key(chip_id=chip_id, io_chain=io_chain)
+    test_packet.chip_key = Key(1, io_chain, chip_id)
     test_bytes = b'0x0006050403020100 1'
     expected = [test_bytes]
     assert zmq_io_obj.encode([test_packet]) == expected
@@ -60,7 +41,7 @@ def test_decode(zmq_io_obj):
     chip_id = 64
     io_chain = 1
     test_packet = Packet(b'\x00\x01\x02\x03\x04\x05\x06')
-    test_packet.chip_key = zmq_io_obj.generate_chip_key(chip_id=chip_id, io_chain=io_chain)
+    test_packet.chip_key = Key(1, io_chain, chip_id)
     test_bytes = dataserver_message_encode([test_packet])
     expected = [test_packet]
     assert zmq_io_obj.decode(test_bytes) == expected

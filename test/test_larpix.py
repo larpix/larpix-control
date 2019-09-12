@@ -4,9 +4,9 @@ Use the pytest framework to write tests for the larpix module.
 '''
 from __future__ import print_function
 import pytest
-from larpix.larpix import (Chip, Packet, Key, Configuration, Controller,
+from larpix import (Chip, Packet, Key, Configuration, Controller,
         PacketCollection, _Smart_List, TimestampPacket, MessagePacket)
-from larpix.io.fakeio import FakeIO
+from larpix.io import FakeIO
 from larpix.timestamp import *  # use long = int in py3
 #from bitstring import BitArray
 from bitarray import bitarray
@@ -565,7 +565,7 @@ def test_configuration_get_nondefault_registers_many_changes():
 
 def test_configuration_set_pixel_trim_thresholds():
     c = Configuration()
-    expected = [0x05] * Chip.num_channels
+    expected = [0x05] * Configuration.num_channels
     c.pixel_trim_thresholds = expected
     assert c._pixel_trim_thresholds == expected
     expected[5] = 0x10
@@ -575,13 +575,13 @@ def test_configuration_set_pixel_trim_thresholds():
 def test_configuration_set_pixel_trim_thresholds_errors():
     c = Configuration()
     with pytest.raises(ValueError):
-        c.pixel_trim_thresholds = [0x05] * (Chip.num_channels-1)
+        c.pixel_trim_thresholds = [0x05] * (Configuration.num_channels-1)
         pytest.fail(message='Should fail: wrong num_channels')
     with pytest.raises(ValueError):
-        c.pixel_trim_thresholds = [0x20] * Chip.num_channels
+        c.pixel_trim_thresholds = [0x20] * Configuration.num_channels
         pytest.fail(message='Should fail: values too large')
     with pytest.raises(ValueError,):
-        c.pixel_trim_thresholds = [-10] * Chip.num_channels
+        c.pixel_trim_thresholds = [-10] * Configuration.num_channels
         pytest.fail(message='Should fail: value negative')
     with pytest.raises(ValueError):
         c.pixel_trim_thresholds = 5
@@ -589,7 +589,7 @@ def test_configuration_set_pixel_trim_thresholds_errors():
 
 def test_configuration_get_pixel_trim_thresholds():
     c = Configuration()
-    expected = [0x10] * Chip.num_channels
+    expected = [0x10] * Configuration.num_channels
     c._pixel_trim_thresholds = expected
     assert c.pixel_trim_thresholds == expected
 
@@ -682,7 +682,7 @@ def test_configuration_get_internal_bypass():
 
 def test_configuration_set_csa_bypass_select():
     c = Configuration()
-    expected = [0x1] * Chip.num_channels
+    expected = [0x1] * Configuration.num_channels
     c.csa_bypass_select = expected
     assert c._csa_bypass_select == expected
     expected[5] = 0x0
@@ -692,13 +692,13 @@ def test_configuration_set_csa_bypass_select():
 def test_configuration_set_csa_bypass_select_errors():
     c = Configuration()
     with pytest.raises(ValueError):
-        c.csa_bypass_select = [0x1] * (Chip.num_channels-1)
+        c.csa_bypass_select = [0x1] * (Configuration.num_channels-1)
         pytest.fail('Should fail: wrong num_channels')
     with pytest.raises(ValueError):
-        c.csa_bypass_select = [0x2] * Chip.num_channels
+        c.csa_bypass_select = [0x2] * Configuration.num_channels
         pytest.fail('Should fail: value too large')
     with pytest.raises(ValueError):
-        c.csa_bypass_select = [-1] * Chip.num_channels
+        c.csa_bypass_select = [-1] * Configuration.num_channels
         pytest.fail('Should fail: value negative')
     with pytest.raises(ValueError):
         c.csa_bypass_select = 5
@@ -706,13 +706,13 @@ def test_configuration_set_csa_bypass_select_errors():
 
 def test_configuration_get_csa_bypass_select():
     c = Configuration()
-    expected = [0x1] * Chip.num_channels
+    expected = [0x1] * Configuration.num_channels
     c._csa_bypass_select = expected
     assert c.csa_bypass_select == expected
 
 def test_configuration_set_csa_monitor_select():
     c = Configuration()
-    expected = [0x0] * Chip.num_channels
+    expected = [0x0] * Configuration.num_channels
     c.csa_monitor_select = expected
     assert c._csa_monitor_select == expected
     expected[5] = 0x1
@@ -722,13 +722,13 @@ def test_configuration_set_csa_monitor_select():
 def test_configuration_set_csa_monitor_select_errors():
     c = Configuration()
     with pytest.raises(ValueError):
-        c.csa_monitor_select = [0x1] * (Chip.num_channels-1)
+        c.csa_monitor_select = [0x1] * (Configuration.num_channels-1)
         pytest.fail('Should fail: wrong num_channels')
     with pytest.raises(ValueError):
-        c.csa_monitor_select = [0x2] * Chip.num_channels
+        c.csa_monitor_select = [0x2] * Configuration.num_channels
         pytest.fail('Should fail: value too lare')
     with pytest.raises(ValueError):
-        c.csa_monitor_select = [-1] * Chip.num_channels
+        c.csa_monitor_select = [-1] * Configuration.num_channels
         pytest.fail('Should fail: value negative')
     with pytest.raises(ValueError):
         c.csa_monitor_select = 5
@@ -736,13 +736,13 @@ def test_configuration_set_csa_monitor_select_errors():
 
 def test_configuration_get_csa_monitor_select():
     c = Configuration()
-    expected = [0x0] * Chip.num_channels
+    expected = [0x0] * Configuration.num_channels
     c._csa_monitor_select = expected
     assert c.csa_monitor_select == expected
 
 def test_configuration_set_csa_testpulse_enable():
     c = Configuration()
-    expected = [0x1] * Chip.num_channels
+    expected = [0x1] * Configuration.num_channels
     c.csa_testpulse_enable = expected
     assert c._csa_testpulse_enable == expected
     expected[5] = 0x0
@@ -752,13 +752,13 @@ def test_configuration_set_csa_testpulse_enable():
 def test_configuration_set_csa_testpulse_enable_errors():
     c = Configuration()
     with pytest.raises(ValueError):
-        c.csa_testpulse_enable = [0x1] * (Chip.num_channels-1)
+        c.csa_testpulse_enable = [0x1] * (Configuration.num_channels-1)
         pytest.fail('Should fail: wrong num_channels')
     with pytest.raises(ValueError):
-        c.csa_testpulse_enable = [0x2] * Chip.num_channels
+        c.csa_testpulse_enable = [0x2] * Configuration.num_channels
         pytest.fail('Should fail: value too large')
     with pytest.raises(ValueError):
-        c.csa_testpulse_enable = [-1] * Chip.num_channels
+        c.csa_testpulse_enable = [-1] * Configuration.num_channels
         pytest.fail('Should fail: value negative')
     with pytest.raises(ValueError):
         c.csa_testpulse_enable = 5
@@ -766,7 +766,7 @@ def test_configuration_set_csa_testpulse_enable_errors():
 
 def test_configuration_get_csa_testpulse_enable():
     c = Configuration()
-    expected = [0x1] * Chip.num_channels
+    expected = [0x1] * Configuration.num_channels
     c._csa_testpulse_enable = expected
     assert c.csa_testpulse_enable == expected
 
@@ -928,7 +928,7 @@ def test_configuration_get_adc_burst_length():
 
 def test_configuration_set_channel_mask():
     c = Configuration()
-    expected = [0x1] * Chip.num_channels
+    expected = [0x1] * Configuration.num_channels
     c.channel_mask = expected
     assert c._channel_mask == expected
     expected[5] = 0x0
@@ -938,13 +938,13 @@ def test_configuration_set_channel_mask():
 def test_configuration_set_channel_mask_errors():
     c = Configuration()
     with pytest.raises(ValueError):
-        c.channel_mask = [0x1] * (Chip.num_channels-1)
+        c.channel_mask = [0x1] * (Configuration.num_channels-1)
         pytest.fail('Should fail: wrong num_channels')
     with pytest.raises(ValueError):
-        c.channel_mask = [0x2] * Chip.num_channels
+        c.channel_mask = [0x2] * Configuration.num_channels
         pytest.fail('Should fail: value too large')
     with pytest.raises(ValueError):
-        c.channel_mask = [-1] * Chip.num_channels
+        c.channel_mask = [-1] * Configuration.num_channels
         pytest.fail('Should fail: value negative')
     with pytest.raises(ValueError):
         c.channel_mask = 5
@@ -952,13 +952,13 @@ def test_configuration_set_channel_mask_errors():
 
 def test_configuration_get_channel_mask():
     c = Configuration()
-    expected = [0x1] * Chip.num_channels
+    expected = [0x1] * Configuration.num_channels
     c._channel_mask = expected
     assert c.channel_mask == expected
 
 def test_configuration_set_external_trigger_mask():
     c = Configuration()
-    expected = [0x0] * Chip.num_channels
+    expected = [0x0] * Configuration.num_channels
     c.external_trigger_mask = expected
     assert c._external_trigger_mask == expected
     expected[5] = 0x1
@@ -968,13 +968,13 @@ def test_configuration_set_external_trigger_mask():
 def test_configuration_set_external_trigger_mask_errors():
     c = Configuration()
     with pytest.raises(ValueError):
-        c.external_trigger_mask = [0x1] * (Chip.num_channels-1)
+        c.external_trigger_mask = [0x1] * (Configuration.num_channels-1)
         pytest.fail('Should fail: wrong num_channels')
     with pytest.raises(ValueError):
-        c.external_trigger_mask = [0x2] * Chip.num_channels
+        c.external_trigger_mask = [0x2] * Configuration.num_channels
         pytest.fail('Should fail: value too large')
     with pytest.raises(ValueError):
-        c.external_trigger_mask = [-1] * Chip.num_channels
+        c.external_trigger_mask = [-1] * Configuration.num_channels
         pytest.fail('Should fail: value negative')
     with pytest.raises(ValueError):
         c.external_trigger_mask = 5
@@ -982,7 +982,7 @@ def test_configuration_set_external_trigger_mask_errors():
 
 def test_configuration_get_external_trigger_mask():
     c = Configuration()
-    expected = [0x0] * Chip.num_channels
+    expected = [0x0] * Configuration.num_channels
     c._external_trigger_mask = expected
     assert c.external_trigger_mask == expected
 
@@ -1544,16 +1544,19 @@ def test_controller_get_chip_all_chips():
 def test_controller_get_chip_error(chip):
     controller = Controller()
     controller.chips[chip.chip_key] = chip
-    test_key = Key(chip.chip_key)
-    test_key.chip_id += 1
+    test_key_dict = chip.chip_key.to_dict()
+    test_key_dict['chip_id'] += 1
+    test_key = Key.from_dict(test_key_dict)
     with pytest.raises(ValueError, message='Should fail: bad chip id'):
         controller.get_chip(test_key)
-    test_key = Key(chip.chip_key)
-    test_key.io_channel += 1
+    test_key_dict = chip.chip_key.to_dict()
+    test_key_dict['io_channel'] += 1
+    test_key = Key.from_dict(test_key_dict)
     with pytest.raises(ValueError, message='Should fail: bad channel id'):
         controller.get_chip(test_key)
-    test_key = Key(chip.chip_key)
-    test_key.io_group += 1
+    test_key_dict = chip.chip_key.to_dict()
+    test_key_dict['io_group'] += 1
+    test_key = Key.from_dict(test_key_dict)
     with pytest.raises(ValueError, message='Should fail: bad group id'):
         controller.get_chip(test_key)
 
@@ -1651,8 +1654,9 @@ def test_controller_multi_write_configuration(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
     key = chip.chip_key
-    key2 = Key(chip.chip_key)
-    key2.chip_id += 1
+    key2_dict = chip.chip_key.to_dict()
+    key2_dict['chip_id'] += 1
+    key2 = Key.from_dict(key2_dict)
     chip2 = Chip(key2)
     controller.chips = {key:chip, key2:chip2}
     controller.multi_write_configuration((key, key2))
@@ -1672,8 +1676,9 @@ def test_controller_multi_write_configuration_write_read(capfd, chip):
     expected_read = PacketCollection(*to_read, read_id=0,
             message='configuration write')
     key = chip.chip_key
-    key2 = Key(chip.chip_key)
-    key2.chip_id += 1
+    key2_dict = chip.chip_key.to_dict()
+    key2_dict['chip_id'] += 1
+    key2 = Key.from_dict(key2_dict)
     chip2 = Chip(key2)
     controller.chips = {key:chip, key2:chip2}
     controller.multi_write_configuration((key, key2), write_read=0.01)
@@ -1689,8 +1694,9 @@ def test_controller_multi_write_configuration_specify_registers(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
     key = chip.chip_key
-    key2 = Key(chip.chip_key)
-    key2.chip_id += 1
+    key2_dict = chip.chip_key.to_dict()
+    key2_dict['chip_id'] += 1
+    key2 = Key.from_dict(key2_dict)
     chip2 = Chip(key2)
     controller.chips = {key:chip, key2:chip2}
     controller.multi_write_configuration([(key, 0), key2])
@@ -1707,13 +1713,15 @@ def test_controller_multi_read_configuration(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
     controller.use_all_chips = True
-    key0 = Key(chip.chip_key)
-    key0.io_channel = 1
-    key0.chip_key = 1
-    key1 = Key(chip.chip_key)
-    key1.chip_id += 1
-    key1.io_channel = 1
-    key1.chip_key = 1
+    key0_dict = chip.chip_key.to_dict()
+    key0_dict['io_channel'] = 1
+    key0_dict['chip_key'] = 1
+    key0 = Key.from_dict(key0_dict)
+    key1_dict = chip.chip_key.to_dict()
+    key1_dict['chip_id'] += 1
+    key1_dict['io_channel'] = 1
+    key1_dict['chip_key'] = 1
+    key1 = Key.from_dict(key1_dict)
     chip1 = controller.add_chip(key0)
     chip2 = controller.add_chip(key1)
     conf_data = chip1.get_configuration_packets(Packet.CONFIG_READ_PACKET)
@@ -1734,8 +1742,9 @@ def test_controller_multi_read_configuration_specify_registers(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
     key0 = Key(chip.chip_key)
-    key1 = Key(chip.chip_key)
-    key1.chip_id += 1
+    key1_dict = chip.chip_key.to_dict()
+    key1_dict['chip_id'] += 1
+    key1 = Key.from_dict(key1_dict)
     controller.chips[key0] = Chip(chip_key=key0)
     controller.chips[key1] = Chip(chip_key=key1)
     conf_data = controller.chips[key0].get_configuration_packets(Packet.CONFIG_READ_PACKET)[:1]
@@ -2064,15 +2073,15 @@ def test_key():
         pytest.fail('too many args')
 
     k = Key('1-2-3')
-    with pytest.raises(ValueError):
-        k.io_channel = -1
-        pytest.fail('key value is not unsigned')
-    with pytest.raises(ValueError):
-        k.io_group = 256
-        pytest.fail('key value is not 1-byte')
-    with pytest.raises(ValueError):
-        k.chip_id = 'f'
-        pytest.fail('key value is not int')
+    with pytest.raises(AttributeError):
+        k.io_channel = 1
+        pytest.fail('key is pseudo immutable')
+    with pytest.raises(AttributeError):
+        k.io_group = 1
+        pytest.fail('key is pseudo immutable')
+    with pytest.raises(AttributeError):
+        k.chip_id = 1
+        pytest.fail('key is pseudo immutable')
 
     assert k == '1-2-3'
     assert Key(k) == k

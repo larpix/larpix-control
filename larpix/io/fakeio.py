@@ -6,7 +6,7 @@ from __future__ import print_function
 from collections import deque
 
 from larpix.io import IO
-from larpix.larpix import TimestampPacket
+from larpix import TimestampPacket
 
 class FakeIO(IO):
     '''
@@ -49,34 +49,6 @@ class FakeIO(IO):
         :returns: ``msgs``
         '''
         return msgs
-
-    @classmethod
-    def parse_chip_key(cls, key):
-        '''
-        Placeholder function for parsing chip keys ``chip_key``
-
-        :param key: chip key to be returned ``in dict``
-
-        :returns: ``dict`` with keys ``('chip_key')``
-
-        '''
-        return_dict = super(FakeIO, cls).parse_chip_key(key)
-        return_dict['chip_key'] = key
-        return return_dict
-
-    @classmethod
-    def generate_chip_key(cls, **kwargs):
-        '''
-        Placeholder function for generating a chip key
-
-        :param chip_key: chip key to return
-
-        :returns: ``chip_key`` that was passed into the function
-
-        '''
-        if 'chip_key' not in kwargs:
-            raise ValueError('FakeIO chip keys require an explicit chip_key')
-        return kwargs['chip_key']
 
     @staticmethod
     def add_timestamps(packets, positions, timestamps=0):
