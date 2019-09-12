@@ -94,7 +94,12 @@ class MultiZMQ_IO(IO):
         Convert a list ZMQ messages into packets
 
         '''
-        return dataserver_message_decode(msgs, version=(1,0), io_group=self._io_group_table.inv[address], **kwargs)
+        return_packets = dataserver_message_decode(msgs, version=(1,0), io_group=self._io_group_table.inv[address], **kwargs)
+        if self._miso_map.keys():
+            for packet in return_packets:
+                if packet.io_channel in self._miso_map.keys():
+                    packet.io_channel = self._miso_map[packet.io_channel]
+        return return_packets
 
     def encode(self, packets):
         '''
@@ -103,6 +108,8 @@ class MultiZMQ_IO(IO):
         msg_data = []
         for packet in packets:
             io_chain = packet.io_channel
+            if io_chain in self._mosi_map.keys():
+                io_chain = self._mosi_map[io_chain]
             if sys.version_info[0] < 3:
                 msg_data += [b'0x00%s %d' % (packet.bytes()[::-1].encode('hex'), io_chain)]
             else:
@@ -230,7 +237,7 @@ class MultiZMQ_IO(IO):
         ``MultiZMQ_IO`` object.
 
         '''
-        for address in addresses:
+        for address in self.senders.keys():
             self.senders[address].close(linger=0)
             self.receivers[address].close(linger=0)
             self.context.term()

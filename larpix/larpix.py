@@ -110,7 +110,7 @@ class Key(object):
     @keystring.setter
     def keystring(self, val):
         if self._initialized:
-            raise AttributeError('keystring connot be modified')
+            raise AttributeError('keystring cannot be modified')
         if not isinstance(val, str):
             raise TypeError('keystring must be str')
         parsed_keystring = val.split(Key.key_delimiter)
@@ -131,7 +131,7 @@ class Key(object):
     @chip_id.setter
     def chip_id(self, val):
         if self._initialized:
-            raise AttributeError('chipid connot be modified')
+            raise AttributeError('chipid cannot be modified')
         chip_id = int(val)
         if chip_id > 255 or chip_id < 0:
             raise ValueError('chip_id must be 1-byte ({} invalid)'.format(chip_id))
@@ -149,7 +149,7 @@ class Key(object):
     @io_channel.setter
     def io_channel(self, val):
         if self._initialized:
-            raise AttributeError('io_channel connot be modified')
+            raise AttributeError('io_channel cannot be modified')
         io_channel = int(val)
         if io_channel > 255 or io_channel < 0:
             raise ValueError('io_channel must be 1-byte ({} invalid)'.format(io_channel))
@@ -166,7 +166,7 @@ class Key(object):
     @io_group.setter
     def io_group(self, val):
         if self._initialized:
-            raise AttributeError('io_group connot be modified')
+            raise AttributeError('io_group cannot be modified')
         io_group = int(val)
         if io_group > 255 or io_group < 0:
             raise ValueError('io_group must be 1-byte ({} invalid)'.format(io_group))
