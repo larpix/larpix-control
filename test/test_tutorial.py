@@ -5,9 +5,9 @@ def temp_logfilename():
     return 'test.h5'
 
 def test_min_example(capsys):
-    from larpix.larpix import Controller, Packet
-    from larpix.io.fakeio import FakeIO
-    from larpix.logger.stdout_logger import StdoutLogger
+    from larpix import Controller, Packet
+    from larpix.io import FakeIO
+    from larpix.logger import StdoutLogger
     controller = Controller()
     controller.io = FakeIO()
     controller.logger = StdoutLogger(buffer_length=0)
@@ -25,10 +25,10 @@ def test_min_example(capsys):
     assert capsys.readouterr().out == 'Record: [ Chip key: None | Chip: 1 | Data | Channel: 5 | Timestamp: 123456 | ADC data: 120 | FIFO Half: False | FIFO Full: False | Parity: 1 (valid: True) ]\n[ Chip key: None | Chip: 1 | Data | Channel: 5 | Timestamp: 123456 | ADC data: 120 | FIFO Half: False | FIFO Full: False | Parity: 1 (valid: True) ]\n'
 
 def test_tutorial(capsys, tmpdir, temp_logfilename):
-    from larpix.larpix import Controller, Packet
+    from larpix import Controller, Packet
 
-    from larpix.io.fakeio import FakeIO
-    from larpix.logger.stdout_logger import StdoutLogger
+    from larpix.io import FakeIO
+    from larpix.logger import StdoutLogger
     controller = Controller()
     controller.io = FakeIO()
     controller.logger = StdoutLogger(buffer_length=0)
@@ -40,7 +40,7 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
     chip5 = controller.get_chip(chip_key)
 
 
-    from larpix.larpix import Key
+    from larpix import Key
     example_key = Key('1-2-3')
 
 
@@ -129,7 +129,7 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
     packet.test_counter
 
 
-    from larpix.logger.h5_logger import HDF5Logger
+    from larpix.logger import HDF5Logger
     controller.logger = HDF5Logger(filename=temp_logfilename, directory=str(tmpdir), buffer_length=10000) # a filename of None uses the default filename formatting
     controller.logger.enable() # opens hdf5 file and starts tracking all communications
 
@@ -172,8 +172,8 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
     datafile.close()
 
 def test_running_with_bern_daq():
-    from larpix.larpix import Controller
-    from larpix.io.zmq_io import ZMQ_IO
+    from larpix import Controller
+    from larpix.io import ZMQ_IO
 
     controller = Controller()
     controller.io = ZMQ_IO(config_filepath='io/loopback.json')

@@ -4,8 +4,8 @@ import sys
 import copy
 import warnings
 
-from larpix.io.multizmq_io import MultiZMQ_IO
-from larpix.larpix import Packet, Key
+from larpix.io import MultiZMQ_IO
+from larpix import Packet, Key
 
 class ZMQ_IO(MultiZMQ_IO):
     '''

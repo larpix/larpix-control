@@ -6,7 +6,7 @@ import warnings
 import bidict
 
 from larpix.io import IO
-from larpix.larpix import Packet, Key
+from larpix import Packet, Key
 from larpix.configs import load
 from larpix.format.message_format import dataserver_message_decode
 

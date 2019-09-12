@@ -34,36 +34,66 @@ functions.
 The larpix package contains:
 ```
 larpix
-|-- larpix
-|-- io
-|   |-- fakeio
-|   |-- serialport
-|   `-- zmq_io
-|-- logger
-|   |-- h5_logger
-|   `-- stdout_logger
-|-- quickstart
-|-- timestamp
-|-- bitarrayhelper
-|-- serial_helpers
-|   |-- analyzers
-|   |-- dataformatter
-|   |-- dataloader
-|   `-- datalogger
-`-- configs
-    |-- chip
-    |   |-- csa_bypass.json
-    |   |-- default.json
-    |   |-- physics.json
-    |   `-- quiet.json
-    `-- controller
-        |-- pcb-10_chip_info.json
-        |-- pcb-1_chip_info.json
-        |-- pcb-2_chip_info.json
-        |-- pcb-3_chip_info.json
-        |-- pcb-4_chip_info.json
-        |-- pcb-5_chip_info.json
-        `-- pcb-6_chip_info.json
+├── __init__.py
+├── bitarrayhelper.py
+├── chip.py
+├── configs
+│   ├── __init__.py
+│   ├── chip
+│   │   ├── __init__.py
+│   │   ├── csa_bypass.json
+│   │   ├── default.json
+│   │   ├── physics.json
+│   │   └── quiet.json
+│   ├── controller
+│   │   ├── __init__.py
+│   │   ├── pcb-10_chip_info.json
+│   │   ├── pcb-1_chip_info.json
+│   │   ├── pcb-2_chip_info.json
+│   │   ├── pcb-3_chip_info.json
+│   │   ├── pcb-4_chip_info.json
+│   │   ├── pcb-5_chip_info.json
+│   │   └── pcb-6_chip_info.json
+│   └── io
+│       ├── __init__.py
+│       ├── daq-srv1.json
+│       ├── daq-srv2.json
+│       ├── daq-srv3.json
+│       ├── daq-srv4.json
+│       ├── daq-srv5.json
+│       ├── daq-srv6.json
+│       ├── daq-srv7.json
+│       ├── default.json
+│       └── loopback.json
+├── configuration.py
+├── controller.py
+├── format
+│   ├── __init__.py
+│   ├── hdf5format.py
+│   └── message_format.py
+├── io
+│   ├── __init__.py
+│   ├── fakeio.py
+│   ├── io.py
+│   ├── multizmq_io.py
+│   ├── serialport.py
+│   └── zmq_io.py
+├── key.py
+├── larpix.py
+├── logger
+│   ├── __init__.py
+│   ├── h5_logger.py
+│   ├── logger.py
+│   └── stdout_logger.py
+├── packet.py
+├── quickstart.py
+├── serial_helpers
+│   ├── __init__.py
+│   ├── analyzers.py
+│   ├── dataformatter.py
+│   ├── dataloader.py
+│   └── datalogger.py
+└── timestamp.py
 ```
 
 ## Minimal working example
@@ -72,9 +102,9 @@ So you're not a tutorials kind of person. Here's a minimal working
 example for you to play around with:
 
 ```python
->>> from larpix.larpix import Controller, Packet
->>> from larpix.io.fakeio import FakeIO
->>> from larpix.logger.stdout_logger import StdoutLogger
+>>> from larpix import Controller, Packet
+>>> from larpix.io import FakeIO
+>>> from larpix.logger import StdoutLogger
 >>> controller = Controller()
 >>> controller.io = FakeIO()
 >>> controller.logger = StdoutLogger(buffer_length=0)
@@ -103,11 +133,11 @@ statements:
 ```python
 import larpix  # use the larpix namespace
 # or ...
-from larpix.larpix import *  # import all core larpix classes into the current namespace
+from larpix import *  # import all core larpix classes into the current namespace
 ```
 
 The rest of the tutorial will assume you've imported all of the core larpix
-classes via a ``from larpix.larpix import *`` command.
+classes via a ``from larpix import *`` command.
 
 ### Create a LArPix Controller
 
@@ -124,8 +154,8 @@ interfaces.
 Set things up with
 
 ```python
-from larpix.io.fakeio import FakeIO
-from larpix.logger.stdout_logger import StdoutLogger
+from larpix.io import FakeIO
+from larpix.logger import StdoutLogger
 controller = Controller()
 controller.io = FakeIO()
 controller.logger = StdoutLogger(buffer_length=0)
@@ -179,7 +209,7 @@ a valid keystring (three 1-byte integers separated by dashes, e.g. ``'1-1-1'``).
 Please note that the ids of 0 and 255 are reserved for special functions.
 
 ```python
-from larpix.larpix import Key
+from larpix import Key
 example_key = Key('1-2-3')
 ```
 
@@ -416,7 +446,7 @@ To create a permanent record of communications with the LArPix ASICs, an
 `HDF5Logger` is used. To create a new logger
 
 ```python
-from larpix.logger.h5_logger import HDF5Logger
+from larpix.logger import HDF5Logger
 controller.logger = HDF5Logger(filename=None, buffer_length=10000) # a filename of None uses the default filename formatting
 controller.logger.enable() # starts tracking all communications
 ```
@@ -546,8 +576,8 @@ you will load the ``io/daq-srv<#>.json`` configuration.
 
 With the DAQ system up and running
 ```python
->>> from larpix.larpix import Controller
->>> from larpix.io.zmq_io import ZMQ_IO
+>>> from larpix import Controller
+>>> from larpix.io import ZMQ_IO
 >>> controller = Controller()
 >>> controller.io = ZMQ_IO(config_filepath='<path to config>')
 >>> controller.load('controller/pcb-<#>_chip_info.json')

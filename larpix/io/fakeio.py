@@ -6,7 +6,7 @@ from __future__ import print_function
 from collections import deque
 
 from larpix.io import IO
-from larpix.larpix import TimestampPacket
+from larpix import TimestampPacket
 
 class FakeIO(IO):
     '''
