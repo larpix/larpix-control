@@ -565,7 +565,7 @@ def test_configuration_get_nondefault_registers_many_changes():
 
 def test_configuration_set_pixel_trim_thresholds():
     c = Configuration()
-    expected = [0x05] * Chip.num_channels
+    expected = [0x05] * Configuration.num_channels
     c.pixel_trim_thresholds = expected
     assert c._pixel_trim_thresholds == expected
     expected[5] = 0x10
@@ -575,13 +575,13 @@ def test_configuration_set_pixel_trim_thresholds():
 def test_configuration_set_pixel_trim_thresholds_errors():
     c = Configuration()
     with pytest.raises(ValueError):
-        c.pixel_trim_thresholds = [0x05] * (Chip.num_channels-1)
+        c.pixel_trim_thresholds = [0x05] * (Configuration.num_channels-1)
         pytest.fail(message='Should fail: wrong num_channels')
     with pytest.raises(ValueError):
-        c.pixel_trim_thresholds = [0x20] * Chip.num_channels
+        c.pixel_trim_thresholds = [0x20] * Configuration.num_channels
         pytest.fail(message='Should fail: values too large')
     with pytest.raises(ValueError,):
-        c.pixel_trim_thresholds = [-10] * Chip.num_channels
+        c.pixel_trim_thresholds = [-10] * Configuration.num_channels
         pytest.fail(message='Should fail: value negative')
     with pytest.raises(ValueError):
         c.pixel_trim_thresholds = 5
@@ -589,7 +589,7 @@ def test_configuration_set_pixel_trim_thresholds_errors():
 
 def test_configuration_get_pixel_trim_thresholds():
     c = Configuration()
-    expected = [0x10] * Chip.num_channels
+    expected = [0x10] * Configuration.num_channels
     c._pixel_trim_thresholds = expected
     assert c.pixel_trim_thresholds == expected
 
@@ -682,7 +682,7 @@ def test_configuration_get_internal_bypass():
 
 def test_configuration_set_csa_bypass_select():
     c = Configuration()
-    expected = [0x1] * Chip.num_channels
+    expected = [0x1] * Configuration.num_channels
     c.csa_bypass_select = expected
     assert c._csa_bypass_select == expected
     expected[5] = 0x0
@@ -692,13 +692,13 @@ def test_configuration_set_csa_bypass_select():
 def test_configuration_set_csa_bypass_select_errors():
     c = Configuration()
     with pytest.raises(ValueError):
-        c.csa_bypass_select = [0x1] * (Chip.num_channels-1)
+        c.csa_bypass_select = [0x1] * (Configuration.num_channels-1)
         pytest.fail('Should fail: wrong num_channels')
     with pytest.raises(ValueError):
-        c.csa_bypass_select = [0x2] * Chip.num_channels
+        c.csa_bypass_select = [0x2] * Configuration.num_channels
         pytest.fail('Should fail: value too large')
     with pytest.raises(ValueError):
-        c.csa_bypass_select = [-1] * Chip.num_channels
+        c.csa_bypass_select = [-1] * Configuration.num_channels
         pytest.fail('Should fail: value negative')
     with pytest.raises(ValueError):
         c.csa_bypass_select = 5
@@ -706,13 +706,13 @@ def test_configuration_set_csa_bypass_select_errors():
 
 def test_configuration_get_csa_bypass_select():
     c = Configuration()
-    expected = [0x1] * Chip.num_channels
+    expected = [0x1] * Configuration.num_channels
     c._csa_bypass_select = expected
     assert c.csa_bypass_select == expected
 
 def test_configuration_set_csa_monitor_select():
     c = Configuration()
-    expected = [0x0] * Chip.num_channels
+    expected = [0x0] * Configuration.num_channels
     c.csa_monitor_select = expected
     assert c._csa_monitor_select == expected
     expected[5] = 0x1
@@ -722,13 +722,13 @@ def test_configuration_set_csa_monitor_select():
 def test_configuration_set_csa_monitor_select_errors():
     c = Configuration()
     with pytest.raises(ValueError):
-        c.csa_monitor_select = [0x1] * (Chip.num_channels-1)
+        c.csa_monitor_select = [0x1] * (Configuration.num_channels-1)
         pytest.fail('Should fail: wrong num_channels')
     with pytest.raises(ValueError):
-        c.csa_monitor_select = [0x2] * Chip.num_channels
+        c.csa_monitor_select = [0x2] * Configuration.num_channels
         pytest.fail('Should fail: value too lare')
     with pytest.raises(ValueError):
-        c.csa_monitor_select = [-1] * Chip.num_channels
+        c.csa_monitor_select = [-1] * Configuration.num_channels
         pytest.fail('Should fail: value negative')
     with pytest.raises(ValueError):
         c.csa_monitor_select = 5
@@ -736,13 +736,13 @@ def test_configuration_set_csa_monitor_select_errors():
 
 def test_configuration_get_csa_monitor_select():
     c = Configuration()
-    expected = [0x0] * Chip.num_channels
+    expected = [0x0] * Configuration.num_channels
     c._csa_monitor_select = expected
     assert c.csa_monitor_select == expected
 
 def test_configuration_set_csa_testpulse_enable():
     c = Configuration()
-    expected = [0x1] * Chip.num_channels
+    expected = [0x1] * Configuration.num_channels
     c.csa_testpulse_enable = expected
     assert c._csa_testpulse_enable == expected
     expected[5] = 0x0
@@ -752,13 +752,13 @@ def test_configuration_set_csa_testpulse_enable():
 def test_configuration_set_csa_testpulse_enable_errors():
     c = Configuration()
     with pytest.raises(ValueError):
-        c.csa_testpulse_enable = [0x1] * (Chip.num_channels-1)
+        c.csa_testpulse_enable = [0x1] * (Configuration.num_channels-1)
         pytest.fail('Should fail: wrong num_channels')
     with pytest.raises(ValueError):
-        c.csa_testpulse_enable = [0x2] * Chip.num_channels
+        c.csa_testpulse_enable = [0x2] * Configuration.num_channels
         pytest.fail('Should fail: value too large')
     with pytest.raises(ValueError):
-        c.csa_testpulse_enable = [-1] * Chip.num_channels
+        c.csa_testpulse_enable = [-1] * Configuration.num_channels
         pytest.fail('Should fail: value negative')
     with pytest.raises(ValueError):
         c.csa_testpulse_enable = 5
@@ -766,7 +766,7 @@ def test_configuration_set_csa_testpulse_enable_errors():
 
 def test_configuration_get_csa_testpulse_enable():
     c = Configuration()
-    expected = [0x1] * Chip.num_channels
+    expected = [0x1] * Configuration.num_channels
     c._csa_testpulse_enable = expected
     assert c.csa_testpulse_enable == expected
 
@@ -928,7 +928,7 @@ def test_configuration_get_adc_burst_length():
 
 def test_configuration_set_channel_mask():
     c = Configuration()
-    expected = [0x1] * Chip.num_channels
+    expected = [0x1] * Configuration.num_channels
     c.channel_mask = expected
     assert c._channel_mask == expected
     expected[5] = 0x0
@@ -938,13 +938,13 @@ def test_configuration_set_channel_mask():
 def test_configuration_set_channel_mask_errors():
     c = Configuration()
     with pytest.raises(ValueError):
-        c.channel_mask = [0x1] * (Chip.num_channels-1)
+        c.channel_mask = [0x1] * (Configuration.num_channels-1)
         pytest.fail('Should fail: wrong num_channels')
     with pytest.raises(ValueError):
-        c.channel_mask = [0x2] * Chip.num_channels
+        c.channel_mask = [0x2] * Configuration.num_channels
         pytest.fail('Should fail: value too large')
     with pytest.raises(ValueError):
-        c.channel_mask = [-1] * Chip.num_channels
+        c.channel_mask = [-1] * Configuration.num_channels
         pytest.fail('Should fail: value negative')
     with pytest.raises(ValueError):
         c.channel_mask = 5
@@ -952,13 +952,13 @@ def test_configuration_set_channel_mask_errors():
 
 def test_configuration_get_channel_mask():
     c = Configuration()
-    expected = [0x1] * Chip.num_channels
+    expected = [0x1] * Configuration.num_channels
     c._channel_mask = expected
     assert c.channel_mask == expected
 
 def test_configuration_set_external_trigger_mask():
     c = Configuration()
-    expected = [0x0] * Chip.num_channels
+    expected = [0x0] * Configuration.num_channels
     c.external_trigger_mask = expected
     assert c._external_trigger_mask == expected
     expected[5] = 0x1
@@ -968,13 +968,13 @@ def test_configuration_set_external_trigger_mask():
 def test_configuration_set_external_trigger_mask_errors():
     c = Configuration()
     with pytest.raises(ValueError):
-        c.external_trigger_mask = [0x1] * (Chip.num_channels-1)
+        c.external_trigger_mask = [0x1] * (Configuration.num_channels-1)
         pytest.fail('Should fail: wrong num_channels')
     with pytest.raises(ValueError):
-        c.external_trigger_mask = [0x2] * Chip.num_channels
+        c.external_trigger_mask = [0x2] * Configuration.num_channels
         pytest.fail('Should fail: value too large')
     with pytest.raises(ValueError):
-        c.external_trigger_mask = [-1] * Chip.num_channels
+        c.external_trigger_mask = [-1] * Configuration.num_channels
         pytest.fail('Should fail: value negative')
     with pytest.raises(ValueError):
         c.external_trigger_mask = 5
@@ -982,7 +982,7 @@ def test_configuration_set_external_trigger_mask_errors():
 
 def test_configuration_get_external_trigger_mask():
     c = Configuration()
-    expected = [0x0] * Chip.num_channels
+    expected = [0x0] * Configuration.num_channels
     c._external_trigger_mask = expected
     assert c.external_trigger_mask == expected
 
