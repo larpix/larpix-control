@@ -1544,16 +1544,19 @@ def test_controller_get_chip_all_chips():
 def test_controller_get_chip_error(chip):
     controller = Controller()
     controller.chips[chip.chip_key] = chip
-    test_key = Key(chip.chip_key)
-    test_key.chip_id += 1
+    test_key_dict = chip.chip_key.to_dict()
+    test_key_dict['chip_id'] += 1
+    test_key = Key.from_dict(test_key_dict)
     with pytest.raises(ValueError, message='Should fail: bad chip id'):
         controller.get_chip(test_key)
-    test_key = Key(chip.chip_key)
-    test_key.io_channel += 1
+    test_key_dict = chip.chip_key.to_dict()
+    test_key_dict['io_channel'] += 1
+    test_key = Key.from_dict(test_key_dict)
     with pytest.raises(ValueError, message='Should fail: bad channel id'):
         controller.get_chip(test_key)
-    test_key = Key(chip.chip_key)
-    test_key.io_group += 1
+    test_key_dict = chip.chip_key.to_dict()
+    test_key_dict['io_group'] += 1
+    test_key = Key.from_dict(test_key_dict)
     with pytest.raises(ValueError, message='Should fail: bad group id'):
         controller.get_chip(test_key)
 
@@ -1651,8 +1654,9 @@ def test_controller_multi_write_configuration(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
     key = chip.chip_key
-    key2 = Key(chip.chip_key)
-    key2.chip_id += 1
+    key2_dict = chip.chip_key.to_dict()
+    key2_dict['chip_id'] += 1
+    key2 = Key.from_dict(key2_dict)
     chip2 = Chip(key2)
     controller.chips = {key:chip, key2:chip2}
     controller.multi_write_configuration((key, key2))
@@ -1672,8 +1676,9 @@ def test_controller_multi_write_configuration_write_read(capfd, chip):
     expected_read = PacketCollection(*to_read, read_id=0,
             message='configuration write')
     key = chip.chip_key
-    key2 = Key(chip.chip_key)
-    key2.chip_id += 1
+    key2_dict = chip.chip_key.to_dict()
+    key2_dict['chip_id'] += 1
+    key2 = Key.from_dict(key2_dict)
     chip2 = Chip(key2)
     controller.chips = {key:chip, key2:chip2}
     controller.multi_write_configuration((key, key2), write_read=0.01)
@@ -1689,8 +1694,9 @@ def test_controller_multi_write_configuration_specify_registers(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
     key = chip.chip_key
-    key2 = Key(chip.chip_key)
-    key2.chip_id += 1
+    key2_dict = chip.chip_key.to_dict()
+    key2_dict['chip_id'] += 1
+    key2 = Key.from_dict(key2_dict)
     chip2 = Chip(key2)
     controller.chips = {key:chip, key2:chip2}
     controller.multi_write_configuration([(key, 0), key2])
@@ -1707,13 +1713,15 @@ def test_controller_multi_read_configuration(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
     controller.use_all_chips = True
-    key0 = Key(chip.chip_key)
-    key0.io_channel = 1
-    key0.chip_key = 1
-    key1 = Key(chip.chip_key)
-    key1.chip_id += 1
-    key1.io_channel = 1
-    key1.chip_key = 1
+    key0_dict = chip.chip_key.to_dict()
+    key0_dict['io_channel'] = 1
+    key0_dict['chip_key'] = 1
+    key0 = Key.from_dict(key0_dict)
+    key1_dict = chip.chip_key.to_dict()
+    key1_dict['chip_id'] += 1
+    key1_dict['io_channel'] = 1
+    key1_dict['chip_key'] = 1
+    key1 = Key.from_dict(key1_dict)
     chip1 = controller.add_chip(key0)
     chip2 = controller.add_chip(key1)
     conf_data = chip1.get_configuration_packets(Packet.CONFIG_READ_PACKET)
@@ -1734,8 +1742,9 @@ def test_controller_multi_read_configuration_specify_registers(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
     key0 = Key(chip.chip_key)
-    key1 = Key(chip.chip_key)
-    key1.chip_id += 1
+    key1_dict = chip.chip_key.to_dict()
+    key1_dict['chip_id'] += 1
+    key1 = Key.from_dict(key1_dict)
     controller.chips[key0] = Chip(chip_key=key0)
     controller.chips[key1] = Chip(chip_key=key1)
     conf_data = controller.chips[key0].get_configuration_packets(Packet.CONFIG_READ_PACKET)[:1]
@@ -2064,15 +2073,15 @@ def test_key():
         pytest.fail('too many args')
 
     k = Key('1-2-3')
-    with pytest.raises(ValueError):
-        k.io_channel = -1
-        pytest.fail('key value is not unsigned')
-    with pytest.raises(ValueError):
-        k.io_group = 256
-        pytest.fail('key value is not 1-byte')
-    with pytest.raises(ValueError):
-        k.chip_id = 'f'
-        pytest.fail('key value is not int')
+    with pytest.raises(AttributeError):
+        k.io_channel = 1
+        pytest.fail('key is pseudo immutable')
+    with pytest.raises(AttributeError):
+        k.io_group = 1
+        pytest.fail('key is pseudo immutable')
+    with pytest.raises(AttributeError):
+        k.chip_id = 1
+        pytest.fail('key is pseudo immutable')
 
     assert k == '1-2-3'
     assert Key(k) == k

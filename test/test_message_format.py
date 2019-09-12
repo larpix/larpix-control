@@ -3,7 +3,7 @@ from larpix.format.message_format import dataserver_message_decode, dataserver_m
 
 def test_message_format_test_packets(chip):
     expected_packets = chip.get_configuration_packets(Packet.CONFIG_READ_PACKET)
-    expected_messages = [b'\x01\x00'+b'D'+b'\x00'*5 + packet.bytes() + b'\x00' for packet in expected_packets]
+    expected_messages = [b'\x01\x00'+b'D'+b'\x02'+b'\x00'*4 + packet.bytes() + b'\x00' for packet in expected_packets]
     ts_packet = TimestampPacket(timestamp=123456789)
     expected_packets += [ts_packet]
     expected_messages += [b'\x01\x00'+b'T'+b'\x00'*5 + ts_packet.bytes() + b'\x00']

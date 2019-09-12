@@ -32,15 +32,6 @@ class ZMQ_IO(MultiZMQ_IO):
             raise RuntimeError('multiple adresses found in configuration - use '
                 'MultiZMQ_IO if you\'d like to connect to multiple systems')
 
-    def decode(self, msgs, **kwargs):
-        '''
-        Convert a list ZMQ messages into packets
-
-        '''
-        if not 'address' in kwargs:
-            kwargs['address'] = self._address
-        return super(ZMQ_IO, self).decode(msgs, **kwargs)
-
     @property
     def sender(self):
         return self.senders[self._address]
@@ -62,27 +53,14 @@ class ZMQ_IO(MultiZMQ_IO):
     def sender_replies(self, val):
         super(ZMQ_IO, self).sender_replies[self._address] = val
 
-    def generate_chip_key(self, **kwargs):
+    def decode(self, msgs, **kwargs):
         '''
-        Generates a valid ``ZMQ_IO`` chip key
-
-        :param chip_id: ``int`` corresponding to internal chip id
-
-        :param io_chain: ``int`` corresponding to daisy chain number
+        Convert a list ZMQ messages into packets
 
         '''
-        req_fields = ('chip_id', 'io_chain')
-        if not all([key in kwargs for key in req_fields]):
-            raise ValueError('Missing fields required to generate chip id'
-                ', requires {}, received {}'.format(req_fields, kwargs.keys()))
-        io_channel = kwargs['io_chain']
-        if io_channel in self._miso_map:
-            io_channel = self._miso_map[io_channel]
-        return Key.from_dict(dict(
-                io_channel = io_channel,
-                chip_id = kwargs['chip_id'],
-                io_group = self._io_group_table.inv[self._address]
-            ))
+        if not 'address' in kwargs:
+            return super(ZMQ_IO, self).decode(msgs, address=self._address, **kwargs)
+        return super(ZMQ_IO, self).decode(msgs, **kwargs)
 
     def reset(self):
         '''
