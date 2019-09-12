@@ -58,7 +58,9 @@ class ZMQ_IO(MultiZMQ_IO):
         Convert a list ZMQ messages into packets
 
         '''
-        return super(ZMQ_IO, self).decode(msgs, address=self._address, **kwargs)
+        if not 'address' in kwargs:
+            return super(ZMQ_IO, self).decode(msgs, address=self._address, **kwargs)
+        return super(ZMQ_IO, self).decode(msgs, **kwargs)
 
     def reset(self):
         '''
