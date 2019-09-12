@@ -4,9 +4,9 @@ Use the pytest framework to write tests for the larpix module.
 '''
 from __future__ import print_function
 import pytest
-from larpix.larpix import (Chip, Packet, Key, Configuration, Controller,
+from larpix import (Chip, Packet, Key, Configuration, Controller,
         PacketCollection, _Smart_List, TimestampPacket, MessagePacket)
-from larpix.io.fakeio import FakeIO
+from larpix.io import FakeIO
 from larpix.timestamp import *  # use long = int in py3
 #from bitstring import BitArray
 from bitarray import bitarray
