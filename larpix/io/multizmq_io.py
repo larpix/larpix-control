@@ -97,7 +97,7 @@ class MultiZMQ_IO(IO):
         return_packets = dataserver_message_decode(msgs, version=(1,0), io_group=self._io_group_table.inv[address], **kwargs)
         if self._miso_map.keys():
             for packet in return_packets:
-                if packet.io_channel in self._miso_map.keys():
+                if hasattr(packet, 'io_channel') and packet.io_channel in self._miso_map.keys():
                     packet.io_channel = self._miso_map[packet.io_channel]
         return return_packets
 
