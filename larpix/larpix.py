@@ -20,12 +20,8 @@ from bitarray import bitarray
 from . import bitarrayhelper as bah
 from .logger import Logger
 from . import configs
-from .key import Key
-from .chip import Chip
-from .configuration import Configuration, _Smart_List
-from .controller import Controller
-from .packet import TimestampPacket, MessagePacket, Packet, PacketCollection
-
-warnings.filterwarnings('default', category=ImportWarning)
-warnings.warn('larpix.larpix module has been refactored into sub-modules',ImportWarning)
-
+from .key import *
+from .chip import *
+from .configuration import *
+from .controller import *
+from .packet import *
