@@ -105,20 +105,18 @@ class BaseConfiguration(object):
             if getattr(self, register_name) != getattr(config, register_name):
                 d[register_name] = (getattr(self, register_name), getattr(config,
                                                                           register_name))
-        # # Attempt to simplify some of the long values (array values)
-        # FIXME broken with v2 configuration
-        # for (name, (self_value, config_value)) in d.items():
-        #     if (name in (label for _, label in self._complex_array_spec)
-        #             or name == 'pixel_trim_thresholds'):
-        #         different_values = []
-        #         for ch, (val, config_val) in enumerate(zip(self_value, config_value)):
-        #             if val != config_val:
-        #                 different_values.append(({'channel': ch, 'value': val},
-        #                                          {'channel': ch, 'value': config_val}))
-        #         if len(different_values) < 5:
-        #             d[name] = different_values
-        #         else:
-        #             pass
+        # Attempt to simplify some of the long values (array values)
+        for (name, (self_value, config_value)) in d.items():
+            if isinstance(self_value,(list,_Smart_List)):
+                different_values = []
+                for ch, (val, config_val) in enumerate(zip(self_value, config_value)):
+                    if val != config_val:
+                        different_values.append(({'channel': ch, 'value': val},
+                                                 {'channel': ch, 'value': config_val}))
+                if len(different_values) < 5:
+                    d[name] = different_values
+                else:
+                    pass
         return d
 
     def get_nondefault_registers(self):
