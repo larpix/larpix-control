@@ -1,53 +1,21 @@
 from bitarray import bitarray
 import os
 import errno
+import functools
+from collections import OrderedDict
 
-from . import bitarrayhelper as bah
-from . import configs
+from .. import bitarrayhelper as bah
+from .. import configs
+from . import BaseConfiguration, _Smart_List
 
-class _Smart_List(list):
+class Configuration_v1(BaseConfiguration):
     '''
-    A list type which checks its elements to be within given bounds.
-    Used for Configuration attributes where there's a distinct value for
-    each LArPix channel.
-
-    '''
-
-    def __init__(self, values, low, high):
-        if not (type(values) == list or type(values) == _Smart_List):
-            raise ValueError("_Smart_List is not list")
-        if any([value > high or value < low for value in values]):
-            raise ValueError("value out of bounds")
-        list.__init__(self, values)
-        self.low = low
-        self.high = high
-
-    def __setitem__(self, key, value):
-        if isinstance(key, int):
-            if value > self.high or value < self.low:
-                raise ValueError("value out of bounds")
-            list.__setitem__(self, key, value)
-        else:
-            for num in value:
-                if num > self.high or num < self.low:
-                    raise ValueError("value out of bounds")
-            list.__setitem__(self, key, value)
-
-    def __setslice__(self, i, j, value):
-        '''
-        Only used in Python 2, where __setslice__ is deprecated but
-        contaminates the namespace of this subclass.
-
-        '''
-        self.__setitem__(slice(i, j, None), value)
-
-
-class Configuration(object):
-    '''
-    Represents the desired configuration state of a LArPix chip.
+    Represents the desired configuration state of a LArPix v1 chip.
 
     '''
 
+    asic_version = 1
+    default_configuration_file = 'chip/default.json'
     num_registers = 63
     num_channels = 32
     pixel_trim_threshold_addresses = list(range(0, 32))
@@ -110,7 +78,7 @@ class Configuration(object):
     TEST_FIFO = 0x2
     def __init__(self):
         # Actual setup
-        self.load('chip/default.json')
+        super(Configuration_v1, self).__init__()
 
         # Annoying things we have to do because the configuration
         # register follows complex semantics:
@@ -159,68 +127,6 @@ class Configuration(object):
         # These registers each correspond to an entry in an array
         self._trim_registers = list(range(32))
 
-    def __setattr__(self, name, value):
-        '''
-        Default setattr behavior occurs if name is in ``register_names``, is "private"
-        or is a known attribute
-        Otherwise raises an attribute error
-
-        '''
-        if not (name in self.register_names or name[0] == '_' or hasattr(self, name)):
-            raise AttributeError('%s is not a known register' % name)
-        return super(Configuration, self).__setattr__(name, value)
-
-    def __eq__(self, other):
-        '''
-        Returns true if all fields match
-        '''
-        return all([getattr(self, register_name) == getattr(other, register_name)
-                    for register_name in self.register_names])
-
-    def __str__(self):
-        '''
-        Converts configuration to a nicely formatted json string
-
-        '''
-        d = self.to_dict()
-        l = ['\"{}\": {}'.format(key,value) for key,value in d.items()]
-        return '{\n    ' + ',\n    '.join(l) + '\n}'
-
-    def compare(self, config):
-        '''
-        Returns a dict containing pairs of each differently valued register
-        Pair order is (self, other)
-        '''
-        d = {}
-        for register_name in self.register_names:
-            if getattr(self, register_name) != getattr(config, register_name):
-                d[register_name] = (getattr(self, register_name), getattr(config,
-                                                                          register_name))
-        # Attempt to simplify some of the long values (array values)
-        for (name, (self_value, config_value)) in d.items():
-            if (name in (label for _, label in self._complex_array_spec)
-                    or name == 'pixel_trim_thresholds'):
-                different_values = []
-                for ch, (val, config_val) in enumerate(zip(self_value, config_value)):
-                    if val != config_val:
-                        different_values.append(({'channel': ch, 'value': val},
-                                                 {'channel': ch, 'value': config_val}))
-                if len(different_values) < 5:
-                    d[name] = different_values
-                else:
-                    pass
-        return d
-
-    def get_nondefault_registers(self):
-        '''
-        Return a dict of all registers that are not set to the default
-        configuration (i.e. of the ASIC on power-up). The keys are the
-        register name where there's a difference, and the values are
-        tuples of (current, default) configuration values.
-
-        '''
-        return self.compare(Configuration())
-
     @property
     def pixel_trim_thresholds(self):
         return self._pixel_trim_thresholds
@@ -231,8 +137,8 @@ class Configuration(object):
         high = 31
         if not (type(values) == list or type(values) == _Smart_List):
             raise ValueError("pixel_trim_threshold is not list")
-        if not len(values) == Configuration.num_channels:
-            raise ValueError("pixel_trim_threshold length is not %d" % Configuration.num_channels)
+        if not len(values) == Configuration_v1.num_channels:
+            raise ValueError("pixel_trim_threshold length is not %d" % Configuration_v1.num_channels)
         if not all(type(value) == int for value in values):
             raise ValueError("pixel_trim_threshold is not int")
         if any(value > high or value < low for value in values):
@@ -302,8 +208,8 @@ class Configuration(object):
         high = 1
         if not (type(values) == list or type(values) == _Smart_List):
             raise ValueError("csa_bypass_select is not list")
-        if not len(values) == Configuration.num_channels:
-            raise ValueError("csa_bypass_select length is not %d" % Configuration.num_channels)
+        if not len(values) == Configuration_v1.num_channels:
+            raise ValueError("csa_bypass_select length is not %d" % Configuration_v1.num_channels)
         if not all(type(value) == int for value in values):
             raise ValueError("csa_bypass_select is not int")
         if any(value > high or value < low for value in values):
@@ -321,8 +227,8 @@ class Configuration(object):
         high = 1
         if not (type(values) == list or type(values) == _Smart_List):
             raise ValueError("csa_monitor_select is not list")
-        if not len(values) == Configuration.num_channels:
-            raise ValueError("csa_monitor_select length is not %d" % Configuration.num_channels)
+        if not len(values) == Configuration_v1.num_channels:
+            raise ValueError("csa_monitor_select length is not %d" % Configuration_v1.num_channels)
         if not all(type(value) == int for value in values):
             raise ValueError("csa_monitor_select is not int")
         if any(value > high or value < low for value in values):
@@ -338,8 +244,8 @@ class Configuration(object):
     def csa_testpulse_enable(self, values):
         if not type(values) == list:
             raise ValueError("csa_testpulse_enable is not list")
-        if not len(values) == Configuration.num_channels:
-            raise ValueError("csa_testpulse_enable length is not %d" % Configuration.num_channels)
+        if not len(values) == Configuration_v1.num_channels:
+            raise ValueError("csa_testpulse_enable length is not %d" % Configuration_v1.num_channels)
         if not all(type(value) == int for value in values):
             raise ValueError("csa_testpulse_enable is not int")
         if any(value > 1 or value < 0 for value in values):
@@ -368,8 +274,8 @@ class Configuration(object):
     def test_mode(self, value):
         if not type(value) == int:
             raise ValueError("test_mode is not int")
-        valid_values = [Configuration.TEST_OFF, Configuration.TEST_UART,
-                        Configuration.TEST_FIFO]
+        valid_values = [Configuration_v1.TEST_OFF, Configuration_v1.TEST_UART,
+                        Configuration_v1.TEST_FIFO]
         if not value in valid_values:
             raise ValueError("test_mode is not valid")
 
@@ -461,8 +367,8 @@ class Configuration(object):
     def channel_mask(self, values):
         if not type(values) == list:
             raise ValueError("channel_mask is not list")
-        if not len(values) == Configuration.num_channels:
-            raise ValueError("channel_mask length is not %d" % Configuration.num_channels)
+        if not len(values) == Configuration_v1.num_channels:
+            raise ValueError("channel_mask length is not %d" % Configuration_v1.num_channels)
         if not all(type(value) == int for value in values):
             raise ValueError("channel_mask is not int")
         if any(value > 1 or value < 0 for value in values):
@@ -478,8 +384,8 @@ class Configuration(object):
     def external_trigger_mask(self, values):
         if not type(values) == list:
             raise ValueError("external_trigger_mask is not list")
-        if not len(values) == Configuration.num_channels:
-            raise ValueError("external_trigger_mask length is not %d" % Configuration.num_channels)
+        if not len(values) == Configuration_v1.num_channels:
+            raise ValueError("external_trigger_mask length is not %d" % Configuration_v1.num_channels)
         if not all(type(value) == int for value in values):
             raise ValueError("external_trigger_mask is not int")
         if any(value > 1 or value < 0 for value in values):
@@ -507,7 +413,7 @@ class Configuration(object):
 
         '''
         if list_of_channels is None:
-            list_of_channels = range(Configuration.num_channels)
+            list_of_channels = range(Configuration_v1.num_channels)
         for channel in list_of_channels:
             self.channel_mask[channel] = 0
 
@@ -518,7 +424,7 @@ class Configuration(object):
 
         '''
         if list_of_channels is None:
-            list_of_channels = range(Configuration.num_channels)
+            list_of_channels = range(Configuration_v1.num_channels)
         for channel in list_of_channels:
             self.channel_mask[channel] = 1
 
@@ -529,7 +435,7 @@ class Configuration(object):
 
         '''
         if list_of_channels is None:
-            list_of_channels = range(Configuration.num_channels)
+            list_of_channels = range(Configuration_v1.num_channels)
         for channel in list_of_channels:
             self.external_trigger_mask[channel] = 0
 
@@ -540,7 +446,7 @@ class Configuration(object):
 
         '''
         if list_of_channels is None:
-            list_of_channels = range(Configuration.num_channels)
+            list_of_channels = range(Configuration_v1.num_channels)
         for channel in list_of_channels:
             self.external_trigger_mask[channel] = 1
 
@@ -550,7 +456,7 @@ class Configuration(object):
 
         '''
         if list_of_channels is None:
-            list_of_channels = range(Configuration.num_channels)
+            list_of_channels = range(Configuration_v1.num_channels)
         for channel in list_of_channels:
             self.csa_testpulse_enable[channel] = 0
 
@@ -560,7 +466,7 @@ class Configuration(object):
 
         '''
         if list_of_channels is None:
-            list_of_channels = range(Configuration.num_channels)
+            list_of_channels = range(Configuration_v1.num_channels)
         for channel in list_of_channels:
             self.csa_testpulse_enable[channel] = 1
 
@@ -576,11 +482,11 @@ class Configuration(object):
         Shortcut for disabling the analog monitor (on all channels).
 
         '''
-        self.csa_monitor_select = [0] * Configuration.num_channels
+        self.csa_monitor_select = [0] * Configuration_v1.num_channels
 
     def all_data(self):
         bits = []
-        num_channels = Configuration.num_channels
+        num_channels = Configuration_v1.num_channels
         for channel in range(num_channels):
             bits.append(self.trim_threshold_data(channel))
         bits.append(self.global_threshold_data())
@@ -605,6 +511,36 @@ class Configuration(object):
         bits.append(self.reset_cycles_data(1))
         bits.append(self.reset_cycles_data(2))
         return bits
+
+    def from_dict_registers(self, d):
+        '''
+        Load in the configuration specified by a dict of (register,
+        value) pairs.
+
+        '''
+        def bits_to_array(data):
+            bits = bah.fromuint(data, 8)
+            return [int(bit) for bit in bits][::-1]
+
+        for address, value in d.items():
+            if address in self._simple_registers:
+                setattr(self, self._simple_registers[address], value)
+            elif address in self._complex_modify_data:
+                attributes = self._complex_modify_data[address]
+                for name, extract in attributes:
+                    setattr(self, name, extract(value))
+            elif address in self._complex_modify_attr:
+                name, combine = self._complex_modify_attr[address]
+                current_value = getattr(self, name)
+                setattr(self, name, combine(current_value, value))
+            elif address in self._complex_array:
+                name, index = self._complex_array[address]
+                affected = slice(index*8, (index+1)*8)
+                attr_list = getattr(self, name)
+                attr_list[affected] = bits_to_array(value)
+            elif address in self._trim_registers:
+                self.pixel_trim_thresholds[address] = value
+        return  #phew
 
     def trim_threshold_data(self, channel):
         return bah.fromuint(self.pixel_trim_thresholds[channel], 8)
@@ -687,78 +623,3 @@ class Configuration(object):
             return bits[8:16]
         elif chunk == 2:
             return bits[:8]
-
-    def to_dict(self):
-        '''
-        Export the configuration register names and values into a dict.
-
-        '''
-        d = {}
-        for register_name in self.register_names:
-            d[register_name] = getattr(self, register_name)
-        return d
-
-    def from_dict(self, d):
-        '''
-        Use a dict of ``{register_name, value}`` to update the current
-        configuration. Not all registers must be in the dict - only
-        those present will be updated.
-
-        '''
-        for register_name in self.register_names:
-            if register_name in d:
-                setattr(self, register_name, d[register_name])
-
-    def from_dict_registers(self, d):
-        '''
-        Load in the configuration specified by a dict of (register,
-        value) pairs.
-
-        '''
-        def bits_to_array(data):
-            bits = bah.fromuint(data, 8)
-            return [int(bit) for bit in bits][::-1]
-
-        for address, value in d.items():
-            if address in self._simple_registers:
-                setattr(self, self._simple_registers[address], value)
-            elif address in self._complex_modify_data:
-                attributes = self._complex_modify_data[address]
-                for name, extract in attributes:
-                    setattr(self, name, extract(value))
-            elif address in self._complex_modify_attr:
-                name, combine = self._complex_modify_attr[address]
-                current_value = getattr(self, name)
-                setattr(self, name, combine(current_value, value))
-            elif address in self._complex_array:
-                name, index = self._complex_array[address]
-                affected = slice(index*8, (index+1)*8)
-                attr_list = getattr(self, name)
-                attr_list[affected] = bits_to_array(value)
-            elif address in self._trim_registers:
-                self.pixel_trim_thresholds[address] = value
-        return  #phew
-
-    def write(self, filename, force=False, append=False):
-        '''
-        Save the configuration to a JSON file.
-
-        '''
-        if os.path.isfile(filename):
-            if not force:
-                raise IOError(errno.EEXIST,
-                              'File %s exists. Use force=True to overwrite'
-                              % filename)
-
-        with open(filename, 'w+') as outfile:
-            outfile.write(str(self))
-        return 0
-
-    def load(self, filename):
-        '''
-        Load a JSON file and use the contents to update the current
-        configuration.
-
-        '''
-        data = configs.load(filename)
-        self.from_dict(data)
