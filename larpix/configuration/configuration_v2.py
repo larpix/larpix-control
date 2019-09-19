@@ -313,9 +313,9 @@ def _value_validator(value_types, min_value, max_value):
         @functools.wraps(func)
         def value_validated_func(self, value):
             if not isinstance(value, value_types):
-                raise TypeError(f'value must be of type {value_types}')
+                raise TypeError('value must be of type {}'.format(value_types))
             if value > max_value or value < min_value:
-                raise ValueError(f'value must be between {min_value} and {max_value}')
+                raise ValueError('value must be between {} and {}'.format(min_value,max_value))
             return func(self, value)
         return value_validated_func
     return value_validator
@@ -331,13 +331,13 @@ def _list_validator(value_types, min_value, max_value, n_values):
         @functools.wraps(func)
         def list_validated_func(self, values):
             if not isinstance(values, (list, _Smart_List, tuple)):
-                raise TypeError(f'argument must be a list or tuple')
+                raise TypeError('argument must be a list or tuple')
             if len(values) != n_values:
-                raise ValueError(f'length of list must be {n_values}')
+                raise ValueError('length of list must be {}'.format(n_values))
             if any([not isinstance(value, value_types) for value in values]):
-                raise TypeError(f'values must be of type {value_types}')
+                raise TypeError('values must be of type {}'.format(value_types))
             if any([value > max_value or value < min_value for value in values]):
-                raise ValueError(f'values must be between {min_value} and {max_value}')
+                raise ValueError('values must be between {} and {}'.format(min_value,max_value))
             return func(self, values)
         return list_validated_func
     return list_validator
@@ -356,19 +356,19 @@ def _data_validator(register_name):
                 if register_addr < self.register_map[register_name][0] \
                 or register_addr > self.register_map[register_name][-1] \
                 or len(bits) != 8:
-                    raise ValueError(f'invalid register, value pair {value}'
-                        ' for register {register_name}')
+                    raise ValueError('invalid register, value pair {}'
+                        ' for register {}'.format(value,register_name))
                 return func(self, value)
             elif isinstance(value, bitarray):
                 bits = value
                 start_bit, stop_bit = self.bit_map[register_name]
                 if len(bits) != stop_bit - start_bit:
-                    raise ValueError(f'invalid bitarray {value}'
-                        ' for register {register_name}')
+                    raise ValueError('invalid bitarray {}'
+                        ' for register {}'.format(value,register_name))
                 return func(self, value)
             else:
-                raise TypeError(f'{register_name} data must be assigned with '
-                    'register, value pair or bitarray')
+                raise TypeError('{} data must be assigned with '
+                    'register, value pair or bitarray'.format(register_name))
         return data_validated_func
     return data_validator
 # /Value validation function formulas

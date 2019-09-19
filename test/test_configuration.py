@@ -11,7 +11,7 @@ def test_v2_conf_all_registers():
     # check that all registers are in the configuration file
     assert all([register_name in data['register_values'].keys() for register_name in c.register_names])
     for register in c.register_names:
-        print(f'testing {register}')
+        print('testing {}'.format(register))
         config_value = data['register_values'][register]
         stored_value = getattr(c,register)
 
