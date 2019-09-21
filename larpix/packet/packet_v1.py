@@ -73,10 +73,10 @@ class Packet_v1(object):
 
     def __init__(self, bytestream=None):
         if bytestream is None:
-            self.bits = bitarray(Packet_v1.size)
+            self.bits = bitarray(self.size)
             self.bits.setall(False)
             return
-        elif len(bytestream) == Packet_v1.num_bytes:
+        elif len(bytestream) == self.num_bytes:
             # Parse the bytestream. Remember that bytestream[0] goes at
             # the 'end' of the BitArray
             reversed_bytestream = bytestream[::-1]

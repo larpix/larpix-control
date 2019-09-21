@@ -72,7 +72,7 @@ class Packet_v2(object):
             self.bits = bitarray(self.size)
             self.bits.setall(False)
             return
-        elif len(bytestream) == Packet.num_bytes:
+        elif len(bytestream) == self.num_bytes:
             # Parse the bytestream. Remember that bytestream[0] goes at
             # the 'end' of the BitArray
             reversed_bytestream = bytestream[::-1]
@@ -166,6 +166,7 @@ class Packet_v2(object):
         d['type_str'] = type_map[self.packet_type]
         d['type'] = self.packet_type
         d['chip_id'] = self.chip_id
+        d['downstream_marker'] = self.downstream_marker
         d['parity'] = self.parity
         d['valid_parity'] = self.has_valid_parity()
         ptype = self.packet_type
@@ -266,18 +267,6 @@ class Packet_v2(object):
         # no value validation!
         self._io_channel = value
 
-    def _basic_getter(name):
-        def basic_getter_func(self):
-            bit_slice = getattr(self, name + '_bits')
-            return bah.touint(self.bits[bit_slice])
-        return basic_getter_func
-
-    def _basic_setter(name):
-        def basic_setter_func(self, value):
-            bit_slice = getattr(self, name + '_bits')
-            self.bits[bit_slice] = bah.fromuint(value, bit_slice)
-        return basic_setter_func
-
     @property
     def timestamp(self):
         if self.fifo_diagnostics_enabled:
@@ -332,15 +321,62 @@ class Packet_v2(object):
     def has_valid_parity(self):
         return self.parity == self.compute_parity()
 
+    @property
+    def local_fifo_events(self):
+        if self.fifo_diagnostics_enabled:
+            bit_slice = self.local_fifo_events_bits
+            return bah.touint(self.bits[bit_slice])
+        return None
+
+    @local_fifo_events.setter
+    def local_fifo_events(self, value):
+        if self.fifo_diagnostics_enabled:
+            bit_slice = self.local_fifo_events_bits
+            self.bits[bit_slice] = bah.fromuint(value, bit_slice)
+
+    @property
+    def shared_fifo_events(self):
+        if self.fifo_diagnostics_enabled:
+            bit_slice = self.shared_fifo_events_bits
+            return bah.touint(self.bits[bit_slice])
+        return None
+
+    @shared_fifo_events.setter
+    def shared_fifo_events(self, value):
+        if self.fifo_diagnostics_enabled:
+            bit_slice = self.shared_fifo_events_bits
+            self.bits[bit_slice] = bah.fromuint(value, bit_slice)
+
+    @property
+    def chip_id(self):
+        bit_slice = self.chip_id_bits
+        return bah.touint(self.bits[bit_slice])
+
+    @chip_id.setter
+    def chip_id(self, value):
+        if hasattr(self,'_chip_key'):
+            del self._chip_key
+        bit_slice = self.chip_id_bits
+        self.bits[bit_slice] = bah.fromuint(value, bit_slice)
+
+    def _basic_getter(name):
+        def basic_getter_func(self):
+            bit_slice = getattr(self, name + '_bits')
+            return bah.touint(self.bits[bit_slice])
+        return basic_getter_func
+
+    def _basic_setter(name):
+        def basic_setter_func(self, value):
+            bit_slice = getattr(self, name + '_bits')
+            self.bits[bit_slice] = bah.fromuint(value, bit_slice)
+        return basic_setter_func
+
     packet_type = property(_basic_getter('packet_type'),_basic_setter('packet_type'))
-    chip_id = property(_basic_getter('chip_id'),_basic_setter('chip_id'))
     downstream_marker = property(_basic_getter('downstream_marker'),_basic_setter('downstream_marker'))
     parity = property(_basic_getter('parity'),_basic_setter('parity'))
     channel_id = property(_basic_getter('channel_id'),_basic_setter('channel_id'))
     dataword = property(_basic_getter('dataword'),_basic_setter('dataword'))
     trigger_type = property(_basic_getter('trigger_type'),_basic_setter('trigger_type'))
-    local_fifo_events = property(_basic_getter('local_fifo_events'),_basic_setter('local_fifo_events'))
-    shared_fifo_events = property(_basic_getter('shared_fifo_events'),_basic_setter('shared_fifo_events'))
     register_address = property(_basic_getter('register_address'),_basic_setter('register_address'))
     register_data = property(_basic_getter('register_data'),_basic_setter('register_data'))
     local_fifo = property(_basic_getter('local_fifo'),_basic_setter('local_fifo'))
