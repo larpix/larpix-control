@@ -189,14 +189,18 @@ class Packet_v2(object):
         return d
 
     def from_dict(self, d):
+        '''
+        Load from a dict of values, inverse of ``Packet_v2.export``
+
+        ..note:: If there is a disagreement between the bits specified and any of the values, this method has undefined results.
+
+        '''
         if not d['asic_version'] == self.asic_version:
             raise ValueError('invalid asic version {}'.format(d['asic_version']))
         if 'type' in d and d['type'] not in (self.DATA_PACKET, self.TEST_PACKET, self.CONFIG_WRITE_PACKET, self.CONFIG_READ_PACKET):
             raise ValueError('invalid packet type for Packet_v2')
         if 'local_fifo_events' in d or 'shared_fifo_events' in d:
             self.fifo_diagnostics_enabled = True
-        else:
-            self.fifo_diagnostics_enabled = False
         for key, value in d.items():
             if key in ('type_str', 'valid_parity'):
                 continue
@@ -204,6 +208,7 @@ class Packet_v2(object):
                 self.bits = bitarray(value)
             else:
                 setattr(self, key, value)
+            print(key, self.bits)
 
     @property
     def chip_key(self):
