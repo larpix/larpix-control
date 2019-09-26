@@ -82,6 +82,7 @@ def test_chip_export_reads(chip):
             'chip_id': chip.chip_id,
             'packets': [
                 {
+                    'asic_version': 1,
                     'bits': packet.bits.to01(),
                     'type_str': 'config write',
                     'type': 2,
@@ -123,6 +124,7 @@ def test_chip_export_reads_all(chip):
             'chip_key': chip.chip_key,
             'packets': [
                 {
+                    'asic_version': 1,
                     'bits': packet.bits.to01(),
                     'type': 2,
                     'chipid': chip.chip_id,
@@ -211,6 +213,7 @@ def test_packet_export_test():
     p.assign_parity()
     result = p.export()
     expected = {
+            'asic_version': 1,
             'bits': p.bits.to01(),
             'type_str': 'test',
             'type': 1,
@@ -235,6 +238,7 @@ def test_packet_export_data():
     p.assign_parity()
     result = p.export()
     expected = {
+            'asic_version': 1,
             'bits': p.bits.to01(),
             'type_str': 'data',
             'type': 0,
@@ -260,6 +264,7 @@ def test_packet_export_config_read():
     p.assign_parity()
     result = p.export()
     expected = {
+            'asic_version': 1,
             'bits': p.bits.to01(),
             'type_str': 'config read',
             'type': 3,
@@ -281,6 +286,7 @@ def test_packet_export_config_write():
     p.assign_parity()
     result = p.export()
     expected = {
+            'asic_version': 1,
             'bits': p.bits.to01(),
             'type_str': 'config write',
             'type': 2,
@@ -302,6 +308,7 @@ def test_packet_from_dict():
     p.register_data = 2
     p.assign_parity()
     packet_dict = {
+            'asic_version': 1,
             'bits': p.bits.to01(),
             'type_str': 'config write',
             'type': 2,
@@ -1877,6 +1884,7 @@ def test_packetcollection_to_dict():
             'read_id': 'None',
             'bytestream': packet.bytes().decode('raw_unicode_escape'),
             'packets': [{
+                'asic_version': 1,
                 'bits': packet.bits.to01(),
                 'type': 'test',
                 'chip_key': None,
