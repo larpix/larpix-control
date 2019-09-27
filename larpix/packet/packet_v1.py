@@ -297,6 +297,15 @@ class Packet_v1(object):
                 self.chipid_bits)
 
     @property
+    def chip_id(self):
+        # additional handle to match Packet_v2 name
+        return self.chipid
+
+    @chip_id.setter
+    def chip_id(self, value):
+        self.chipid = value
+
+    @property
     def parity_bit_value(self):
         return int(self.bits[self.parity_bit])
 

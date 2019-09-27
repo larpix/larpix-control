@@ -1530,23 +1530,10 @@ def test_configuration_from_dict_reg_reset_cycles():
     expected = 0x563412
     assert result == expected
 
-def test_controller_init_chips():
-    controller = Controller()
-    result = set(map(repr, controller._init_chips()))
-    expected = set(map(repr, ('1-1-{}'.format(i) for i in range(256))))
-    assert result == expected
-
 def test_controller_get_chip(chip):
     controller = Controller()
     controller.chips[chip.chip_key] = chip
     assert controller.get_chip(chip.chip_key) == chip
-
-def test_controller_get_chip_all_chips():
-    controller = Controller()
-    controller.use_all_chips = True
-    result = controller.get_chip('1-1-5')
-    expected = controller.all_chips['1-1-5']
-    assert result == expected
 
 def test_controller_get_chip_error(chip):
     controller = Controller()
