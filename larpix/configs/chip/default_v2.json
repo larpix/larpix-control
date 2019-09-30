@@ -44,7 +44,7 @@
         "load_config_defaults": 0,
         "enable_fifo_diagnostics": 0,
         "clk_ctrl": 0,
-        "enable_miso_upstream": [0, 0, 0, 0],
+        "enable_miso_upstream": [1, 1, 1, 1],
         "enable_miso_downstream": [0, 0, 0, 0],
         "enable_miso_differential": [0, 0, 0, 0],
         "enable_mosi": [0, 0, 0, 0],
