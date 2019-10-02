@@ -1,6 +1,7 @@
 {
     "name": "pcb-1",
     "layout": "1.0.0",
+    "type": "controller",
     "chip_list": [
         "1-1-246",
         "1-1-245",

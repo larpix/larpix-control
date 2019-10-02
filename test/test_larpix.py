@@ -29,7 +29,7 @@ def test_chip_str():
     key = '1-1-1'
     chip = Chip(key)
     result = str(chip)
-    expected = 'Chip (id: 1, key: 1-1-1)'
+    expected = 'Chip (key: 1-1-1, version: 1)'
     assert result == expected
 
 def test_chip_get_configuration_packets(chip):
@@ -1776,7 +1776,7 @@ def test_controller_verify_configuration_missing_packet(capfd, chip):
     controller.io.queue.append((conf_data,b'hi'))
     ok, diff = controller.verify_configuration(chip_keys=chip.chip_key)
     assert ok == False
-    assert diff == {5: (16, None)}
+    assert diff == {chip.chip_key: {5: (16, None)}}
 
 def test_controller_verify_configuration_bad_value(capfd, chip):
     controller = Controller()
@@ -1788,7 +1788,7 @@ def test_controller_verify_configuration_bad_value(capfd, chip):
     controller.io.queue.append((conf_data,b'hi'))
     ok, diff = controller.verify_configuration(chip_keys=chip.chip_key)
     assert ok == False
-    assert diff == {5: (16, 17)}
+    assert diff == {chip.chip_key: {5: (16, 17)}}
 
 def test_packetcollection_getitem_int():
     expected = Packet()

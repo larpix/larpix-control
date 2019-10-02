@@ -8,39 +8,52 @@ class Chip(object):
     generation.
 
     '''
-    asic_version = 1
 
-    def __init__(self, chip_key):
+    def __init__(self, chip_key, version=1):
         '''
         Create a new Chip object with the given ``chip_key``. See the ``Key``
         class for the key specification. Key can be specified by a valid keystring
         or a ``Key`` object.
 
         '''
-        self.chip_key = Key(chip_key)
+        self.asic_version = version
         self.data_to_send = []
         if self.asic_version == 1:
             self.config = Configuration_v1()
         elif self.asic_version == 2:
             self.config = Configuration_v2()
+            self.upstream = [None]*4
         else:
             raise RuntimeError('chip asic version is invalid')
+        chip_key = Key(chip_key)
+        self.io_group = chip_key.io_group
+        self.io_channel = chip_key.io_channel
+        self.chip_id = chip_key.chip_id
         self.reads = []
         self.new_reads_index = 0
 
     def __str__(self):
-        return 'Chip (id: {}, key: {})'.format(self.chip_id, str(self.chip_key))
+        return 'Chip (key: {}, version: {})'.format(str(self.chip_key), self.asic_version)
 
     def __repr__(self):
-        return 'Chip(chip_key={})'.format(str(self.chip_key))
+        return 'Chip(chip_key={}, version={})'.format(str(self.chip_key), self.asic_version)
 
     @property
-    def chip_id(self):
-        return self.chip_key.chip_id
+    def chip_key(self):
+        return Key(self.io_group, self.io_channel, self.chip_id)
 
-    @chip_id.setter
-    def chip_id(self, val):
-        self.chip_key.chip_id = val
+    @chip_key.setter
+    def chip_key(self, val):
+        val = Key(val)
+        self.io_group = val.io_group
+        self.io_channel = val.io_channel
+        self.chip_id = val.chip_id
+
+    def is_chip_id_set(self):
+        if self.asic_version == 1:
+            return True
+        elif self.asic_version == 2:
+            return self.config.chip_id == self.chip_id
 
     def get_configuration_packets(self, packet_type, registers=None):
         '''
