@@ -41,7 +41,7 @@ setup(
             'numpy ~= 1.16',
             'h5py ~= 2.9',
             'bidict ~= 0.18.0',
-            'networkx ~= 2.3'
+            'networkx ~= 2.2'
             ],
         scripts=[
             'scripts/gen_controller_config.py',

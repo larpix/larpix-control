@@ -80,8 +80,10 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
 
     controller.add_network_link('mosi',1,1,('ext',6),1)
     controller.add_network_link('miso_ds',1,1,(6,'ext'),1)
-    assert list(controller.network[1][1]['miso_ds'].edges()) == [(5, 6), (6, 'ext')]
-    assert list(controller.network[1][1]['mosi'].edges()) == [(5, 6), (6, 5), ('ext', 6)]
+    assert all(link in list(controller.network[1][1]['miso_ds'].edges()) for link in [(5, 6), (6, 'ext')])
+    assert all(link in [(5, 6), (6, 'ext')] for link in list(controller.network[1][1]['miso_ds'].edges()))
+    assert all(link in list(controller.network[1][1]['mosi'].edges()) for link in [(5, 6), (6, 5), ('ext', 6)])
+    assert all(link in [(5, 6), (6, 5), ('ext', 6)] for link in list(controller.network[1][1]['mosi'].edges()))
 
 
     controller.init_network(1,1,6)
