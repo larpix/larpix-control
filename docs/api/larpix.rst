@@ -21,7 +21,7 @@ Packets
 
 .. automodule:: larpix.packet
 
-v1 configuration registers
+Configuration (v1 ASIC)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. autoattribute:: larpix.configuration.Configuration.register_names
