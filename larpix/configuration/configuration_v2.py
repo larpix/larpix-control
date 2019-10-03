@@ -34,7 +34,7 @@ class Configuration_v2(BaseConfiguration):
     the size of the data it holds. You can see which physical registers a
     given register name corresponds to by using the `register_map` attribute, e.g.::
 
-        >>> conf.register_map['digital_threshold']
+        >>> conf.register_map['digital_threshold']  # 64 registers, 1 per channel
         range(173, 237)
         >>> conf.register_map['enable_dynamic_reset']
         range(170, 171)
