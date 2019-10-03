@@ -1,10 +1,20 @@
 LArPix Control Core
 ---------------------
 
+Controllers
+^^^^^^^^^^^
+
 .. automodule:: larpix.controller
+
+Chips
+^^^^^
+
 .. automodule:: larpix.chip
+
+Chip keys
+^^^^^^^^^
+
 .. automodule:: larpix.key
-.. automodule:: larpix.configuration
 
 Packets
 ^^^^^^^
@@ -15,8 +25,13 @@ Packets
 .. automodule:: larpix.packet.message_packet
 .. automodule:: larpix.packet.packet_collection
 
-Configuration registers
-^^^^^^^^^^^^^^^^^^^^^^^
+Configuration (v1 ASIC)
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. autoattribute:: larpix.configuration.Configuration.register_names
+.. automodule:: larpix.configuration.configuration_v1
+
+Configuration (v2 ASIC)
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: larpix.configuration.configuration_v2
 
