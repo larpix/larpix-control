@@ -1291,7 +1291,7 @@ def test_configuration_write(tmpdir):
     with open(f, 'r') as output:
         result = json.load(output)
     expected = c.to_dict()
-    assert result == expected
+    assert result['register_values'] == expected
 
 def test_configuration_write_errors(tmpdir):
     c = Configuration()
@@ -1309,7 +1309,7 @@ def test_configuration_write_force(tmpdir):
     with open(str(f), 'r') as output:
         result = json.load(output)
     expected = c.to_dict()
-    assert result == expected
+    assert result['register_values'] == expected
 
 def test_configuration_read_absolute(tmpdir):
     c = Configuration()
