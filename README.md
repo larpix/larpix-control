@@ -43,6 +43,7 @@ larpix
 │   │   ├── __init__.py
 │   │   ├── csa_bypass.json
 │   │   ├── default.json
+│   │   ├── default_v2.json
 │   │   ├── physics.json
 │   │   └── quiet.json
 │   ├── controller
@@ -53,7 +54,8 @@ larpix
 │   │   ├── pcb-3_chip_info.json
 │   │   ├── pcb-4_chip_info.json
 │   │   ├── pcb-5_chip_info.json
-│   │   └── pcb-6_chip_info.json
+│   │   ├── pcb-6_chip_info.json
+│   │   └── v2_example.json
 │   └── io
 │       ├── __init__.py
 │       ├── daq-srv1.json
@@ -65,8 +67,13 @@ larpix
 │       ├── daq-srv7.json
 │       ├── default.json
 │       └── loopback.json
-├── configuration.py
+├── configuration
+│   ├── __init__.py
+│   ├── configuration.py
+│   ├── configuration_v1.py
+│   └── configuration_v2.py
 ├── controller.py
+├── example.py
 ├── format
 │   ├── __init__.py
 │   ├── hdf5format.py
@@ -85,7 +92,13 @@ larpix
 │   ├── h5_logger.py
 │   ├── logger.py
 │   └── stdout_logger.py
-├── packet.py
+├── packet
+│   ├── __init__.py
+│   ├── message_packet.py
+│   ├── packet_collection.py
+│   ├── packet_v1.py
+│   ├── packet_v2.py
+│   └── timestamp_packet.py
 ├── quickstart.py
 ├── serial_helpers
 │   ├── __init__.py
@@ -102,24 +115,26 @@ So you're not a tutorials kind of person. Here's a minimal working
 example for you to play around with:
 
 ```python
->>> from larpix import Controller, Packet
+>>> from larpix import Controller, Packet_v2
 >>> from larpix.io import FakeIO
 >>> from larpix.logger import StdoutLogger
 >>> controller = Controller()
 >>> controller.io = FakeIO()
 >>> controller.logger = StdoutLogger(buffer_length=0)
 >>> controller.logger.enable()
->>> chip1 = controller.add_chip('1-1-1')  # (access key)
->>> chip1.config.global_threshold = 25
->>> controller.write_configuration('1-1-1', 25) # chip key, register 25
-[ Config write | Chip key: '1-1-1' | Chip: 1 | Register: 25 | Value:  16 | Parity: 1 (valid: True) ]
->>> packet = Packet(b'\x04\x14\x80\xc4\x03\xf2 ')
+>>> chip1 = controller.add_chip('1-1-2', version=2)  # (access key)
+>>> chip1.config.threshold_global = 25
+>>> controller.write_configuration('1-1-2', chip1.config.register_map['threshold_global']) # chip key, register 64
+[ Key: 1-1-2 | Chip: 2 | Upstream | Write | Register: 64 | Value: 25 | Parity: 1 (valid: True) ]
+Record: [ Key: 1-1-2 | Chip: 2 | Upstream | Write | Register: 64 | Value: 25 | Parity: 1 (valid: True) ]
+>>> packet = Packet_v2(b'\x02\x91\x15\xcd[\x07\x85\x00')
 >>> packet_bytes = packet.bytes()
 >>> pretend_input = ([packet], packet_bytes)
 >>> controller.io.queue.append(pretend_input)
 >>> controller.run(0.05, 'test run')
+Record: [ Key: None | Chip: 2 | Downstream | Data | Channel: 5 | Timstamp: 123456789 | Dataword: 145 | Trigger: normal | Local FIFO ok | Shared FIFO ok | Parity: 0 (valid: True) ]
 >>> print(controller.reads[0])
-[ Data | Chip key: None | Chip: 1 | Channel: 5 | Timestamp: 123456 | ADC data: 120 | FIFO Half: False | FIFO Full: False | Parity: 1 (valid: True) ]
+[ Key: None | Chip: 2 | Downstream | Data | Channel: 5 | Timstamp: 123456789 | Dataword: 145 | Trigger: normal | Local FIFO ok | Shared FIFO ok | Parity: 0 (valid: True) ]
 ```
 
 ## Tutorial
@@ -184,8 +199,12 @@ Controller.
 ```python
 chipid = 5
 chip_key = '1-1-5'
-chip5 = controller.add_chip(chip_key)
+chip5 = controller.add_chip(chip_key, version=2)
+
 chip5 = controller.get_chip(chip_key)
+chip5 = controller.get_chip((1,1,5)) # a different way to get a chip
+chip5 = controller[chip_key] # and another one
+chip5 = controller[1,1,5] # and another one
 ```
 
 The `chip_key` field specifies the necessary information for the `controller.io`
@@ -205,12 +224,12 @@ low-level layers in larpix readout:
   MOSI/MISO network
 
 If you want to interact with chip keys directly, you can instantiate one using
-a valid keystring (three 1-byte integers separated by dashes, e.g. ``'1-1-1'``).
-Please note that the ids of 0 and 255 are reserved for special functions.
+a valid keystring (three 1-byte integers separated by dashes, e.g. ``'1-1-2'``).
+Please note that the ids of 0, 1, and 255 are reserved for special functions.
 
 ```python
 from larpix import Key
-example_key = Key('1-2-3')
+example_key = Key(1,2,3)
 ```
 
 You can grab relevant information from the key via a number of useful methods
@@ -224,10 +243,114 @@ example_key.to_dict() # returns a dict with the above keys / values
 ```
 
 If you are using a ``Key`` in a script, we recommend that you generate the keys
-via the ``Key.from_dict()`` method which will protect against updates to the key
+via the ``Key(<io_group>,<io_channel>,<chip_id>)`` method which will protect against updates to the keystring
 formatting.
 
 You can read the docs to learn more about ``Key`` functionality.
+
+### Set up LArPix Hydra network
+
+With the the LArPix v2 asic, a network io structure is used. To keep track of
+this network and to insure the proper bring-up procedure is followed. The
+controller has a ``network`` attribute. This is an ordered dict with multiple
+layers corresponding to the chip key layers. It assumes that each hydra network
+is distinct on a given io channel. On a given io channel, the hydra network is
+represented as three directed graphs ``miso_us``, ``miso_ds``, and ``mosi``.
+
+```python
+controller.network[1] # Represents all networks on io group 1
+controller.network[1][1] # Represents the network on io group 1, io channel 1
+controller.network[1][1]['mosi'] # directed graph representing mosi links
+```
+
+Nodes within the network are added automatically whenever you add a chip to the
+controller:
+
+```python
+list(controller.network[1][1]['mosi'].nodes()) # chip ids of known mosi nodes
+list(controller.network[1][1]['miso_us'].nodes()) # chip ids of known miso_us nodes
+list(controller.network[1][1]['miso_ds'].nodes()) # chip ids of known miso_ds nodes
+controller.network[1][1]['miso_us'].nodes[5] # attributes associated with node 5
+controller.add_chip('1-1-6', version=2, root=True)
+list(controller.network[1][1]['miso_us'].nodes()) # [5, 6]
+```
+
+The 'root' node is used to indicate which chips should be brought up first when
+initializing the network.
+
+Accessing connections between nodes is done via edges:
+
+```python
+list(controller.network[1][1]['miso_us'].edges()) # []
+controller.add_network_link('miso_us',1,1,(6,5),0) # link chips 6 -> 5 in the miso_us graph via chip 6's uart channel 0
+list(controller.network[1][1]['miso_us'].edges()) # [(6,5)] direction indicates the data flow direction
+controller.network[1][1]['miso_us'].edges[(6,5)] # attributes associated with link ('uart': 0)
+```
+
+In order to set up a 'working' network, you'll need to add the proper links in
+the miso_ds and mosi graphs as well.
+
+```python
+controller.add_network_link('miso_ds',1,1,(5,6),2)
+controller.add_network_link('mosi',1,1,(6,5),0)
+controller.add_network_link('mosi',1,1,(5,6),2)
+```
+
+External systems (e.g. the fpga you are using to communicate with the chips) are
+conventionally called ``'ext0', 'ext1', ...`` and shouldn't be forgotten in the
+network configuration! These nodes are used to determine the miso/mosi
+configuration for the linked chips.
+
+```python
+controller.add_network_link('mosi',1,1,('ext',6),1) # link chip 6 to 'ext' via chip 6's uart channel 0
+controller.add_network_link('miso_ds',1,1,(6,'ext'),1) # same for miso_ds
+list(controller.network[1][1]['miso_ds'].edges())
+list(controller.network[1][1]['mosi'].edges())
+```
+
+To then initialize a component on the network, run `controller.init_network(1,1,6)`.
+This will modify the correct registers of chip 1-1-6 and send the configuration
+commands to the system.
+
+```python
+controller.init_network(1,1,6)
+controller.init_network(1,1,5)
+```
+
+Keep in mind, the order in which you initialize the network is important (e.g.
+chip 6 needs to be initialized before chip 5 since it is upstream from chip 6).
+
+You may also reset a particular node with `reset_network(<io_group>,<io_channel>,<chip_id>)`
+which resets the network configuration of a particular node.
+
+```python
+controller.reset_network(1,1,5)
+controller.reset_network(1,1,6)
+```
+
+This is all rather tedious, so there a few shortcuts to make declaring and
+configuring the network easier. If you don't want to initialize or reset each
+node in order, you may allow the controller to figure out the proper order
+(based on the root nodes) and configure all of the chips.
+
+```python
+controller.init_network(1,1) # configure the 1-1 network
+controller.reset_network(1,1) # revert the 1-1 network to it's original state
+```
+
+You may also specify a network configuration file and use this to create all
+of the necessary network links and chips. See the
+[docs](https://larpix-control.readthedocs.io/en/stable/api/configs/controller.html)
+for how to create one of these files. This is the generally recommended means of
+creating and loading a Hydra io network.
+
+```python
+# as an example for bringing up a hydra network from a config file
+controller.load('<network config file>.json') # load your network and chips
+for io_group, io_channels in controller.network.items():
+    for io_channel in io_channels:
+        controller.init_network(io_group, io_channel) # update configurations and write to chips
+```
 
 ### Adjust the configuration of the LArPix Chips
 
@@ -236,8 +359,8 @@ Configurations can be adjusted by name using attributes of the Chip's
 configuration:
 
 ```python
-chip5.config.global_threshold = 35  # entire register = 1 number
-chip5.config.periodic_reset = 1  # one bit as part of a register
+chip5.config.threshold_global = 35  # entire register = 1 number
+chip5.config.enable_periodic_reset = 1  # one bit as part of a register
 chip5.config.channel_mask[20] = 1  # one bit per channel
 ```
 
@@ -258,7 +381,13 @@ controller.write_configuration(chip_key, [32, 50])  # send registers 32 and 50
 Register addresses can be looked up using the configuration object:
 
 ```python
-global_threshold_reg = chip5.config.global_threshold_address
+threshold_global_reg = chip5.config.register_map['threshold_global']
+```
+
+And register names:
+
+```python
+threshold_global_name = chip.5.config.register_map_inv[64]
 ```
 
 For configurations which extend over multiple registers, the relevant
@@ -285,7 +414,7 @@ section on "Inspecting received data" for more.
 FakeIO queue code:
 
 ```python
-packets = chip5.get_configuration_packets(Packet.CONFIG_READ_PACKET)
+packets = chip5.get_configuration_read_packets()
 bytestream = b'bytes for the config read packets'
 controller.io.queue.append((packets, bytestream))
 ```
@@ -330,10 +459,10 @@ controller.run(duration, message)
 FakeIO queue code for the first code block:
 
 ```python
-packets = [Packet()] * 40
+packets = [Packet_v2()] * 40
 bytestream = b'bytes from the first set of packets'
 controller.io.queue.append((packets, bytestream))
-packets2 = [Packet()] * 30
+packets2 = [Packet_v2()] * 30
 bytestream2 = b'bytes from the second set of packets'
 controller.io.queue.append((packets2, bytestream2))
 ```
@@ -341,7 +470,7 @@ controller.io.queue.append((packets2, bytestream2))
 fakeIO queue code for the second code block:
 
 ```python
-packets = [Packet()] * 5
+packets = [Packet_v2()] * 5
 bytestream = b'[bytes from read #%d] '
 for i in range(100):
     controller.io.queue.append((packets, bytestream%i))
@@ -391,20 +520,30 @@ the packet.
 packet = run1[0]
 # all packets
 packet.packet_type  # unique in that it gives the bits representation
-packet.chipid  # all other properties return Python numbers
-packet.chip_key # key for association to a unique chip
-packet.parity_bit_value
+packet.chip_id  # all other properties return Python numbers
+packet.chip_key # key for association to a unique chip (can be None)
+packet.parity
+packet.downstream_marker
+
 # data packets
 packet.channel_id
 packet.dataword
 packet.timestamp
-packet.fifo_half_flag  # 1 or 0
-packet.fifo_full_flag  # 1 or 0
+packet.trigger_type
+packet.local_fifo
+packet.shared_fifo
 # config packets
 packet.register_address
 packet.register_data
-# test packets
-packet.test_counter
+
+# if fifo_diagnostics enabled on a given chip the timestamp of data packets
+# are interpreted differently (note that this is not done automatically and will
+# need to be performed manually on each packet)
+packet.fifo_diagnostics_enabled = True
+packet.timestamp
+packet.local_fifo_events
+packet.shared_fifo_events
+
 ```
 
 Internally, packets are represented as an array of bits, and the
@@ -421,7 +560,7 @@ region, which is probably not what you want for your data packet.
 
 Packets have a parity bit which enforces odd parity, i.e. the sum of
 all the individual bits in a packet must be an odd number. The parity
-bit can be accessed as above using the ``parity_bit_value`` attribute.
+bit can be accessed as above using the ``parity`` attribute.
 The correct parity bit can be computed using ``compute_parity()``,
 and the validity of a packet's parity can be checked using
 ``has_valid_parity()``. When constructing a new packet, the correct
@@ -557,7 +696,7 @@ interactive python sessions if you are about to quit.)
 datafile.close()
 ```
 
-## Running with a Bern DAQ board
+## Running with a Bern DAQ board (v1 asic)
 
 Since you have completed the tutorial with the `FakeIO` class, you are now ready
 to interface with some LArPix ASICs. If you have a Bern DAQ v2-3 setup you can

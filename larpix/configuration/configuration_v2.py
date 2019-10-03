@@ -109,6 +109,15 @@ def _basic_setter(register_name):
     def basic_setter_func(self, value):
         setattr(self, '_'+register_name, value)
     return basic_setter_func
+
+def _list_setter(register_name, min_value, max_value):
+    '''
+    Function formula for setting a named register
+
+    '''
+    def list_setter_func(self, value):
+        setattr(self, '_'+register_name, _Smart_List(value, min_value, max_value))
+    return list_setter_func
 # /Setter function formulas
 
 ## Data getter function formulas
@@ -224,7 +233,7 @@ def _basic_data_setter(register_name):
             setattr(self, register_name, value)
     return basic_data_setter_func
 
-def _list_data_setter(register_name, n_bits):
+def _list_data_setter(register_name, n_bits, min_value, max_value):
     '''
     Function formula for setting a list-like register's data
     A list-like register contains repeated functionality every ``n_bits``
@@ -250,7 +259,7 @@ def _list_data_setter(register_name, n_bits):
             # use all bits to set values
             bits = values
             item_values = [bah.touint(bits[idx:idx+n_bits]) for idx in range(0, len(bits), n_bits)]
-            setattr(self, register_name, item_values)
+            setattr(self, register_name, _Smart_List(item_values, min_value, max_value))
     return list_data_setter_func
 
 def _compound_data_setter(registers, register_name):
@@ -276,7 +285,7 @@ def _compound_data_setter(registers, register_name):
             setattr(self, register_name, bah.touint(set_bits))
     return compound_data_setter_func
 
-def _compound_list_data_setter(registers, register_name, n_bits):
+def _compound_list_data_setter(registers, register_name, n_bits, min_value, max_value):
     '''
     Function formula for setting a compound list register's data
     A compound list register has a one-to-many mapping of register address to
@@ -296,7 +305,7 @@ def _compound_list_data_setter(registers, register_name, n_bits):
         else:
             set_bits = value
             values = [bah.touint(set_bits[idx:idx+n_bits]) for idx in range(0,len(set_bits),n_bits)]
-            setattr(self, register_name, values)
+            setattr(self, register_name, _Smart_List(values, min_value, max_value))
     return compound_list_data_setter_func
 # /Data setter function formulas
 
@@ -412,12 +421,12 @@ def _list_property(name, registers, bits, types, min, max, length, n_bits):
         property(
             _basic_getter(name),
             _list_validator(types,min,max,length)(
-                _basic_setter(name)),
+                _list_setter(name,min,max)),
             doc=docstring),
         property(
             _list_data_getter(name,n_bits),
             _data_validator(name)(
-                _list_data_setter(name,n_bits))))
+                _list_data_setter(name,n_bits,min,max))))
 
 def _compound_property(name, registers, bits, names, types, min, max):
     docstring = '''
@@ -463,13 +472,13 @@ def _compound_list_property(name, registers, bits, names, types, min, max, lengt
         property(
             _basic_getter(name),
             _list_validator(types,min,max,length)(
-                _basic_setter(name)),
+                _list_setter(name,min,max)),
             doc=docstring
             ),
         property(
             _compound_list_data_getter(names,n_bits),
             _data_validator(name)(
-                _compound_list_data_setter(names,name,n_bits))))
+                _compound_list_data_setter(names,name,n_bits,min,max))))
 # /Property function formulas
 
 ## Set up property info
