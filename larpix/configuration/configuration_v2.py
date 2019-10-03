@@ -51,7 +51,7 @@ class Configuration_v2(BaseConfiguration):
     # Additional class properties regarding configuration registers are set at the end of the file.
 
     def __init__(self):
-        # Actual setup
+        # Note: properties, getters and setters are constructed after this class definition at the bottom of the file.
         super(Configuration_v2, self).__init__()
         return
 
