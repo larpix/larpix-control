@@ -22,6 +22,7 @@ def network_config(tmpdir):
     '''
     filename = str(tmpdir.join('test_network_conf.json'))
     config_dict = {
+        "_config_type": "controller",
         "name": "test",
         "type": "network",
         "network": {

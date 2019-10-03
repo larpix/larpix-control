@@ -1,4 +1,5 @@
 {
+    "_config_type": "controller",
     "name": "v2_example",
     "type": "network",
     "layout": null,

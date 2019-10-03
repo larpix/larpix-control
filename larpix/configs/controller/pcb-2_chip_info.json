@@ -1,4 +1,5 @@
 {
+    "_config_type": "controller",
     "name": "pcb-2",
     "layout": "1.2.0",
     "type": "controller",

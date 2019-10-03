@@ -210,7 +210,7 @@ class Controller(object):
         :param filename: File path to configuration file
 
         '''
-        system_info = configs.load(filename)
+        system_info = configs.load(filename, 'controller')
         if system_info['type'] == 'controller':
             print('loading controller...')
             return self.load_controller(filename)

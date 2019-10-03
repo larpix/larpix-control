@@ -6,6 +6,7 @@ The v2 configuration file is a standard JSON file structured as follows:
 
 .. parsed-literal::
     {
+        "_config_type": "controller",
         "name": <string identifier for configuration ID, e.g. "pcb-3", or "acube-2x2">,
         "layout": <string identifier for layout version, e.g. "1.2.0">,
         "type": "network",

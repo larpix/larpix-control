@@ -180,9 +180,7 @@ class BaseConfiguration(object):
         configuration.
 
         '''
-        data = configs.load(filename)
-        if not data['_config_type'] == 'chip':
-            raise RuntimeError('configuration file type {} is invalid'.format(data['_config_type']))
+        data = configs.load(filename, 'chip')
         if data['class'] != self.__class__.__name__:
             raise RuntimeError('Configuration is not of class {}'.format(data['class']))
         self.from_dict(data['register_values'])

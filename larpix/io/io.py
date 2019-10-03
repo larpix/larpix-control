@@ -9,7 +9,6 @@ class IO(object):
     by the larpix core classes.
 
     '''
-    _valid_config_types = ['io']
     _valid_config_classes = ['IO']
 
     def __init__(self):
@@ -34,9 +33,8 @@ class IO(object):
         '''
         if filepath is None:
             filepath = self.default_filepath
-        config = configs.load(filepath)
-        if (config['_config_type'] not in self._valid_config_types or
-            config['io_class'] not in self._valid_config_classes):
+        config = configs.load(filepath, 'io')
+        if (config['io_class'] not in self._valid_config_classes):
             raise RuntimeError('Invalid configuration type for {}'.format(type(self).__name__))
         self._io_group_table = bidict.bidict(config['io_group'])
 
