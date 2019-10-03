@@ -36,7 +36,7 @@ class Configuration_v2(BaseConfiguration):
 
         >>> conf.register_map['digital_threshold']  # 64 registers, 1 per channel
         range(173, 237)
-        >>> conf.register_map['enable_dynamic_reset']
+        >>> conf.register_map['enable_dynamic_reset']  # Register 170
         range(170, 171)
         >>> conf.register_map['enable_min_delta_adc']  # Shares register 170
         range(170, 171)
