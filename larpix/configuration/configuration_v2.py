@@ -34,11 +34,11 @@ class Configuration_v2(BaseConfiguration):
     the size of the data it holds. You can see which physical registers a
     given register name corresponds to by using the `register_map` attribute, e.g.::
 
-        >>> conf.register_map['digital_threshold']
+        >>> conf.register_map['digital_threshold']  # 64 registers, 1 per channel
         range(173, 237)
-        >>> conf.register_map['enable_dynamic_reset']
+        >>> conf.register_map['enable_dynamic_reset']  # Register 170
         range(170, 171)
-        >>> conf.register_map['enable_min_delta_adc']
+        >>> conf.register_map['enable_min_delta_adc']  # Shares register 170
         range(170, 171)
 
     '''
@@ -48,9 +48,11 @@ class Configuration_v2(BaseConfiguration):
     num_registers = 237
     num_bits = 1896
     num_channels = 64
+    # Additional class properties regarding configuration registers are set at the end of the file.
+    # Additional class properties regarding configuration registers are set at the end of the file.
 
     def __init__(self):
-        # Actual setup
+        # Note: properties, getters and setters are constructed after this class definition at the bottom of the file.
         super(Configuration_v2, self).__init__()
         return
 
@@ -118,6 +120,7 @@ def _list_setter(register_name, min_value, max_value):
     def list_setter_func(self, value):
         setattr(self, '_'+register_name, _Smart_List(value, min_value, max_value))
     return list_setter_func
+
 # /Setter function formulas
 
 ## Data getter function formulas

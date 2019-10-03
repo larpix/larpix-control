@@ -7,6 +7,11 @@ from collections import OrderedDict
 from .. import bitarrayhelper as bah
 from .. import configs
 
+__all__ = [
+    'BaseConfiguration',
+    '_Smart_List',
+]
+
 class _Smart_List(list):
     '''
     A list type which checks its elements to be within given bounds.
@@ -95,15 +100,15 @@ class BaseConfiguration(object):
         d = self.to_dict()
         return _nice_json(d)
 
-    def compare(self, config):
+    def compare(self, other):
         '''
         Returns a dict containing pairs of each differently valued register
         Pair order is (self, other)
         '''
         d = {}
         for register_name in self.register_names:
-            if getattr(self, register_name) != getattr(config, register_name):
-                d[register_name] = (getattr(self, register_name), getattr(config,
+            if getattr(self, register_name) != getattr(other, register_name):
+                d[register_name] = (getattr(self, register_name), getattr(other,
                                                                           register_name))
         # Attempt to simplify some of the long values (array values)
         for (name, (self_value, config_value)) in d.items():

@@ -47,7 +47,7 @@
         "enable_miso_upstream": [0, 0, 0, 0],
         "enable_miso_downstream": [0, 0, 0, 0],
         "enable_miso_differential": [0, 0, 0, 0],
-        "enable_mosi": [0, 0, 0, 0],
+        "enable_mosi": [1, 1, 1, 1],
         "test_mode_uart0": 0,
         "test_mode_uart1": 0,
         "test_mode_uart2": 0,

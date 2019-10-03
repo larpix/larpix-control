@@ -10,9 +10,6 @@ from larpix.logger.stdout_logger import StdoutLogger
 
 def test_enable():
     logger = StdoutLogger(buffer_length=1)
-    with pytest.warns(DeprecationWarning):
-        logger.open()
-
     logger.enable()
     assert logger.is_enabled()
     logger.record(['test'])
@@ -20,28 +17,14 @@ def test_enable():
 
 def test_disable():
     logger = StdoutLogger()
-    with pytest.warns(DeprecationWarning):
-        logger.open()
-
     logger.disable()
     assert not logger.is_enabled()
     logger.record(['test'])
     assert len(logger._buffer) == 0
 
-def test_open():
-    logger = StdoutLogger()
-    with pytest.warns(DeprecationWarning):
-        logger.open()
-
-    assert logger.is_enabled()
-    with pytest.warns(DeprecationWarning):
-        assert logger.is_open()
-
 def test_flush():
     logger = StdoutLogger(buffer_length=5)
-    with pytest.warns(DeprecationWarning):
-        logger.open()
-
+    logger.enable()
     logger.record(['test'])
     assert len(logger._buffer) == 1
     logger.flush()
@@ -51,21 +34,9 @@ def test_flush():
     logger.record(['test'])
     assert len(logger._buffer) == 0
 
-def test_close():
-    logger = StdoutLogger()
-    with pytest.warns(DeprecationWarning):
-        logger.open()
-    with pytest.warns(DeprecationWarning):
-        logger.close()
-    assert not logger.is_enabled()
-    with pytest.warns(DeprecationWarning):
-        assert not logger.is_open()
-
 def test_record():
     logger = StdoutLogger(buffer_length=1)
-    with pytest.warns(DeprecationWarning):
-        logger.open()
-
+    logger.enable()
     logger.record(['test'])
     assert logger._buffer[0] == 'Record: test'
 
@@ -73,8 +44,7 @@ def test_record():
 def test_controller_write_capture(capfd, chip):
     controller = Controller()
     controller.logger = StdoutLogger(buffer_length=100)
-    with pytest.warns(DeprecationWarning):
-        controller.logger.open()
+    controller.logger.enable()
     controller.chips[chip.chip_key] = chip
     controller.write_configuration(chip.chip_key, 0)
     packet = chip.get_configuration_packets(Packet.CONFIG_WRITE_PACKET)[0]
@@ -85,7 +55,6 @@ def test_controller_read_capture(capfd):
     controller.io = FakeIO()
     controller.io.queue.append(([Packet()], b'\x00\x00'))
     controller.logger = StdoutLogger(buffer_length=100)
-    with pytest.warns(DeprecationWarning):
-        controller.logger.open()
+    controller.logger.enable()
     controller.run(0.1,'test')
     assert len(controller.logger._buffer) == 1
