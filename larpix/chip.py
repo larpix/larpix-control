@@ -50,6 +50,12 @@ class Chip(object):
         self.chip_id = val.chip_id
 
     def is_chip_id_set(self):
+        '''
+        Check if chip id (as specified by unique key) matches the chip id stored
+        in the configuration.
+        Only valid for v2 asics, if v1 asic, will always return ``True``
+
+        '''
         if self.asic_version == 1:
             return True
         elif self.asic_version == 2:

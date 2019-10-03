@@ -42,6 +42,9 @@ class Controller(object):
       ``run``, ``write_configuration``, ``read_configuration``,
       ``multi_write_configuration``, ``multi_read_configuration``, and
       ``store_packets``.
+    - ``network``: a collection of networkx directed graph objects representing
+      the miso_us, miso_ds, and mosi connections between chips (not applicable
+      for v1 asics)
 
     '''
 
@@ -58,15 +61,26 @@ class Controller(object):
 
     def get_chip(self, key):
         '''
-        Retrieve the Chip object that this Controller associates with
-        the given ``chip_key``.
+        Retrieve the Chip object that this Controller associated with the key.
+        A key can either be a valid keystring, ``larpix.Key`` object or a
+        ``tuple``/``list``. If it is a ``tuple``/``list``, the chip with a key
+        of ``Key(*key)`` will be retrieved.
+
+        Raises a ``ValueError`` if no chip is found.
+
+        Chips can also be accessed via the controller's ``__getitem__`` method.
+        E.g.::
+
+            controller[1,1,2] == controller['1-1-2']
+            controller.get_chip('1-1-2') == controller.get_chip((1,1,2))
+            controller[1,1,2] == controller.get_chip('1-1-2')
 
         '''
         try:
             if isinstance(key, (str,Key)):
                 return self.chips[key]
             elif isinstance(key, (tuple,list)):
-                return self.chips[Key(key[0],key[1],key[2])]
+                return self.chips[Key(*key)]
             raise KeyError
         except KeyError:
             raise ValueError('Could not find chip using key <{}> '.format(key))
@@ -75,11 +89,13 @@ class Controller(object):
         '''
         Add a specified chip to the Controller chips.
 
-        param: chip_key: chip key to specify unique chip
+        :param chip_key: chip key to specify unique chip
 
-        param: version: asic version of chip
+        :param version: asic version of chip
 
-        param: config: configuration to assign chip when creating (otherwise uses default)
+        :param config: configuration to assign chip when creating (otherwise uses default)
+
+        :param root: specifies if this is a root node as used by the hydra io network
 
         :returns: ``Chip`` that was added
 
@@ -116,6 +132,16 @@ class Controller(object):
 
         No network validation is performed, so use with caution!
 
+        :param network_name: ``str`` from ``('miso_us','miso_ds','mosi')``
+
+        :param io_group: io group to add network link in
+
+        :param io_channel: io channel to add network link in
+
+        :param chip_ids: ``tuple`` of two chip ids to link (order is important -- first is 'tail' second is 'head', data flows from the 'tail' to the 'head' in all networks)
+
+        :param uart: ``int`` referring to which uart channel this link occurs over, for ``'miso_*'`` networks the uart channel refers to the uart on the sender (i.e. the 'tail' of the edge in the directed graph), but for ``'mosi'`` networks the uart channel refers to the uart on the receiver (i.e. the 'head' of the edge in the directed graph)
+
         '''
         if not chip_ids[0] in self.network[io_group][io_channel][network_name]:
             self.add_network_node(network_name, io_group, io_channel, chip_ids[0])
@@ -129,7 +155,19 @@ class Controller(object):
         with no links. Generally, this is not needed as network nodes are added
         automatically with the ``controller.add_chip()`` method. 'Special'
         (i.e. non-key) nodes can be specified to insert nodes that do not
-        represent larpix chips (e.g. an external fpga).
+        represent larpix chips (e.g. an external fpga). A node can be declared as
+        a root node, which is used as a flag to select the starting node during
+        initialization.
+
+        :param network_names: list of networks or name of single network to create a node in
+
+        :param io_group: io group to create node within
+
+        :param io_channel: io channel to create node within
+
+        :param chip_id: chip id to associate with node (note that all chip ids must be unique on a network)
+
+        :param root: specifies if this node should be a root node (default=False)
 
         '''
         if not io_group in self.network.keys():
@@ -154,7 +192,7 @@ class Controller(object):
         '''
         Remove a specified chip from the Controller chips.
 
-        param: chip_key: chip key to specify unique chip
+        :param chip_key: chip key to specify unique chip
 
         '''
         chip_key = Key(chip_key)
@@ -174,31 +212,47 @@ class Controller(object):
         '''
         system_info = configs.load(filename)
         if system_info['type'] == 'controller':
+            print('loading controller...')
             return self.load_controller(filename)
         if system_info['type'] == 'network':
+            print('loading network...')
             return self.load_network(filename)
         if system_info['type'] == 'daisy_chain':
+            print('loading daisy chain...')
             return self.load_daisy_chain(filename)
 
     def load_network(self, filename):
         '''
         Loads the specified file using hydra io network configuration format
-        The hydra io network configuration format is
-        {
-            "name": "<network name>",
-            "type": "network"
-            "network": {
-                <io group>: {
-                    <io channel>: {
+        The hydra io network configuration format is::
 
+            {
+                "name": "<network name>",
+                "type": "network"
+                "network": {
+                    "miso_us_uart_map": [<#>, <#>, <#>, <#>],
+                    "miso_ds_uart_map": [<#>, <#>, <#>, <#>],
+                    "mosi_uart_map": [<#>, <#>, <#>, <#>]
+                    "<io group>": {
+                        "<io channel>": {
+                            "chips": [
+                                {
+                                    "chip_id": <chip_id>,
+                                    "miso_us": [<us chip id>, null, '<special node>', ...]
+                                    "miso_ds": [...],
+                                    "mosi": [...]
+                                }
+                            ]
+                        },
+                        ...
                     },
                     ...
-                },
-                ...
+                }
             }
-        }
-        After loading the network, running ``controller.init_network(<io group>, <io channel>)`` will
-        configure the chips with specified chip ids in the order declared in file
+
+        After loading the network, running
+        ``controller.init_network(<io group>, <io channel>)`` will configure the
+        chips with specified chip ids in the order declared in file
 
         :param filename: File path to configuration file
 
@@ -281,14 +335,14 @@ class Controller(object):
     def load_controller(self, filename):
         '''
         Loads the specified file using the basic key, chip format
-        The key, chip file format is:
-        ``
-        {
-            "name": "<system name>",
-            "type": "controller",
-            "chip_list": [<chip keystring>,...]
-        }
-        ``
+        The key, chip file format is::
+
+            {
+                "name": "<system name>",
+                "type": "controller",
+                "chip_list": [<chip keystring>,...]
+            }
+
         The chip key is the Controller access key that gets communicated to/from
         the io object when sending and receiving packets.
 
@@ -306,14 +360,14 @@ class Controller(object):
     def load_daisy_chain(self, filename, io_group=1):
         '''
         Loads the specified file in a basic daisy chain format
-        Daisy chain file format is:
-        ``
-        {
-                "name": "<board name>",
-                "type": "daisy_chain",
-                "chip_list": [[<chip id>,<daisy chain>],...]
-        }
-        ``
+        Daisy chain file format is::
+
+            {
+                    "name": "<board name>",
+                    "type": "daisy_chain",
+                    "chip_list": [[<chip id>,<daisy chain>],...]
+            }
+
         Position in daisy chain is specified by position in `chip_set` list
         returns board name of the loaded chipset configuration
 
@@ -737,9 +791,9 @@ class Controller(object):
         read chip configuration matches the current configuration stored in chip instance.
         ``chip_key`` is a single chip key.
 
-        param: chip_key_register_pair: a ``list`` of key register pairs as documented in ``controller.multi_read_configuration``
+        :param chip_key_register_pair: a ``list`` of key register pairs as documented in ``controller.multi_read_configuration``
 
-        param: timeout: set how long to wait for response in seconds (optional)
+        :param timeout: set how long to wait for response in seconds (optional)
 
         :returns: 2-``tuple`` of a ``bool`` representing if all registers match and a ``dict`` representing all differences. Differences are specified as ``{<chip_key>: {<register>: (<expected>, <read>)}}``
 
@@ -783,9 +837,9 @@ class Controller(object):
         Also returns a dict containing the values of registers that are different
         (read register, stored register)
 
-        param: chip_keys: ``list`` of chip_keys to verify
+        :param chip_keys: ``list`` of chip_keys to verify
 
-        param: timeout: how long to wait for response in seconds
+        :param timeout: how long to wait for response in seconds
 
         :returns: 2-``tuple`` with same format as ``controller.verify_registers``
 
@@ -803,9 +857,9 @@ class Controller(object):
         if the read chip configurations matches
         Only valid for v2 chips.
 
-        param: chip_keys: ``list`` of chip_keys to verify or singe chip_key to verify
+        :param chip_keys: ``list`` of chip_keys to verify or singe chip_key to verify
 
-        param: timeout: how long to wait for response in seconds
+        :param timeout: how long to wait for response in seconds
 
         :returns: 2-``tuple`` with same format as ``controller.verify_registers``
 
