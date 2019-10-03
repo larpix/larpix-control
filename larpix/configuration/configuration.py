@@ -7,6 +7,10 @@ from collections import OrderedDict
 from .. import bitarrayhelper as bah
 from .. import configs
 
+__all__ = [
+    'BaseConfiguration',
+    '_Smart_List',
+]
 class _Smart_List(list):
     '''
     A list type which checks its elements to be within given bounds.
