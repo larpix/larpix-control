@@ -26,7 +26,7 @@ Configuration (v1 ASIC)
 
 .. automodule:: larpix.configuration.configuration_v1
 
-v2 configuration registers
+Configuration (v2 ASIC)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: larpix.configuration.configuration_v2
