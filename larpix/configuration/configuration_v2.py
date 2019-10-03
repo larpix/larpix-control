@@ -48,6 +48,7 @@ class Configuration_v2(BaseConfiguration):
     num_registers = 237
     num_bits = 1896
     num_channels = 64
+    # Additional class properties regarding configuration registers are set at the end of the file.
 
     def __init__(self):
         # Actual setup
