@@ -38,7 +38,7 @@ class Configuration_v2(BaseConfiguration):
         range(173, 237)
         >>> conf.register_map['enable_dynamic_reset']
         range(170, 171)
-        >>> conf.register_map['enable_min_delta_adc']
+        >>> conf.register_map['enable_min_delta_adc']  # Shares register 170
         range(170, 171)
 
     '''
