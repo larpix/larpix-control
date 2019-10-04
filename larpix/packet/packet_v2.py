@@ -90,6 +90,8 @@ class Packet_v2(object):
 
     def __str__(self):
         strings = []
+        if hasattr(self, 'direction'):
+            strings += ['Direction: {}'.format(self.direction)]
         strings += ['Key: {}'.format(self.chip_key)]
         strings += ['Chip: {}'.format(self.chip_id)]
         if self.downstream_marker:
@@ -162,9 +164,11 @@ class Packet_v2(object):
         d = {}
         d['asic_version'] = self.asic_version
         d['chip_key'] = str(self.chip_key) if self.chip_key else None
+        d['io_group'] = self.io_group
+        d['io_channel'] = self.io_channel
         d['bits'] = self.bits.to01()
         d['type_str'] = type_map[self.packet_type]
-        d['type'] = self.packet_type
+        d['packet_type'] = self.packet_type
         d['chip_id'] = self.chip_id
         d['downstream_marker'] = self.downstream_marker
         d['parity'] = self.parity
@@ -186,6 +190,8 @@ class Packet_v2(object):
                 self.CONFIG_WRITE_PACKET):
             d['register_address'] = self.register_address
             d['register_data'] = self.register_data
+        if hasattr(self,'direction'):
+            d['direction'] = self.direction
         return d
 
     def from_dict(self, d):
