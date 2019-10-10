@@ -108,9 +108,6 @@ particular time interval.
         - ``trigger_type`` (``u1``/unsigned byte): the trigger type assciated
           with this packet
 
-                ('counter','u4'),
-                ('fifo_diagnostics_enabled','u1'),
-
         - ``local_fifo` (``u1``/unsigned byte): 1 if the channel FIFO is >50%
           full, 3 if the channel FIFO is 100% full
 
