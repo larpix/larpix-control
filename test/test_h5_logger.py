@@ -53,7 +53,7 @@ def test_controller_write_capture(tmpdir, chip):
     controller.logger.enable()
     controller.chips[chip.chip_key] = chip
     controller.write_configuration(chip.chip_key, 0)
-    packet = chip.get_configuration_packets(Packet_v2.CONFIG_WRITE_PACKET)[0]
+    packet = chip.get_configuration_write_packets()[0]
     assert len(controller.logger._buffer['packets']) == 1
 
 def test_controller_read_capture(tmpdir):
