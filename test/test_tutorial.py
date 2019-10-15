@@ -24,6 +24,7 @@ def test_min_example(capsys):
     print(controller.reads[0])
     assert capsys.readouterr().out == 'Record: [ Chip key: None | Chip: 1 | Data | Channel: 5 | Timestamp: 123456 | ADC data: 120 | FIFO Half: False | FIFO Full: False | Parity: 1 (valid: True) ]\n[ Chip key: None | Chip: 1 | Data | Channel: 5 | Timestamp: 123456 | ADC data: 120 | FIFO Half: False | FIFO Full: False | Parity: 1 (valid: True) ]\n'
 
+
 def test_tutorial(capsys, tmpdir, temp_logfilename):
     from larpix import Controller, Packet
 
