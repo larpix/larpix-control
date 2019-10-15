@@ -25,6 +25,7 @@ def test_min_example(capsys):
     print(controller.reads[0])
     assert capsys.readouterr().out == '[ Key: None | Chip: 2 | Downstream | Data | Channel: 5 | Timstamp: 123456789 | Dataword: 145 | Trigger: normal | Local FIFO ok | Shared FIFO ok | Parity: 0 (valid: True) ]\n'
 
+
 def test_tutorial(capsys, tmpdir, temp_logfilename):
     from larpix import Controller, Packet_v2
 

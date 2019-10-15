@@ -99,7 +99,7 @@ class Packet_v1(object):
         string = '[ '
         string += 'Chip key: {} | '.format(self.chip_key)
         if hasattr(self, 'direction'):
-            string += {Logger.WRITE: 'Out', Logger.READ: 'In'}[self.direction]
+            string += 'Direction: {}'.format(self.direction)
             string += ' | '
         ptype = self.packet_type
         if ptype == Packet_v1.TEST_PACKET:

@@ -39,7 +39,7 @@ and a ``RuntimeError`` will be raised if a different format version is
 encountered.
 
 The versions are always in the format ``major.minor`` and are stored as
-strings (e.g. ``'1.0'``, ``'1.5'``).
+strings (e.g. ``'1.0'``, ``'1.5'``, ``2.0``).
 
 The minor format will increase if a non-breaking change is made, so that
 a script compatible with a lower minor version will also work with files
@@ -56,6 +56,115 @@ File Data
 
 The file data is saved in HDF5 datasets, and the specific data format
 depends on the LArPix+HDF5 version.
+
+Version 2.0 description
+^^^^^^^^^^^^^^^^^^^^^^^
+
+For version 2.0, there are two dataset: ``packets`` and ``messages``.
+
+The ``packets`` dataset
+contains a list of all of the packets sent and received during a
+particular time interval.
+
+    - Shape: ``(N,)``, ``N >= 0``
+
+    - Datatype: a compound datatype (called "structured type" in
+      h5py/numpy). Not all fields are relevant for each packet. Unused
+      fields are set to a default value of 0 or the empty string.
+      Keys/fields:
+
+        - ``io_group`` (``u1``/unsigned byte): an id associated with the
+          high-level io group associated with this packet
+
+        - ``io_channel`` (``u1``/unsigned byte): the id associated with the
+          mid-level io channel associated with this packet
+
+        - ``packet_type`` (``u1``/unsigned byte): the packet type code, which
+          can be interpreted according to the map stored in the
+          'packets' attribute 'packet_types'
+
+        - ``chip_id`` (``u1``/unsigned byte): the LArPix chip id
+
+        - ``parity`` (``u1``/unsigned byte): the packet parity bit (0 or
+          1)
+
+        - ``valid_parity`` (``u1``/unsigned byte): 1 if the packet
+          parity is valid (odd), 0 if it is invalid
+
+        - ``downstream_marker`` (``u1``/unsigned byte): a marker to indicate the
+          hydra io network direction for this packet
+
+        - ``channel_id`` (``u1``/unsigned byte): the ASIC channel
+
+        - ``timestamp`` (``u8``/unsigned 8-byte long int): the timestamp
+          associated with the packet. **Caution**: this field does
+          "triple duty" as both the ASIC timestamp in data packets
+          (``type`` == 0), as the global timestamp in timestamp
+          packets (``type`` == 4), and as the message timestamp in
+          message packets (``type`` == 5).
+
+        - ``dataword`` (``u1``/unsigned byte): the ADC data word
+
+        - ``trigger_type`` (``u1``/unsigned byte): the trigger type assciated
+          with this packet
+
+        - ``local_fifo` (``u1``/unsigned byte): 1 if the channel FIFO is >50%
+          full, 3 if the channel FIFO is 100% full
+
+        - ``shared_fifo`` (``u1``/unsigned byte): 1 if the chip FIFO is >50%
+          full, 3 if the channel FIFO is 100% full
+
+        - ``register_address`` (``u1``/unsigned byte): the configuration
+          register index
+
+        - ``register_data`` (``u1``/unsigned byte): the configuration register
+          value
+
+        - ``direction`` (``u1``/unsigned byte): 0 if packet was sent to
+          ASICs, 1 if packet was received from ASICs.
+
+        - ``local_fifo_events`` (``u1``/unsigned byte): number of packets in the
+          channel FIFO (only valid if FIFO diagnostics are enabled)
+
+        - ``shared_fifo_events`` (``u1``/unsigned byte): number of packets in the
+          chip FIFO (only valid if FIFO diagnostics are enabled)
+
+        - ``counter`` (``u4``/unsigned 4-byte int): the message index (only
+          valid for message type packets)
+
+        - ``fifo_diagnostics_enabled`` (``u1``/unsigned byte): flag for when
+          fifo diagnostics are enabled (1 if enabled, 0 if not)
+
+    - Packet types lookup: the ``packets`` dataset has an attribute
+      ``'packet_types'`` which contains the following lookup table for
+      packets::
+
+        0: 'data',
+        1: 'test',
+        2: 'config write',
+        3: 'config read',
+        4: 'timestamp',
+        5: 'message',
+
+The ``messages`` dataset has the full messages referred to by message
+packets in the ``packets`` dataset.
+
+    - Shape: ``(N,)``, ``N >= 0``
+
+    - Datatype: a compound datatype with fields:
+
+        - ``message`` (``S64``/64-character string): the message
+
+        - ``timestamp`` (``u8``/unsigned 8-byte long int): the timestamp
+          associated with the message
+
+        - ``index`` (``u4``/unsigned 4-byte int): the message index,
+          which should be equal to the row index in the ``messages``
+          dataset
+
+
+Version 1.0 description
+^^^^^^^^^^^^^^^^^^^^^^^
 
 For version 1.0, there are two dataset: ``packets`` and ``messages``.
 
@@ -174,7 +283,7 @@ import time
 import h5py
 import numpy as np
 
-from larpix.larpix import Packet, TimestampPacket, MessagePacket
+from larpix.larpix import Packet_v1, Packet_v2, TimestampPacket, MessagePacket
 from larpix.logger import Logger
 
 #: The most recent / up-to-date LArPix+HDF5 format version
@@ -201,7 +310,7 @@ dtypes = {
                 ('value','u1'),
                 ]
             },
-        '1.0': {
+        '1.0': { # compatible with v1 packets only
             'packets': [
                 ('chip_key','S32'),
                 ('type','u1'),
@@ -217,6 +326,35 @@ dtypes = {
                 ('value','u1'),
                 ('counter','u4'),
                 ('direction', 'u1'),
+                ],
+            'messages': [
+                ('message', 'S64'),
+                ('timestamp', 'u8'),
+                ('index', 'u4'),
+                ]
+            },
+        '2.0': { # compatible with v2 packets and timestamp packets only
+            'packets': [
+                ('io_group','u1'),
+                ('io_channel','u1'),
+                ('chip_id','u1'),
+                ('packet_type','u1'),
+                ('downstream_marker','u1'),
+                ('parity','u1'),
+                ('valid_parity','u1'),
+                ('channel_id','u1'),
+                ('timestamp','u8'),
+                ('dataword','u1'),
+                ('trigger_type','u1'),
+                ('local_fifo','u1'),
+                ('shared_fifo','u1'),
+                ('register_address','u1'),
+                ('register_data','u1'),
+                ('direction', 'u1'),
+                ('local_fifo_events','u1'),
+                ('shared_fifo_events','u1'),
+                ('counter','u4'),
+                ('fifo_diagnostics_enabled','u1'),
                 ],
             'messages': [
                 ('message', 'S64'),
@@ -270,6 +408,35 @@ dtype_property_index_lookup = {
                 'timestamp': 1,
                 'index': 2,
                 }
+            },
+        '2.0': {
+            'packets': {
+                'io_group': 0,
+                'io_channel': 1,
+                'chip_id': 2,
+                'packet_type': 3,
+                'downstream_marker': 4,
+                'parity': 5,
+                'valid_parity': 6,
+                'channel_id': 7,
+                'timestamp': 8,
+                'dataword': 9,
+                'trigger_type': 10,
+                'local_fifo': 11,
+                'shared_fifo': 12,
+                'register_address': 13,
+                'register_data': 14,
+                'direction': 15,
+                'local_fifo_events': 16,
+                'shared_fifo_events': 17,
+                'counter': 18,
+                'fifo_diagnostics_enabled': 19,
+                },
+            'messages': {
+                'message': 0,
+                'timestamp': 1,
+                'index': 2,
+                }
             }
         }
 
@@ -317,6 +484,13 @@ def to_file(filename, packet_list, mode='a', version=None):
             direction_index = (
                     dtype_property_index_lookup[version]['packets']
                     ['direction'])
+            if version == '2.0':
+                packet_type_index = (
+                        dtype_property_index_lookup[version]['packets']
+                        ['packet_type'])
+                fifo_diagnostics_enabled_index = (
+                        dtype_property_index_lookup[version]['packets']
+                        ['fifo_diagnostics_enabled'])
         packet_dtype = dtypes[version][packet_dset_name]
         if packet_dset_name not in f.keys():
             packet_dset = f.create_dataset(packet_dset_name, shape=(len(packet_list),),
@@ -359,10 +533,22 @@ def to_file(filename, packet_list, mode='a', version=None):
                 encoded_packet[direction_index] = {
                         Logger.WRITE: 0,
                         Logger.READ: 1}[encoded_packet[direction_index]]
+            if version == '2.0':
+                if isinstance(packet, (Packet_v1)):
+                    raise ValueError('version 2.0 hdf5format is incompatible with v1 packets')
+                if isinstance(packet, (TimestampPacket,MessagePacket)):
+                    encoded_packet[packet_type_index] = packet.packet_type
+                elif packet.fifo_diagnostics_enabled:
+                    encoded_packet[fifo_diagnostics_enabled_index] = 1
+                for idx in range(len(encoded_packet)):
+                    if encoded_packet[idx] is None:
+                        encoded_packet[idx] = 0
+
             encoded_packets.append(tuple(encoded_packet))
             if isinstance(packet, MessagePacket):
                 messages.append((packet.message, packet.timestamp,
                     message_start_index + len(messages)))
+
 
         packet_dset[start_index:] = encoded_packets
         if version != '0.0':
@@ -411,8 +597,10 @@ def from_file(filename, version=None, start=None, end=None):
         else:
             raise RuntimeError('Incompatible versions: existing: %s, '
                 'specified: %s' % (file_version, version))
+
         if version not in dtypes:
             raise RuntimeError('Unknown version: %s' % version)
+
         if version == '0.0':
             dset_name = 'raw_packet'
         else:
@@ -428,36 +616,68 @@ def from_file(filename, version=None, start=None, end=None):
         else:
             dset_iter = f[dset_name][start:end]
         for row in dset_iter:
-            if row[props['type']] == 4:
+            # TimestampPackets
+            if (version in ('0.0','1.0') and row[props['type']] == 4) or \
+            (version == '2.0' and row[props['packet_type']] == 4):
                 packets.append(TimestampPacket(row[props['timestamp']]))
                 continue
-            if row[props['type']] == 5:
+            # MessagePackets
+            if (version in ('0.0','1.0') and row[props['type']] == 5) or \
+            (version == '2.0' and row[props['packet_type']] == 5):
                 index = row[props['counter']]
                 message_row = message_dset[index]
                 message = message_row[message_props['message']].decode()
                 timestamp = row[props['timestamp']]
                 packets.append(MessagePacket(message, timestamp))
                 continue
-            p = Packet()
-            p.chip_key = row[props['chip_key']]
-            p.packet_type = row[props['type']]
-            p.chipid = row[props['chipid']]
-            p.parity_bit_value = row[props['parity']]
-            if p.packet_type == Packet.DATA_PACKET:
-                p.channel = row[props['channel']]
-                p.timestamp = row[props['timestamp']]
-                p.dataword = row[props['adc_counts']]
-                p.fifo_half_flag = row[props['fifo_half']]
-                p.fifo_full_flag = row[props['fifo_full']]
-            elif p.packet_type == Packet.TEST_PACKET:
-                p.counter = row[props['counter']]
-            elif (p.packet_type == Packet.CONFIG_WRITE_PACKET
-                    or p.packet_type == Packet.CONFIG_READ_PACKET):
-                p.register_address = row[props['register']]
-                p.register_data = row[props['value']]
-            if version != '0.0':
+            # LArPix Packets
+            if version in ('0.0', '1.0'):
+                p = Packet_v1()
+                p.chip_key = row[props['chip_key']]
+                p.packet_type = row[props['type']]
+                p.chipid = row[props['chipid']]
+                p.parity_bit_value = row[props['parity']]
+                if p.packet_type == Packet_v1.DATA_PACKET:
+                    p.channel = row[props['channel']]
+                    p.timestamp = row[props['timestamp']]
+                    p.dataword = row[props['adc_counts']]
+                    p.fifo_half_flag = row[props['fifo_half']]
+                    p.fifo_full_flag = row[props['fifo_full']]
+                elif p.packet_type == Packet_v1.TEST_PACKET:
+                    p.counter = row[props['counter']]
+                elif (p.packet_type == Packet_v1.CONFIG_WRITE_PACKET
+                        or p.packet_type == Packet_v1.CONFIG_READ_PACKET):
+                    p.register_address = row[props['register']]
+                    p.register_data = row[props['value']]
+                if version != '0.0':
+                    p.direction = row[props['direction']]
+                packets.append(p)
+            else:
+                p = Packet_v2()
+                p.io_group = row[props['io_group']]
+                p.io_channel = row[props['io_channel']]
+                p.chip_id = row[props['chip_id']]
+                p.packet_type = row[props['packet_type']]
+                p.downstream_marker = row[props['downstream_marker']]
+                p.parity = row[props['parity']]
+                p.valid_parity = row[props['valid_parity']]
                 p.direction = row[props['direction']]
-            packets.append(p)
+                if p.packet_type == Packet_v2.DATA_PACKET:
+                    p.channel_id = row[props['channel_id']]
+                    p.timestamp = row[props['timestamp']]
+                    p.dataword = row[props['dataword']]
+                    p.trigger_type = row[props['trigger_type']]
+                    p.local_fifo = row[props['local_fifo']]
+                    p.shared_fifo = row[props['shared_fifo']]
+                    if row[props['fifo_diagnostics_enabled']] != 0:
+                        p.fifo_diagnostics_enabled = True
+                        p.local_fifo = row[props['local_fifo_events']]
+                        p.shared_fifo = row[props['shared_fifo_events']]
+                        p.timestamp = row[props['timestamp']]
+                elif p.packet_type in (Packet_v2.CONFIG_READ_PACKET, Packet_v2.CONFIG_WRITE_PACKET):
+                    p.register_address = row[props['register_address']]
+                    p.register_data = row[props['register_data']]
+                packets.append(p)
         return {
                 'packets': packets,
                 'created': f['_header'].attrs['created'],

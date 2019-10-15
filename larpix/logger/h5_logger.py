@@ -33,7 +33,8 @@ class HDF5Logger(Logger):
 
     '''
     data_desc_map = {
-        Packet: 'packets',
+        Packet_v1: 'packets',
+        Packet_v2: 'packets',
         TimestampPacket: 'packets',
         Packet_v1: 'packets',
         Packet_v2: 'packets',
