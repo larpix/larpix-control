@@ -186,8 +186,8 @@ def test_compare():
     c.pixel_trim_dac[10] = 25
     c.pixel_trim_dac[12] = 26
     assert c.compare(other) == {'pixel_trim_dac': [
-        ({'channel': 10, 'value': 25}, {'channel': 10, 'value': 16}),
-        ({'channel': 12, 'value': 26}, {'channel': 12, 'value': 16}),
+        ({'index': 10, 'value': 25}, {'index': 10, 'value': 16}),
+        ({'index': 12, 'value': 26}, {'index': 12, 'value': 16}),
         ]}
 
     c = Configuration_v2()
@@ -201,10 +201,10 @@ def test_get_nondefault_registers():
     c.csa_gain = 0
     c.csa_enable[35] = 0
     assert c.get_nondefault_registers() == {
-            'pixel_trim_dac': [({'channel': 10, 'value': 25},
-                {'channel': 10, 'value': 16})],
+            'pixel_trim_dac': [({'index': 10, 'value': 25},
+                {'index': 10, 'value': 16})],
             'threshold_global': (121, 255),
             'csa_gain': (0, 1),
-            'csa_enable': [({'channel': 35, 'value': 0}, {'channel': 35,
+            'csa_enable': [({'index': 35, 'value': 0}, {'index': 35,
                 'value': 1})],
             }

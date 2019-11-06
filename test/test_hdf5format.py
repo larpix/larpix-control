@@ -3,7 +3,7 @@ from __future__ import print_function
 import pytest
 import h5py
 
-from larpix.larpix import (Packet, Packet_v2, PacketCollection, TimestampPacket,
+from larpix.larpix import (Packet_v1, Packet_v2, PacketCollection, TimestampPacket,
         MessagePacket, Key)
 from larpix.format.hdf5format import (to_file, from_file,
         dtype_property_index_lookup)
@@ -14,8 +14,8 @@ def tmpfile(tmpdir):
 
 @pytest.fixture
 def data_packet():
-    p = Packet()
-    p.packet_type = Packet.DATA_PACKET
+    p = Packet_v1()
+    p.packet_type = Packet_v1.DATA_PACKET
     p.chipid = 123
     p.channel = 7
     p.timestamp = 123456
@@ -28,8 +28,8 @@ def data_packet():
 
 @pytest.fixture
 def config_read_packet():
-    p = Packet()
-    p.packet_type = Packet.CONFIG_READ_PACKET
+    p = Packet_v1()
+    p.packet_type = Packet_v1.CONFIG_READ_PACKET
     p.chipid = 123
     p.register_address = 10
     p.register_data = 23
@@ -106,7 +106,7 @@ def test_to_file_v0_0_data_packet(tmpfile, data_packet):
     assert len(f['raw_packet']) == 1
     row = f['raw_packet'][0]
     props = dtype_property_index_lookup['0.0']['raw_packet']
-    new_packet = Packet()
+    new_packet = Packet_v1()
     new_packet.chip_key = row[props['chip_key']]
     new_packet.packet_type = row[props['type']]
     new_packet.chipid = row[props['chipid']]
@@ -124,7 +124,7 @@ def test_to_file_v0_0_config_read_packet(tmpfile, config_read_packet):
     assert len(f['raw_packet']) == 1
     row = f['raw_packet'][0]
     props = dtype_property_index_lookup['0.0']['raw_packet']
-    new_packet = Packet()
+    new_packet = Packet_v1()
     new_packet.chip_key = row[props['chip_key']]
     new_packet.packet_type = row[props['type']]
     new_packet.chipid = row[props['chipid']]
@@ -179,7 +179,7 @@ def test_to_file_v1_0_data_packet(tmpfile, data_packet):
     assert len(f['packets']) == 1
     row = f['packets'][0]
     props = dtype_property_index_lookup['1.0']['packets']
-    new_packet = Packet()
+    new_packet = Packet_v1()
     new_packet.chip_key = row[props['chip_key']]
     new_packet.packet_type = row[props['type']]
     new_packet.chipid = row[props['chipid']]
@@ -198,7 +198,7 @@ def test_to_file_v1_0_config_read_packet(tmpfile, config_read_packet):
     assert len(f['packets']) == 1
     row = f['packets'][0]
     props = dtype_property_index_lookup['1.0']['packets']
-    new_packet = Packet()
+    new_packet = Packet_v1()
     new_packet.chip_key = row[props['chip_key']]
     new_packet.packet_type = row[props['type']]
     new_packet.chipid = row[props['chipid']]

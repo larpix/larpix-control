@@ -9,7 +9,7 @@ class Chip(object):
 
     '''
 
-    def __init__(self, chip_key, version=1):
+    def __init__(self, chip_key, version=2):
         '''
         Create a new Chip object with the given ``chip_key``. See the ``Key``
         class for the key specification. Key can be specified by a valid keystring
@@ -17,7 +17,6 @@ class Chip(object):
 
         '''
         self.asic_version = version
-        self.data_to_send = []
         if self.asic_version == 1:
             self.config = Configuration_v1()
         elif self.asic_version == 2:

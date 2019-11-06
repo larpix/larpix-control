@@ -109,15 +109,15 @@ class BaseConfiguration(object):
         for register_name in self.register_names:
             if getattr(self, register_name) != getattr(other, register_name):
                 d[register_name] = (getattr(self, register_name), getattr(other,
-                                                                          register_name))
+                    register_name))
         # Attempt to simplify some of the long values (array values)
         for (name, (self_value, config_value)) in d.items():
             if isinstance(self_value,(list,_Smart_List)):
                 different_values = []
                 for ch, (val, config_val) in enumerate(zip(self_value, config_value)):
                     if val != config_val:
-                        different_values.append(({'channel': ch, 'value': val},
-                                                 {'channel': ch, 'value': config_val}))
+                        different_values.append(({'index': ch, 'value': val},
+                                                 {'index': ch, 'value': config_val}))
                 if len(different_values) < 5:
                     d[name] = different_values
                 else:

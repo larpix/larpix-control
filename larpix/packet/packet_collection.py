@@ -241,7 +241,7 @@ class PacketCollection(object):
         for packet in self.packets:
             # append packet to list if list exists, else append to empty
             # list as a default
-            chip_groups.setdefault(packet.chipid, []).append(packet)
+            chip_groups.setdefault(packet.chip_id, []).append(packet)
         to_return = {}
         for chipid in chip_groups:
             new_collection = PacketCollection(chip_groups[chipid])

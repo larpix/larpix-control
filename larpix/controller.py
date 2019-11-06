@@ -85,7 +85,7 @@ class Controller(object):
         except KeyError:
             raise ValueError('Could not find chip using key <{}> '.format(key))
 
-    def add_chip(self, chip_key, version=1, config=None, root=False):
+    def add_chip(self, chip_key, version=2, config=None, root=False):
         '''
         Add a specified chip to the Controller chips.
 

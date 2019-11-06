@@ -73,7 +73,8 @@ class Configuration_v2(BaseConfiguration):
         '''
         for address, value in d.items():
             register_names = self.register_map_inv[address]
-            setattr(self, register_names[0] + '_data', (address, value))
+            for register_name in register_names:
+                setattr(self, register_names[0] + '_data', (address, bah.fromuint(value,8)))
         return
 
     def _is_register_value_pair(self, item):
@@ -228,7 +229,8 @@ def _basic_data_setter(register_name):
                     all_bits += set_bits
                 else:
                     all_bits += bits
-            setattr(self, register_name+'_data', all_bits)
+            start_bit, end_bit = self.bit_map[register_name]
+            setattr(self, register_name+'_data', all_bits[start_bit%8:end_bit-start_bit+start_bit%8])
         else:
             # use all bits to set values
             bits = value
@@ -257,7 +259,7 @@ def _list_data_setter(register_name, n_bits, min_value, max_value):
                 else:
                     all_bits += bits
             start_bit, end_bit = self.bit_map[register_name]
-            setattr(self, register_name+'_data', all_bits[start_bit%8:end_bit-start_bit])
+            setattr(self, register_name+'_data', all_bits[start_bit%8:end_bit-start_bit+start_bit%8])
         else:
             # use all bits to set values
             bits = values
@@ -281,7 +283,7 @@ def _compound_data_setter(registers, register_name):
             set_register_addr, set_bits = value
             for register in registers:
                 start_bit, end_bit = self.bit_map[register]
-                setattr(self, register + '_data', set_bits[start_bit%8:end_bit%8])
+                setattr(self, register + '_data', set_bits[start_bit%8:end_bit-start_bit+start_bit%8])
         else:
             # use all bits to set values
             set_bits = value
@@ -304,7 +306,7 @@ def _compound_list_data_setter(registers, register_name, n_bits, min_value, max_
             set_register_addr, set_bits = value
             for register in registers:
                 start_bit, end_bit = self.bit_map[register]
-                setattr(self, register + '_data', set_bits[start_bit%8:end_bit-start_bit + start_bit%8])
+                setattr(self, register + '_data', set_bits[start_bit%8:end_bit-start_bit+start_bit%8])
         else:
             set_bits = value
             values = [bah.touint(set_bits[idx:idx+n_bits]) for idx in range(0,len(set_bits),n_bits)]
@@ -363,6 +365,7 @@ def _data_validator(register_name):
     def data_validator(func):
         @functools.wraps(func)
         def data_validated_func(self, value):
+            print('validate',register_name,value)
             if self._is_register_value_pair(value):
                 register_addr, bits  = value
                 if register_addr < self.register_map[register_name][0] \
@@ -554,7 +557,7 @@ _property_configuration = OrderedDict([
         ('digital_monitor_select',
             (_compound_property, (['digital_monitor_enable','digital_monitor_select'], (int,bool), 0, 10), (945,949))),
         ('digital_monitor_chan',
-            (_basic_property, (int, 0, 63), (952,957))),
+            (_basic_property, (int, 0, 63), (952,958))),
         ('slope_control0',
             (_compound_property, (['slope_control0', 'slope_control1'], int, 0, 15), (960,964))),
         ('slope_control1',
@@ -564,7 +567,7 @@ _property_configuration = OrderedDict([
         ('slope_control3',
             (_compound_property, (['slope_control2', 'slope_control3'], int, 0, 15), (972,976))),
         ('chip_id',
-            (_basic_property, (int, 1, 254), (976,984))), # enforce by software o reserve 0,255
+            (_basic_property, (int, 0, 255), (976,984))),
         ('load_config_defaults',
             (_compound_property, (['load_config_defaults', 'enable_fifo_diagnostics', 'clk_ctrl'], (int,bool), 0, 1), (984,985))),
         ('enable_fifo_diagnostics',

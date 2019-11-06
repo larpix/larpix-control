@@ -9,7 +9,7 @@ with larpix-control:
 import warnings
 import struct
 
-from larpix.larpix import Packet, TimestampPacket
+from larpix.larpix import Packet, TimestampPacket, Packet_v1, Packet_v2
 
 def dataserver_message_encode(packets, version=(1,0)):
     r'''
@@ -70,7 +70,10 @@ def dataserver_message_encode(packets, version=(1,0)):
             else:
                 raise ValueError('all packets must have a declared io_channel')
             msg = struct.pack(data_header_fmt, *header)
-            msg += packet.bytes() + struct.pack('B',0)
+            if isinstance(packet, Packet_v1):
+                msg += packet.bytes() + struct.pack('B',0)
+            elif isinstance(packet, Packet_v2):
+                msg += packet.bytes()
         elif isinstance(packet, TimestampPacket):
             header = [0]*len(timestamp_header_fmt)
             header[0:2] = version[0:2]
@@ -112,8 +115,11 @@ def dataserver_message_decode(msgs, version=(1,0), **kwargs):
             payload = msg[8:]
             if len(payload)%8 == 0:
                 for start_index in range(0, len(payload), 8):
-                    packet_bytes = payload[start_index:start_index+7]
-                    packets.append(Packet(packet_bytes))
+                    packet_bytes = payload[start_index:start_index+8]
+                    if Packet == Packet_v1:
+                        packets.append(Packet(packet_bytes[:-1]))
+                    elif Packet == Packet_v2:
+                        packets.append(Packet(packet_bytes))
                     packets[-1].io_channel = io_chain
                     if kwargs:
                         for key,value in kwargs.items():
