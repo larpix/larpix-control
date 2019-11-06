@@ -1,0 +1,33 @@
+{
+    "_config_type": "controller",
+    "name": "testing_network",
+    "type": "network",
+    "layout": null,
+    "network": {
+        "1": {
+            "1": {
+                "chips": [
+                    {
+                        "chip_id": 2,
+                        "miso_us": [3,null,null,12],
+                        "root": true,
+                        "miso_ds": ["ext",null,null,null]
+                    },
+                    {
+                        "chip_id": 3
+                    },
+                    {
+                        "chip_id": 12,
+                        "miso_us": [13,null,null,null]
+                    },
+                    {
+                        "chip_id": 13
+                    }
+                ]
+            }
+        },
+        "miso_us_uart_map": [0,1,2,3],
+        "miso_ds_uart_map": [2,3,0,1],
+        "mosi_uart_map": [0,1,2,3]
+    }
+}
