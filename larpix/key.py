@@ -81,6 +81,9 @@ class Key(object):
     def __hash__(self):
         return hash(str(self))
 
+    def __getitem__(self, index):
+        return (self.io_group, self.io_channel, self.chip_id)[index]
+
     @property
     def keystring(self):
         '''

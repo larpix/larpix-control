@@ -53,6 +53,7 @@ class Chip(object):
         Check if chip id (as specified by unique key) matches the chip id stored
         in the configuration.
         Only valid for v2 asics, if v1 asic, will always return ``True``
+        Note: Even if this function returns True, it's possible the chip ID has not been sent from the larpix-control software onto the ASIC hardware
 
         '''
         if self.asic_version == 1:

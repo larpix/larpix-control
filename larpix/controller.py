@@ -57,9 +57,6 @@ class Controller(object):
         self.logger = None
 
     def __getitem__(self, key):
-        return self.get_chip(key)
-
-    def get_chip(self, key):
         '''
         Retrieve the Chip object that this Controller associated with the key.
         A key can either be a valid keystring, ``larpix.Key`` object or a
@@ -68,14 +65,15 @@ class Controller(object):
 
         Raises a ``ValueError`` if no chip is found.
 
-        Chips can also be accessed via the controller's ``__getitem__`` method.
         E.g.::
 
-            controller[1,1,2] == controller['1-1-2']
-            controller.get_chip('1-1-2') == controller.get_chip((1,1,2))
-            controller[1,1,2] == controller.get_chip('1-1-2')
+            controller[1,1,2] == controller['1-1-2'] # access chip with key 1-1-2
+            controller[1,1,2] == controller[Key('1-1-2')]
 
         '''
+        return self._get_chip(key)
+
+    def _get_chip(self, key):
         try:
             if isinstance(key, (str,Key)):
                 return self.chips[key]
@@ -105,13 +103,13 @@ class Controller(object):
         key = Key(chip_key)
         io_group, io_channel = key.io_group, key.io_channel
         self.chips[key] = Chip(chip_key=chip_key, version=version)
-        self.add_network_node(('mosi','miso_us','miso_ds'), io_group, io_channel, key.chip_id, root)
+        self.add_network_node(io_group, io_channel, ('mosi','miso_us','miso_ds'), key.chip_id, root)
 
         if not config is None:
             self[chip_key].config = config
         return self.chips[chip_key]
 
-    def add_network_link(self, network_name, io_group, io_channel, chip_ids, uart):
+    def add_network_link(self, io_group, io_channel, network_name, chip_ids, uart):
         '''
         Adds a link within the specified network (``mosi``, ``miso_ds``, or ``miso_us``)
         on the specified uart. Directionality is important: first key represents
@@ -144,12 +142,12 @@ class Controller(object):
 
         '''
         if not chip_ids[0] in self.network[io_group][io_channel][network_name]:
-            self.add_network_node(network_name, io_group, io_channel, chip_ids[0])
+            self.add_network_node(io_group, io_channel, network_name, chip_ids[0])
         if not chip_ids[1] in self.network[io_group][io_channel][network_name]:
-            self.add_network_node(network_name, io_group, io_channel, chip_ids[1])
+            self.add_network_node(io_group, io_channel, network_name, chip_ids[1])
         self.network[io_group][io_channel][network_name].add_edge(*chip_ids, uart=uart)
 
-    def add_network_node(self, network_names, io_group, io_channel, chip_id, root=False):
+    def add_network_node(self, io_group, io_channel, network_names, chip_id, root=False):
         '''
         Adds a node to the specified network (``mosi``, ``miso_ds``, or ``miso_us``)
         with no links. Generally, this is not needed as network nodes are added
@@ -221,31 +219,6 @@ class Controller(object):
     def load_network(self, filename):
         '''
         Loads the specified file using hydra io network configuration format
-        The hydra io network configuration format is::
-
-            {
-                "name": "<network name>",
-                "type": "network"
-                "network": {
-                    "miso_us_uart_map": [<#>, <#>, <#>, <#>],
-                    "miso_ds_uart_map": [<#>, <#>, <#>, <#>],
-                    "mosi_uart_map": [<#>, <#>, <#>, <#>]
-                    "<io group>": {
-                        "<io channel>": {
-                            "chips": [
-                                {
-                                    "chip_id": <chip_id>,
-                                    "miso_us": [<us chip id>, null, '<special node>', ...]
-                                    "miso_ds": [...],
-                                    "mosi": [...]
-                                }
-                            ]
-                        },
-                        ...
-                    },
-                    ...
-                }
-            }
 
         After loading the network, running
         ``controller.init_network(<io group>, <io channel>)`` will configure the
@@ -295,33 +268,33 @@ class Controller(object):
                                 link = (chip_id, chip_spec['miso_us'][idx])
                                 if link[1] is None:
                                     continue
-                                self.add_network_link('miso_us', io_group, io_channel, link, uart)
+                                self.add_network_link(io_group, io_channel, 'miso_us', link, uart)
 
                         if 'miso_ds' in chip_spec:
                             for idx, uart in enumerate(chip_inherited_data['miso_ds_uart_map']):
                                 link = (chip_id, chip_spec['miso_ds'][idx])
                                 if link[1] is None:
                                     continue
-                                self.add_network_link('miso_ds', io_group, io_channel, link, uart)
+                                self.add_network_link(io_group, io_channel, 'miso_ds', link, uart)
                         elif subnetwork['miso_us'].in_edges(chip_id):
                             for link in subnetwork['miso_us'].in_edges(chip_id):
                                 other_chip_id = link[0]
                                 other_spec = [spec for spec in channel_spec['chips'] if spec['chip_id'] == other_chip_id][0]
                                 uart = chip_inherited_data['miso_ds_uart_map'][other_spec['miso_us'].index(chip_id)]
                                 link = (chip_id, other_chip_id)
-                                self.add_network_link('miso_ds', io_group, io_channel, link, uart)
+                                self.add_network_link(io_group, io_channel, 'miso_ds', link, uart)
 
                         if 'mosi' in chip_spec:
                             for idx, uart in enumerate(chip_inherited_data['mosi_uart_map']):
                                 link = (chip_id, chip_spec['miso_us'][idx])
                                 if link[1] is None:
                                     continue
-                                self.add_network_link('mosi', io_group, io_channel, link, uart)
+                                self.add_network_link(io_group, io_channel, 'mosi', link, uart)
                         else:
                             for link in subnetwork['miso_us'].in_edges():
-                                self.add_network_link('mosi', io_group, io_channel, link[::-1], subnetwork['miso_us'].edges[link]['uart'])
+                                self.add_network_link(io_group, io_channel, 'mosi', link[::-1], subnetwork['miso_us'].edges[link]['uart'])
                             for link in subnetwork['miso_ds'].in_edges():
-                                self.add_network_link('mosi', io_group, io_channel, link[::-1], subnetwork['miso_ds'].edges[link]['uart'])
+                                self.add_network_link(io_group, io_channel, 'mosi', link[::-1], subnetwork['miso_ds'].edges[link]['uart'])
         except Exception as err:
             self.chips = orig_chips
             self.network = orig_network
@@ -332,13 +305,6 @@ class Controller(object):
     def load_controller(self, filename):
         '''
         Loads the specified file using the basic key, chip format
-        The key, chip file format is::
-
-            {
-                "name": "<system name>",
-                "type": "controller",
-                "chip_list": [<chip keystring>,...]
-            }
 
         The chip key is the Controller access key that gets communicated to/from
         the io object when sending and receiving packets.

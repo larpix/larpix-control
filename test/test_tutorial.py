@@ -39,8 +39,6 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
     chipid = 5
     chip_key = '1-1-5'
     chip5 = controller.add_chip(chip_key, version=2)
-    chip5 = controller.get_chip(chip_key)
-    chip5 = controller.get_chip((1,1,5))
     chip5 = controller[chip_key]
     chip5 = controller[1,1,5]
 
@@ -69,18 +67,18 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
 
 
     assert list(controller.network[1][1]['miso_us'].edges()) == []
-    controller.add_network_link('miso_us',1,1,(6,5),0)
+    controller.add_network_link(1,1,'miso_us',(6,5),0)
     assert list(controller.network[1][1]['miso_us'].edges()) == [(6,5)]
     assert controller.network[1][1]['miso_us'].edges[(6,5)] == {'uart': 0}
 
 
-    controller.add_network_link('miso_ds',1,1,(5,6),2)
-    controller.add_network_link('mosi',1,1,(6,5),0)
-    controller.add_network_link('mosi',1,1,(5,6),2)
+    controller.add_network_link(1,1,'miso_ds',(5,6),2)
+    controller.add_network_link(1,1,'mosi',(6,5),0)
+    controller.add_network_link(1,1,'mosi',(5,6),2)
 
 
-    controller.add_network_link('mosi',1,1,('ext',6),1)
-    controller.add_network_link('miso_ds',1,1,(6,'ext'),1)
+    controller.add_network_link(1,1,'mosi',('ext',6),1)
+    controller.add_network_link(1,1,'miso_ds',(6,'ext'),1)
     assert all(link in list(controller.network[1][1]['miso_ds'].edges()) for link in [(5, 6), (6, 'ext')])
     assert all(link in [(5, 6), (6, 'ext')] for link in list(controller.network[1][1]['miso_ds'].edges()))
     assert all(link in list(controller.network[1][1]['mosi'].edges()) for link in [(5, 6), (6, 5), ('ext', 6)])

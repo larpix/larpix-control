@@ -1,7 +1,7 @@
 import pytest
 import json
 
-from larpix import Controller, Configuration_v2
+from larpix import Controller, Configuration_v2, Key
 from larpix.io import FakeIO
 
 @pytest.fixture
@@ -24,7 +24,7 @@ def network_config(tmpdir):
     config_dict = {
         "_config_type": "controller",
         "name": "test",
-        "type": "network",
+        "asic_version": 2,
         "network": {
             "1": { "1": { "chips": [
                         {"chip_id": 2,
@@ -63,12 +63,9 @@ def test_controller_network(network_controller):
     us_links = [(2,3),(2,12),(12,13)]
     ds_links = [(3,2),(12,2),(13,12),(2,'ext')]
     mosi_links = [link[::-1] for link in us_links] + [link[::-1] for link in ds_links]
-    assert all([link in c.network[chip_key.io_group][chip_key.io_channel]['miso_us'].edges() for link in us_links])
-    assert all([link in us_links for link in c.network[chip_key.io_group][chip_key.io_channel]['miso_us'].edges()])
-    assert all([link in c.network[chip_key.io_group][chip_key.io_channel]['miso_ds'].edges() for link in ds_links])
-    assert all([link in ds_links for link in c.network[chip_key.io_group][chip_key.io_channel]['miso_ds'].edges()])
-    assert all([link in c.network[chip_key.io_group][chip_key.io_channel]['mosi'].edges() for link in mosi_links])
-    assert all([link in mosi_links for link in c.network[chip_key.io_group][chip_key.io_channel]['mosi'].edges()])
+    assert set(c.network[chip_key.io_group][chip_key.io_channel]['miso_us'].edges()) == set(us_links)
+    assert set(c.network[chip_key.io_group][chip_key.io_channel]['miso_ds'].edges()) == set(ds_links)
+    assert set(c.network[chip_key.io_group][chip_key.io_channel]['mosi'].edges()) == set(mosi_links)
 
     c.remove_chip('1-1-3')
     assert len(c.chips) == 3
@@ -84,14 +81,14 @@ def test_controller_network(network_controller):
     assert len(c.network[1][1]['mosi'].nodes()) == 5
     assert all(3 in c.network[1][1][network] for network in networks)
 
-    c.add_network_link('miso_us',1,1,(2,3),0)
+    c.add_network_link(1,1,'miso_us',(2,3),0)
     assert len(c.network[1][1]['miso_us'].edges()) == 3
     assert c.network[1][1]['miso_us'].edges[(2,3)]['uart'] == 0
-    c.add_network_link('miso_ds',1,1,(3,2),2)
+    c.add_network_link(1,1,'miso_ds',(3,2),2)
     assert len(c.network[1][1]['miso_ds'].edges()) == 4
     assert c.network[1][1]['miso_ds'].edges[(3,2)]['uart'] == 2
-    c.add_network_link('mosi',1,1,(3,2),0)
-    c.add_network_link('mosi',1,1,(2,3),2)
+    c.add_network_link(1,1,'mosi',(3,2),0)
+    c.add_network_link(1,1,'mosi',(2,3),2)
     assert len(c.network[1][1]['mosi'].edges()) == 7
     assert c.network[1][1]['mosi'].edges[(3,2)]['uart'] == 0
     assert c.network[1][1]['mosi'].edges[(2,3)]['uart'] == 2
@@ -142,6 +139,26 @@ def test_controller_init(network_controller):
     assert c['1-1-13'].config.enable_miso_downstream == [0,0,1,0]
     assert c['1-1-13'].config.enable_mosi == [0,0,1,0]
 
+def test_controller_init_complete(network_controller):
+    c = network_controller
+    c.init_network(1,1)
+    assert c['1-1-2'].config.chip_id == 2
+    assert c['1-1-2'].config.enable_miso_downstream == [0,0,1,0]
+    assert c['1-1-2'].config.enable_mosi == [1,0,1,1]
+    assert c['1-1-2'].config.enable_miso_upstream == [1,0,0,1]
+    assert c['1-1-3'].config.chip_id == 3
+    assert c['1-1-3'].config.enable_miso_upstream == [0,0,0,0]
+    assert c['1-1-3'].config.enable_miso_downstream == [0,0,1,0]
+    assert c['1-1-3'].config.enable_mosi == [0,0,1,0]
+    assert c['1-1-12'].config.chip_id == 12
+    assert c['1-1-12'].config.enable_miso_upstream == [1,0,0,0]
+    assert c['1-1-12'].config.enable_miso_downstream == [0,1,0,0]
+    assert c['1-1-12'].config.enable_mosi == [1,1,0,0]
+    assert c['1-1-13'].config.chip_id == 13
+    assert c['1-1-13'].config.enable_miso_upstream == [0,0,0,0]
+    assert c['1-1-13'].config.enable_miso_downstream == [0,0,1,0]
+    assert c['1-1-13'].config.enable_mosi == [0,0,1,0]
+
 def test_controller_reset(network_controller):
     c = network_controller
     c.init_network(1,1)
@@ -165,13 +182,3 @@ def test_controller_reset(network_controller):
         assert c[chip_key].config.chip_id == 1
         assert c[chip_key].config.enable_miso_downstream == [0,0,0,0]
         assert c[chip_key].config.enable_mosi == [1,1,1,1]
-
-
-
-
-
-
-
-
-
-

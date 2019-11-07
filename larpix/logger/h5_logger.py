@@ -36,8 +36,6 @@ class HDF5Logger(Logger):
         Packet_v1: 'packets',
         Packet_v2: 'packets',
         TimestampPacket: 'packets',
-        Packet_v1: 'packets',
-        Packet_v2: 'packets',
     }
 
     def __init__(self, filename=None, buffer_length=10000,

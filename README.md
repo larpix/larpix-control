@@ -201,10 +201,8 @@ chipid = 5
 chip_key = '1-1-5'
 chip5 = controller.add_chip(chip_key, version=2)
 
-chip5 = controller.get_chip(chip_key)
-chip5 = controller.get_chip((1,1,5)) # a different way to get a chip
-chip5 = controller[chip_key] # and another one
-chip5 = controller[1,1,5] # and another one
+chip5 = controller[chip_key] # get chip object
+chip5 = controller[1,1,5] # gets same chip object
 ```
 
 The `chip_key` field specifies the necessary information for the `controller.io`
@@ -282,7 +280,7 @@ Accessing connections between nodes is done via edges:
 
 ```python
 list(controller.network[1][1]['miso_us'].edges()) # []
-controller.add_network_link('miso_us',1,1,(6,5),0) # link chips 6 -> 5 in the miso_us graph via chip 6's uart channel 0
+controller.add_network_link(1,1,'miso_us',(6,5),0) # link chips 6 -> 5 in the miso_us graph via chip 6's uart channel 0
 list(controller.network[1][1]['miso_us'].edges()) # [(6,5)] direction indicates the data flow direction
 controller.network[1][1]['miso_us'].edges[(6,5)] # attributes associated with link ('uart': 0)
 ```
@@ -291,9 +289,9 @@ In order to set up a 'working' network, you'll need to add the proper links in
 the miso_ds and mosi graphs as well.
 
 ```python
-controller.add_network_link('miso_ds',1,1,(5,6),2)
-controller.add_network_link('mosi',1,1,(6,5),0)
-controller.add_network_link('mosi',1,1,(5,6),2)
+controller.add_network_link(1,1,'miso_ds',(5,6),2)
+controller.add_network_link(1,1,'mosi',(6,5),0)
+controller.add_network_link(1,1,'mosi',(5,6),2)
 ```
 
 External systems (e.g. the fpga you are using to communicate with the chips) are
@@ -302,8 +300,8 @@ network configuration! These nodes are used to determine the miso/mosi
 configuration for the linked chips.
 
 ```python
-controller.add_network_link('mosi',1,1,('ext',6),1) # link chip 6 to 'ext' via chip 6's uart channel 0
-controller.add_network_link('miso_ds',1,1,(6,'ext'),1) # same for miso_ds
+controller.add_network_link(1,1,'mosi',('ext',6),1) # link chip 6 to 'ext' via chip 6's uart channel 0
+controller.add_network_link(1,1,'miso_ds',(6,'ext'),1) # same for miso_ds
 list(controller.network[1][1]['miso_ds'].edges())
 list(controller.network[1][1]['mosi'].edges())
 ```

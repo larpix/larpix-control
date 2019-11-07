@@ -36,9 +36,9 @@ def test_encode(multizmq_io_obj):
     test_packet = Packet(b'\x01'*Packet.num_bytes)
     test_packet.io_group = io_group
     test_packet.io_channel = io_chain
-    test_bytes = b'0101010101010101 1'
+    test_bytes = b'0x0101010101010101 1'
     if Packet == Packet_v1:
-        test_bytes = b'0001010101010101 1'
+        test_bytes = b'0x0001010101010101 1'
     expected = [test_bytes]
     assert multizmq_io_obj.encode([test_packet]) == expected
 

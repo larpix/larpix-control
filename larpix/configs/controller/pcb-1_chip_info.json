@@ -2,7 +2,7 @@
     "_config_type": "controller",
     "name": "pcb-1",
     "layout": "1.0.0",
-    "asci_version": 1,
+    "asic_version": 1,
     "chip_list": [
         "1-1-246",
         "1-1-245",

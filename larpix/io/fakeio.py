@@ -86,7 +86,7 @@ class FakeIO(IO):
         '''
         for packet in packets:
             print(packet)
-        self.sent += [packets]
+        self.sent.append(packets)
 
     def start_listening(self):
         '''

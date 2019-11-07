@@ -1,8 +1,6 @@
 from bitarray import bitarray
 import os
 import errno
-import functools
-from collections import OrderedDict
 
 from .. import bitarrayhelper as bah
 from .. import configs

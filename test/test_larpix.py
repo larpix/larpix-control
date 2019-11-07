@@ -1505,8 +1505,11 @@ def test_configuration_v1_from_dict_reg_reset_cycles():
 
 def test_controller_get_chip(chip):
     controller = Controller()
-    controller.chips[chip.chip_key] = chip
-    assert controller.get_chip(chip.chip_key) == chip
+    chip_key = chip.chip_key
+    controller.chips[chip_key] = chip
+    assert controller[chip_key] == chip
+    assert controller[tuple(chip_key)] == chip
+    assert controller[chip_key.keystring] == chip
 
 def test_controller_get_chip_error(chip):
     controller = Controller()
@@ -1515,17 +1518,17 @@ def test_controller_get_chip_error(chip):
     test_key_dict['chip_id'] += 1
     test_key = Key.from_dict(test_key_dict)
     with pytest.raises(ValueError, message='Should fail: bad chip id'):
-        controller.get_chip(test_key)
+        controller[test_key]
     test_key_dict = chip.chip_key.to_dict()
     test_key_dict['io_channel'] += 1
     test_key = Key.from_dict(test_key_dict)
     with pytest.raises(ValueError, message='Should fail: bad channel id'):
-        controller.get_chip(test_key)
+        controller[test_key]
     test_key_dict = chip.chip_key.to_dict()
     test_key_dict['io_group'] += 1
     test_key = Key.from_dict(test_key_dict)
     with pytest.raises(ValueError, message='Should fail: bad group id'):
-        controller.get_chip(test_key)
+        controller[test_key]
 
 def test_controller_read():
     controller = Controller()

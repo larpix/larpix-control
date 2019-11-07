@@ -32,9 +32,9 @@ def test_encode(zmq_io_obj):
     io_chain = 1
     test_packet = Packet(b'\x01'*Packet.num_bytes)
     test_packet.chip_key = Key(1, io_chain, test_packet.chip_id)
-    test_bytes = b'0101010101010101 1'
+    test_bytes = b'0x0101010101010101 1'
     if isinstance(test_packet, Packet_v1):
-        test_bytes = b'0001010101010101 1'
+        test_bytes = b'0x0001010101010101 1'
     expected = [test_bytes]
     assert zmq_io_obj.encode([test_packet]) == expected
 
