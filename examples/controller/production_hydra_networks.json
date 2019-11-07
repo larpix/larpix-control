@@ -1,7 +1,7 @@
 {
     "_config_type": "controller",
     "name": "testing_network",
-    "type": "network",
+    "version": 2,
     "layout": null,
     "network": {
         "1": {

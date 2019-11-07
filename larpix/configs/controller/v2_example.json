@@ -1,7 +1,7 @@
 {
     "_config_type": "controller",
     "name": "v2_example",
-    "type": "network",
+    "asic_version": 2,
     "layout": null,
     "network": {
         "1": {

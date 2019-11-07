@@ -211,15 +211,12 @@ class Controller(object):
 
         '''
         system_info = configs.load(filename, 'controller')
-        if system_info['type'] == 'controller':
-            print('loading controller...')
+        if system_info['asic_version'] == 1:
+            print('loading v1 controller...')
             return self.load_controller(filename)
-        if system_info['type'] == 'network':
-            print('loading network...')
+        if system_info['asic_version'] == 2:
+            print('loading v2 network...')
             return self.load_network(filename)
-        if system_info['type'] == 'daisy_chain':
-            print('loading daisy chain...')
-            return self.load_daisy_chain(filename)
 
     def load_network(self, filename):
         '''
@@ -356,34 +353,6 @@ class Controller(object):
             chips[chip_key] = Chip(chip_key=chip_key, version=1)
         self.chips = chips
         return system_info['name']
-
-    def load_daisy_chain(self, filename, io_group=1):
-        '''
-        Loads the specified file in a basic daisy chain format
-        Daisy chain file format is::
-
-            {
-                    "name": "<board name>",
-                    "type": "daisy_chain",
-                    "chip_list": [[<chip id>,<daisy chain>],...]
-            }
-
-        Position in daisy chain is specified by position in `chip_set` list
-        returns board name of the loaded chipset configuration
-
-        :param filename: File path to configuration file
-        :param io_group: IO group to use for chip keys
-
-        '''
-        board_info = configs.load(filename)
-        chips = OrderedDict()
-        for chip_info in board_info['chip_list']:
-            chip_id = chip_info[0]
-            io_chain = chip_info[1]
-            key = Key(1, io_chain, chip_id)
-            chips[key] = Chip(chip_key=key, version=1)
-        self.chips = chips
-        return board_info['name']
 
     def init_network(self, io_group=1, io_channel=1, chip_id=None):
         '''
