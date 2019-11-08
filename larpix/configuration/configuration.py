@@ -11,6 +11,7 @@ __all__ = [
     'BaseConfiguration',
     '_Smart_List',
 ]
+
 class _Smart_List(list):
     '''
     A list type which checks its elements to be within given bounds.
@@ -108,15 +109,15 @@ class BaseConfiguration(object):
         for register_name in self.register_names:
             if getattr(self, register_name) != getattr(other, register_name):
                 d[register_name] = (getattr(self, register_name), getattr(other,
-                                                                          register_name))
+                    register_name))
         # Attempt to simplify some of the long values (array values)
         for (name, (self_value, config_value)) in d.items():
             if isinstance(self_value,(list,_Smart_List)):
                 different_values = []
                 for ch, (val, config_val) in enumerate(zip(self_value, config_value)):
                     if val != config_val:
-                        different_values.append(({'channel': ch, 'value': val},
-                                                 {'channel': ch, 'value': config_val}))
+                        different_values.append(({'index': ch, 'value': val},
+                                                 {'index': ch, 'value': config_val}))
                 if len(different_values) < 5:
                     d[name] = different_values
                 else:
@@ -179,9 +180,7 @@ class BaseConfiguration(object):
         configuration.
 
         '''
-        data = configs.load(filename)
-        if not data['_config_type'] == 'chip':
-            raise RuntimeError('configuration file type {} is invalid'.format(data['_config_type']))
+        data = configs.load(filename, 'chip')
         if data['class'] != self.__class__.__name__:
             raise RuntimeError('Configuration is not of class {}'.format(data['class']))
         self.from_dict(data['register_values'])

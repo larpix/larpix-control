@@ -61,58 +61,6 @@ class Logger(object):
             self.flush()
         self._enabled = False
 
-    def is_open(self):
-        '''
-        Returns the value of the internal state "open/closed" (``True``
-        if open).
-
-        .. deprecated:: 2.4.0
-           ``open``, ``close``, and ``is_open`` are deprecated and will
-           be removed in the next major release of larpix-control.
-
-        '''
-        warnings.warn('open/close/is_open are deprecated and will be removed '
-            'in the next major release of larpix-control.',
-            DeprecationWarning, 2)
-        return self._open
-
-    def open(self, enable=True):
-        '''
-        Change internal state to "open" (meaningless), and if
-        ``enable``, enable this logger (meaningful).
-
-        :param enable: whether to enable this logger
-
-        .. deprecated:: 2.4.0
-           ``open``, ``close``, and ``is_open`` are deprecated and will
-           be removed in the next major release of larpix-control.
-
-        '''
-        warnings.warn('open/close/is_open are deprecated and will be removed '
-            'in the next major release of larpix-control.',
-            DeprecationWarning, 2)
-        if enable:
-            self.enable()
-        self._open = True
-        return
-
-
-    def close(self):
-        '''
-        Change internal state to "closed" (meaningless) and disable this
-        logger (meaningful).
-
-        .. deprecated:: 2.4.0
-           ``open``, ``close``, and ``is_open`` are deprecated and will
-           be removed in the next major release of larpix-control.
-
-        '''
-        warnings.warn('open/close/is_open are deprecated and will be removed '
-            'in the next major release of larpix-control.',
-            DeprecationWarning, 2)
-        self._open = False
-        self.disable()
-
     def flush(self):
         '''
         Flushes any held data from memory to the destination

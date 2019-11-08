@@ -72,4 +72,4 @@ class TimestampPacket(object):
         self.timestamp = bah.touint(value)
 
     def bytes(self):
-        return struct.pack('Q', self.timestamp)[:7]  # length-7
+        return struct.pack('Q', self.timestamp)

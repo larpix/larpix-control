@@ -25,12 +25,13 @@ Packets
 .. automodule:: larpix.packet.message_packet
 .. automodule:: larpix.packet.packet_collection
 
-Configuration (v1 ASIC)
+v1 configuration registers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+.. autoattribute:: larpix.configuration.Configuration.register_names
 .. automodule:: larpix.configuration.configuration_v1
 
-Configuration (v2 ASIC)
+v2 configuration registers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: larpix.configuration.configuration_v2

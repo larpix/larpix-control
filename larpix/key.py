@@ -25,6 +25,7 @@ class Key(object):
         key == Key(key) # True
 
         key == '1-1-1' # True
+        key == (1,1,1) # True
 
         d = { key: 'example' }
         d[key] == 'example' # True
@@ -63,6 +64,13 @@ class Key(object):
         return self.keystring
 
     def __eq__(self, other):
+        if isinstance(other, Key):
+            return self.io_group == other.io_group and \
+            self.io_channel == other.io_channel \
+            and self.chip_id == other.chip_id
+        if isinstance(other, tuple):
+            return self.io_group == other[0] and self.io_channel == other[1] \
+            and self.chip_id == other[2]
         if str(self) == str(other):
             return True
         return False
@@ -72,6 +80,9 @@ class Key(object):
 
     def __hash__(self):
         return hash(str(self))
+
+    def __getitem__(self, index):
+        return (self.io_group, self.io_channel, self.chip_id)[index]
 
     @property
     def keystring(self):

@@ -5,28 +5,29 @@ def temp_logfilename():
     return 'test.h5'
 
 def test_min_example(capsys):
-    from larpix import Controller, Packet
+    from larpix import Controller, Packet_v2
     from larpix.io import FakeIO
     from larpix.logger import StdoutLogger
     controller = Controller()
     controller.io = FakeIO()
     controller.logger = StdoutLogger(buffer_length=0)
     controller.logger.enable()
-    chip1 = controller.add_chip('1-1-1')  # (access key)
-    chip1.config.global_threshold = 25
-    controller.write_configuration('1-1-1', 25) # chip key, register 25
-    assert capsys.readouterr().out == '[ Chip key: 1-1-1 | Chip: 1 | Config write | Register: 25 | Value:  16 | Parity: 1 (valid: True) ]\nRecord: [ Chip key: 1-1-1 | Chip: 1 | Config write | Register: 25 | Value:  16 | Parity: 1 (valid: True) ]\n'
-    packet = Packet(b'\x04\x14\x80\xc4\x03\xf2 ')
+    chip1 = controller.add_chip('1-1-2', version=2)  # (access key)
+    chip1.config.threshold_global = 25
+    controller.write_configuration('1-1-2', chip1.config.register_map['threshold_global']) # chip key, register 64
+    assert capsys.readouterr().out == '[ Key: 1-1-2 | Chip: 2 | Upstream | Write | Register: 64 | Value: 25 | Parity: 1 (valid: True) ]\nRecord: [ Key: 1-1-2 | Chip: 2 | Upstream | Write | Register: 64 | Value: 25 | Parity: 1 (valid: True) ]\n'
+    packet = Packet_v2(b'\x02\x91\x15\xcd[\x07\x85\x00')
     packet_bytes = packet.bytes()
     pretend_input = ([packet], packet_bytes)
     controller.io.queue.append(pretend_input)
     controller.run(0.05, 'test run')
+    assert capsys.readouterr().out == 'Record: [ Key: None | Chip: 2 | Downstream | Data | Channel: 5 | Timstamp: 123456789 | Dataword: 145 | Trigger: normal | Local FIFO ok | Shared FIFO ok | Parity: 0 (valid: True) ]\n'
     print(controller.reads[0])
-    assert capsys.readouterr().out == 'Record: [ Chip key: None | Chip: 1 | Data | Channel: 5 | Timestamp: 123456 | ADC data: 120 | FIFO Half: False | FIFO Full: False | Parity: 1 (valid: True) ]\n[ Chip key: None | Chip: 1 | Data | Channel: 5 | Timestamp: 123456 | ADC data: 120 | FIFO Half: False | FIFO Full: False | Parity: 1 (valid: True) ]\n'
+    assert capsys.readouterr().out == '[ Key: None | Chip: 2 | Downstream | Data | Channel: 5 | Timstamp: 123456789 | Dataword: 145 | Trigger: normal | Local FIFO ok | Shared FIFO ok | Parity: 0 (valid: True) ]\n'
 
 
 def test_tutorial(capsys, tmpdir, temp_logfilename):
-    from larpix import Controller, Packet
+    from larpix import Controller, Packet_v2
 
     from larpix.io import FakeIO
     from larpix.logger import StdoutLogger
@@ -35,14 +36,15 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
     controller.logger = StdoutLogger(buffer_length=0)
     controller.logger.enable()
 
-
+    chipid = 5
     chip_key = '1-1-5'
-    chip5 = controller.add_chip(chip_key)
-    chip5 = controller.get_chip(chip_key)
+    chip5 = controller.add_chip(chip_key, version=2)
+    chip5 = controller[chip_key]
+    chip5 = controller[1,1,5]
 
 
     from larpix import Key
-    example_key = Key('1-2-3')
+    example_key = Key(1,2,3)
 
 
     assert example_key.io_group  == 1
@@ -51,8 +53,29 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
     example_key.to_dict()
 
 
-    chip5.config.global_threshold = 35  # entire register = 1 number
-    chip5.config.periodic_reset = 1  # one bit as part of a register
+    controller.load('controller/v2_example.json')
+    print(controller.chips) # chips that have been loaded into controller
+    list(controller.network[1][1]['miso_ds'].edges) # all links contained in the miso_ds graph
+    list(controller.network[1][1]['miso_us'].nodes) # all nodes within the miso_us graph
+    list(controller.network[1][1]['mosi'].edges) # all links within the mosi graph
+
+    list(controller.network[1][1]['mosi'].in_edges(2)) # all links pointing to chip 2 in mosi graph
+    list(controller.network[1][1]['miso_ds'].successors(3)) # all chips receiving downstream data packets from chip 3
+    controller.network[1][1]['mosi'].edges[(3,2)]['uart'] # check the physical uart channel that chip 2 listens to chip 3 via
+    controller.network[1][1]['mosi'].nodes[2]['root'] # check if designated root chip
+
+    controller.init_network(1,1) # issues packets required to initialize the 1,1 hydra network
+    print(controller['1-1-2'].config.chip_id)
+    print(controller['1-1-3'].config.enable_miso_downstream)
+
+    controller.reset_network(1,1)
+
+    controller.init_network(1,1,2) # configures only chip 2
+    controller.init_network(1,1,3) # configures only chip 3
+
+
+    chip5.config.threshold_global = 35  # entire register = 1 number
+    chip5.config.enable_periodic_reset = 1  # one bit as part of a register
     chip5.config.channel_mask[20] = 1  # one bit per channel
 
 
@@ -61,19 +84,22 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
     controller.write_configuration(chip_key, [32, 50])  # send registers 32 and 50
 
 
-    global_threshold_reg = chip5.config.global_threshold_address
+    threshold_global_reg = chip5.config.register_map['threshold_global']
 
 
-    packets = chip5.get_configuration_packets(Packet.CONFIG_READ_PACKET)
+    threshold_global_name = chip5.config.register_map_inv[64]
+
+
+    packets = chip5.get_configuration_read_packets()
     bytestream = b'bytes for the config read packets'
     controller.io.queue.append((packets, bytestream))
 
     controller.read_configuration(chip_key)
 
-    packets = [Packet()] * 40
+    packets = [Packet_v2()] * 40
     bytestream = b'bytes from the first set of packets'
     controller.io.queue.append((packets, bytestream))
-    packets2 = [Packet()] * 30
+    packets2 = [Packet_v2()] * 30
     bytestream2 = b'bytes from the second set of packets'
     controller.io.queue.append((packets2, bytestream2))
 
@@ -89,7 +115,7 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
     controller.store_packets(packets, bytestream2, message2)
 
 
-    packets = [Packet()] * 5
+    packets = [Packet_v2()] * 5
     bytestream = b'[bytes from read #%d] '
     for i in range(100):
         controller.io.queue.append((packets, bytestream%i))
@@ -114,20 +140,29 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
     packet = run1[0]
     # all packets
     packet.packet_type  # unique in that it gives the bits representation
-    packet.chipid  # all other properties return Python numbers
-    packet.chip_key # key for association to a unique chip
-    packet.parity_bit_value
+    packet.chip_id  # all other properties return Python numbers
+    packet.chip_key # key for association to a unique chip (can be None)
+    packet.parity
+    packet.downstream_marker
+
     # data packets
     packet.channel_id
     packet.dataword
     packet.timestamp
-    assert packet.fifo_half_flag in (1, 0)
-    assert packet.fifo_full_flag in (1, 0)
+    packet.trigger_type
+    packet.local_fifo
+    packet.shared_fifo
     # config packets
     packet.register_address
     packet.register_data
-    # test packets
-    packet.test_counter
+
+    # if fifo_diagnostics enabled on a given chip the timestamp of data packets
+    # are interpreted differently (note that this is not done automatically and will
+    # need to be performed manually on each packet)
+    packet.fifo_diagnostics_enabled = True
+    packet.timestamp
+    packet.local_fifo_events
+    packet.shared_fifo_events
 
 
     from larpix.logger import HDF5Logger
@@ -172,7 +207,7 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
 
     datafile.close()
 
-def test_running_with_bern_daq():
+def test_running_with_bern_daq_v1():
     from larpix import Controller
     from larpix.io import ZMQ_IO
 

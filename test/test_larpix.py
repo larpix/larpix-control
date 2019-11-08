@@ -4,7 +4,7 @@ Use the pytest framework to write tests for the larpix module.
 '''
 from __future__ import print_function
 import pytest
-from larpix import (Chip, Packet, Key, Configuration, Controller,
+from larpix import (Chip, Packet_v1, Packet_v2, Packet, Key, Configuration, Configuration_v1, Controller,
         PacketCollection, _Smart_List, TimestampPacket, MessagePacket)
 from larpix.io import FakeIO
 from larpix.timestamp import *  # use long = int in py3
@@ -29,28 +29,28 @@ def test_chip_str():
     key = '1-1-1'
     chip = Chip(key)
     result = str(chip)
-    expected = 'Chip (id: 1, key: 1-1-1)'
+    expected = 'Chip (key: 1-1-1, version: 2)'
     assert result == expected
 
 def test_chip_get_configuration_packets(chip):
     packet_type = Packet.CONFIG_WRITE_PACKET
-    packets = chip.get_configuration_packets(packet_type)
+    packets = chip.get_configuration_write_packets()
     # test a sampling of the configuration packets
     packet = packets[5]
     assert packet.packet_type == packet_type
-    assert packet.chipid == chip.chip_id
+    assert packet.chip_id == chip.chip_id
     assert packet.register_address == 5
     assert packet.register_data == 16
 
     packet = packets[40]
     assert packet.packet_type == packet_type
-    assert packet.chipid == chip.chip_id
+    assert packet.chip_id == chip.chip_id
     assert packet.register_address == 40
-    assert packet.register_data == 0
+    assert packet.register_data == 16
 
 def test_chip_sync_configuration(chip):
     packet_type = Packet.CONFIG_READ_PACKET
-    packets = chip.get_configuration_packets(packet_type)
+    packets = chip.get_configuration_read_packets()
     chip.reads.append(PacketCollection(packets))
     chip.sync_configuration()
     result = chip.config.all_data()
@@ -58,8 +58,7 @@ def test_chip_sync_configuration(chip):
     assert result == expected
 
 def test_chip_sync_configuration_slice(chip):
-    packet_type = Packet.CONFIG_READ_PACKET
-    packets = chip.get_configuration_packets(packet_type)
+    packets = chip.get_configuration_read_packets()
     chip.reads.append(PacketCollection(packets[:10]))
     chip.reads.append(PacketCollection(packets[10:]))
     chip.sync_configuration(index=slice(None, None, None))
@@ -71,7 +70,7 @@ def test_chip_export_reads(chip):
     packet = Packet()
     packet.chip_key = chip.chip_key
     packet.packet_type = Packet.CONFIG_WRITE_PACKET
-    packet.chipid = chip.chip_id
+    packet.chip_id = chip.chip_id
     packet.register_address = 10
     packet.register_data = 20
     packet.assign_parity()
@@ -81,18 +80,7 @@ def test_chip_export_reads(chip):
             'chip_key': chip.chip_key,
             'chip_id': chip.chip_id,
             'packets': [
-                {
-                    'asic_version': 1,
-                    'bits': packet.bits.to01(),
-                    'type_str': 'config write',
-                    'type': 2,
-                    'chipid': chip.chip_id,
-                    'chip_key': chip.chip_key,
-                    'parity': 0,
-                    'valid_parity': True,
-                    'register': 10,
-                    'value': 20
-                    }
+                packet.export()
                 ]
             }
     assert result == expected
@@ -123,18 +111,7 @@ def test_chip_export_reads_all(chip):
             'chip_id': chip.chip_id,
             'chip_key': chip.chip_key,
             'packets': [
-                {
-                    'asic_version': 1,
-                    'bits': packet.bits.to01(),
-                    'type': 2,
-                    'chipid': chip.chip_id,
-                    'type_str': 'config write',
-                    'parity': 0,
-                    'chip_key': chip.chip_key,
-                    'valid_parity': True,
-                    'register': 0,
-                    'value': 0
-                    }
+                packet.export()
                 ]
             }
     assert result == expected
@@ -143,7 +120,6 @@ def test_chip_export_reads_all(chip):
 def test_controller_save_output(tmpdir, chip):
     controller = Controller()
     p = Packet()
-    chip.reads.append(p)
     controller.add_chip(chip.chip_key)
     collection = PacketCollection([p], p.bytes(), 'hi', 0)
     controller.reads.append(collection)
@@ -155,20 +131,13 @@ def test_controller_save_output(tmpdir, chip):
             'chips': [repr(chip)],
             'message': 'this is a test',
             'reads': [
-                {
-                    'packets': [p.export()],
-                    'id': id(collection),
-                    'parent': 'None',
-                    'message': 'hi',
-                    'read_id': 0,
-                    'bytestream': p.bytes().decode('raw_unicode_escape')
-                    }
+                collection.to_dict()
                 ]
             }
     assert result == expected
 
 def test_packet_bits_bytes():
-    assert Packet.num_bytes == Packet.size // 8 + 1
+    assert Packet.num_bytes == Packet.size // 8 + min(Packet.size % 8, 1)
 
 def test_packet_init_default():
     p = Packet()
@@ -176,38 +145,39 @@ def test_packet_init_default():
     assert p.bits == expected
 
 def test_packet_init_bytestream():
-    bytestream = b'\x3f' + b'\x00' * (Packet.num_bytes-2) + b'\x3e'
+    bytestream = b'\x3f' + b'\x00' * (Packet.num_bytes-2) + b'\xf8'
     p = Packet(bytestream)
     expected = bitarray([0] * Packet.size)
     expected[-6:] = bitarray([1]*6)
     expected[:5] = bitarray([1]*5)
+    print(expected[0],expected[-1])
     assert p.bits == expected
 
 def test_packet_bytes_zeros():
     p = Packet()
     b = p.bytes()
-    expected = b'\x00' * ((Packet.size + len(p._bit_padding))//8)
+    expected = b'\x00' * Packet.num_bytes
     assert b == expected
 
 def test_packet_bytes_custom():
     p = Packet()
     p.bits[-6:] = bitarray([1]*6)  # First byte is 0b00111111
-    p.bits[:5] = bitarray([1]*5)  # Last byte is 0b00111110 (2 MSBs are padding)
+    p.bits[:7] = bitarray([0]*2+[1]*5)  # Last byte is 0b00111110 (2 MSBs are padding)
     b = p.bytes()
-    expected = b'\x3f' + b'\x00' * (Packet.size//8-1) + b'\x3e'
+    expected = b'\x3f' + b'\x00' * (Packet.num_bytes-2) + b'\x3e'
     assert b == expected
 
-def test_packet_bytes_properties():
-    p = Packet()
-    p.packet_type = Packet.DATA_PACKET
+def test_packet_v1_bytes_properties():
+    p = Packet_v1()
+    p.packet_type = Packet_v1.DATA_PACKET
     p.chipid = 100
-    expected = b'\x90\x01' + b'\x00' * (Packet.size//8-1)
+    expected = b'\x90\x01' + b'\x00' * (Packet_v1.num_bytes-2)
     b = p.bytes()
     assert b == expected
 
-def test_packet_export_test():
-    p = Packet()
-    p.packet_type = Packet.TEST_PACKET
+def test_packet_v1_export_test():
+    p = Packet_v1()
+    p.packet_type = Packet_v1.TEST_PACKET
     p.chipid = 5
     p.test_counter = 32838
     p.assign_parity()
@@ -225,9 +195,9 @@ def test_packet_export_test():
             }
     assert result == expected
 
-def test_packet_export_data():
-    p = Packet()
-    p.packet_type = Packet.DATA_PACKET
+def test_packet_v1_export_data():
+    p = Packet_v1()
+    p.packet_type = Packet_v1.DATA_PACKET
     p.chipid = 2
     p.chip_key = Key('1-3-2')
     p.channel_id = 10
@@ -254,9 +224,9 @@ def test_packet_export_data():
             }
     assert result == expected
 
-def test_packet_export_config_read():
-    p = Packet()
-    p.packet_type = Packet.CONFIG_READ_PACKET
+def test_packet_v1_export_config_read():
+    p = Packet_v1()
+    p.packet_type = Packet_v1.CONFIG_READ_PACKET
     p.chipid = 10
     p.chip_key = Key('2-1-10')
     p.register_address = 51
@@ -277,9 +247,9 @@ def test_packet_export_config_read():
             }
     assert result == expected
 
-def test_packet_export_config_write():
-    p = Packet()
-    p.packet_type = Packet.CONFIG_WRITE_PACKET
+def test_packet_v1_export_config_write():
+    p = Packet_v1()
+    p.packet_type = Packet_v1.CONFIG_WRITE_PACKET
     p.chipid = 10
     p.register_address = 51
     p.register_data = 2
@@ -299,10 +269,10 @@ def test_packet_export_config_write():
             }
     assert result == expected
 
-def test_packet_from_dict():
-    p = Packet()
-    p1 = Packet()
-    p.packet_type = Packet.CONFIG_WRITE_PACKET
+def test_packet_v1_from_dict():
+    p = Packet_v1()
+    p1 = Packet_v1()
+    p.packet_type = Packet_v1.CONFIG_WRITE_PACKET
     p.chipid = 10
     p.register_address = 51
     p.register_data = 2
@@ -322,10 +292,10 @@ def test_packet_from_dict():
     p1.from_dict(packet_dict)
     assert p == p1
 
-def test_packet_from_dict_export_inv():
-    p = Packet()
-    p1 = Packet()
-    p.packet_type = Packet.CONFIG_WRITE_PACKET
+def test_packet_v1_from_dict_export_inv():
+    p = Packet_v1()
+    p1 = Packet_v1()
+    p.packet_type = Packet_v1.CONFIG_WRITE_PACKET
     p.chipid = 10
     p.register_address = 51
     p.register_data = 2
@@ -334,11 +304,11 @@ def test_packet_from_dict_export_inv():
     p1.from_dict(packet_dict)
     assert p == p1
 
-def test_packet_set_packet_type():
-    p = Packet()
-    p.packet_type = Packet.DATA_PACKET
+def test_packet_v1_set_packet_type():
+    p = Packet_v1()
+    p.packet_type = Packet_v1.DATA_PACKET
     packet_bits = p.bits[Packet.packet_type_bits]
-    expected = Packet.DATA_PACKET
+    expected = Packet_v1.DATA_PACKET
     assert packet_bits == expected
 
 def test_packet_get_packet_type():
@@ -348,11 +318,11 @@ def test_packet_get_packet_type():
     expected = Packet.CONFIG_WRITE_PACKET
     assert packet_type == expected
 
-def test_packet_set_chipid():
-    p = Packet()
+def test_packet_v1_set_chipid():
+    p = Packet_v1()
     p.chipid = 121
     expected = bah.fromuint(121, 8)
-    assert p.bits[Packet.chipid_bits] == expected
+    assert p.bits[Packet_v1.chipid_bits] == expected
 
 def test_packet_get_chipid():
     p = Packet()
@@ -360,8 +330,8 @@ def test_packet_get_chipid():
     expected = 18
     assert p.chipid == expected
 
-def test_packet_set_parity_bit_value():
-    p = Packet()
+def test_packet_v1_set_parity_bit_value():
+    p = Packet_v1()
     p.parity_bit_value = 0
     assert p.bits[0] == False
     p.parity_bit_value = 1
@@ -374,8 +344,8 @@ def test_packet_get_parity_bit_value():
     p.parity_bit_value = 1
     assert p.parity_bit_value == 1
 
-def test_packet_compute_parity():
-    p = Packet()
+def test_packet_v1_compute_parity():
+    p = Packet_v1()
     p.chipid = 121
     parity = p.compute_parity()
     expected = 0
@@ -389,8 +359,8 @@ def test_packet_compute_parity():
     expected = 0
     assert parity == expected
 
-def test_packet_assign_parity():
-    p = Packet()
+def test_packet_v1_assign_parity():
+    p = Packet_v1()
     p.chipid = 121
     p.assign_parity()
     expected = 0
@@ -400,8 +370,8 @@ def test_packet_assign_parity():
     expected = 1
     assert p.parity_bit_value == expected
 
-def test_packet_has_valid_parity():
-    p = Packet()
+def test_packet_v1_has_valid_parity():
+    p = Packet_v1()
     result = p.has_valid_parity()
     expected = False
     assert result == expected
@@ -418,23 +388,23 @@ def test_packet_has_valid_parity():
     expected = True
     assert result == expected
 
-def test_packet_set_channel_id():
-    p = Packet()
+def test_packet_v1_set_channel_id():
+    p = Packet_v1()
     p.channel_id = 100
     expected = bah.fromuint(100, 7)
-    assert p.bits[Packet.channel_id_bits] == expected
+    assert p.bits[Packet_v1.channel_id_bits] == expected
 
-def test_packet_get_channel_id():
-    p = Packet()
+def test_packet_v1_get_channel_id():
+    p = Packet_v1()
     expected = 101
     p.channel_id = expected
     assert p.channel_id == expected
 
-def test_packet_set_timestamp():
-    p = Packet()
+def test_packet_v1_set_timestamp():
+    p = Packet_v1()
     p.timestamp = 0x1327ab
     expected = bah.fromuint(int('0x1327ab', 16), 24)
-    assert p.bits[Packet.timestamp_bits] == expected
+    assert p.bits[Packet_v1.timestamp_bits] == expected
 
 def test_packet_get_timestamp():
     p = Packet()
@@ -442,11 +412,11 @@ def test_packet_get_timestamp():
     p.timestamp = expected
     assert p.timestamp == expected
 
-def test_packet_set_dataword():
-    p = Packet()
+def test_packet_v1_set_dataword():
+    p = Packet_v1()
     p.dataword = 75
     expected = bah.fromuint(75, 10)
-    assert p.bits[Packet.dataword_bits] == expected
+    assert p.bits[Packet_v1.dataword_bits] == expected
 
 def test_packet_get_dataword():
     p = Packet()
@@ -454,32 +424,32 @@ def test_packet_get_dataword():
     p.dataword = 74
     assert p.dataword == expected
 
-def test_packet_get_dataword_ADC_bug():
-    p = Packet()
+def test_packet_v1_get_dataword_ADC_bug():
+    p = Packet_v1()
     expected = 74
     p.dataword = 75
     assert p.dataword == expected
 
-def test_packet_set_fifo_half_flag():
-    p = Packet()
+def test_packet_v1_set_fifo_half_flag():
+    p = Packet_v1()
     p.fifo_half_flag = 1
     expected = True
-    assert p.bits[Packet.fifo_half_bit] == expected
+    assert p.bits[Packet_v1.fifo_half_bit] == expected
 
-def test_packet_get_fifo_half_flag():
-    p = Packet()
+def test_packet_v1_get_fifo_half_flag():
+    p = Packet_v1()
     expected = 1
     p.fifo_half_flag = expected
     assert p.fifo_half_flag == expected
 
-def test_packet_set_fifo_full_flag():
-    p = Packet()
+def test_packet_v1_set_fifo_full_flag():
+    p = Packet_v1()
     p.fifo_full_flag = 1
     expected = True
-    assert p.bits[Packet.fifo_full_bit] == expected
+    assert p.bits[Packet_v1.fifo_full_bit] == expected
 
-def test_packet_get_fifo_full_flag():
-    p = Packet()
+def test_packet_v1_get_fifo_full_flag():
+    p = Packet_v1()
     expected = 1
     p.fifo_full_flag = expected
     assert p.fifo_full_flag == expected
@@ -508,12 +478,12 @@ def test_packet_get_register_data():
     expected = 18
     assert p.register_data == expected
 
-def test_packet_set_test_counter():
-    p = Packet()
+def test_packet_v1_set_test_counter():
+    p = Packet_v1()
     p.test_counter = 18376
     expected = bah.fromuint(18376, 16)
-    result = (p.bits[Packet.test_counter_bits_15_12] +
-            p.bits[Packet.test_counter_bits_11_0])
+    result = (p.bits[Packet_v1.test_counter_bits_15_12] +
+            p.bits[Packet_v1.test_counter_bits_11_0])
     assert result == expected
 
 def test_packet_get_test_counter():
@@ -529,8 +499,8 @@ def test_configuration_error_on_unknown_field():
         pytest.fail('Should fail: attribute is not in known '
                        'register names')
 
-def test_configuration_no_error_on_known_register_name():
-    c = Configuration()
+def test_configuration_v1_no_error_on_known_register_name():
+    c = Configuration_v1()
     c.reset_cycles = 5
 
 def test_configuration_no_error_on_underscore():
@@ -551,63 +521,66 @@ def test_configuration_get_nondefault_registers():
 
 def test_configuration_get_nondefault_registers_array():
     c = Configuration()
-    c.channel_mask[1] = 1
-    c.channel_mask[5] = 1
+    default = c.channel_mask[1]
+    c.channel_mask[1] = int(not c.channel_mask[1])
+    c.channel_mask[5] = int(not c.channel_mask[5])
     result = c.get_nondefault_registers()
+    print(c.channel_mask)
     expected = {
             'channel_mask': [
-                ({'channel': 1, 'value': 1}, {'channel': 1, 'value': 0}),
-                ({'channel': 5, 'value': 1}, {'channel': 5, 'value': 0})
+                ({'index': 1, 'value': c.channel_mask[1]}, {'index': 1, 'value': default}),
+                ({'index': 5, 'value': c.channel_mask[5]}, {'index': 5, 'value': default})
                 ]
             }
     assert result == expected
 
 def test_configuration_get_nondefault_registers_many_changes():
     c = Configuration()
-    c.channel_mask[:20] = [1]*20
+    default = list(c.channel_mask)
+    c.channel_mask[:20] = list(map(lambda x: not x, c.channel_mask[:20]))
     result = c.get_nondefault_registers()
-    expected = { 'channel_mask': ([1]*20 + [0]*12, [0]*32) }
+    expected = { 'channel_mask': (c.channel_mask, default) }
     assert result == expected
 
 
-def test_configuration_set_pixel_trim_thresholds():
-    c = Configuration()
-    expected = [0x05] * Configuration.num_channels
+def test_configuration_v1_set_pixel_trim_thresholds():
+    c = Configuration_v1()
+    expected = [0x05] * Configuration_v1.num_channels
     c.pixel_trim_thresholds = expected
     assert c._pixel_trim_thresholds == expected
     expected[5] = 0x10
     c.pixel_trim_thresholds[5] = 0x10
     assert c._pixel_trim_thresholds == expected
 
-def test_configuration_set_pixel_trim_thresholds_errors():
-    c = Configuration()
+def test_configuration_v1_set_pixel_trim_thresholds_errors():
+    c = Configuration_v1()
     with pytest.raises(ValueError):
-        c.pixel_trim_thresholds = [0x05] * (Configuration.num_channels-1)
+        c.pixel_trim_thresholds = [0x05] * (Configuration_v1.num_channels-1)
         pytest.fail(message='Should fail: wrong num_channels')
     with pytest.raises(ValueError):
-        c.pixel_trim_thresholds = [0x20] * Configuration.num_channels
+        c.pixel_trim_thresholds = [0x20] * Configuration_v1.num_channels
         pytest.fail(message='Should fail: values too large')
     with pytest.raises(ValueError,):
-        c.pixel_trim_thresholds = [-10] * Configuration.num_channels
+        c.pixel_trim_thresholds = [-10] * Configuration_v1.num_channels
         pytest.fail(message='Should fail: value negative')
     with pytest.raises(ValueError):
         c.pixel_trim_thresholds = 5
         pytest.fail(message='Should fail: wrong type')
 
-def test_configuration_get_pixel_trim_thresholds():
-    c = Configuration()
-    expected = [0x10] * Configuration.num_channels
+def test_configuration_v1_get_pixel_trim_thresholds():
+    c = Configuration_v1()
+    expected = [0x10] * Configuration_v1.num_channels
     c._pixel_trim_thresholds = expected
     assert c.pixel_trim_thresholds == expected
 
-def test_configuration_set_global_threshold():
-    c = Configuration()
+def test_configuration_v1_set_global_threshold():
+    c = Configuration_v1()
     expected = 0x5a
     c.global_threshold = expected
     assert c._global_threshold == expected
 
-def test_configuration_set_global_threshold_errors():
-    c = Configuration()
+def test_configuration_v1_set_global_threshold_errors():
+    c = Configuration_v1()
     with pytest.raises(ValueError):
         c.global_threshold = 0x100
         pytest.fail(message='Should fail: values too large')
@@ -618,20 +591,20 @@ def test_configuration_set_global_threshold_errors():
         c.global_threshold = True
         pytest.fail(message='Should fail: wrong type')
 
-def test_configuration_get_global_threshold():
-    c = Configuration()
+def test_configuration_v1_get_global_threshold():
+    c = Configuration_v1()
     expected = 0x50
     c._global_threshold = expected
     assert c.global_threshold == expected
 
-def test_configuration_set_csa_gain():
-    c = Configuration()
+def test_configuration_v1_set_csa_gain():
+    c = Configuration_v1()
     expected = 0
     c.csa_gain = expected
     assert c._csa_gain == expected
 
-def test_configuration_set_csa_gain_errors():
-    c = Configuration()
+def test_configuration_v1_set_csa_gain_errors():
+    c = Configuration_v1()
     with pytest.raises(ValueError):
         c.csa_gain = 5
         pytest.fail('Should fail: invalid value')
@@ -639,20 +612,20 @@ def test_configuration_set_csa_gain_errors():
         c.csa_gain = False
         pytest.fail('Should fail: wrong type')
 
-def test_configuration_get_csa_gain():
-    c = Configuration()
+def test_configuration_v1_get_csa_gain():
+    c = Configuration_v1()
     expected = 0
     c._csa_gain = expected
     assert c.csa_gain == expected
 
-def test_configuration_set_csa_bypass():
-    c = Configuration()
+def test_configuration_v1_set_csa_bypass():
+    c = Configuration_v1()
     expected = 0
     c.csa_bypass = expected
     assert c._csa_bypass == expected
 
-def test_configuration_set_csa_bypass_errors():
-    c = Configuration()
+def test_configuration_v1_set_csa_bypass_errors():
+    c = Configuration_v1()
     with pytest.raises(ValueError):
         c.csa_bypass = 5
         pytest.fail('Should fail: invalid value')
@@ -660,20 +633,20 @@ def test_configuration_set_csa_bypass_errors():
         c.csa_bypass = False
         pytest.fail('Should fail: wrong type')
 
-def test_configuration_get_csa_bypass():
-    c = Configuration()
+def test_configuration_v1_get_csa_bypass():
+    c = Configuration_v1()
     expected = 0
     c._csa_bypass = expected
     assert c.csa_bypass == expected
 
-def test_configuration_set_internal_bypass():
-    c = Configuration()
+def test_configuration_v1_set_internal_bypass():
+    c = Configuration_v1()
     expected = 0
     c.internal_bypass = expected
     assert c._internal_bypass == expected
 
-def test_configuration_set_internal_bypass_errors():
-    c = Configuration()
+def test_configuration_v1_set_internal_bypass_errors():
+    c = Configuration_v1()
     with pytest.raises(ValueError):
         c.internal_bypass = 5
         pytest.fail('Should fail: invalid value')
@@ -681,110 +654,110 @@ def test_configuration_set_internal_bypass_errors():
         c.internal_bypass = False
         pytest.fail('Should fail: wrong type')
 
-def test_configuration_get_internal_bypass():
-    c = Configuration()
+def test_configuration_v1_get_internal_bypass():
+    c = Configuration_v1()
     expected = 0
     c._internal_bypass = expected
     assert c.internal_bypass == expected
 
-def test_configuration_set_csa_bypass_select():
-    c = Configuration()
-    expected = [0x1] * Configuration.num_channels
+def test_configuration_v1_set_csa_bypass_select():
+    c = Configuration_v1()
+    expected = [0x1] * Configuration_v1.num_channels
     c.csa_bypass_select = expected
     assert c._csa_bypass_select == expected
     expected[5] = 0x0
     c.csa_bypass_select[5] = expected[5]
     assert c._csa_bypass_select == expected
 
-def test_configuration_set_csa_bypass_select_errors():
-    c = Configuration()
+def test_configuration_v1_set_csa_bypass_select_errors():
+    c = Configuration_v1()
     with pytest.raises(ValueError):
-        c.csa_bypass_select = [0x1] * (Configuration.num_channels-1)
+        c.csa_bypass_select = [0x1] * (Configuration_v1.num_channels-1)
         pytest.fail('Should fail: wrong num_channels')
     with pytest.raises(ValueError):
-        c.csa_bypass_select = [0x2] * Configuration.num_channels
+        c.csa_bypass_select = [0x2] * Configuration_v1.num_channels
         pytest.fail('Should fail: value too large')
     with pytest.raises(ValueError):
-        c.csa_bypass_select = [-1] * Configuration.num_channels
+        c.csa_bypass_select = [-1] * Configuration_v1.num_channels
         pytest.fail('Should fail: value negative')
     with pytest.raises(ValueError):
         c.csa_bypass_select = 5
         pytest.fail('Should fail: wrong type')
 
-def test_configuration_get_csa_bypass_select():
-    c = Configuration()
-    expected = [0x1] * Configuration.num_channels
+def test_configuration_v1_get_csa_bypass_select():
+    c = Configuration_v1()
+    expected = [0x1] * Configuration_v1.num_channels
     c._csa_bypass_select = expected
     assert c.csa_bypass_select == expected
 
-def test_configuration_set_csa_monitor_select():
-    c = Configuration()
-    expected = [0x0] * Configuration.num_channels
+def test_configuration_v1_set_csa_monitor_select():
+    c = Configuration_v1()
+    expected = [0x0] * Configuration_v1.num_channels
     c.csa_monitor_select = expected
     assert c._csa_monitor_select == expected
     expected[5] = 0x1
     c.csa_monitor_select[5] = expected[5]
     assert c._csa_monitor_select == expected
 
-def test_configuration_set_csa_monitor_select_errors():
-    c = Configuration()
+def test_configuration_v1_set_csa_monitor_select_errors():
+    c = Configuration_v1()
     with pytest.raises(ValueError):
-        c.csa_monitor_select = [0x1] * (Configuration.num_channels-1)
+        c.csa_monitor_select = [0x1] * (Configuration_v1.num_channels-1)
         pytest.fail('Should fail: wrong num_channels')
     with pytest.raises(ValueError):
-        c.csa_monitor_select = [0x2] * Configuration.num_channels
+        c.csa_monitor_select = [0x2] * Configuration_v1.num_channels
         pytest.fail('Should fail: value too lare')
     with pytest.raises(ValueError):
-        c.csa_monitor_select = [-1] * Configuration.num_channels
+        c.csa_monitor_select = [-1] * Configuration_v1.num_channels
         pytest.fail('Should fail: value negative')
     with pytest.raises(ValueError):
         c.csa_monitor_select = 5
         pytest.fail('Should fail: wrong type')
 
-def test_configuration_get_csa_monitor_select():
-    c = Configuration()
-    expected = [0x0] * Configuration.num_channels
+def test_configuration_v1_get_csa_monitor_select():
+    c = Configuration_v1()
+    expected = [0x0] * Configuration_v1.num_channels
     c._csa_monitor_select = expected
     assert c.csa_monitor_select == expected
 
-def test_configuration_set_csa_testpulse_enable():
-    c = Configuration()
-    expected = [0x1] * Configuration.num_channels
+def test_configuration_v1_set_csa_testpulse_enable():
+    c = Configuration_v1()
+    expected = [0x1] * Configuration_v1.num_channels
     c.csa_testpulse_enable = expected
     assert c._csa_testpulse_enable == expected
     expected[5] = 0x0
     c.csa_testpulse_enable[5] = expected[5]
     assert c._csa_testpulse_enable == expected
 
-def test_configuration_set_csa_testpulse_enable_errors():
-    c = Configuration()
+def test_configuration_v1_set_csa_testpulse_enable_errors():
+    c = Configuration_v1()
     with pytest.raises(ValueError):
-        c.csa_testpulse_enable = [0x1] * (Configuration.num_channels-1)
+        c.csa_testpulse_enable = [0x1] * (Configuration_v1.num_channels-1)
         pytest.fail('Should fail: wrong num_channels')
     with pytest.raises(ValueError):
-        c.csa_testpulse_enable = [0x2] * Configuration.num_channels
+        c.csa_testpulse_enable = [0x2] * Configuration_v1.num_channels
         pytest.fail('Should fail: value too large')
     with pytest.raises(ValueError):
-        c.csa_testpulse_enable = [-1] * Configuration.num_channels
+        c.csa_testpulse_enable = [-1] * Configuration_v1.num_channels
         pytest.fail('Should fail: value negative')
     with pytest.raises(ValueError):
         c.csa_testpulse_enable = 5
         pytest.fail('Should fail: wrong type')
 
-def test_configuration_get_csa_testpulse_enable():
-    c = Configuration()
-    expected = [0x1] * Configuration.num_channels
+def test_configuration_v1_get_csa_testpulse_enable():
+    c = Configuration_v1()
+    expected = [0x1] * Configuration_v1.num_channels
     c._csa_testpulse_enable = expected
     assert c.csa_testpulse_enable == expected
 
-def test_configuration_set_csa_testpulse_dac_amplitude():
-    c = Configuration()
+def test_configuration_v1_set_csa_testpulse_dac_amplitude():
+    c = Configuration_v1()
     expected = 0x5a
     c.csa_testpulse_dac_amplitude = expected
     assert c._csa_testpulse_dac_amplitude == expected
 
-def test_configuration_set_csa_testpulse_dac_amplitude_errors():
-    c = Configuration()
+def test_configuration_v1_set_csa_testpulse_dac_amplitude_errors():
+    c = Configuration_v1()
     with pytest.raises(ValueError):
         c.csa_testpulse_dac_amplitude = 0x100
         pytest.fail('Should fail: value too large')
@@ -795,20 +768,20 @@ def test_configuration_set_csa_testpulse_dac_amplitude_errors():
         c.csa_testpulse_dac_amplitude = True
         pytest.fail('Should fail: wrong type')
 
-def test_configuration_get_csa_testpulse_dac_amplitude():
-    c = Configuration()
+def test_configuration_v1_get_csa_testpulse_dac_amplitude():
+    c = Configuration_v1()
     expected = 0x50
     c._csa_testpulse_dac_amplitude = expected
     assert c.csa_testpulse_dac_amplitude == expected
 
-def test_configuration_set_test_mode():
-    c = Configuration()
-    expected = Configuration.TEST_UART
+def test_configuration_v1_set_test_mode():
+    c = Configuration_v1()
+    expected = Configuration_v1.TEST_UART
     c.test_mode = expected
     assert c._test_mode == expected
 
-def test_configuration_set_test_mode_errors():
-    c = Configuration()
+def test_configuration_v1_set_test_mode_errors():
+    c = Configuration_v1()
     with pytest.raises(ValueError):
         c.test_mode = 5
         pytest.fail('Should fail: invalid value')
@@ -816,20 +789,20 @@ def test_configuration_set_test_mode_errors():
         c.test_mode = False
         pytest.fail('Should fail: wrong type')
 
-def test_configuration_get_test_mode():
-    c = Configuration()
-    expected = Configuration.TEST_FIFO
+def test_configuration_v1_get_test_mode():
+    c = Configuration_v1()
+    expected = Configuration_v1.TEST_FIFO
     c._test_mode = expected
     assert c.test_mode == expected
 
-def test_configuration_set_cross_trigger_mode():
-    c = Configuration()
+def test_configuration_v1_set_cross_trigger_mode():
+    c = Configuration_v1()
     expected = 0
     c.cross_trigger_mode = expected
     assert c._cross_trigger_mode == expected
 
-def test_configuration_set_cross_trigger_mode_errors():
-    c = Configuration()
+def test_configuration_v1_set_cross_trigger_mode_errors():
+    c = Configuration_v1()
     with pytest.raises(ValueError):
         c.cross_trigger_mode = 5
         pytest.fail('Should fail: invalid value')
@@ -837,20 +810,20 @@ def test_configuration_set_cross_trigger_mode_errors():
         c.cross_trigger_mode = False
         pytest.fail('Should fail: wrong type')
 
-def test_configuration_get_cross_trigger_mode():
-    c = Configuration()
+def test_configuration_v1_get_cross_trigger_mode():
+    c = Configuration_v1()
     expected = 0
     c._cross_trigger_mode = expected
     assert c.cross_trigger_mode == expected
 
-def test_configuration_set_periodic_reset():
-    c = Configuration()
+def test_configuration_v1_set_periodic_reset():
+    c = Configuration_v1()
     expected = 0
     c.periodic_reset = expected
     assert c._periodic_reset == expected
 
-def test_configuration_set_periodic_reset_errors():
-    c = Configuration()
+def test_configuration_v1_set_periodic_reset_errors():
+    c = Configuration_v1()
     with pytest.raises(ValueError):
         c.periodic_reset = 5
         pytest.fail('Should fail: invalid value')
@@ -858,20 +831,20 @@ def test_configuration_set_periodic_reset_errors():
         c.periodic_reset = False
         pytest.fail('Should fail: wrong type')
 
-def test_configuration_get_periodic_reset():
-    c = Configuration()
+def test_configuration_v1_get_periodic_reset():
+    c = Configuration_v1()
     expected = 0
     c._periodic_reset = expected
     assert c.periodic_reset == expected
 
-def test_configuration_set_fifo_diagnostic():
-    c = Configuration()
+def test_configuration_v1_set_fifo_diagnostic():
+    c = Configuration_v1()
     expected = 0
     c.fifo_diagnostic = expected
     assert c._fifo_diagnostic == expected
 
-def test_configuration_set_fifo_diagnostic_errors():
-    c = Configuration()
+def test_configuration_v1_set_fifo_diagnostic_errors():
+    c = Configuration_v1()
     with pytest.raises(ValueError):
         c.fifo_diagnostic = 5
         pytest.fail('Should fail: invalid value')
@@ -879,20 +852,20 @@ def test_configuration_set_fifo_diagnostic_errors():
         c.fifo_diagnostic = False
         pytest.fail('Should fail: wrong type')
 
-def test_configuration_get_fifo_diagnostic():
-    c = Configuration()
+def test_configuration_v1_get_fifo_diagnostic():
+    c = Configuration_v1()
     expected = 0
     c._fifo_diagnostic = expected
     assert c.fifo_diagnostic == expected
 
-def test_configuration_set_test_burst_length():
-    c = Configuration()
+def test_configuration_v1_set_test_burst_length():
+    c = Configuration_v1()
     expected = 0x125a
     c.test_burst_length = expected
     assert c._test_burst_length == expected
 
-def test_configuration_set_test_burst_length_errors():
-    c = Configuration()
+def test_configuration_v1_set_test_burst_length_errors():
+    c = Configuration_v1()
     with pytest.raises(ValueError):
         c.test_burst_length = 0x10000
         pytest.fail('Should fail: value too large')
@@ -903,20 +876,20 @@ def test_configuration_set_test_burst_length_errors():
         c.test_burst_length = True
         pytest.fail('Should fail: wrong type')
 
-def test_configuration_get_test_burst_length():
-    c = Configuration()
+def test_configuration_v1_get_test_burst_length():
+    c = Configuration_v1()
     expected = 0x502e
     c._test_burst_length = expected
     assert c.test_burst_length == expected
 
-def test_configuration_set_adc_burst_length():
-    c = Configuration()
+def test_configuration_v1_set_adc_burst_length():
+    c = Configuration_v1()
     expected = 0x5a
     c.adc_burst_length = expected
     assert c._adc_burst_length == expected
 
-def test_configuration_set_adc_burst_length_errors():
-    c = Configuration()
+def test_configuration_v1_set_adc_burst_length_errors():
+    c = Configuration_v1()
     with pytest.raises(ValueError):
         c.adc_burst_length = 0x100
         pytest.fail('Should fail: value too large')
@@ -927,80 +900,80 @@ def test_configuration_set_adc_burst_length_errors():
         c.adc_burst_length = True
         pytest.fail('Should fail: wrong type')
 
-def test_configuration_get_adc_burst_length():
-    c = Configuration()
+def test_configuration_v1_get_adc_burst_length():
+    c = Configuration_v1()
     expected = 0x50
     c._adc_burst_length = expected
     assert c.adc_burst_length == expected
 
-def test_configuration_set_channel_mask():
-    c = Configuration()
-    expected = [0x1] * Configuration.num_channels
+def test_configuration_v1_set_channel_mask():
+    c = Configuration_v1()
+    expected = [0x1] * Configuration_v1.num_channels
     c.channel_mask = expected
     assert c._channel_mask == expected
     expected[5] = 0x0
     c.channel_mask[5] = expected[5]
     assert c._channel_mask == expected
 
-def test_configuration_set_channel_mask_errors():
-    c = Configuration()
+def test_configuration_v1_set_channel_mask_errors():
+    c = Configuration_v1()
     with pytest.raises(ValueError):
-        c.channel_mask = [0x1] * (Configuration.num_channels-1)
+        c.channel_mask = [0x1] * (Configuration_v1.num_channels-1)
         pytest.fail('Should fail: wrong num_channels')
     with pytest.raises(ValueError):
-        c.channel_mask = [0x2] * Configuration.num_channels
+        c.channel_mask = [0x2] * Configuration_v1.num_channels
         pytest.fail('Should fail: value too large')
     with pytest.raises(ValueError):
-        c.channel_mask = [-1] * Configuration.num_channels
+        c.channel_mask = [-1] * Configuration_v1.num_channels
         pytest.fail('Should fail: value negative')
     with pytest.raises(ValueError):
         c.channel_mask = 5
         pytest.fail('Should fail: wrong type')
 
-def test_configuration_get_channel_mask():
-    c = Configuration()
-    expected = [0x1] * Configuration.num_channels
+def test_configuration_v1_get_channel_mask():
+    c = Configuration_v1()
+    expected = [0x1] * Configuration_v1.num_channels
     c._channel_mask = expected
     assert c.channel_mask == expected
 
-def test_configuration_set_external_trigger_mask():
-    c = Configuration()
-    expected = [0x0] * Configuration.num_channels
+def test_configuration_v1_set_external_trigger_mask():
+    c = Configuration_v1()
+    expected = [0x0] * Configuration_v1.num_channels
     c.external_trigger_mask = expected
     assert c._external_trigger_mask == expected
     expected[5] = 0x1
     c.external_trigger_mask[5] = expected[5]
     assert c._external_trigger_mask == expected
 
-def test_configuration_set_external_trigger_mask_errors():
-    c = Configuration()
+def test_configuration_v1_set_external_trigger_mask_errors():
+    c = Configuration_v1()
     with pytest.raises(ValueError):
-        c.external_trigger_mask = [0x1] * (Configuration.num_channels-1)
+        c.external_trigger_mask = [0x1] * (Configuration_v1.num_channels-1)
         pytest.fail('Should fail: wrong num_channels')
     with pytest.raises(ValueError):
-        c.external_trigger_mask = [0x2] * Configuration.num_channels
+        c.external_trigger_mask = [0x2] * Configuration_v1.num_channels
         pytest.fail('Should fail: value too large')
     with pytest.raises(ValueError):
-        c.external_trigger_mask = [-1] * Configuration.num_channels
+        c.external_trigger_mask = [-1] * Configuration_v1.num_channels
         pytest.fail('Should fail: value negative')
     with pytest.raises(ValueError):
         c.external_trigger_mask = 5
         pytest.fail('Should fail: wrong type')
 
-def test_configuration_get_external_trigger_mask():
-    c = Configuration()
-    expected = [0x0] * Configuration.num_channels
+def test_configuration_v1_get_external_trigger_mask():
+    c = Configuration_v1()
+    expected = [0x0] * Configuration_v1.num_channels
     c._external_trigger_mask = expected
     assert c.external_trigger_mask == expected
 
-def test_configuration_set_reset_cycles():
-    c = Configuration()
+def test_configuration_v1_set_reset_cycles():
+    c = Configuration_v1()
     expected = 0x125abc
     c.reset_cycles = expected
     assert c._reset_cycles == expected
 
-def test_configuration_set_reset_cycles_errors():
-    c = Configuration()
+def test_configuration_v1_set_reset_cycles_errors():
+    c = Configuration_v1()
     with pytest.raises(ValueError):
         c.reset_cycles = 0x1000000
         pytest.fail('Should fail: value too large')
@@ -1011,113 +984,113 @@ def test_configuration_set_reset_cycles_errors():
         c.reset_cycles = True
         pytest.fail('Should fail: wrong type')
 
-def test_configuration_get_reset_cycles():
-    c = Configuration()
+def test_configuration_v1_get_reset_cycles():
+    c = Configuration_v1()
     expected = 0x502ef2
     c._reset_cycles = expected
     assert c.reset_cycles == expected
 
-def test_configuration_disable_channels():
-    c = Configuration()
+def test_configuration_v1_disable_channels():
+    c = Configuration_v1()
     expected = [0, 1] * 16
     c.disable_channels(range(1, 32, 2))
     assert c.channel_mask == expected
 
-def test_configuration_disable_channels_default():
-    c = Configuration()
+def test_configuration_v1_disable_channels_default():
+    c = Configuration_v1()
     expected = [1] * 32
     c.disable_channels()
     assert c.channel_mask == expected
 
-def test_configuration_enable_channels():
-    c = Configuration()
+def test_configuration_v1_enable_channels():
+    c = Configuration_v1()
     expected = [0, 1] * 16
     c.disable_channels()
     c.enable_channels(range(0, 32, 2))
     assert c.channel_mask == expected
 
-def test_configuration_enable_channels_default():
-    c = Configuration()
+def test_configuration_v1_enable_channels_default():
+    c = Configuration_v1()
     expected = [0] * 32
     c.disable_channels()
     c.enable_channels()
     assert c.channel_mask == expected
 
-def test_configuration_enable_external_trigger():
-    c = Configuration()
+def test_configuration_v1_enable_external_trigger():
+    c = Configuration_v1()
     expected = [0, 1] * 16
     c.enable_external_trigger(range(0, 32, 2))
     assert c.external_trigger_mask == expected
 
-def test_configuration_enable_external_trigger_default():
-    c = Configuration()
+def test_configuration_v1_enable_external_trigger_default():
+    c = Configuration_v1()
     expected = [0] * 32
     c.enable_external_trigger()
     assert c.external_trigger_mask == expected
 
-def test_configuration_disable_external_trigger():
-    c = Configuration()
+def test_configuration_v1_disable_external_trigger():
+    c = Configuration_v1()
     expected = [0, 1] * 16
     c.enable_external_trigger()
     c.disable_external_trigger(range(1, 32, 2))
     assert c.external_trigger_mask == expected
 
-def test_configuration_enable_testpulse():
-    c = Configuration()
+def test_configuration_v1_enable_testpulse():
+    c = Configuration_v1()
     expected = [1, 0] * 16
     c.disable_testpulse()
     c.enable_testpulse(range(1, 32, 2))
     assert c.csa_testpulse_enable == expected
 
-def test_configuration_enable_testpulse_default():
-    c = Configuration()
+def test_configuration_v1_enable_testpulse_default():
+    c = Configuration_v1()
     expected = [0] * 32
     c.enable_testpulse()
     assert c.csa_testpulse_enable == expected
 
-def test_configuration_disable_testpulse():
-    c = Configuration()
+def test_configuration_v1_disable_testpulse():
+    c = Configuration_v1()
     expected = [1, 0] * 16
     c.enable_testpulse()
     c.disable_testpulse(range(0, 32, 2))
     assert c.csa_testpulse_enable == expected
 
-def test_configuration_disable_testpulse_default():
-    c = Configuration()
+def test_configuration_v1_disable_testpulse_default():
+    c = Configuration_v1()
     expected = [1] * 32
     c.disable_testpulse()
     assert c.csa_testpulse_enable == expected
 
-def test_configuration_enable_analog_monitor():
-    c = Configuration()
+def test_configuration_v1_enable_analog_monitor():
+    c = Configuration_v1()
     expected = [0, 0, 1] + [0] * 29
     c.enable_analog_monitor(2)
     assert c.csa_monitor_select == expected
 
-def test_configuration_disable_analog_monitor():
-    c = Configuration()
+def test_configuration_v1_disable_analog_monitor():
+    c = Configuration_v1()
     expected = [0] * 32
     c.enable_analog_monitor(5)
     c.disable_analog_monitor()
     assert c.csa_monitor_select == expected
 
-def test_configuration_trim_threshold_data():
-    c = Configuration()
+def test_configuration_v1_trim_threshold_data():
+    c = Configuration_v1()
     expected = bah.fromuint(int('0x10', 16), 8)
     assert c.trim_threshold_data(0) == expected
 
-def test_configuration_global_threshold_data():
-    c = Configuration()
+def test_configuration_v1_global_threshold_data():
+    c = Configuration_v1()
     expected = bah.fromuint(int('0x10', 16), 8)
     assert c.global_threshold_data() == expected
 
-def test_configuration_csa_gain_and_bypasses_data():
-    c = Configuration()
+def test_configuration_v1_csa_gain_and_bypasses_data():
+    c = Configuration_v1()
     expected = bitarray('00000001')
     assert c.csa_gain_and_bypasses_data() == expected
 
-def test_configuration_csa_bypass_select_data():
-    c = Configuration()
+def test_configuration_v1_csa_bypass_select_data():
+    c = Configuration_v1()
     c.csa_bypass_select[4] = 1
     expected = bitarray('00010000')
     assert c.csa_bypass_select_data(0) == expected
@@ -1131,8 +1104,8 @@ def test_configuration_csa_bypass_select_data():
     expected = bitarray('01000000')
     assert c.csa_bypass_select_data(3) == expected
 
-def test_configuration_csa_monitor_select_data():
-    c = Configuration()
+def test_configuration_v1_csa_monitor_select_data():
+    c = Configuration_v1()
     c.csa_monitor_select[4] = 1
     expected = bitarray('00010000')
     assert c.csa_monitor_select_data(0) == expected
@@ -1146,8 +1119,8 @@ def test_configuration_csa_monitor_select_data():
     expected = bitarray('01000000')
     assert c.csa_monitor_select_data(3) == expected
 
-def test_configuration_csa_testpulse_enable_data():
-    c = Configuration()
+def test_configuration_v1_csa_testpulse_enable_data():
+    c = Configuration_v1()
     c.csa_testpulse_enable[4] = 0
     expected = bitarray('11101111')
     assert c.csa_testpulse_enable_data(0) == expected
@@ -1161,40 +1134,40 @@ def test_configuration_csa_testpulse_enable_data():
     expected = bitarray('10111111')
     assert c.csa_testpulse_enable_data(3) == expected
 
-def test_configuration_csa_testpulse_dac_amplitude_data():
-    c = Configuration()
+def test_configuration_v1_csa_testpulse_dac_amplitude_data():
+    c = Configuration_v1()
     c.csa_testpulse_dac_amplitude = 200;
     expected = bitarray('11001000')
     assert c.csa_testpulse_dac_amplitude_data() == expected
 
-def test_configuration_test_mode_xtrig_reset_diag_data():
-    c = Configuration()
+def test_configuration_v1_test_mode_xtrig_reset_diag_data():
+    c = Configuration_v1()
     c.test_mode = 2
     c.fifo_diagnostic = 1
     expected = bitarray('00010010')
     assert c.test_mode_xtrig_reset_diag_data() == expected
 
-def test_configuration_sample_cycles_data():
-    c = Configuration()
+def test_configuration_v1_sample_cycles_data():
+    c = Configuration_v1()
     c.sample_cycles = 221
     expected = bitarray('11011101')
     assert c.sample_cycles_data() == expected
 
-def test_configuration_test_burst_length_data():
-    c = Configuration()
+def test_configuration_v1_test_burst_length_data():
+    c = Configuration_v1()
     expected = bah.fromuint(int('0xFF', 16), 8)
     assert c.test_burst_length_data(0) == expected
     expected = bah.fromuint(int('0x00', 16), 8)
     assert c.test_burst_length_data(1) == expected
 
-def test_configuration_adc_burst_length_data():
-    c = Configuration()
+def test_configuration_v1_adc_burst_length_data():
+    c = Configuration_v1()
     c.adc_burst_length = 140
     expected = bitarray('10001100')
     assert c.adc_burst_length_data() == expected
 
-def test_configuration_channel_mask_data():
-    c = Configuration()
+def test_configuration_v1_channel_mask_data():
+    c = Configuration_v1()
     c.channel_mask[4] = 1
     expected = bitarray('00010000')
     assert c.channel_mask_data(0) == expected
@@ -1208,8 +1181,8 @@ def test_configuration_channel_mask_data():
     expected = bitarray('01000000')
     assert c.channel_mask_data(3) == expected
 
-def test_configuration_external_trigger_mask_data():
-    c = Configuration()
+def test_configuration_v1_external_trigger_mask_data():
+    c = Configuration_v1()
     c.external_trigger_mask[4] = 0
     expected = bitarray('11101111')
     assert c.external_trigger_mask_data(0) == expected
@@ -1223,8 +1196,8 @@ def test_configuration_external_trigger_mask_data():
     expected = bitarray('10111111')
     assert c.external_trigger_mask_data(3) == expected
 
-def test_configuration_reset_cycles_data():
-    c = Configuration()
+def test_configuration_v1_reset_cycles_data():
+    c = Configuration_v1()
     c.reset_cycles = 0xabcdef
     expected = bah.fromuint(int('0xef', 16), 8)
     assert c.reset_cycles_data(0) == expected
@@ -1233,8 +1206,8 @@ def test_configuration_reset_cycles_data():
     expected = bah.fromuint(int('0xab', 16), 8)
     assert c.reset_cycles_data(2) == expected
 
-def test_configuration_to_dict():
-    c = Configuration()
+def test_configuration_v1_to_dict():
+    c = Configuration_v1()
     attrs = [
             'pixel_trim_thresholds',
             'global_threshold',
@@ -1261,8 +1234,8 @@ def test_configuration_to_dict():
     result = c.to_dict()
     assert result == expected
 
-def test_configuration_from_dict():
-    c = Configuration()
+def test_configuration_v1_from_dict():
+    c = Configuration_v1()
     attrs = [
             'pixel_trim_thresholds',
             'global_threshold',
@@ -1318,28 +1291,28 @@ def test_configuration_write_force(tmpdir):
     expected = c.to_dict()
     assert result['register_values'] == expected
 
-def test_configuration_read_absolute(tmpdir):
-    c = Configuration()
+def test_configuration_v1_read_absolute(tmpdir):
+    c = Configuration_v1()
     c.pixel_trim_thresholds[0] = 30
     c.reset_cycles = 0x100010
     f = str(tmpdir.join('test_config.json'))
     c.write(f)
-    c2 = Configuration()
+    c2 = Configuration_v1()
     c2.load(f)
     expected = c.to_dict()
     result = c2.to_dict()
     assert result == expected
 
-def test_configuration_read_default():
-    c = Configuration()
+def test_configuration_v1_read_default():
+    c = Configuration_v1()
     expected = c.to_dict()
     c.global_threshold = 100
     c.load('chip/default.json')
     result = c.to_dict()
     assert result == expected
 
-def test_configuration_read_local():
-    c = Configuration()
+def test_configuration_v1_read_local():
+    c = Configuration_v1()
     c.global_threshold = 104
     expected = c.to_dict()
     abspath = os.path.join(os.getcwd(), 'test_config.json')
@@ -1350,8 +1323,8 @@ def test_configuration_read_local():
     os.remove(abspath)
     assert result == expected
 
-def test_configuration_from_dict_reg_pixel_trim():
-    c = Configuration()
+def test_configuration_v1_from_dict_reg_pixel_trim():
+    c = Configuration_v1()
     register_dict = { 0: 5, 15: 20 }
     c.from_dict_registers(register_dict)
     result_1 = c.pixel_trim_thresholds[0]
@@ -1361,40 +1334,40 @@ def test_configuration_from_dict_reg_pixel_trim():
     expected_2 = register_dict[15]
     assert result_2 == expected_2
 
-def test_configuration_from_dict_reg_global_threshold():
-    c = Configuration()
+def test_configuration_v1_from_dict_reg_global_threshold():
+    c = Configuration_v1()
     register_dict = { 32: 182 }
     c.from_dict_registers(register_dict)
     result = c.global_threshold
     expected = register_dict[32]
     assert result == expected
 
-def test_configuration_from_dict_reg_csa_gain():
-    c = Configuration()
+def test_configuration_v1_from_dict_reg_csa_gain():
+    c = Configuration_v1()
     register_dict = { 33: 0 }
     c.from_dict_registers(register_dict)
     result = c.csa_gain
     expected = 0
     assert result == expected
 
-def test_configuration_from_dict_reg_csa_bypass():
-    c = Configuration()
+def test_configuration_v1_from_dict_reg_csa_bypass():
+    c = Configuration_v1()
     register_dict = { 33: 2 }
     c.from_dict_registers(register_dict)
     result = c.csa_bypass
     expected = 1
     assert result == expected
 
-def test_configuration_from_dict_reg_internal_bypass():
-    c = Configuration()
+def test_configuration_v1_from_dict_reg_internal_bypass():
+    c = Configuration_v1()
     register_dict = { 33: 8 }
     c.from_dict_registers(register_dict)
     result = c.internal_bypass
     expected = 1
     assert result == expected
 
-def test_configuration_from_dict_reg_csa_bypass_select():
-    c = Configuration()
+def test_configuration_v1_from_dict_reg_csa_bypass_select():
+    c = Configuration_v1()
     register_dict = { 34: 0x12, 35: 0x34, 36: 0x56, 37: 0x78 }
     c.from_dict_registers(register_dict)
     result = c.csa_bypass_select
@@ -1406,8 +1379,8 @@ def test_configuration_from_dict_reg_csa_bypass_select():
             ]
     assert result == expected
 
-def test_configuration_from_dict_reg_csa_monitor_select():
-    c = Configuration()
+def test_configuration_v1_from_dict_reg_csa_monitor_select():
+    c = Configuration_v1()
     register_dict = { 38: 0x12, 39: 0x34, 40: 0x56, 41: 0x78 }
     c.from_dict_registers(register_dict)
     result = c.csa_monitor_select
@@ -1419,8 +1392,8 @@ def test_configuration_from_dict_reg_csa_monitor_select():
             ]
     assert result == expected
 
-def test_configuration_from_dict_reg_csa_testpulse_enable():
-    c = Configuration()
+def test_configuration_v1_from_dict_reg_csa_testpulse_enable():
+    c = Configuration_v1()
     register_dict = { 42: 0x12, 43: 0x34, 44: 0x56, 45: 0x78 }
     c.from_dict_registers(register_dict)
     result = c.csa_testpulse_enable
@@ -1432,72 +1405,72 @@ def test_configuration_from_dict_reg_csa_testpulse_enable():
             ]
     assert result == expected
 
-def test_configuration_from_dict_reg_csa_testpulse_dac_amplitude():
-    c = Configuration()
+def test_configuration_v1_from_dict_reg_csa_testpulse_dac_amplitude():
+    c = Configuration_v1()
     register_dict = { 46: 193 }
     c.from_dict_registers(register_dict)
     result = c.csa_testpulse_dac_amplitude
     expected = 193
     assert result == expected
 
-def test_configuration_from_dict_reg_test_mode():
-    c = Configuration()
+def test_configuration_v1_from_dict_reg_test_mode():
+    c = Configuration_v1()
     register_dict = { 47: 2 }
     c.from_dict_registers(register_dict)
     result = c.test_mode
     expected = 2
     assert result == expected
 
-def test_configuration_from_dict_reg_cross_trigger_mode():
-    c = Configuration()
+def test_configuration_v1_from_dict_reg_cross_trigger_mode():
+    c = Configuration_v1()
     register_dict = { 47: 4 }
     c.from_dict_registers(register_dict)
     result = c.cross_trigger_mode
     expected = 1
     assert result == expected
 
-def test_configuration_from_dict_reg_periodic_reset():
-    c = Configuration()
+def test_configuration_v1_from_dict_reg_periodic_reset():
+    c = Configuration_v1()
     register_dict = { 47: 8 }
     c.from_dict_registers(register_dict)
     result = c.periodic_reset
     expected = 1
     assert result == expected
 
-def test_configuration_from_dict_reg_fifo_diagnostic():
-    c = Configuration()
+def test_configuration_v1_from_dict_reg_fifo_diagnostic():
+    c = Configuration_v1()
     register_dict = { 47: 16 }
     c.from_dict_registers(register_dict)
     result = c.fifo_diagnostic
     expected = 1
     assert result == expected
 
-def test_configuration_from_dict_reg_sample_cycles():
-    c = Configuration()
+def test_configuration_v1_from_dict_reg_sample_cycles():
+    c = Configuration_v1()
     register_dict = { 48: 111 }
     c.from_dict_registers(register_dict)
     result = c.sample_cycles
     expected = 111
     assert result == expected
 
-def test_configuration_from_dict_reg_test_burst_length():
-    c = Configuration()
+def test_configuration_v1_from_dict_reg_test_burst_length():
+    c = Configuration_v1()
     register_dict = { 49: 5, 50: 2}
     c.from_dict_registers(register_dict)
     result = c.test_burst_length
     expected = 517  # = 256 * 2 + 1 * 5
     assert result == expected
 
-def test_configuration_from_dict_reg_adc_burst_length():
-    c = Configuration()
+def test_configuration__v1from_dict_reg_adc_burst_length():
+    c = Configuration_v1()
     register_dict = { 51: 83 }
     c.from_dict_registers(register_dict)
     result = c.adc_burst_length
     expected = 83
     assert result == expected
 
-def test_configuration_from_dict_reg_channel_mask():
-    c = Configuration()
+def test_configuration_v1_from_dict_reg_channel_mask():
+    c = Configuration_v1()
     register_dict = { 52: 0x12, 53: 0x34, 54: 0x56, 55: 0x78 }
     c.from_dict_registers(register_dict)
     result = c.channel_mask
@@ -1509,8 +1482,8 @@ def test_configuration_from_dict_reg_channel_mask():
             ]
     assert result == expected
 
-def test_configuration_from_dict_reg_external_trigger_mask():
-    c = Configuration()
+def test_configuration_v1_from_dict_reg_external_trigger_mask():
+    c = Configuration_v1()
     register_dict = { 56: 0x12, 57: 0x34, 58: 0x56, 59: 0x78 }
     c.from_dict_registers(register_dict)
     result = c.external_trigger_mask
@@ -1522,31 +1495,21 @@ def test_configuration_from_dict_reg_external_trigger_mask():
             ]
     assert result == expected
 
-def test_configuration_from_dict_reg_reset_cycles():
-    c = Configuration()
+def test_configuration_v1_from_dict_reg_reset_cycles():
+    c = Configuration_v1()
     register_dict = { 60: 0x12, 61: 0x34, 62: 0x56 }
     c.from_dict_registers(register_dict)
     result = c.reset_cycles
     expected = 0x563412
     assert result == expected
 
-def test_controller_init_chips():
-    controller = Controller()
-    result = set(map(repr, controller._init_chips()))
-    expected = set(map(repr, ('1-1-{}'.format(i) for i in range(256))))
-    assert result == expected
-
 def test_controller_get_chip(chip):
     controller = Controller()
-    controller.chips[chip.chip_key] = chip
-    assert controller.get_chip(chip.chip_key) == chip
-
-def test_controller_get_chip_all_chips():
-    controller = Controller()
-    controller.use_all_chips = True
-    result = controller.get_chip('1-1-5')
-    expected = controller.all_chips['1-1-5']
-    assert result == expected
+    chip_key = chip.chip_key
+    controller.chips[chip_key] = chip
+    assert controller[chip_key] == chip
+    assert controller[tuple(chip_key)] == chip
+    assert controller[chip_key.keystring] == chip
 
 def test_controller_get_chip_error(chip):
     controller = Controller()
@@ -1555,17 +1518,17 @@ def test_controller_get_chip_error(chip):
     test_key_dict['chip_id'] += 1
     test_key = Key.from_dict(test_key_dict)
     with pytest.raises(ValueError, message='Should fail: bad chip id'):
-        controller.get_chip(test_key)
+        controller[test_key]
     test_key_dict = chip.chip_key.to_dict()
     test_key_dict['io_channel'] += 1
     test_key = Key.from_dict(test_key_dict)
     with pytest.raises(ValueError, message='Should fail: bad channel id'):
-        controller.get_chip(test_key)
+        controller[test_key]
     test_key_dict = chip.chip_key.to_dict()
     test_key_dict['io_group'] += 1
     test_key = Key.from_dict(test_key_dict)
     with pytest.raises(ValueError, message='Should fail: bad group id'):
-        controller.get_chip(test_key)
+        controller[test_key]
 
 def test_controller_read():
     controller = Controller()
@@ -1580,7 +1543,7 @@ def test_controller_read():
 def test_controller_send(capfd):
     controller = Controller()
     controller.io = FakeIO()
-    to_send = [Packet(b'1234567'), Packet(b'abcdefg')]
+    to_send = [Packet(b'0'*Packet.num_bytes), Packet(b'a'*Packet.num_bytes)]
     controller.send(to_send)
     result, err = capfd.readouterr()
     expected = list_of_packets_str(to_send)
@@ -1645,7 +1608,7 @@ def test_controller_write_configuration_write_read(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
     controller.chips[chip.chip_key] = chip
-    to_read = ([Packet(b'1234567')], b'hi')
+    to_read = ([Packet(b'1'*Packet.num_bytes)], b'hi')
     controller.io.queue.append(to_read)
     expected_read = PacketCollection(*to_read, read_id=0,
             message='configuration write')
@@ -1678,7 +1641,7 @@ def test_controller_multi_write_configuration(capfd, chip):
 def test_controller_multi_write_configuration_write_read(capfd, chip):
     controller = Controller()
     controller.io = FakeIO()
-    to_read = ([Packet(b'1234567')], b'hi')
+    to_read = ([Packet(b'1'*Packet.num_bytes)], b'hi')
     controller.io.queue.append(to_read)
     expected_read = PacketCollection(*to_read, read_id=0,
             message='configuration write')
@@ -1789,7 +1752,7 @@ def test_controller_verify_configuration_missing_packet(capfd, chip):
     controller.io.queue.append((conf_data,b'hi'))
     ok, diff = controller.verify_configuration(chip_keys=chip.chip_key)
     assert ok == False
-    assert diff == {5: (16, None)}
+    assert diff == {chip.chip_key: {5: (16, None)}}
 
 def test_controller_verify_configuration_bad_value(capfd, chip):
     controller = Controller()
@@ -1801,7 +1764,7 @@ def test_controller_verify_configuration_bad_value(capfd, chip):
     controller.io.queue.append((conf_data,b'hi'))
     ok, diff = controller.verify_configuration(chip_keys=chip.chip_key)
     assert ok == False
-    assert diff == {5: (16, 17)}
+    assert diff == {chip.chip_key: {5: (16, 17)}}
 
 def test_packetcollection_getitem_int():
     expected = Packet()
@@ -1848,31 +1811,31 @@ def test_packetcollection_origin(chip):
     assert second_gen.parent is first_gen
     assert second_gen.origin() is collection
 
-def test_packetcollection_extract():
-    p1 = Packet()
-    p1.chipid = 10
-    p1.packet_type = Packet.DATA_PACKET
+def test_packetcollection_v2_extract():
+    p1 = Packet_v2()
+    p1.chip_id = 10
+    p1.packet_type = Packet_v2.DATA_PACKET
     p1.dataword = 36
-    p2 = Packet()
-    p2.chipid = 9
-    p2.packet_type = Packet.DATA_PACKET
+    p2 = Packet_v2()
+    p2.chip_id = 9
+    p2.packet_type = Packet_v2.DATA_PACKET
     p2.dataword = 38
-    p3 = Packet()
-    p3.chipid = 8
-    p3.packet_type = Packet.TEST_PACKET
+    p3 = Packet_v2()
+    p3.chip_id = 8
+    p3.packet_type = Packet_v2.TEST_PACKET
     pc = PacketCollection([p1,p2,p3])
     expected = [10, 9, 8]
-    assert pc.extract('chipid') == expected
+    assert pc.extract('chip_id') == expected
     expected = [36, 38]
-    assert pc.extract('adc_counts') == expected
+    assert pc.extract('dataword') == expected
     expected = [36]
-    assert pc.extract('adc_counts', chipid=10) == expected
-    expected = [0]
-    assert pc.extract('counter', type_str='test') == expected
+    assert pc.extract('dataword', chip_id=10) == expected
+    expected = [8]
+    assert pc.extract('chip_id', type_str='test') == expected
 
 def test_packetcollection_to_dict():
     packet = Packet()
-    packet.chipid = 246
+    packet.chip_id = 246
     packet.packet_type = Packet.TEST_PACKET
     collection = PacketCollection([packet], bytestream=packet.bytes(),
             message='hello')
@@ -1883,18 +1846,7 @@ def test_packetcollection_to_dict():
             'message': 'hello',
             'read_id': 'None',
             'bytestream': packet.bytes().decode('raw_unicode_escape'),
-            'packets': [{
-                'asic_version': 1,
-                'bits': packet.bits.to01(),
-                'type': 'test',
-                'chip_key': None,
-                'type_str': 'test',
-                'type': 1,
-                'chipid': packet.chipid,
-                'parity': 0,
-                'valid_parity': True,
-                'counter': 0
-                }]
+            'packets': [packet.export()]
             }
     assert result == expected
 

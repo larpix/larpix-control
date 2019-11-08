@@ -31,6 +31,7 @@ class FakeIO(IO):
     def __init__(self):
         super(FakeIO, self).__init__()
         self.queue = deque()
+        self.sent = []
 
     @classmethod
     def encode(cls, packets):
@@ -85,6 +86,7 @@ class FakeIO(IO):
         '''
         for packet in packets:
             print(packet)
+        self.sent.append(packets)
 
     def start_listening(self):
         '''

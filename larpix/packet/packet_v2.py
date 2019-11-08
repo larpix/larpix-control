@@ -7,7 +7,7 @@ class Packet_v2(object):
     '''
     Representation of a 64 bit LArPix v2 UART data packet.
 
-    ``Packet_v2``s are internally represented as ``bitarray``s, but a variety of
+    Packet_v2 objects are internally represented as bitarrays, but a variety of
     helper properties allow one to access and set the data stored in the bitarrays in
     a natural fashion. E.g.::
 
@@ -16,7 +16,7 @@ class Packet_v2(object):
         p.packet_type = 2 # set the packet type to a config write packet
         print(p.bits) # the bits have been updated!
 
-    ``Packet_v2``s don't enforce any value validation, so set these fields with caution!
+    Packet_v2 objects don't enforce any value validation, so set these fields with caution!
 
     In FIFO diagnostics mode, the bits are to be interpreted in a different way.
     At this point, there is no way for the ``Packet_v2`` to automatically know if it
@@ -198,7 +198,7 @@ class Packet_v2(object):
         '''
         Load from a dict of values, inverse of ``Packet_v2.export``
 
-        ..note:: If there is a disagreement between the bits specified and any of the values, this method has undefined results.
+        .. note:: If there is a disagreement between the bits specified and any of the values, this method has undefined results.
 
         '''
         if not d['asic_version'] == self.asic_version:
@@ -218,6 +218,7 @@ class Packet_v2(object):
 
     @property
     def chip_key(self):
+        ''''''
         if hasattr(self, '_chip_key'):
             return self._chip_key
         if self.io_group is None or self.io_channel is None:
@@ -244,6 +245,7 @@ class Packet_v2(object):
 
     @property
     def io_group(self):
+        ''''''
         if hasattr(self, '_io_channel'):
             return self._io_group
         return None
