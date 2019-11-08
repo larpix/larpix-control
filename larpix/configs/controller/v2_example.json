@@ -9,7 +9,7 @@
                 "chips": [
                     {
                         "chip_id": 2,
-                        "miso_us": [3,null,null,12],
+                        "miso_us": [3,null,null,4],
                         "root": true,
                         "miso_ds": ["ext",null,null,null]
                     },
@@ -17,11 +17,11 @@
                         "chip_id": 3
                     },
                     {
-                        "chip_id": 12,
-                        "miso_us": [13,null,null,null]
+                        "chip_id": 4,
+                        "miso_us": [5,null,null,null]
                     },
                     {
-                        "chip_id": 13
+                        "chip_id": 5
                     }
                 ]
             }

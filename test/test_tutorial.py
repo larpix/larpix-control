@@ -53,48 +53,25 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
     example_key.to_dict()
 
 
-    controller.network[1]
-    controller.network[1][1]
-    controller.network[1][1]['mosi']
+    controller.load('controller/v2_example.json')
+    print(controller.chips) # chips that have been loaded into controller
+    list(controller.network[1][1]['miso_ds'].edges) # all links contained in the miso_ds graph
+    list(controller.network[1][1]['miso_us'].nodes) # all nodes within the miso_us graph
+    list(controller.network[1][1]['mosi'].edges) # all links within the mosi graph
 
+    list(controller.network[1][1]['mosi'].in_edges(2)) # all links pointing to chip 2 in mosi graph
+    list(controller.network[1][1]['miso_ds'].successors(3)) # all chips receiving downstream data packets from chip 3
+    controller.network[1][1]['mosi'].edges[(3,2)]['uart'] # check the physical uart channel that chip 2 listens to chip 3 via
+    controller.network[1][1]['mosi'].nodes[2]['root'] # check if designated root chip
 
-    assert list(controller.network[1][1]['mosi'].nodes()) == [5]
-    assert list(controller.network[1][1]['miso_us'].nodes()) == [5]
-    assert list(controller.network[1][1]['miso_ds'].nodes()) == [5]
-    assert controller.network[1][1]['miso_us'].nodes[5] == {'root': False}
-    controller.add_chip('1-1-6', version=2, root=True)
-    assert list(controller.network[1][1]['miso_us'].nodes()) == [5, 6]
+    controller.init_network(1,1) # issues packets required to initialize the 1,1 hydra network
+    print(controller['1-1-2'].config.chip_id)
+    print(controller['1-1-3'].config.enable_miso_downstream)
 
-
-    assert list(controller.network[1][1]['miso_us'].edges()) == []
-    controller.add_network_link(1,1,'miso_us',(6,5),0)
-    assert list(controller.network[1][1]['miso_us'].edges()) == [(6,5)]
-    assert controller.network[1][1]['miso_us'].edges[(6,5)] == {'uart': 0}
-
-
-    controller.add_network_link(1,1,'miso_ds',(5,6),2)
-    controller.add_network_link(1,1,'mosi',(6,5),0)
-    controller.add_network_link(1,1,'mosi',(5,6),2)
-
-
-    controller.add_network_link(1,1,'mosi',('ext',6),1)
-    controller.add_network_link(1,1,'miso_ds',(6,'ext'),1)
-    assert all(link in list(controller.network[1][1]['miso_ds'].edges()) for link in [(5, 6), (6, 'ext')])
-    assert all(link in [(5, 6), (6, 'ext')] for link in list(controller.network[1][1]['miso_ds'].edges()))
-    assert all(link in list(controller.network[1][1]['mosi'].edges()) for link in [(5, 6), (6, 5), ('ext', 6)])
-    assert all(link in [(5, 6), (6, 5), ('ext', 6)] for link in list(controller.network[1][1]['mosi'].edges()))
-
-
-    controller.init_network(1,1,6)
-    controller.init_network(1,1,5)
-
-
-    controller.reset_network(1,1,5)
-    controller.reset_network(1,1,6)
-
-
-    controller.init_network(1,1)
     controller.reset_network(1,1)
+
+    controller.init_network(1,1,2) # configures only chip 2
+    controller.init_network(1,1,3) # configures only chip 3
 
 
     chip5.config.threshold_global = 35  # entire register = 1 number

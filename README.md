@@ -248,107 +248,65 @@ You can read the docs to learn more about ``Key`` functionality.
 
 ### Set up LArPix Hydra network
 
-With the the LArPix v2 asic, a network io structure is used. To keep track of
-this network and to insure the proper bring-up procedure is followed. The
-controller has a ``network`` attribute. This is an ordered dict with multiple
-layers corresponding to the chip key layers. It assumes that each hydra network
-is distinct on a given io channel. On a given io channel, the hydra network is
-represented as three directed graphs ``miso_us``, ``miso_ds``, and ``mosi``.
+The controller object contains an internal structure representing the Hydra
+networks on each of the io channels. This structure can be accessed via
+``controller.network`` and modified using the ``controller.add_network_node``
+and ``controller.add_network_link`` methods. However, it can be a tedious
+and error-prone process to add each link to the network representation. So,
+there exists a friendlier [configuration file](https://larpix-control.readthedocs.io/en/stable/api/configs/controller.html) that is used to generate these network links.
+
+To load a network configuration into the controller:
 
 ```python
-controller.network[1] # Represents all networks on io group 1
-controller.network[1][1] # Represents the network on io group 1, io channel 1
-controller.network[1][1]['mosi'] # directed graph representing mosi links
+controller.load('controller/v2_example.json')
+print(controller.chips) # chips that have been loaded into controller
+list(controller.network[1][1]['miso_ds'].edges) # all links contained in the miso_ds graph
+list(controller.network[1][1]['miso_us'].nodes) # all nodes within the miso_us graph
+list(controller.network[1][1]['mosi'].edges) # all links within the mosi graph
 ```
 
-Nodes within the network are added automatically whenever you add a chip to the
-controller:
+Each graph is represented by a networkx directed graph and can be examined and
+queried in that way. All edges point in the direction of data flow.
 
 ```python
-list(controller.network[1][1]['mosi'].nodes()) # chip ids of known mosi nodes
-list(controller.network[1][1]['miso_us'].nodes()) # chip ids of known miso_us nodes
-list(controller.network[1][1]['miso_ds'].nodes()) # chip ids of known miso_ds nodes
-controller.network[1][1]['miso_us'].nodes[5] # attributes associated with node 5
-controller.add_chip('1-1-6', version=2, root=True)
-list(controller.network[1][1]['miso_us'].nodes()) # [5, 6]
+list(controller.network[1][1]['mosi'].in_edges(2)) # all links pointing to chip 2 in mosi graph
+list(controller.network[1][1]['miso_ds'].successors(3)) # all chips receiving downstream data packets from chip 3
+controller.network[1][1]['mosi'].edges[(3,2)]['uart'] # check the physical uart channel that chip 2 listens to chip 3 via
+controller.network[1][1]['mosi'].nodes[2]['root'] # check if designated root chip
 ```
 
-The 'root' node is used to indicate which chips should be brought up first when
-initializing the network.
-
-Accessing connections between nodes is done via edges:
+After loading the network into the controller, the ``init_network`` command
+automates the process of bringing up individual chips in the network.
 
 ```python
-list(controller.network[1][1]['miso_us'].edges()) # []
-controller.add_network_link(1,1,'miso_us',(6,5),0) # link chips 6 -> 5 in the miso_us graph via chip 6's uart channel 0
-list(controller.network[1][1]['miso_us'].edges()) # [(6,5)] direction indicates the data flow direction
-controller.network[1][1]['miso_us'].edges[(6,5)] # attributes associated with link ('uart': 0)
+controller.init_network(1,1) # issues packets required to initialize the 1,1 hydra network
+print(controller['1-1-2'].config.chip_id)
+print(controller['1-1-3'].config.enable_miso_downstream)
 ```
 
-In order to set up a 'working' network, you'll need to add the proper links in
-the miso_ds and mosi graphs as well.
+This issues configuration commands in the proper order so that upstream chips
+are configured before downstream chips. If you'd like to reset the network
+configuration
 
 ```python
-controller.add_network_link(1,1,'miso_ds',(5,6),2)
-controller.add_network_link(1,1,'mosi',(6,5),0)
-controller.add_network_link(1,1,'mosi',(5,6),2)
+controller.reset_network(1,1)
 ```
 
-External systems (e.g. the fpga you are using to communicate with the chips) are
-conventionally called ``'ext0', 'ext1', ...`` and shouldn't be forgotten in the
-network configuration! These nodes are used to determine the miso/mosi
-configuration for the linked chips.
+can be used to reverse the configuration commands issued with ``init_network``.
+These processes are not "smart" in that they blindly issue config commands
+assuming the network is either fully configured or in a default state, so buyer
+beware.
+
+The network initialization can be broken down into single steps by also passing
+along the chip id:
 
 ```python
-controller.add_network_link(1,1,'mosi',('ext',6),1) # link chip 6 to 'ext' via chip 6's uart channel 0
-controller.add_network_link(1,1,'miso_ds',(6,'ext'),1) # same for miso_ds
-list(controller.network[1][1]['miso_ds'].edges())
-list(controller.network[1][1]['mosi'].edges())
+controller.init_network(1,1,2) # configures only chip 2
+controller.init_network(1,1,3) # configures only chip 3
 ```
 
-To then initialize a component on the network, run `controller.init_network(1,1,6)`.
-This will modify the correct registers of chip 1-1-6 and send the configuration
-commands to the system.
+But this requires initializing the chips in the proper order.
 
-```python
-controller.init_network(1,1,6)
-controller.init_network(1,1,5)
-```
-
-Keep in mind, the order in which you initialize the network is important (e.g.
-chip 6 needs to be initialized before chip 5 since it is upstream from chip 6).
-
-You may also reset a particular node with `reset_network(<io_group>,<io_channel>,<chip_id>)`
-which resets the network configuration of a particular node.
-
-```python
-controller.reset_network(1,1,5)
-controller.reset_network(1,1,6)
-```
-
-This is all rather tedious, so there a few shortcuts to make declaring and
-configuring the network easier. If you don't want to initialize or reset each
-node in order, you may allow the controller to figure out the proper order
-(based on the root nodes) and configure all of the chips.
-
-```python
-controller.init_network(1,1) # configure the 1-1 network
-controller.reset_network(1,1) # revert the 1-1 network to it's original state
-```
-
-You may also specify a network configuration file and use this to create all
-of the necessary network links and chips. See the
-[docs](https://larpix-control.readthedocs.io/en/stable/api/configs/controller.html)
-for how to create one of these files. This is the generally recommended means of
-creating and loading a Hydra io network.
-
-```python
-# as an example for bringing up a hydra network from a config file
-controller.load('<network config file>.json') # load your network and chips
-for io_group, io_channels in controller.network.items():
-    for io_channel in io_channels:
-        controller.init_network(io_group, io_channel) # update configurations and write to chips
-```
 
 ### Adjust the configuration of the LArPix Chips
 
@@ -534,14 +492,6 @@ packet.shared_fifo
 packet.register_address
 packet.register_data
 
-# if fifo_diagnostics enabled on a given chip the timestamp of data packets
-# are interpreted differently (note that this is not done automatically and will
-# need to be performed manually on each packet)
-packet.fifo_diagnostics_enabled = True
-packet.timestamp
-packet.local_fifo_events
-packet.shared_fifo_events
-
 ```
 
 Internally, packets are represented as an array of bits, and the
@@ -576,6 +526,13 @@ creating new packets since a Packet's representation is also a vaild
 call to the Packet constructor. So the output from an interactive
 session can be copied as input or into a script to create the same
 packet.
+
+With the v2 chip, more information about the internal fifo can be gathered by
+running with fifo diagonstics enabled on a given asic. In this case, the bits of
+each packet are to be interpreted differently. Each packet object can be set to
+be interpreted in this mode via the ``fifo_diagnostics_enabled`` flag. See the
+Packet_v2 [documentation](https://larpix-control.readthedocs.io/en/stable/) for
+more details.
 
 ### Logging communications with LArPix ASICs using the HDF5Logger
 

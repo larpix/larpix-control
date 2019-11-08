@@ -34,6 +34,91 @@ class Controller(object):
     packets can be sent using the appropriate methods without
     interrupting the incoming data stream.
 
+    With the the LArPix v2 asic, a network io structure is used. To keep track of
+    this network and to insure the proper bring-up procedure is followed. The
+    controller has a ``network`` attribute. This is an ordered dict with multiple
+    layers corresponding to the chip key layers. It assumes that each hydra network
+    is distinct on a given io channel. On a given io channel, the hydra network is
+    represented as three directed graphs ``miso_us``, ``miso_ds``, and ``mosi``.::
+
+        controller.network[1] # Represents all networks on io group 1
+        controller.network[1][1] # Represents the network on io group 1, io channel 1
+        controller.network[1][1]['mosi'] # directed graph representing mosi links
+
+    Nodes within the network are added automatically whenever you add a chip to the
+    controller::
+
+        list(controller.network[1][1]['mosi'].nodes()) # chip ids of known mosi nodes
+        list(controller.network[1][1]['miso_us'].nodes()) # chip ids of known miso_us nodes
+        list(controller.network[1][1]['miso_ds'].nodes()) # chip ids of known miso_ds nodes
+        controller.network[1][1]['miso_us'].nodes[5] # attributes associated with node 5
+        controller.add_chip('1-1-6', version=2, root=True)
+        list(controller.network[1][1]['miso_us'].nodes()) # [5, 6]
+
+
+    The 'root' node is used to indicate which chips should be brought up first when
+    initializing the network.
+
+    Accessing connections between nodes is done via edges::
+
+        list(controller.network[1][1]['miso_us'].edges()) # []
+        controller.add_network_link(1,1,'miso_us',(6,5),0) # link chips 6 -> 5 in the miso_us graph via chip 6's uart channel 0
+        list(controller.network[1][1]['miso_us'].edges()) # [(6,5)] direction indicates the data flow direction
+        controller.network[1][1]['miso_us'].edges[(6,5)] # attributes associated with link ('uart': 0)
+
+    In order to set up a 'working' network, you'll need to add the proper links in
+    the miso_ds and mosi graphs as well.::
+
+        controller.add_network_link(1,1,'miso_ds',(5,6),2)
+        controller.add_network_link(1,1,'mosi',(6,5),0)
+        controller.add_network_link(1,1,'mosi',(5,6),2)
+
+    External systems (e.g. the fpga you are using to communicate with the chips) are
+    conventionally called ``'ext0', 'ext1', ...`` and shouldn't be forgotten in the
+    network configuration! These nodes are used to determine the miso/mosi
+    configuration for the linked chips.::
+
+        controller.add_network_link(1,1,'mosi',('ext',6),1) # link chip 6 to 'ext' via chip 6's uart channel 0
+        controller.add_network_link(1,1,'miso_ds',(6,'ext'),1) # same for miso_ds
+        list(controller.network[1][1]['miso_ds'].edges())
+        list(controller.network[1][1]['mosi'].edges())
+
+    To then initialize a component on the network, run `controller.init_network(1,1,6)`.
+    This will modify the correct registers of chip 1-1-6 and send the configuration
+    commands to the system.::
+
+        controller.init_network(1,1,6)
+        controller.init_network(1,1,5)
+
+    Keep in mind, the order in which you initialize the network is important (e.g.
+    chip 6 needs to be initialized before chip 5 since it is upstream from chip 6).
+
+    You may also reset a particular node with `reset_network(<io_group>,<io_channel>,<chip_id>)`
+    which resets the network configuration of a particular node.::
+
+        controller.reset_network(1,1,5)
+        controller.reset_network(1,1,6)
+
+    This is all rather tedious to do manually, so there a few shortcuts to make declaring and
+    configuring the network easier. If you don't want to initialize or reset each
+    node in order, you may allow the controller to figure out the proper order
+    (based on the root nodes) and configure all of the chips.::
+
+        controller.init_network(1,1) # configure the 1-1 network
+        controller.reset_network(1,1) # revert the 1-1 network to it's original state
+
+    You may also specify a network configuration file and use this to create all
+    of the necessary network links and chips. See
+    <https://larpix-control.readthedocs.io/en/stable/api/configs/controller.html>
+    for how to create one of these files. This is the generally recommended means of
+    creating and loading a Hydra io network.::
+
+        # as an example for bringing up a hydra network from a config file
+        controller.load('<network config file>.json') # load your network and chips
+        for io_group, io_channels in controller.network.items():
+            for io_channel in io_channels:
+                controller.init_network(io_group, io_channel) # update configurations and write to chips
+
     Properties and attributes:
 
     - ``chips``: the ``Chip`` objects that the controller controls
@@ -231,6 +316,8 @@ class Controller(object):
         inherited_data = ('miso_us_uart_map', 'miso_ds_uart_map', 'mosi_uart_map')
         orig_chips = copy(self.chips)
         orig_network = copy(self.network)
+        for chip in self.chips:
+            self.remove_chip(chip) # clear chips and network
         try:
             def inherit_values(child_dict, parent_dict, value_keys):
                 return dict([(key, child_dict[key])
