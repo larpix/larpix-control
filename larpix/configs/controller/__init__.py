@@ -2,11 +2,15 @@
 This module contains controller configuration files, used to specify the physical
 asics present and their network structure
 
+V2 Configuration
+----------------
+
 The v2 configuration file is a standard JSON file structured as follows:
 
 .. parsed-literal::
     {
         "_config_type": "controller",
+        "_include": [<optional list of files to inherit from>],
         "name": <string identifier for configuration ID, e.g. "pcb-3", or "acube-2x2">,
         "layout": <string identifier for layout version, e.g. "1.2.0">,
         "asic_version": 2,
@@ -138,8 +142,31 @@ network. These are the nodes that will be configured first when initializing a
 network (with the next nodes order of configuration determined via the mosi_us
 configuration). If not specified, the node is assumed to not be a root node.
 
+The top-level "_include" field can be used to specify files to inherit from.
+All fields of the configuration down to the "chips" array level can be inherited.
+A standard use for this would be to specify each hydra network for a given channel
+independently, and inherit from all of the files in a single configuration
+file. E.g.::
+
+    {
+        "_config_type": "controller",
+        "_include": [
+            "network-1-1.json",
+            "network-1-2.json",
+            "network-1-3.json",
+            "network-1-4.json",
+            "network-2-1.json",
+            "network-2-2.json",
+            "network-2-3.json",
+            "network-2-4.json"
+            ],
+        "name": "multi-io-group-network"
+        "layout": null
+    }
 
 
+V1 Configuration
+----------------
 
 The v1 configuration file is a standard JSON file structured as follows:
 

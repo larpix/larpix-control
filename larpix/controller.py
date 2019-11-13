@@ -320,9 +320,13 @@ class Controller(object):
             self.remove_chip(chip) # clear chips and network
         try:
             def inherit_values(child_dict, parent_dict, value_keys):
-                return dict([(key, child_dict[key])
-                        if key in child_dict else (key, parent_dict[key])
-                        for key in value_keys])
+                return_dict = dict()
+                for key in value_keys:
+                    if key in child_dict:
+                        return_dict[key] = child_dict[key]
+                    elif key in parent_dict:
+                        return_dict[key] = parent_dict[key]
+                return return_dict
 
             self.chips = OrderedDict()
             for io_group, group_spec in system_info['network'].items():
@@ -351,32 +355,44 @@ class Controller(object):
                         subnetwork = self.network[io_group][io_channel]
 
                         if 'miso_us' in chip_spec:
-                            for idx, uart in enumerate(chip_inherited_data['miso_us_uart_map']):
-                                link = (chip_id, chip_spec['miso_us'][idx])
-                                if link[1] is None:
-                                    continue
-                                self.add_network_link(io_group, io_channel, 'miso_us', link, uart)
+                            try:
+                                for idx, uart in enumerate(chip_inherited_data['miso_us_uart_map']):
+                                    link = (chip_id, chip_spec['miso_us'][idx])
+                                    if link[1] is None:
+                                        continue
+                                    self.add_network_link(io_group, io_channel, 'miso_us', link, uart)
+                            except KeyError:
+                                raise KeyError('miso_us_uart_map unspecified for {}-{}-{}'.format(io_group,io_channel,chip_id))
 
                         if 'miso_ds' in chip_spec:
-                            for idx, uart in enumerate(chip_inherited_data['miso_ds_uart_map']):
-                                link = (chip_id, chip_spec['miso_ds'][idx])
-                                if link[1] is None:
-                                    continue
-                                self.add_network_link(io_group, io_channel, 'miso_ds', link, uart)
+                            try:
+                                for idx, uart in enumerate(chip_inherited_data['miso_ds_uart_map']):
+                                    link = (chip_id, chip_spec['miso_ds'][idx])
+                                    if link[1] is None:
+                                        continue
+                                    self.add_network_link(io_group, io_channel, 'miso_ds', link, uart)
+                            except KeyError:
+                                raise KeyError('miso_ds_uart_map unspecified for {}-{}-{}'.format(io_group,io_channel,chip_id))
                         elif subnetwork['miso_us'].in_edges(chip_id):
-                            for link in subnetwork['miso_us'].in_edges(chip_id):
-                                other_chip_id = link[0]
-                                other_spec = [spec for spec in channel_spec['chips'] if spec['chip_id'] == other_chip_id][0]
-                                uart = chip_inherited_data['miso_ds_uart_map'][other_spec['miso_us'].index(chip_id)]
-                                link = (chip_id, other_chip_id)
-                                self.add_network_link(io_group, io_channel, 'miso_ds', link, uart)
+                            try:
+                                for link in subnetwork['miso_us'].in_edges(chip_id):
+                                    other_chip_id = link[0]
+                                    other_spec = [spec for spec in channel_spec['chips'] if spec['chip_id'] == other_chip_id][0]
+                                    uart = chip_inherited_data['miso_ds_uart_map'][other_spec['miso_us'].index(chip_id)]
+                                    link = (chip_id, other_chip_id)
+                                    self.add_network_link(io_group, io_channel, 'miso_ds', link, uart)
+                            except KeyError:
+                                raise KeyError('miso_ds_uart_map unspecified for {}-{}-{}'.format(io_group,io_channel,chip_id))
 
                         if 'mosi' in chip_spec:
-                            for idx, uart in enumerate(chip_inherited_data['mosi_uart_map']):
-                                link = (chip_id, chip_spec['miso_us'][idx])
-                                if link[1] is None:
-                                    continue
-                                self.add_network_link(io_group, io_channel, 'mosi', link, uart)
+                            try:
+                                for idx, uart in enumerate(chip_inherited_data['mosi_uart_map']):
+                                    link = (chip_id, chip_spec['miso_us'][idx])
+                                    if link[1] is None:
+                                        continue
+                                    self.add_network_link(io_group, io_channel, 'mosi', link, uart)
+                            except KeyError:
+                                raise KeyError('mosi_uart_map unspecified for {}-{}-{}'.format(io_group,io_channel,chip_id))
                         else:
                             for link in subnetwork['miso_us'].in_edges():
                                 self.add_network_link(io_group, io_channel, 'mosi', link[::-1], subnetwork['miso_us'].edges[link]['uart'])

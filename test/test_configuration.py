@@ -2,6 +2,7 @@ from larpix import Configuration_v2
 from bitarray import bitarray
 import larpix.bitarrayhelper as bah
 from larpix import configs
+import json
 
 def test_v2_conf_all_registers():
     default_filename = 'chip/default_v2.json'
@@ -9,7 +10,7 @@ def test_v2_conf_all_registers():
 
     c = Configuration_v2()
     # check that all registers are in the configuration file
-    assert all([register_name in data['register_values'].keys() for register_name in c.register_names])
+    assert set(data['register_values'].keys()) == set(c.register_names)
     for register in c.register_names:
         print('testing {}'.format(register))
         config_value = data['register_values'][register]
@@ -193,6 +194,25 @@ def test_compare():
     c = Configuration_v2()
     c.threshold_global = 121
     assert c.compare(other) == {'threshold_global': (121, 255)}
+
+def test_load_inheritance(tmpdir):
+    filename = 'test.json'
+    c = Configuration_v2()
+    with open(tmpdir.join(filename),'w') as of:
+        config = {
+            "_config_type": "chip",
+            "_include": ["chip/default_v2.json"],
+            "class": "Configuration_v2",
+            "register_values": {
+                "pixel_trim_dac": [0, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16],
+                "threshold_global": 0
+            }
+        }
+        json.dump(config,of)
+    c.load(tmpdir.join(filename))
+    assert c.pixel_trim_dac[0] == 0
+    assert c.threshold_global == 0
+    assert c.csa_gain == 1
 
 def test_get_nondefault_registers():
     c = Configuration_v2()
