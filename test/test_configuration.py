@@ -209,7 +209,7 @@ def test_load_inheritance(tmpdir):
             }
         }
         json.dump(config,of)
-    c.load(tmpdir.join(filename))
+    c.load(str(tmpdir.join(filename)))
     assert c.pixel_trim_dac[0] == 0
     assert c.threshold_global == 0
     assert c.csa_gain == 1
