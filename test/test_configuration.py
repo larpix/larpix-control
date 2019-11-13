@@ -198,7 +198,7 @@ def test_compare():
 def test_load_inheritance(tmpdir):
     filename = 'test.json'
     c = Configuration_v2()
-    with open(tmpdir.join(filename),'w') as of:
+    with open(str(tmpdir.join(filename)),'w') as of:
         config = {
             "_config_type": "chip",
             "_include": ["chip/default_v2.json"],
