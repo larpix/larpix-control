@@ -12,7 +12,7 @@ def network_config(tmpdir):
             3       13
             ^       ^
             2   >   12
-            ^
+
         MISO_DS:
             3       13
             v       v
@@ -26,21 +26,58 @@ def network_config(tmpdir):
         "name": "test",
         "asic_version": 2,
         "network": {
-            "1": { "1": { "chips": [
-                        {"chip_id": 2,
-                        "miso_us": [3, None, None, 12],
-                        "root": True,
-                        "miso_ds": ["ext", None, None, None]},
-                        {"chip_id": 3},
-                        {"chip_id": 12,
-                        "miso_us": [ 13, None, None, None]},
-                        {"chip_id": 13}
-                    ]
+            "1": {
+                "1": {
+                    "chips": [
+                        {
+                            "chip_id": 2,
+                            "miso_us": [3, None, None, 12],
+                            "root": True,
+                            "miso_ds": ["ext", None, None, None]
+                        },
+                        {
+                            "chip_id": 3
+                        },
+                        {
+                            "chip_id": 12,
+                            "miso_us": [13, None, None, None]
+                        },
+                        {
+                            "chip_id": 13
+                        }
+                    ],
+                    "miso_us_uart_map": [0,1,2,3],
+                    "miso_ds_uart_map": [2,3,0,1],
                 }
             },
-            "miso_us_uart_map": [0,1,2,3],
-            "miso_ds_uart_map": [2,3,0,1],
-            "mosi_uart_map": [0,1,2,3]
+
+        }
+    }
+    with open(filename,'w') as of:
+        json.dump(config_dict, of)
+    return filename
+
+@pytest.fixture
+def inheriting_network_config(tmpdir, network_config):
+    filename = str(tmpdir.join('other_test_network_conf.json'))
+    config_dict = {
+        "_config_type": "controller",
+        "_include": [network_config],
+        "name": "other_test",
+        "network": {
+            "1": {
+                "2": {
+                    "chips": [
+                        {
+                            "chip_id": 123,
+                            "root": True,
+                            "miso_ds": ["ext", None, None, None]
+                        }
+                    ],
+                    "miso_us_uart_map": [0,1,2,3],
+                    "miso_ds_uart_map": [2,3,0,1],
+                }
+            },
         }
     }
     with open(filename,'w') as of:
@@ -92,6 +129,14 @@ def test_controller_network(network_controller):
     assert len(c.network[1][1]['mosi'].edges()) == 7
     assert c.network[1][1]['mosi'].edges[(3,2)]['uart'] == 0
     assert c.network[1][1]['mosi'].edges[(2,3)]['uart'] == 2
+
+def test_controller_inherit_config(inheriting_network_config):
+    c = Controller()
+    c.load(inheriting_network_config)
+
+    assert len(c.chips) == 5
+    assert len(c.network[1][1]['mosi'].nodes) == 5
+    assert len(c.network[1][2]['mosi'].nodes) == 2
 
 def test_controller_init(network_controller):
     c = network_controller

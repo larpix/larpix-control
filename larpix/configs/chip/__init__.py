@@ -2,7 +2,12 @@
 This module contains chip configuration files. They are formatted as standard
 JSON files with the following fields: ``"_config_type"``, ``"class"``, and
 ``"register_values"``. The ``_config_type`` field should always be set to
-``"chip"`` and is used for validation when loading the configuration.
+``"chip"`` and is used for validation when loading the configuration. An
+optional ``"_include"`` field can be used to specify other configurations to
+inherit configuration values from. Configuration inheritance occurs in the order
+specified in the list so if a conflict is encountered, fields from a file later
+in the list will overwrite fields from a file earlier in the list.
+
 Additionally, the ``class`` field provides additional validation. There are two
 configuration classes: ``"Configuration_v1"`` and ``"Configuration_v2"``, each
 corresponding to its respective ``larpix.configuration`` class. Attempting to
@@ -16,6 +21,7 @@ file::
 
     {
         "_config_type": "chip",
+        "_include": [],
         "class": "Configuration_v2",
         "register_values": {
             "pixel_trim_dac": [16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16],
