@@ -67,16 +67,19 @@ def test_config_inheritance_complex(tmpfile, other_tmpfile):
     write_json(tmpfile,
         _config_type='test',
         _include=[other_tmpfile],
-        dict_field={'base':True},
+        dict_field={'base':True,'dict':{'overwrite':True}},
         list_field=[1]
         )
     write_json(other_tmpfile,
         _config_type='test',
-        dict_field={'inherited':True,'base':False},
+        dict_field={'inherited':True,'base':False,'dict':{'test':True,'overwrite':False}},
+        list_field=[2]
         )
     config = configs.load(tmpfile)
     assert config['dict_field']['base']
     assert config['dict_field']['inherited']
+    assert config['dict_field']['dict']['test']
+    assert config['dict_field']['dict']['overwrite']
     assert config['list_field'] == [1]
 
 def test_config_inheritance_order(tmpfile, other_tmpfile, other_other_tmpfile):
