@@ -48,8 +48,6 @@ setup(
             'scripts/gen_hydra_simple.py'
             ],
         package_data={
-            'larpix.configs.chip': 'configs/chip/*.json',
-            'larpix.configs.controller': 'configs/controller/*.json',
-            'larpix.configs.io': 'configs/io/*.json'
+            'larpix.configs': ['*/*.json'],
             },
 )
