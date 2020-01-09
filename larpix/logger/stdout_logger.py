@@ -2,7 +2,6 @@ from __future__ import print_function
 import time
 
 from larpix.logger import Logger
-from larpix.larpix import Packet
 
 class StdoutLogger(Logger):
     '''

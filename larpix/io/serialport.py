@@ -9,7 +9,7 @@ import platform
 import warnings
 
 from larpix.io import IO
-from larpix.larpix import Packet
+from larpix import Packet
 
 warnings.simplefilter('default', DeprecationWarning)
 warnings.warn('The serialport module is deprecated and will be removed '

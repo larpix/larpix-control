@@ -34,36 +34,79 @@ functions.
 The larpix package contains:
 ```
 larpix
-|-- larpix
-|-- io
-|   |-- fakeio
-|   |-- serialport
-|   `-- zmq_io
-|-- logger
-|   |-- h5_logger
-|   `-- stdout_logger
-|-- quickstart
-|-- timestamp
-|-- bitarrayhelper
-|-- serial_helpers
-|   |-- analyzers
-|   |-- dataformatter
-|   |-- dataloader
-|   `-- datalogger
-`-- configs
-    |-- chip
-    |   |-- csa_bypass.json
-    |   |-- default.json
-    |   |-- physics.json
-    |   `-- quiet.json
-    `-- controller
-        |-- pcb-10_chip_info.json
-        |-- pcb-1_chip_info.json
-        |-- pcb-2_chip_info.json
-        |-- pcb-3_chip_info.json
-        |-- pcb-4_chip_info.json
-        |-- pcb-5_chip_info.json
-        `-- pcb-6_chip_info.json
+├── __init__.py
+├── bitarrayhelper.py
+├── chip.py
+├── configs
+│   ├── __init__.py
+│   ├── chip
+│   │   ├── __init__.py
+│   │   ├── csa_bypass.json
+│   │   ├── default.json
+│   │   ├── default_v2.json
+│   │   ├── physics.json
+│   │   └── quiet.json
+│   ├── controller
+│   │   ├── __init__.py
+│   │   ├── pcb-10_chip_info.json
+│   │   ├── pcb-1_chip_info.json
+│   │   ├── pcb-2_chip_info.json
+│   │   ├── pcb-3_chip_info.json
+│   │   ├── pcb-4_chip_info.json
+│   │   ├── pcb-5_chip_info.json
+│   │   ├── pcb-6_chip_info.json
+│   │   └── v2_example.json
+│   └── io
+│       ├── __init__.py
+│       ├── daq-srv1.json
+│       ├── daq-srv2.json
+│       ├── daq-srv3.json
+│       ├── daq-srv4.json
+│       ├── daq-srv5.json
+│       ├── daq-srv6.json
+│       ├── daq-srv7.json
+│       ├── default.json
+│       └── loopback.json
+├── configuration
+│   ├── __init__.py
+│   ├── configuration.py
+│   ├── configuration_v1.py
+│   └── configuration_v2.py
+├── controller.py
+├── example.py
+├── format
+│   ├── __init__.py
+│   ├── hdf5format.py
+│   └── message_format.py
+├── io
+│   ├── __init__.py
+│   ├── fakeio.py
+│   ├── io.py
+│   ├── multizmq_io.py
+│   ├── serialport.py
+│   └── zmq_io.py
+├── key.py
+├── larpix.py
+├── logger
+│   ├── __init__.py
+│   ├── h5_logger.py
+│   ├── logger.py
+│   └── stdout_logger.py
+├── packet
+│   ├── __init__.py
+│   ├── message_packet.py
+│   ├── packet_collection.py
+│   ├── packet_v1.py
+│   ├── packet_v2.py
+│   └── timestamp_packet.py
+├── quickstart.py
+├── serial_helpers
+│   ├── __init__.py
+│   ├── analyzers.py
+│   ├── dataformatter.py
+│   ├── dataloader.py
+│   └── datalogger.py
+└── timestamp.py
 ```
 
 ## Minimal working example
@@ -72,24 +115,26 @@ So you're not a tutorials kind of person. Here's a minimal working
 example for you to play around with:
 
 ```python
->>> from larpix.larpix import Controller, Packet
->>> from larpix.io.fakeio import FakeIO
->>> from larpix.logger.stdout_logger import StdoutLogger
+>>> from larpix import Controller, Packet_v2
+>>> from larpix.io import FakeIO
+>>> from larpix.logger import StdoutLogger
 >>> controller = Controller()
 >>> controller.io = FakeIO()
 >>> controller.logger = StdoutLogger(buffer_length=0)
 >>> controller.logger.enable()
->>> chip1 = controller.add_chip('1-1-1')  # (access key)
->>> chip1.config.global_threshold = 25
->>> controller.write_configuration('1-1-1', 25) # chip key, register 25
-[ Config write | Chip key: '1-1-1' | Chip: 1 | Register: 25 | Value:  16 | Parity: 1 (valid: True) ]
->>> packet = Packet(b'\x04\x14\x80\xc4\x03\xf2 ')
+>>> chip1 = controller.add_chip('1-1-2', version=2)  # (access key)
+>>> chip1.config.threshold_global = 25
+>>> controller.write_configuration('1-1-2', chip1.config.register_map['threshold_global']) # chip key, register 64
+[ Key: 1-1-2 | Chip: 2 | Upstream | Write | Register: 64 | Value: 25 | Parity: 1 (valid: True) ]
+Record: [ Key: 1-1-2 | Chip: 2 | Upstream | Write | Register: 64 | Value: 25 | Parity: 1 (valid: True) ]
+>>> packet = Packet_v2(b'\x02\x91\x15\xcd[\x07\x85\x00')
 >>> packet_bytes = packet.bytes()
 >>> pretend_input = ([packet], packet_bytes)
 >>> controller.io.queue.append(pretend_input)
 >>> controller.run(0.05, 'test run')
+Record: [ Key: None | Chip: 2 | Downstream | Data | Channel: 5 | Timstamp: 123456789 | Dataword: 145 | Trigger: normal | Local FIFO ok | Shared FIFO ok | Parity: 0 (valid: True) ]
 >>> print(controller.reads[0])
-[ Data | Chip key: None | Chip: 1 | Channel: 5 | Timestamp: 123456 | ADC data: 120 | FIFO Half: False | FIFO Full: False | Parity: 1 (valid: True) ]
+[ Key: None | Chip: 2 | Downstream | Data | Channel: 5 | Timstamp: 123456789 | Dataword: 145 | Trigger: normal | Local FIFO ok | Shared FIFO ok | Parity: 0 (valid: True) ]
 ```
 
 ## Tutorial
@@ -103,11 +148,11 @@ statements:
 ```python
 import larpix  # use the larpix namespace
 # or ...
-from larpix.larpix import *  # import all core larpix classes into the current namespace
+from larpix import *  # import all core larpix classes into the current namespace
 ```
 
 The rest of the tutorial will assume you've imported all of the core larpix
-classes via a ``from larpix.larpix import *`` command.
+classes via a ``from larpix import *`` command.
 
 ### Create a LArPix Controller
 
@@ -124,8 +169,8 @@ interfaces.
 Set things up with
 
 ```python
-from larpix.io.fakeio import FakeIO
-from larpix.logger.stdout_logger import StdoutLogger
+from larpix.io import FakeIO
+from larpix.logger import StdoutLogger
 controller = Controller()
 controller.io = FakeIO()
 controller.logger = StdoutLogger(buffer_length=0)
@@ -154,8 +199,10 @@ Controller.
 ```python
 chipid = 5
 chip_key = '1-1-5'
-chip5 = controller.add_chip(chip_key)
-chip5 = controller.get_chip(chip_key)
+chip5 = controller.add_chip(chip_key, version=2)
+
+chip5 = controller[chip_key] # get chip object
+chip5 = controller[1,1,5] # gets same chip object
 ```
 
 The `chip_key` field specifies the necessary information for the `controller.io`
@@ -175,12 +222,12 @@ low-level layers in larpix readout:
   MOSI/MISO network
 
 If you want to interact with chip keys directly, you can instantiate one using
-a valid keystring (three 1-byte integers separated by dashes, e.g. ``'1-1-1'``).
-Please note that the ids of 0 and 255 are reserved for special functions.
+a valid keystring (three 1-byte integers separated by dashes, e.g. ``'1-1-2'``).
+Please note that the ids of 0, 1, and 255 are reserved for special functions.
 
 ```python
-from larpix.larpix import Key
-example_key = Key('1-2-3')
+from larpix import Key
+example_key = Key(1,2,3)
 ```
 
 You can grab relevant information from the key via a number of useful methods
@@ -194,10 +241,72 @@ example_key.to_dict() # returns a dict with the above keys / values
 ```
 
 If you are using a ``Key`` in a script, we recommend that you generate the keys
-via the ``Key.from_dict()`` method which will protect against updates to the key
+via the ``Key(<io_group>,<io_channel>,<chip_id>)`` method which will protect against updates to the keystring
 formatting.
 
 You can read the docs to learn more about ``Key`` functionality.
+
+### Set up LArPix Hydra network
+
+The controller object contains an internal structure representing the Hydra
+networks on each of the io channels. This structure can be accessed via
+``controller.network`` and modified using the ``controller.add_network_node``
+and ``controller.add_network_link`` methods. However, it can be a tedious
+and error-prone process to add each link to the network representation. So,
+there exists a friendlier [configuration file](https://larpix-control.readthedocs.io/en/stable/api/configs/controller.html) that is used to generate these network links.
+
+To load a network configuration into the controller:
+
+```python
+controller.load('controller/v2_example.json')
+print(controller.chips) # chips that have been loaded into controller
+list(controller.network[1][1]['miso_ds'].edges) # all links contained in the miso_ds graph
+list(controller.network[1][1]['miso_us'].nodes) # all nodes within the miso_us graph
+list(controller.network[1][1]['mosi'].edges) # all links within the mosi graph
+```
+
+Each graph is represented by a networkx directed graph and can be examined and
+queried in that way. All edges point in the direction of data flow.
+
+```python
+list(controller.network[1][1]['mosi'].in_edges(2)) # all links pointing to chip 2 in mosi graph
+list(controller.network[1][1]['miso_ds'].successors(3)) # all chips receiving downstream data packets from chip 3
+controller.network[1][1]['mosi'].edges[(3,2)]['uart'] # check the physical uart channel that chip 2 listens to chip 3 via
+controller.network[1][1]['mosi'].nodes[2]['root'] # check if designated root chip
+```
+
+After loading the network into the controller, the ``init_network`` command
+automates the process of bringing up individual chips in the network.
+
+```python
+controller.init_network(1,1) # issues packets required to initialize the 1,1 hydra network
+print(controller['1-1-2'].config.chip_id)
+print(controller['1-1-3'].config.enable_miso_downstream)
+```
+
+This issues configuration commands in the proper order so that upstream chips
+are configured before downstream chips. If you'd like to reset the network
+configuration
+
+```python
+controller.reset_network(1,1)
+```
+
+can be used to reverse the configuration commands issued with ``init_network``.
+These processes are not "smart" in that they blindly issue config commands
+assuming the network is either fully configured or in a default state, so buyer
+beware.
+
+The network initialization can be broken down into single steps by also passing
+along the chip id:
+
+```python
+controller.init_network(1,1,2) # configures only chip 2
+controller.init_network(1,1,3) # configures only chip 3
+```
+
+But this requires initializing the chips in the proper order.
+
 
 ### Adjust the configuration of the LArPix Chips
 
@@ -206,8 +315,8 @@ Configurations can be adjusted by name using attributes of the Chip's
 configuration:
 
 ```python
-chip5.config.global_threshold = 35  # entire register = 1 number
-chip5.config.periodic_reset = 1  # one bit as part of a register
+chip5.config.threshold_global = 35  # entire register = 1 number
+chip5.config.enable_periodic_reset = 1  # one bit as part of a register
 chip5.config.channel_mask[20] = 1  # one bit per channel
 ```
 
@@ -228,7 +337,13 @@ controller.write_configuration(chip_key, [32, 50])  # send registers 32 and 50
 Register addresses can be looked up using the configuration object:
 
 ```python
-global_threshold_reg = chip5.config.global_threshold_address
+threshold_global_reg = chip5.config.register_map['threshold_global']
+```
+
+And register names:
+
+```python
+threshold_global_name = chip.5.config.register_map_inv[64]
 ```
 
 For configurations which extend over multiple registers, the relevant
@@ -255,7 +370,7 @@ section on "Inspecting received data" for more.
 FakeIO queue code:
 
 ```python
-packets = chip5.get_configuration_packets(Packet.CONFIG_READ_PACKET)
+packets = chip5.get_configuration_read_packets()
 bytestream = b'bytes for the config read packets'
 controller.io.queue.append((packets, bytestream))
 ```
@@ -300,10 +415,10 @@ controller.run(duration, message)
 FakeIO queue code for the first code block:
 
 ```python
-packets = [Packet()] * 40
+packets = [Packet_v2()] * 40
 bytestream = b'bytes from the first set of packets'
 controller.io.queue.append((packets, bytestream))
-packets2 = [Packet()] * 30
+packets2 = [Packet_v2()] * 30
 bytestream2 = b'bytes from the second set of packets'
 controller.io.queue.append((packets2, bytestream2))
 ```
@@ -311,7 +426,7 @@ controller.io.queue.append((packets2, bytestream2))
 fakeIO queue code for the second code block:
 
 ```python
-packets = [Packet()] * 5
+packets = [Packet_v2()] * 5
 bytestream = b'[bytes from read #%d] '
 for i in range(100):
     controller.io.queue.append((packets, bytestream%i))
@@ -361,20 +476,22 @@ the packet.
 packet = run1[0]
 # all packets
 packet.packet_type  # unique in that it gives the bits representation
-packet.chipid  # all other properties return Python numbers
-packet.chip_key # key for association to a unique chip
-packet.parity_bit_value
+packet.chip_id  # all other properties return Python numbers
+packet.chip_key # key for association to a unique chip (can be None)
+packet.parity
+packet.downstream_marker
+
 # data packets
 packet.channel_id
 packet.dataword
 packet.timestamp
-packet.fifo_half_flag  # 1 or 0
-packet.fifo_full_flag  # 1 or 0
+packet.trigger_type
+packet.local_fifo
+packet.shared_fifo
 # config packets
 packet.register_address
 packet.register_data
-# test packets
-packet.test_counter
+
 ```
 
 Internally, packets are represented as an array of bits, and the
@@ -391,7 +508,7 @@ region, which is probably not what you want for your data packet.
 
 Packets have a parity bit which enforces odd parity, i.e. the sum of
 all the individual bits in a packet must be an odd number. The parity
-bit can be accessed as above using the ``parity_bit_value`` attribute.
+bit can be accessed as above using the ``parity`` attribute.
 The correct parity bit can be computed using ``compute_parity()``,
 and the validity of a packet's parity can be checked using
 ``has_valid_parity()``. When constructing a new packet, the correct
@@ -410,13 +527,20 @@ call to the Packet constructor. So the output from an interactive
 session can be copied as input or into a script to create the same
 packet.
 
+With the v2 chip, more information about the internal fifo can be gathered by
+running with fifo diagonstics enabled on a given asic. In this case, the bits of
+each packet are to be interpreted differently. Each packet object can be set to
+be interpreted in this mode via the ``fifo_diagnostics_enabled`` flag. See the
+Packet_v2 [documentation](https://larpix-control.readthedocs.io/en/stable/) for
+more details.
+
 ### Logging communications with LArPix ASICs using the HDF5Logger
 
 To create a permanent record of communications with the LArPix ASICs, an
 `HDF5Logger` is used. To create a new logger
 
 ```python
-from larpix.logger.h5_logger import HDF5Logger
+from larpix.logger import HDF5Logger
 controller.logger = HDF5Logger(filename=None, buffer_length=10000) # a filename of None uses the default filename formatting
 controller.logger.enable() # starts tracking all communications
 ```
@@ -527,7 +651,7 @@ interactive python sessions if you are about to quit.)
 datafile.close()
 ```
 
-## Running with a Bern DAQ board
+## Running with a Bern DAQ board (v1 asic)
 
 Since you have completed the tutorial with the `FakeIO` class, you are now ready
 to interface with some LArPix ASICs. If you have a Bern DAQ v2-3 setup you can
@@ -546,8 +670,8 @@ you will load the ``io/daq-srv<#>.json`` configuration.
 
 With the DAQ system up and running
 ```python
->>> from larpix.larpix import Controller
->>> from larpix.io.zmq_io import ZMQ_IO
+>>> from larpix import Controller
+>>> from larpix.io import ZMQ_IO
 >>> controller = Controller()
 >>> controller.io = ZMQ_IO(config_filepath='<path to config>')
 >>> controller.load('controller/pcb-<#>_chip_info.json')

@@ -40,10 +40,12 @@ setup(
             'sphinx_rtd_theme ~= 0.4.2',
             'numpy ~= 1.16',
             'h5py ~= 2.9',
-            'bidict ~= 0.18.0'
+            'bidict ~= 0.18.0',
+            'networkx ~= 2.2'
             ],
         scripts=[
-            'scripts/gen_controller_config.py'
+            'scripts/gen_controller_config.py',
+            'scripts/gen_hydra_simple.py'
             ],
         package_data={
             'larpix.configs': ['*/*.json'],

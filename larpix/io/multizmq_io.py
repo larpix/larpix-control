@@ -6,7 +6,7 @@ import warnings
 import bidict
 
 from larpix.io import IO
-from larpix.larpix import Packet, Key
+from larpix import Packet, Key, Packet_v2, Packet_v1
 from larpix.configs import load
 from larpix.format.message_format import dataserver_message_decode
 
@@ -110,10 +110,14 @@ class MultiZMQ_IO(IO):
             io_chain = packet.io_channel
             if io_chain in self._mosi_map.keys():
                 io_chain = self._mosi_map[io_chain]
+            fmt_bytestr = b'0x%s %d'
+            if isinstance(packet, Packet_v1):
+                fmt_bytestr = b'0x00%s %d'
             if sys.version_info[0] < 3:
-                msg_data += [b'0x00%s %d' % (packet.bytes()[::-1].encode('hex'), io_chain)]
+                msg_data += [fmt_bytestr % (packet.bytes()[::-1].encode('hex'), io_chain)]
             else:
-                msg_data += [b'0x00%s %d' % (packet.bytes()[::-1].hex().encode(), io_chain)]
+                msg_data += [fmt_bytestr % (packet.bytes()[::-1].hex().encode(), io_chain)]
+        print(msg_data)
         return msg_data
 
     def empty_queue(self):
@@ -139,6 +143,7 @@ class MultiZMQ_IO(IO):
                     bytestream_list += [message]
                     address_list += [self.receivers.inv[socket]]
         for message, address in zip(bytestream_list, address_list):
+            print(message)
             packets += self.decode([message], address=address)
         #print('len(bytestream_list) = %d' % len(bytestream_list))
         bytestream = b''.join(bytestream_list)

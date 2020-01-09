@@ -3,7 +3,7 @@ from __future__ import print_function
 import pytest
 import h5py
 
-from larpix.larpix import (Packet, PacketCollection, TimestampPacket,
+from larpix.larpix import (Packet_v1, Packet_v2, PacketCollection, TimestampPacket,
         MessagePacket, Key)
 from larpix.format.hdf5format import (to_file, from_file,
         dtype_property_index_lookup)
@@ -14,8 +14,8 @@ def tmpfile(tmpdir):
 
 @pytest.fixture
 def data_packet():
-    p = Packet()
-    p.packet_type = Packet.DATA_PACKET
+    p = Packet_v1()
+    p.packet_type = Packet_v1.DATA_PACKET
     p.chipid = 123
     p.channel = 7
     p.timestamp = 123456
@@ -28,9 +28,52 @@ def data_packet():
 
 @pytest.fixture
 def config_read_packet():
-    p = Packet()
-    p.packet_type = Packet.CONFIG_READ_PACKET
+    p = Packet_v1()
+    p.packet_type = Packet_v1.CONFIG_READ_PACKET
     p.chipid = 123
+    p.register_address = 10
+    p.register_data = 23
+    p.assign_parity()
+    p.chip_key = Key('1-2-123')
+    p.direction = 1
+    return p
+
+@pytest.fixture
+def data_packet_v2():
+    p = Packet_v2()
+    p.packet_type = Packet_v2.DATA_PACKET
+    p.chip_id = 123
+    p.channel_id = 7
+    p.timestamp = 123456
+    p.dataword = 120
+    p.shared_fifo = 1
+    p.assign_parity()
+    p.chip_key = Key('1-2-123')
+    p.direction = 1
+    return p
+
+@pytest.fixture
+def fifo_diagnostics_packet_v2():
+    p = Packet_v2()
+    p.enable_fifo_diagnostics = True
+    p.packet_type = Packet_v2.DATA_PACKET
+    p.chip_id = 123
+    p.channel_id = 7
+    p.timestamp = 123456
+    p.dataword = 120
+    p.shared_fifo = 1
+    p.shared_fifo_events = 5
+    p.local_fifo_events = 1
+    p.assign_parity()
+    p.chip_key = Key('1-2-123')
+    p.direction = 1
+    return p
+
+@pytest.fixture
+def config_read_packet_v2():
+    p = Packet_v2()
+    p.packet_type = Packet_v2.CONFIG_READ_PACKET
+    p.chip_id = 123
     p.register_address = 10
     p.register_data = 23
     p.assign_parity()
@@ -63,7 +106,7 @@ def test_to_file_v0_0_data_packet(tmpfile, data_packet):
     assert len(f['raw_packet']) == 1
     row = f['raw_packet'][0]
     props = dtype_property_index_lookup['0.0']['raw_packet']
-    new_packet = Packet()
+    new_packet = Packet_v1()
     new_packet.chip_key = row[props['chip_key']]
     new_packet.packet_type = row[props['type']]
     new_packet.chipid = row[props['chipid']]
@@ -81,7 +124,7 @@ def test_to_file_v0_0_config_read_packet(tmpfile, config_read_packet):
     assert len(f['raw_packet']) == 1
     row = f['raw_packet'][0]
     props = dtype_property_index_lookup['0.0']['raw_packet']
-    new_packet = Packet()
+    new_packet = Packet_v1()
     new_packet.chip_key = row[props['chip_key']]
     new_packet.packet_type = row[props['type']]
     new_packet.chipid = row[props['chipid']]
@@ -136,7 +179,7 @@ def test_to_file_v1_0_data_packet(tmpfile, data_packet):
     assert len(f['packets']) == 1
     row = f['packets'][0]
     props = dtype_property_index_lookup['1.0']['packets']
-    new_packet = Packet()
+    new_packet = Packet_v1()
     new_packet.chip_key = row[props['chip_key']]
     new_packet.packet_type = row[props['type']]
     new_packet.chipid = row[props['chipid']]
@@ -155,7 +198,7 @@ def test_to_file_v1_0_config_read_packet(tmpfile, config_read_packet):
     assert len(f['packets']) == 1
     row = f['packets'][0]
     props = dtype_property_index_lookup['1.0']['packets']
-    new_packet = Packet()
+    new_packet = Packet_v1()
     new_packet.chip_key = row[props['chip_key']]
     new_packet.packet_type = row[props['type']]
     new_packet.chipid = row[props['chipid']]
@@ -213,6 +256,103 @@ def test_from_file_v1_0_many_packets(tmpfile, data_packet,
     new_packets = new_packets_dict['packets']
     assert new_packets[0] == data_packet
     assert new_packets[1] == config_read_packet
+    assert new_packets[2] == timestamp_packet
+    assert new_packets[3] == message_packet
+
+def test_to_file_v2_0_empty(tmpfile):
+    to_file(tmpfile, [], version='2.0')
+    f = h5py.File(tmpfile, 'r')
+    assert f['_header']
+    assert f['_header'].attrs['version']
+    assert f['_header'].attrs['created']
+    assert f['_header'].attrs['modified']
+    assert f['packets']
+
+def test_to_file_v2_0_data_packet(tmpfile, data_packet_v2):
+    to_file(tmpfile, [data_packet_v2], version='2.0')
+    f = h5py.File(tmpfile, 'r')
+    assert len(f['packets']) == 1
+    row = f['packets'][0]
+    props = dtype_property_index_lookup['2.0']['packets']
+    new_packet = Packet_v2()
+    new_packet.chip_key = Key(row[props['io_group']], row[props['io_channel']], row[props['chip_id']])
+    new_packet.packet_type = row[props['packet_type']]
+    new_packet.trigger_type = row[props['trigger_type']]
+    new_packet.chip_id = row[props['chip_id']]
+    new_packet.parity = row[props['parity']]
+    new_packet.channel_id = row[props['channel_id']]
+    new_packet.timestamp = row[props['timestamp']]
+    new_packet.dataword = row[props['dataword']]
+    new_packet.local_fifo = row[props['local_fifo']]
+    new_packet.shared_fifo = row[props['shared_fifo']]
+    new_packet.direction = row[props['direction']]
+    assert new_packet == data_packet_v2
+
+def test_to_file_v2_0_config_read_packet(tmpfile, config_read_packet_v2):
+    to_file(tmpfile, [config_read_packet_v2], version='2.0')
+    f = h5py.File(tmpfile, 'r')
+    assert len(f['packets']) == 1
+    row = f['packets'][0]
+    props = dtype_property_index_lookup['2.0']['packets']
+    new_packet = Packet_v2()
+    new_packet.chip_key = Key(row[props['io_group']], row[props['io_channel']], row[props['chip_id']])
+    new_packet.packet_type = row[props['packet_type']]
+    new_packet.parity = row[props['parity']]
+    new_packet.register_address = row[props['register_address']]
+    new_packet.register_data = row[props['register_data']]
+    new_packet.direction = row[props['direction']]
+    print(new_packet)
+    print(config_read_packet_v2)
+    assert new_packet == config_read_packet_v2
+
+def test_to_file_v2_0_timestamp_packet(tmpfile, timestamp_packet):
+    to_file(tmpfile, [timestamp_packet], version='2.0')
+    f = h5py.File(tmpfile, 'r')
+    assert len(f['packets']) == 1
+    row = f['packets'][0]
+    props = dtype_property_index_lookup['2.0']['packets']
+    assert row[3] == 4  # packet_type
+    new_packet = TimestampPacket()
+    new_packet.timestamp = row[props['timestamp']]
+    assert new_packet == timestamp_packet
+
+def test_to_file_v2_0_message_packet(tmpfile, message_packet,
+        data_packet_v2):
+    to_file(tmpfile, [data_packet_v2, message_packet], version='2.0')
+    f = h5py.File(tmpfile, 'r')
+    assert len(f['packets']) == 2
+    row = f['packets'][1]
+    props = dtype_property_index_lookup['2.0']['packets']
+    message_props = dtype_property_index_lookup['2.0']['messages']
+    assert row[props['packet_type']] == 5
+    assert row[props['timestamp']] == 1234567
+    assert len(f['messages']) == 1
+    message_row = f['messages'][0]
+    assert message_row[message_props['index']] == 0
+    assert message_row[message_props['message']] == b'Hello, World!'
+    assert message_row[message_props['timestamp']] == 1234567
+
+def test_to_file_v2_0_many_packets(tmpfile, data_packet_v2, config_read_packet_v2,
+        timestamp_packet, message_packet):
+    to_file(tmpfile, [data_packet_v2, config_read_packet_v2,
+        timestamp_packet, message_packet], version='2.0')
+    f = h5py.File(tmpfile, 'r')
+    assert len(f['packets']) == 4
+    assert len(f['messages']) == 1
+
+def test_from_file_v2_0_many_packets(tmpfile, data_packet_v2,
+        config_read_packet_v2, timestamp_packet, message_packet):
+    packets = [data_packet_v2, config_read_packet_v2, timestamp_packet,
+            message_packet]
+    to_file(tmpfile, packets, version='2.0')
+    new_packets_dict = from_file(tmpfile)
+    assert new_packets_dict['created']
+    assert new_packets_dict['version']
+    assert new_packets_dict['modified']
+    new_packets = new_packets_dict['packets']
+    _ = [print(str(packet) +'\n' + str(packets[i])) for i,packet in enumerate(new_packets)]
+    assert new_packets[0] == data_packet_v2
+    assert new_packets[1] == config_read_packet_v2
     assert new_packets[2] == timestamp_packet
     assert new_packets[3] == message_packet
 

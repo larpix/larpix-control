@@ -6,9 +6,9 @@ from __future__ import absolute_import
 from __future__ import print_function
 import sys
 
-import larpix.larpix as larpix
-from larpix.io.zmq_io import ZMQ_IO
-from larpix.logger.h5_logger import HDF5Logger
+from . import Controller
+from .io import ZMQ_IO
+from .logger.h5_logger import HDF5Logger
 
 ## For interactive mode
 VERSION = sys.version_info
@@ -51,7 +51,7 @@ def quickcontroller(board='pcb-5', interactive=False, io=None, logger=None,
     if logger is None:
         logger = HDF5Logger(filename=log_filepath)
         logger.open()
-    controller = larpix.Controller()
+    controller = Controller()
     controller.io = io
     controller.logger = logger
     controller.load(controller_config)
