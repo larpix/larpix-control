@@ -73,7 +73,6 @@ def load(filename, config_type=None):
     if os.path.isfile(filename):
         with open(filename, 'r') as f:
             data = _load_and_verify(f, config_type)
-            print(data)
             return data
     elif os.path.isfile(os.path.join(os.path.dirname(__file__), filename)):
         with open(os.path.join(os.path.dirname(__file__), filename), 'r') as f:
