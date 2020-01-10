@@ -11,10 +11,6 @@ import warnings
 from larpix.io import IO
 from larpix import Packet
 
-warnings.simplefilter('default', DeprecationWarning)
-warnings.warn('The serialport module is deprecated and will be removed '
-        'in larpix-control v3.0.0.', DeprecationWarning)
-
 class SerialPort(IO):
     '''Wrapper for various serial port interfaces across platforms.
 
@@ -57,9 +53,8 @@ class SerialPort(IO):
     @staticmethod
     def _format_UART(packet):
         packet_bytes = packet.bytes()
-        daisy_chain_byte = b'\x00'
         formatted_packet = (SerialPort.start_byte + packet_bytes +
-                daisy_chain_byte + SerialPort.stop_byte)
+                SerialPort.stop_byte)
         return formatted_packet
 
     @staticmethod
@@ -67,9 +62,8 @@ class SerialPort(IO):
         packet_size = SerialPort.fpga_packet_size
         start_byte = SerialPort.start_byte[0]
         stop_byte = SerialPort.stop_byte[0]
-        metadata_byte_index = 8
-        data_bytes = slice(1,8)
-        # parse the bytestream into Packets + metadata
+        data_bytes = slice(1,9)
+        # parse the bytestream into Packets
         byte_packets = []
         skip_slices = []
         bytestream_len = len(bytestream)
@@ -78,18 +72,7 @@ class SerialPort(IO):
         while index <= last_possible_start:
             if (bytestream[index] == start_byte and
                     bytestream[index+packet_size-1] == stop_byte):
-                '''
-                metadata = current_stream[metadata_byte_index]
-                # This is necessary because of differences between
-                # Python 2 and Python 3
-                if isinstance(metadata, int):  # Python 3
-                    code = 'uint:8='
-                elif isinstance(metadata, str):  # Python 2
-                    code = 'bytes:1='
-                byte_packets.append((Bits(code + str(metadata)),
-                    Packet(current_stream[data_bytes])))
-                '''
-                byte_packets.append(Packet(bytestream[index+1:index+8]))
+                byte_packets.append(Packet(bytestream[index+1:index+9]))
                 index += packet_size
             else:
                 # Throw out everything between here and the next start byte.
@@ -131,7 +114,8 @@ class SerialPort(IO):
         for packet_list in byte_packet_list:
             packets += packet_list
         for packet in packets:
-            packet.chip_key = cls.generate_chip_key(chip_id=packet.chipid, io_chain=0)
+            packet.io_channel = 1
+            packet.io_group = 1
         return packets
 
     @classmethod
