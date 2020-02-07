@@ -542,11 +542,13 @@ class Controller(object):
         subnetwork = self.network[io_group][io_channel]
         if chip_id is None:
             chip_ids = [chip_id for chip_id in subnetwork['miso_us'].nodes() if subnetwork['miso_us'].nodes[chip_id]['root']]
+            configured_chips = set(chip_ids)
 
             while chip_ids:
                 for chip_id in chip_ids:
                     self.init_network(io_group, io_channel, chip_id=chip_id)
-                chip_ids = [link[1] for link in subnetwork['miso_us'].out_edges(chip_ids)]
+                    configured_chips.add(chip_id)
+                chip_ids = [link[1] for link in subnetwork['miso_us'].out_edges(chip_ids) if not link[1] in configured_chips]
             return
 
         packets = []
