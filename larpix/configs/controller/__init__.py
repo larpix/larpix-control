@@ -24,7 +24,7 @@ The v2 configuration file is a standard JSON file structured as follows:
                 "<io_channel>": {
                     "miso_us_uart_map": [<uart channels for io_group, optional>, ...],
                     ...
-                    "chips": [
+                    "nodes": [
                         {
                             "chip_id": <chip id of first chip to load into network>,
                             "miso_us": [<chip_ids of upstream chips, null if no upstream chip, optional>],
@@ -59,14 +59,18 @@ For the configuration file, the basic logic for each hydra network is that for e
 chip, you must specify a chip id. Links within the directed graphs are then specified via
 4-item arrays. A simplified example is provided below:
 
+.. parsed-literal::
     "network": {
         "1": {
             "2": {
                 "chips": [
                     {
+                        "chip_id": "ext",
+                        "miso_us": [null,null,2,null]
+                    }
+                    {
                         "chip_id": 2,
                         "miso_us": [3,null,null,null],
-                        "miso_ds": ["ext",null,null,null],
                         "root": true
                     },
                     {
@@ -86,17 +90,19 @@ chip in the network. Within the chip specification, the "chip_id" field sets
 the chip_id configuration register for that chip and must be unique within
 each io_group, io_channel sub-network. The "miso_us" array lists the chip_ids
 that should receive upstream packets from this chip's miso_us channels. Using
-the miso_us_uart map specified in the example, index=0 refers to uart channel 0,
-index=1 refers to uart channel 1, etc. The miso_us should be specified for each
-chip that is linked to other chips.
+the miso_us_uart map specified in the example, index=0 refers to a connection on
+miso uart channel 0, index=1 refers to uart channel 1, etc. The miso_us should
+be specified for each chip that is linked to other chips.
 
-In each network there must be at least 1 "root" chip. The chip must have the
-"root" field set to true and the "miso_ds" field populated. For the root chip,
-the "miso_ds" field should have one channel with "ext", where the "ext" refers
-to an external component (i.e. the fpga). The position within the "miso_ds"
-array should reflect which uart channel packets should be sent out of the root
-chip. The uart channel of each position in miso_ds is defined by the
-miso_ds_uart_map, so for the example configuration the uart2 will sending
+'Dummy' nodes can be specified by using a string for the "chip_id", rather than
+an integer. These represent network links to non-chip object, e.g. an fpga, etc.
+In general, you must specify one dummy link that points to at least one chip on
+the "miso_us" network.
+
+In each network there must be at least 1 "root" node. The node must have the
+"root" field set to true. This determines the order in which chips will be configured.
+The uart channel of each position in miso_ds network is inferred by the
+miso_ds_uart_map, so for the example configuration uart0 of chip 2 will send
 downstream packets. All other network links will be inferred from these fields.
 
 If you'd like to manually specify miso_us links for a chip,
@@ -136,6 +142,21 @@ have chip 2 with mosi enabled on uart channel 0 and chip 3 with mosi enabled on
 uart channel 2. You can override this behavior by setting the "mosi" field to
 an array of the chips to link on the mosi graph. To override which physical uart
 to used, the "mosi_uart_map" is used in a similar fashion as miso_us.
+
+To properly create the uart maps, it requires knowing the routing of mosi/miso
+channels between the chips. The miso_us_uart_map determines which uart miso
+channel to enable if a miso upstream graph edge originates from the given chip.
+The miso_ds_uart_map determines which uart miso channel to enable if an a miso
+downstream graph edge originates from the given chip. And the mosi_uart_map
+determines which uart channel to enable if a mosi graph edge ends on the given
+chip. E.g.::
+
+    "miso_us_uart_map": [3,0,1,2],
+    "miso_ds_uart_map": [1,2,3,0],
+    "mosi_uart_map": [0,3,2,1]
+
+declares that a link created at index 1 will use uart channel 0 (if it is a miso_us link),
+channel 2 (if it is a miso_ds link), or channel 3 (if it is a mosi link).
 
 Finally, the ``'root'`` field is used to specify special 'root' nodes within the
 network. These are the nodes that will be configured first when initializing a

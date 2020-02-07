@@ -28,12 +28,15 @@ def network_config(tmpdir):
         "network": {
             "1": {
                 "1": {
-                    "chips": [
+                    "nodes": [
+                        {
+                            "chip_id": "ext",
+                            "root": True,
+                            "miso_us": [2, None, None, None]
+                        },
                         {
                             "chip_id": 2,
                             "miso_us": [3, None, None, 12],
-                            "root": True,
-                            "miso_ds": ["ext", None, None, None]
                         },
                         {
                             "chip_id": 3
@@ -46,11 +49,11 @@ def network_config(tmpdir):
                             "chip_id": 13
                         }
                     ],
-                    "miso_us_uart_map": [0,1,2,3],
-                    "miso_ds_uart_map": [2,3,0,1],
                 }
             },
-
+            "miso_us_uart_map": [0,1,2,3],
+            "miso_ds_uart_map": [2,3,0,1],
+            "mosi_uart_map": [2,3,0,1]
         }
     }
     with open(filename,'w') as of:
@@ -67,11 +70,14 @@ def inheriting_network_config(tmpdir, network_config):
         "network": {
             "1": {
                 "2": {
-                    "chips": [
+                    "nodes": [
+                        {
+                            "chip_id": "ext",
+                            "root": True,
+                            "miso_us": [None, None, 123, None]
+                        },
                         {
                             "chip_id": 123,
-                            "root": True,
-                            "miso_ds": ["ext", None, None, None]
                         }
                     ],
                     "miso_us_uart_map": [0,1,2,3],
@@ -97,7 +103,7 @@ def test_controller_network(network_controller):
     for chip_key in c.chips:
         for network in networks:
             assert chip_key.chip_id in c.network[chip_key.io_group][chip_key.io_channel][network].nodes()
-    us_links = [(2,3),(2,12),(12,13)]
+    us_links = [('ext',2),(2,3),(2,12),(12,13)]
     ds_links = [(3,2),(12,2),(13,12),(2,'ext')]
     mosi_links = [link[::-1] for link in us_links] + [link[::-1] for link in ds_links]
     assert set(c.network[chip_key.io_group][chip_key.io_channel]['miso_us'].edges()) == set(us_links)
@@ -106,27 +112,27 @@ def test_controller_network(network_controller):
 
     c.remove_chip('1-1-3')
     assert len(c.chips) == 3
-    assert len(c.network[1][1]['miso_us'].edges()) == 2
+    assert len(c.network[1][1]['miso_us'].edges()) == 3
     assert len(c.network[1][1]['miso_ds'].edges()) == 3
-    assert len(c.network[1][1]['mosi'].edges()) == 5
+    assert len(c.network[1][1]['mosi'].edges()) == 6
     assert not any(3 in c.network[1][1][network] for network in networks)
 
     c.add_chip('1-1-3')
     assert len(c.chips) == 4
-    assert len(c.network[1][1]['miso_us'].nodes()) == 4
+    assert len(c.network[1][1]['miso_us'].nodes()) == 5
     assert len(c.network[1][1]['miso_ds'].nodes()) == 5
     assert len(c.network[1][1]['mosi'].nodes()) == 5
     assert all(3 in c.network[1][1][network] for network in networks)
 
     c.add_network_link(1,1,'miso_us',(2,3),0)
-    assert len(c.network[1][1]['miso_us'].edges()) == 3
+    assert len(c.network[1][1]['miso_us'].edges()) == 4
     assert c.network[1][1]['miso_us'].edges[(2,3)]['uart'] == 0
     c.add_network_link(1,1,'miso_ds',(3,2),2)
     assert len(c.network[1][1]['miso_ds'].edges()) == 4
     assert c.network[1][1]['miso_ds'].edges[(3,2)]['uart'] == 2
     c.add_network_link(1,1,'mosi',(3,2),0)
     c.add_network_link(1,1,'mosi',(2,3),2)
-    assert len(c.network[1][1]['mosi'].edges()) == 7
+    assert len(c.network[1][1]['mosi'].edges()) == 8
     assert c.network[1][1]['mosi'].edges[(3,2)]['uart'] == 0
     assert c.network[1][1]['mosi'].edges[(2,3)]['uart'] == 2
 
@@ -142,9 +148,9 @@ def test_controller_init(network_controller):
     c = network_controller
     assert len(c.chips) == 4
     assert len(c.network[1][1]) == 3
-    assert len(c.network[1][1]['miso_us'].edges()) == 3
+    assert len(c.network[1][1]['miso_us'].edges()) == 4
     assert len(c.network[1][1]['miso_ds'].edges()) == 4
-    assert len(c.network[1][1]['mosi'].edges()) == 7
+    assert len(c.network[1][1]['mosi'].edges()) == 8
     assert ('ext', 2) in c.network[1][1]['mosi'].in_edges(2)
 
     c.init_network(1,1,2)
