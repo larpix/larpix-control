@@ -31,6 +31,6 @@
         },
         "miso_us_uart_map": [0,1,2,3],
         "miso_ds_uart_map": [2,3,0,1],
-        "mosi_uart_map": [0,1,2,3]
+        "mosi_uart_map": [2,3,0,1]
     }
 }
