@@ -542,11 +542,13 @@ class Controller(object):
         subnetwork = self.network[io_group][io_channel]
         if chip_id is None:
             chip_ids = [chip_id for chip_id in subnetwork['miso_us'].nodes() if subnetwork['miso_us'].nodes[chip_id]['root']]
+            configured_chips = set(chip_ids)
 
             while chip_ids:
                 for chip_id in chip_ids:
                     self.init_network(io_group, io_channel, chip_id=chip_id)
-                chip_ids = [link[1] for link in subnetwork['miso_us'].out_edges(chip_ids)]
+                    configured_chips.add(chip_id)
+                chip_ids = [link[1] for link in subnetwork['miso_us'].out_edges(chip_ids) if not link[1] in configured_chips]
             return
 
         packets = []
@@ -565,7 +567,7 @@ class Controller(object):
             packets += self[parent_chip_key].get_configuration_write_packets(registers=Configuration_v2.register_map['enable_miso_upstream'])
 
         if chip_key:
-            # Skip configuring the chip if it is actually dummy node
+            # Only modify chip configuration if node points to a chip object
 
             # Write chip_id to specified chip (assuming it has chip id 1)
             self[chip_key].config.chip_id = chip_key.chip_id
@@ -605,28 +607,32 @@ class Controller(object):
         subnetwork = self.network[io_group][io_channel]
         if chip_id is None:
             chip_ids = [chip_id for chip_id in subnetwork['miso_us'].nodes() if not subnetwork['miso_us'].out_edges(chip_id)]
+            configured_chips = set(chip_ids)
 
             while chip_ids:
                 for chip_id in chip_ids:
-                    if isinstance(chip_id, int):
-                        self.reset_network(io_group, io_channel, chip_id=chip_id)
-                chip_ids = [link[0] for link in subnetwork['miso_us'].in_edges(chip_ids)]
+                    self.reset_network(io_group, io_channel, chip_id=chip_id)
+                    configured_chips.add(chip_id)
+                chip_ids = [link[0] for link in subnetwork['miso_us'].in_edges(chip_ids) if not link[0] in configured_chips]
             return
 
         packets = []
-        chip_key = Key(io_group, io_channel, chip_id)
+        chip_key = None
+        if isinstance(chip_id, int):
+            # Only modify chip configuration if node points to a chip object
+            chip_key = Key(io_group, io_channel, chip_id)
 
-        # Enable mosi
-        self[chip_key].config.enable_mosi = [1]*4
-        packets += self[chip_key].get_configuration_write_packets(registers=Configuration_v2.register_map['enable_mosi'])
+            # Enable mosi
+            self[chip_key].config.enable_mosi = [1]*4
+            packets += self[chip_key].get_configuration_write_packets(registers=Configuration_v2.register_map['enable_mosi'])
 
-        # Disable miso_downstream
-        self[chip_key].config.enable_miso_downstream = [0]*4
-        packets += self[chip_key].get_configuration_write_packets(registers=Configuration_v2.register_map['enable_miso_downstream'])
+            # Disable miso_downstream
+            self[chip_key].config.enable_miso_downstream = [0]*4
+            packets += self[chip_key].get_configuration_write_packets(registers=Configuration_v2.register_map['enable_miso_downstream'])
 
-        # Write default chip_id to specified chip
-        self[chip_key].config.chip_id = 1
-        packets += self[chip_key].get_configuration_write_packets(registers=Configuration_v2.register_map['chip_id'])
+            # Write default chip_id to specified chip
+            self[chip_key].config.chip_id = 1
+            packets += self[chip_key].get_configuration_write_packets(registers=Configuration_v2.register_map['chip_id'])
 
         # Disable miso_upstream on parent chips
         for us_link in subnetwork['miso_us'].in_edges(chip_id):
