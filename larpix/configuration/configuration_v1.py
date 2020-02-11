@@ -482,7 +482,7 @@ class Configuration_v1(BaseConfiguration):
         '''
         self.csa_monitor_select = [0] * Configuration_v1.num_channels
 
-    def all_data(self):
+    def all_data(self, **kwargs):
         bits = []
         num_channels = Configuration_v1.num_channels
         for channel in range(num_channels):
@@ -510,7 +510,7 @@ class Configuration_v1(BaseConfiguration):
         bits.append(self.reset_cycles_data(2))
         return bits
 
-    def from_dict_registers(self, d):
+    def from_dict_registers(self, d, **kwargs):
         '''
         Load in the configuration specified by a dict of (register,
         value) pairs.

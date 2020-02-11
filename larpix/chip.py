@@ -72,7 +72,11 @@ class Chip(object):
         if registers is None:
             registers = range(conf.num_registers)
         packets = []
-        packet_register_data = conf.all_data()
+        packet_register_data = []
+        if self.asic_version == 1:
+            packet_register_data = conf.all_data()
+        else:
+            packet_register_data = conf.all_data(endian=Packet_v2.endian)
         for i, data in enumerate(packet_register_data):
             if i not in registers:
                 continue
@@ -134,7 +138,10 @@ class Chip(object):
             for packet in self.reads[index]:
                 if packet.packet_type == packet.CONFIG_READ_PACKET:
                     updates[packet.register_address] = packet.register_data
-        self.config.from_dict_registers(updates)
+        if self.asic_version == 1:
+            self.config.from_dict_registers(updates)
+        else:
+            self.config.from_dict_registers(updates, endian=Packet_v2.endian)
 
     def export_reads(self, only_new_reads=True):
         '''

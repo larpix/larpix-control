@@ -67,17 +67,19 @@ class Packet_v2(object):
     CROSS_TRIG = 2
     PERIODIC_TRIG = 3
 
+    endian = 'little'
+
     def __init__(self, bytestream=None):
         if bytestream is None:
-            self.bits = bitarray(self.size)
+            self.bits = bitarray(self.size,endian=self.endian)
             self.bits.setall(False)
             return
         elif len(bytestream) == self.num_bytes:
             # Parse the bytestream. Remember that bytestream[0] goes at
             # the 'end' of the BitArray
-            reversed_bytestream = bytestream[::-1]
-            self.bits = bitarray()
-            self.bits.frombytes(reversed_bytestream)
+            # reversed_bytestream = bytestream[::-1]
+            self.bits = bitarray(endian=self.endian)
+            # self.bits.frombytes(reversed_bytestream)
         else:
             raise ValueError('Invalid number of bytes: %s' %
                     len(bytestream))
@@ -148,7 +150,7 @@ class Packet_v2(object):
         Byte 0 is still the first byte to send out and contains bits [0:7]
 
         '''
-        return self.bits.tobytes()[::-1]
+        return self.bits.tobytes() #[::-1]
 
     def export(self):
         '''
@@ -283,15 +285,15 @@ class Packet_v2(object):
     @property
     def timestamp(self):
         if self.fifo_diagnostics_enabled:
-            return bah.touint(self.bits[self.fifo_diagnostics_timestamp_bits])
-        return bah.touint(self.bits[self.timestamp_bits])
+            return bah.touint(self.bits[self.fifo_diagnostics_timestamp_bits], endian=self.endian)
+        return bah.touint(self.bits[self.timestamp_bits], endian=self.endian)
 
     @timestamp.setter
     def timestamp(self, value):
         if self.fifo_diagnostics_enabled:
-            self.bits[self.fifo_diagnostics_timestamp_bits] = bah.fromuint(value, self.fifo_diagnostics_timestamp_bits)
+            self.bits[self.fifo_diagnostics_timestamp_bits] = bah.fromuint(value, self.fifo_diagnostics_timestamp_bits, endian=self.endian)
         else:
-            self.bits[self.timestamp_bits] = bah.fromuint(value, self.timestamp_bits)
+            self.bits[self.timestamp_bits] = bah.fromuint(value, self.timestamp_bits, endian=self.endian)
 
     @property
     def local_fifo_half(self):
@@ -338,50 +340,50 @@ class Packet_v2(object):
     def local_fifo_events(self):
         if self.fifo_diagnostics_enabled:
             bit_slice = self.local_fifo_events_bits
-            return bah.touint(self.bits[bit_slice])
+            return bah.touint(self.bits[bit_slice], endian=self.endian)
         return None
 
     @local_fifo_events.setter
     def local_fifo_events(self, value):
         if self.fifo_diagnostics_enabled:
             bit_slice = self.local_fifo_events_bits
-            self.bits[bit_slice] = bah.fromuint(value, bit_slice)
+            self.bits[bit_slice] = bah.fromuint(value, bit_slice, endian=self.endian)
 
     @property
     def shared_fifo_events(self):
         if self.fifo_diagnostics_enabled:
             bit_slice = self.shared_fifo_events_bits
-            return bah.touint(self.bits[bit_slice])
+            return bah.touint(self.bits[bit_slice], endian=self.endian)
         return None
 
     @shared_fifo_events.setter
     def shared_fifo_events(self, value):
         if self.fifo_diagnostics_enabled:
             bit_slice = self.shared_fifo_events_bits
-            self.bits[bit_slice] = bah.fromuint(value, bit_slice)
+            self.bits[bit_slice] = bah.fromuint(value, bit_slice, endian=self.endian)
 
     @property
     def chip_id(self):
         bit_slice = self.chip_id_bits
-        return bah.touint(self.bits[bit_slice])
+        return bah.touint(self.bits[bit_slice], endian=self.endian)
 
     @chip_id.setter
     def chip_id(self, value):
         if hasattr(self,'_chip_key'):
             del self._chip_key
         bit_slice = self.chip_id_bits
-        self.bits[bit_slice] = bah.fromuint(value, bit_slice)
+        self.bits[bit_slice] = bah.fromuint(value, bit_slice, endian=self.endian)
 
     def _basic_getter(name):
         def basic_getter_func(self):
             bit_slice = getattr(self, name + '_bits')
-            return bah.touint(self.bits[bit_slice])
+            return bah.touint(self.bits[bit_slice], endian=self.endian)
         return basic_getter_func
 
     def _basic_setter(name):
         def basic_setter_func(self, value):
             bit_slice = getattr(self, name + '_bits')
-            self.bits[bit_slice] = bah.fromuint(value, bit_slice)
+            self.bits[bit_slice] = bah.fromuint(value, bit_slice, endian=self.endian)
         return basic_setter_func
 
     packet_type = property(_basic_getter('packet_type'),_basic_setter('packet_type'))

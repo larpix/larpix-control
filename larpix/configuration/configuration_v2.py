@@ -56,16 +56,19 @@ class Configuration_v2(BaseConfiguration):
         super(Configuration_v2, self).__init__()
         return
 
-    def all_data(self):
+    def all_data(self, endian='big'):
         bits = []
         for register_name in self.register_names:
             register_data =  getattr(self, register_name+'_data')
             for register_addr, register_bits in register_data:
                 if len(bits) == register_addr:
-                    bits += [register_bits]
+                    if endian[0] == 'b':
+                        bits += [register_bits]
+                    else:
+                        bits += [register_bits[::-1]]
         return bits
 
-    def from_dict_registers(self, d):
+    def from_dict_registers(self, d, endian='big'):
         '''
         Load in the configuration specified by a dict of (register,
         value) pairs.
@@ -74,7 +77,7 @@ class Configuration_v2(BaseConfiguration):
         for address, value in d.items():
             register_names = self.register_map_inv[address]
             for register_name in register_names:
-                setattr(self, register_names[0] + '_data', (address, bah.fromuint(value,8)))
+                setattr(self, register_names[0] + '_data', (address, bah.fromuint(value,8,endian=endian)))
         return
 
     def _is_register_value_pair(self, item):
