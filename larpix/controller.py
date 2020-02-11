@@ -970,7 +970,10 @@ class Controller(object):
 
         for chip_key in chip_keys:
             expected_data = dict()
-            expected_data = dict([(register_address, bah.touint(bits)) for register_address, bits in enumerate(self[chip_key].config.all_data())])
+            if self[chip_key].asic_version == 1:
+                expected_data = dict([(register_address, bah.touint(bits)) for register_address, bits in enumerate(self[chip_key].config.all_data())])
+            else:
+                expected_data = dict([(register_address, bah.touint(bits, endian=Packet_v2.endian)) for register_address, bits in enumerate(self[chip_key].config.all_data())])
             for register in registers[chip_key]:
                 configuration_data[chip_key][register] = (expected_data[register], configuration_data[chip_key][register][1])
                 if not configuration_data[chip_key][register][0] == configuration_data[chip_key][register][1]:
