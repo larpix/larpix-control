@@ -33,7 +33,7 @@
         "voltage_monitor_bank2": [0, 0, 0],
         "voltage_monitor_bank3": [0, 0, 0],
         "voltage_monitor_refgen": [0, 0, 0, 0, 0, 0, 0, 0],
-        "digital_monitor_enable": 1,
+        "digital_monitor_enable": 0,
         "digital_monitor_select": 0,
         "digital_monitor_chan": 0,
         "slope_control0": 0,
