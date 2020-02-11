@@ -11,7 +11,7 @@ from .key import Key
 from .chip import Chip
 from .configuration import Configuration_v1, Configuration_v2
 from .packet import Packet_v1, Packet_v2, PacketCollection
-import larpix.bitarrayhelper as bah
+from . import bitarrayhelper as bah
 
 class Controller(object):
     '''
