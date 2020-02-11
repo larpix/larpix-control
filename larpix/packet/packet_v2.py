@@ -57,14 +57,22 @@ class Packet_v2(object):
 
     fifo_diagnostics_enabled = False
 
+    # DATA_PACKET = 0
+    # TEST_PACKET = 1
+    # CONFIG_WRITE_PACKET = 2
+    # CONFIG_READ_PACKET = 3
     DATA_PACKET = 0
-    TEST_PACKET = 1
-    CONFIG_WRITE_PACKET = 2
+    TEST_PACKET = 2
+    CONFIG_WRITE_PACKET = 1
     CONFIG_READ_PACKET = 3
 
+    # NORMAL_TRIG = 0
+    # EXT_TRIG = 1
+    # CROSS_TRIG = 2
+    # PERIODIC_TRIG = 3
     NORMAL_TRIG = 0
-    EXT_TRIG = 1
-    CROSS_TRIG = 2
+    EXT_TRIG = 2
+    CROSS_TRIG = 1
     PERIODIC_TRIG = 3
 
     endian = 'little'

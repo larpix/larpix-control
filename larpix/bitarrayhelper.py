@@ -11,7 +11,7 @@ def fromuint(val, nbits, endian='big'):
         if endian[0] == 'b':
             string = bin(val)[2:].zfill(nbits)
             return bitarray(string)
-        string = bin(val)[2:].ljust(nbits, '0')
+        string = bin(val)[-1:1:-1].ljust(nbits,'0')
         return bitarray(string)
     except TypeError:
         return val
