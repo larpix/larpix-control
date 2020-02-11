@@ -57,22 +57,14 @@ class Packet_v2(object):
 
     fifo_diagnostics_enabled = False
 
-    # DATA_PACKET = 0
-    # TEST_PACKET = 1
-    # CONFIG_WRITE_PACKET = 2
-    # CONFIG_READ_PACKET = 3
     DATA_PACKET = 0
-    TEST_PACKET = 2
-    CONFIG_WRITE_PACKET = 1
+    TEST_PACKET = 1
+    CONFIG_WRITE_PACKET = 2
     CONFIG_READ_PACKET = 3
 
-    # NORMAL_TRIG = 0
-    # EXT_TRIG = 1
-    # CROSS_TRIG = 2
-    # PERIODIC_TRIG = 3
     NORMAL_TRIG = 0
-    EXT_TRIG = 2
-    CROSS_TRIG = 1
+    EXT_TRIG = 1
+    CROSS_TRIG = 2
     PERIODIC_TRIG = 3
 
     endian = 'little'
@@ -83,11 +75,8 @@ class Packet_v2(object):
             self.bits.setall(False)
             return
         elif len(bytestream) == self.num_bytes:
-            # Parse the bytestream. Remember that bytestream[0] goes at
-            # the 'end' of the BitArray
-            # reversed_bytestream = bytestream[::-1]
             self.bits = bitarray(endian=self.endian)
-            # self.bits.frombytes(reversed_bytestream)
+            self.bits.frombytes(bytestream)
         else:
             raise ValueError('Invalid number of bytes: %s' %
                     len(bytestream))
@@ -224,7 +213,6 @@ class Packet_v2(object):
                 self.bits = bitarray(value)
             else:
                 setattr(self, key, value)
-            print(key, self.bits)
 
     @property
     def chip_key(self):

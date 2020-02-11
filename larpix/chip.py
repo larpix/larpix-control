@@ -72,11 +72,7 @@ class Chip(object):
         if registers is None:
             registers = range(conf.num_registers)
         packets = []
-        packet_register_data = []
-        if self.asic_version == 1:
-            packet_register_data = conf.all_data()
-        else:
-            packet_register_data = conf.all_data(endian=Packet_v2.endian)
+        packet_register_data = conf.all_data()
         for i, data in enumerate(packet_register_data):
             if i not in registers:
                 continue

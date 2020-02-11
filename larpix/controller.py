@@ -11,6 +11,7 @@ from .key import Key
 from .chip import Chip
 from .configuration import Configuration_v1, Configuration_v2
 from .packet import Packet_v1, Packet_v2, PacketCollection
+import larpix.bitarrayhelper as bah
 
 class Controller(object):
     '''
@@ -968,7 +969,8 @@ class Controller(object):
                     configuration_data[packet_key][register_address] = (None, packet.register_data)
 
         for chip_key in chip_keys:
-            expected_data = dict([(register_address, int(bits.to01(),2)) for register_address, bits in enumerate(self[chip_key].config.all_data())])
+            expected_data = dict()
+            expected_data = dict([(register_address, bah.touint(bits)) for register_address, bits in enumerate(self[chip_key].config.all_data())])
             for register in registers[chip_key]:
                 configuration_data[chip_key][register] = (expected_data[register], configuration_data[chip_key][register][1])
                 if not configuration_data[chip_key][register][0] == configuration_data[chip_key][register][1]:

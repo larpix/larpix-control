@@ -49,7 +49,6 @@ class Configuration_v2(BaseConfiguration):
     num_bits = 1896
     num_channels = 64
     # Additional class properties regarding configuration registers are set at the end of the file.
-    # Additional class properties regarding configuration registers are set at the end of the file.
 
     def __init__(self):
         # Note: properties, getters and setters are constructed after this class definition at the bottom of the file.
@@ -506,7 +505,7 @@ _property_configuration = OrderedDict([
         ('csa_enable',
             (_list_property, ((int,bool), 0, 1, Configuration_v2.num_channels, 1), (528, 592))),
         ('ibias_tdac',
-            (_basic_property, (int, 0, 15), (592, 696))),
+            (_basic_property, (int, 0, 15), (592, 596))),
         ('ibias_comp',
             (_basic_property, (int, 0, 15), (600, 604))),
         ('ibias_buffer',
