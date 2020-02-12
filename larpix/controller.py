@@ -794,9 +794,9 @@ class Controller(object):
             sleep_time = stop_time - time.time()
             if sleep_time > 0:
                 time.sleep(sleep_time)
-            packets, bytestream = self.read()
-            self.stop_listening()
-            self.store_packets(packets, bytestream, message)
+        packets, bytestream = self.read()
+        self.stop_listening()
+        self.store_packets(packets, bytestream, message)
 
     def multi_write_configuration(self, chip_reg_pairs, write_read=0,
             message=None):
