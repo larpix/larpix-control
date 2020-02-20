@@ -182,6 +182,22 @@ class SerialPort(IO):
         packets = self.decode([data_in])
         return (packets, data_in)
 
+    def set_larpix_uart_clk_ratio(self, value):
+        '''
+        Sends a special command to modify the larpix uart clk ratio (how many
+        clock cycles correspond to one bit). A value of 2 means 1 uart bit == 2
+        clk cycles
+
+        '''
+        data_out = (
+            b'c' # start byte
+            + b'\x00' # address
+            + fromuint(value, 8, endian='little').tobytes()
+            + b'\x00'*6 # unused
+            + b's' # stop byte
+            )
+        self._write(data_out)
+
     @classmethod
     def _guess_port(cls):
         '''Guess at correct port name based on platform'''
