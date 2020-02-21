@@ -10,6 +10,7 @@ import warnings
 
 from larpix.io import IO
 from larpix import Packet
+import larpix.bitarrayhelper as bah
 
 class SerialPort(IO):
     '''Wrapper for various serial port interfaces across platforms.
@@ -192,9 +193,9 @@ class SerialPort(IO):
         data_out = (
             b'c' # start byte
             + b'\x00' # address
-            + fromuint(value, 8, endian='little').tobytes()
+            + bah.fromuint(value, 8, endian='big').tobytes()
             + b'\x00'*6 # unused
-            + b's' # stop byte
+            + b'q' # stop byte
             )
         self._write(data_out)
 
