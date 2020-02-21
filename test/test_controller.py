@@ -233,3 +233,19 @@ def test_controller_reset(network_controller):
         assert c[chip_key].config.chip_id == 1
         assert c[chip_key].config.enable_miso_downstream == [0,0,0,0]
         assert c[chip_key].config.enable_mosi == [1,1,1,1]
+
+def test_controller_network_traversal(network_controller):
+    c = network_controller
+
+    keys = c.get_network_keys(1,1,root_first_traversal=True)
+    assert len(keys) == 4
+    assert keys[0] == '1-1-2'
+    assert set(keys[1:3]) == set(['1-1-3','1-1-12'])
+    assert keys[3] == '1-1-13'
+
+    keys = c.get_network_keys(1,1,root_first_traversal=False)
+    assert len(keys) == 4
+    assert keys[0] == '1-1-13'
+    assert set(keys[1:3]) == set(['1-1-3','1-1-12'])
+    assert keys[3] == '1-1-2'
+

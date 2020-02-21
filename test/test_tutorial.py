@@ -73,6 +73,9 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
     controller.init_network(1,1,2) # configures only chip 2
     controller.init_network(1,1,3) # configures only chip 3
 
+    assert isinstance(controller.get_network_keys(1,1), list) # gets a list of chip keys starting at the root node and descending
+    assert isinstance(controller.get_network_keys(1,1,root_first_traversal=False), list) # get list of chip keys starting at deepest chips and ascending
+
 
     chip5.config.threshold_global = 35  # entire register = 1 number
     chip5.config.enable_periodic_reset = 1  # one bit as part of a register
