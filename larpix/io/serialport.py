@@ -34,6 +34,8 @@ class SerialPort(IO):
     stop_byte = b'\x71'
     max_write = 250
     fpga_packet_size = 10
+    hwm = 10000 # max bytes to read from an empty queue
+
     def __init__(self, port=None, baudrate=1000000, timeout=0):
         super(SerialPort, self).__init__()
         if port is None:
@@ -176,10 +178,12 @@ class SerialPort(IO):
         '''
         data_in = b''
         keep_reading = True
+        count = 0
         while keep_reading:
             new_data = self._read(self.max_write)
             data_in += new_data
-            keep_reading = (len(new_data) == self.max_write)
+            count = len(data_in)
+            keep_reading = (len(new_data) == self.max_write and count < self.hwm)
         packets = self.decode([data_in])
         return (packets, data_in)
 
@@ -197,6 +201,7 @@ class SerialPort(IO):
             + b'\x00'*6 # unused
             + b'q' # stop byte
             )
+        print(data_out)
         self._write(data_out)
 
     @classmethod

@@ -179,12 +179,10 @@ def _compound_data_getter(registers):
 
     '''
     def compound_data_getter_func(self):
-        bits = bitarray([])
+        bits = bitarray([0]*8)
         for register_name in registers:
-            n_bits = self.bit_map[register_name][1] - self.bit_map[register_name][0]
-            bits += bah.fromuint(getattr(self, register_name), n_bits, endian=self._endian)
-        if len(bits) < 8:
-            bits += bitarray([0]*(8-len(bits))) # pad up to full register
+            start_bit, end_bit = self.bit_map[register_name]
+            bits[start_bit%8:end_bit-start_bit+start_bit%8] = bah.fromuint(getattr(self, register_name), end_bit-start_bit, endian=self._endian)
         return [(self.register_map[registers[0]][0], bits)]
     return compound_data_getter_func
 
@@ -573,11 +571,11 @@ _property_configuration = OrderedDict([
         ('chip_id',
             (_basic_property, (int, 0, 255), (976,984))),
         ('load_config_defaults',
-            (_compound_property, (['load_config_defaults', 'enable_fifo_diagnostics', 'clk_ctrl'], (int,bool), 0, 1), (984,985))),
-        ('enable_fifo_diagnostics',
             (_compound_property, (['load_config_defaults', 'enable_fifo_diagnostics', 'clk_ctrl'], (int,bool), 0, 1), (985,986))),
+        ('enable_fifo_diagnostics',
+            (_compound_property, (['load_config_defaults', 'enable_fifo_diagnostics', 'clk_ctrl'], (int,bool), 0, 1), (986,987))),
         ('clk_ctrl',
-            (_compound_property, (['load_config_defaults', 'enable_fifo_diagnostics', 'clk_ctrl'], (int,bool), 0, 1), (986,988))),
+            (_compound_property, (['load_config_defaults', 'enable_fifo_diagnostics', 'clk_ctrl'], (int), 0, 2), (987,989))),
         ('enable_miso_upstream',
             (_list_property, ((int,bool), 0, 1, 4, 1), (992,996))),
         ('enable_miso_downstream',
