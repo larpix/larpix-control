@@ -244,23 +244,23 @@ class SerialPort(IO):
 
         '''
         data_out = b''
-        if pulse_len:
+        if not pulse_len is None:
             data_out += (
                 b'c' # start byte
                 + b'\x03' # address
-                + bah.fromuint(value, 31, endian='big').tobytes()
+                + bah.fromuint(max(pulse_len-2,0), 31, endian='big').tobytes() # -2 for proper register value -> clk cycles conv.
                 + b'\x00'*5 # unused
                 + b'q' # stop byte
                 )
-        if pulse_rep:
+        if not pulse_rep is None:
             data_out += (
                 b'c' # start byte
                 + b'\x04' # address
-                + bah.fromuint(value, 31, endian='big').tobytes()
+                + bah.fromuint(max(pulse_rep-1,0), 31, endian='big').tobytes() # -1 for proper register value -> clk cycles conv.
                 + b'\x00'*5 # unused
                 + b'q' # stop byte
                 )
-        if not data_out:
+        if data_out:
             print(data_out)
             self._write(data_out)
 
@@ -270,7 +270,7 @@ class SerialPort(IO):
         characteristics can be set by set_utility_pulse().
 
         '''
-        data_out += (
+        data_out = (
             b'c' # start byte
             + b'\x05' # address
             + b'\x01' # enable
@@ -286,7 +286,7 @@ class SerialPort(IO):
         characteristics can be set by set_utility_pulse().
 
         '''
-        data_out += (
+        data_out = (
             b'c' # start byte
             + b'\x05' # address
             + b'\x00' # disable
