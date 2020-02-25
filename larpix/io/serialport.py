@@ -204,6 +204,98 @@ class SerialPort(IO):
         print(data_out)
         self._write(data_out)
 
+    def set_larpix_reset_cnt(self, value):
+        '''
+        Sends a special command to modify the length of the reset signal
+        sent to the larpix chips. The reset will be held low for value + 1
+        larpix clk rising edges
+
+        '''
+        data_out = (
+            b'c' # start byte
+            + b'\x01' # address
+            + bah.fromuint(value, 8, endian='big').tobytes()
+            + b'\x00'*6 # unused
+            + b'q' # stop byte
+            )
+        print(data_out)
+        self._write(data_out)
+
+    def larpix_reset(self):
+        '''
+        Sends a special command to issue a larpix reset pulse. Pulse length
+        is set by set_larpix_reset_cnt().
+
+        '''
+        data_out = (
+            b'c' # start byte
+            + b'\x02' # address
+            + b'\x00'*7 # unused
+            + b'q' # stop byte
+            )
+        print(data_out)
+        self._write(data_out)
+
+    def set_utility_pulse(self, pulse_len=None, pulse_rep=None):
+        '''
+        Sends a special command to issue set up utility pulser. Pulse length
+        is the number of larpix clk cyles pulse is high, and pulse rep is the
+        number of clk cycles until the next pulse.
+
+        '''
+        data_out = b''
+        if pulse_len:
+            data_out += (
+                b'c' # start byte
+                + b'\x03' # address
+                + bah.fromuint(value, 31, endian='big').tobytes()
+                + b'\x00'*5 # unused
+                + b'q' # stop byte
+                )
+        if pulse_rep:
+            data_out += (
+                b'c' # start byte
+                + b'\x04' # address
+                + bah.fromuint(value, 31, endian='big').tobytes()
+                + b'\x00'*5 # unused
+                + b'q' # stop byte
+                )
+        if not data_out:
+            print(data_out)
+            self._write(data_out)
+
+    def enable_utility_pulse(self):
+        '''
+        Sends a special command to enable the utility pulser. Pulse
+        characteristics can be set by set_utility_pulse().
+
+        '''
+        data_out += (
+            b'c' # start byte
+            + b'\x05' # address
+            + b'\x01' # enable
+            + b'\x00'*6 # unused
+            + b'q' # stop byte
+            )
+        print(data_out)
+        self._write(data_out)
+
+    def disable_utility_pulse(self):
+        '''
+        Sends a special command to disable the utility pulser. Pulse
+        characteristics can be set by set_utility_pulse().
+
+        '''
+        data_out += (
+            b'c' # start byte
+            + b'\x05' # address
+            + b'\x00' # disable
+            + b'\x00'*6 # unused
+            + b'q' # stop byte
+            )
+        print(data_out)
+        self._write(data_out)
+
     @classmethod
     def _guess_port(cls):
         '''Guess at correct port name based on platform'''
