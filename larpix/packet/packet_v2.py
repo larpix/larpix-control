@@ -41,7 +41,7 @@ class Packet_v2(object):
 
     # only data packets
     channel_id_bits = slice(10,16)
-    timestamp_bits = slice(16,48)
+    timestamp_bits = slice(16,47)
     dataword_bits = slice(48,56)
     trigger_type_bits = slice(56,58)
     local_fifo_bits = slice(58,60)
