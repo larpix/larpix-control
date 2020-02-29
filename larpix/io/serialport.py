@@ -121,7 +121,7 @@ class SerialPort(IO):
         for i in range(len(msgs)):
             byte_packet_list[i], leftover_bytes = SerialPort._parse_input(msgs[i], leftover_bytes)
         for packet_list in byte_packet_list:
-            packets += packet_list[0]
+            packets += packet_list
         for packet in packets:
             packet.io_channel = 1
             packet.io_group = 1
