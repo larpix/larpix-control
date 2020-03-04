@@ -248,16 +248,16 @@ class SerialPort(IO):
             data_out += (
                 b'c' # start byte
                 + b'\x03' # address
-                + bah.fromuint(max(pulse_len-2,0), 31, endian='big').tobytes() # -2 for proper register value -> clk cycles conv.
-                + b'\x00'*5 # unused
+                + bah.fromuint(max(pulse_len-2,0), 32, endian='big').tobytes()[::-1] # -2 for proper register value -> clk cycles conv.
+                + b'\x00'*3 # unused
                 + b'q' # stop byte
                 )
         if not pulse_rep is None:
             data_out += (
                 b'c' # start byte
                 + b'\x04' # address
-                + bah.fromuint(max(pulse_rep-1,0), 31, endian='big').tobytes() # -1 for proper register value -> clk cycles conv.
-                + b'\x00'*5 # unused
+                + bah.fromuint(max(pulse_rep-1,0), 32, endian='big').tobytes()[::-1] # -1 for proper register value -> clk cycles conv.
+                + b'\x00'*3 # unused
                 + b'q' # stop byte
                 )
         if data_out:
