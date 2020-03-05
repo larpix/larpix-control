@@ -305,7 +305,13 @@ controller.init_network(1,1,2) # configures only chip 2
 controller.init_network(1,1,3) # configures only chip 3
 ```
 
-But this requires initializing the chips in the proper order.
+But this requires initializing the chips in the proper order. You can get the
+chip keys in order of their depth within the network via
+
+```python
+controller.get_network_keys(1,1) # gets a list of chip keys starting at the root node and descending
+controller.get_network_keys(1,1,root_first_traversal=False) # get list of chip keys starting at deepest chips and ascending
+```
 
 
 ### Adjust the configuration of the LArPix Chips

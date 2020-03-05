@@ -213,19 +213,19 @@ def test_load_inheritance(tmpdir):
     c.load(str(tmpdir.join(filename)))
     assert c.pixel_trim_dac[0] == 0
     assert c.threshold_global == 0
-    assert c.csa_gain == 1
+    assert c.csa_gain == 0
 
 def test_get_nondefault_registers():
     c = Configuration_v2()
     c.pixel_trim_dac[10] = 25
     c.threshold_global = 121
-    c.csa_gain = 0
+    c.csa_gain = 1
     c.csa_enable[35] = 0
     assert c.get_nondefault_registers() == {
             'pixel_trim_dac': [({'index': 10, 'value': 25},
                 {'index': 10, 'value': 16})],
             'threshold_global': (121, 255),
-            'csa_gain': (0, 1),
+            'csa_gain': (1, 0),
             'csa_enable': [({'index': 35, 'value': 0}, {'index': 35,
                 'value': 1})],
             }
