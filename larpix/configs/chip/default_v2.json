@@ -69,7 +69,7 @@
         "periodic_trigger_cycles": 0,
         "enable_dynamic_reset": 0,
         "enable_min_delta_adc": 0,
-        "threshold_parity": 1,
+        "threshold_polarity": 1,
         "reset_length": 1,
         "mark_first_packet": 1,
         "reset_threshold": 0,
