@@ -207,7 +207,6 @@ class SerialPort(IO):
             + b'\x00'*6 # unused
             + b'q' # stop byte
             )
-        print(data_out)
         self._write(data_out)
 
     def set_larpix_reset_cnt(self, value):
@@ -224,7 +223,6 @@ class SerialPort(IO):
             + b'\x00'*6 # unused
             + b'q' # stop byte
             )
-        print(data_out)
         self._write(data_out)
 
     def larpix_reset(self):
@@ -239,7 +237,6 @@ class SerialPort(IO):
             + b'\x00'*7 # unused
             + b'q' # stop byte
             )
-        print(data_out)
         self._write(data_out)
 
     def set_utility_pulse(self, pulse_len=None, pulse_rep=None):
@@ -267,8 +264,9 @@ class SerialPort(IO):
                 + b'q' # stop byte
                 )
         if data_out:
-            print(data_out)
             self._write(data_out)
+        else:
+            raise RuntimeError('set either or both of pulse_len and pulse_rep')
 
     def enable_utility_pulse(self):
         '''
@@ -283,7 +281,6 @@ class SerialPort(IO):
             + b'\x00'*6 # unused
             + b'q' # stop byte
             )
-        print(data_out)
         self._write(data_out)
 
     def disable_utility_pulse(self):
@@ -299,7 +296,19 @@ class SerialPort(IO):
             + b'\x00'*6 # unused
             + b'q' # stop byte
             )
-        print(data_out)
+        self._write(data_out)
+
+    def reset(self):
+        '''
+        Sends a special command to reset FPGA and larpix.
+
+        '''
+        data_out = (
+            b'c' # start byte
+            + b'\x06' # address
+            + b'\x00'*7 # unused
+            + b'q' # stop byte
+            )
         self._write(data_out)
 
     @classmethod
