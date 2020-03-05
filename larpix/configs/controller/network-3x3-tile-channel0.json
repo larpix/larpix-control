@@ -14,7 +14,8 @@
                             null,
                             null,
                             14
-                        ]
+                        ],
+                        "root": true
                     },
                     {
                         "chip_id": 14,

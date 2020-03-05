@@ -685,6 +685,8 @@ def generate_network_config(network_graphs, io_group, io_channel, name=None, pre
                 chip_config['miso_us'][default_miso_us_uart_map.index(child_uart)] = g.nodes[child]['chip_id']
             if not any(chip_config['miso_us']):
                 del chip_config['miso_us']
+            if 'root' in g.nodes[node]:
+                chip_config['root'] = True
         next_nodes = [edge[1] for edge in g.out_edges(next_nodes)]
     return network_config
 
