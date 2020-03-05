@@ -49,6 +49,7 @@ class SerialPort(IO):
         self.serial_com = None
         self._initialize_serial_com()
         self.logger = None
+        self.leftover_bytes = b''
         if not (self._logger is None):
             self.logger = self._logger
         return
@@ -61,7 +62,7 @@ class SerialPort(IO):
         return formatted_packet
 
     @staticmethod
-    def _parse_input(bytestream):
+    def _parse_input(bytestream, leftover_bytes=b''):
         packet_size = SerialPort.fpga_packet_size
         start_byte = SerialPort.start_byte[0]
         stop_byte = SerialPort.stop_byte[0]
@@ -69,6 +70,7 @@ class SerialPort(IO):
         # parse the bytestream into Packets
         byte_packets = []
         skip_slices = []
+        bytestream = leftover_bytes + bytestream
         bytestream_len = len(bytestream)
         last_possible_start = bytestream_len - packet_size
         index = 0
@@ -84,7 +86,9 @@ class SerialPort(IO):
                 index = bytestream.find(start_byte, index+1)
                 if index == -1:
                     index = bytestream_len
-        return byte_packets
+        if index <= bytestream_len:
+            leftover_bytes = bytestream[index:]
+        return byte_packets, leftover_bytes
 
     @staticmethod
     def format_bytestream(formatted_packets):
@@ -108,18 +112,20 @@ class SerialPort(IO):
         return [SerialPort._format_UART(packet) for packet in packets]
 
     @classmethod
-    def decode(cls, msgs):
+    def decode(cls, msgs, leftover_bytes=b''):
         '''
         Decodes a list of serial port bytestreams to packets
         '''
         packets = []
-        byte_packet_list = [SerialPort._parse_input(msg) for msg in msgs]
+        byte_packet_list = [None] * len(msgs)
+        for i in range(len(msgs)):
+            byte_packet_list[i], leftover_bytes = SerialPort._parse_input(msgs[i], leftover_bytes)
         for packet_list in byte_packet_list:
             packets += packet_list
         for packet in packets:
             packet.io_channel = 1
             packet.io_group = 1
-        return packets
+        return packets, leftover_bytes
 
     @classmethod
     def is_valid_chip_key(cls, key):
@@ -184,7 +190,7 @@ class SerialPort(IO):
             data_in += new_data
             count = len(data_in)
             keep_reading = (len(new_data) == self.max_write and count < self.hwm)
-        packets = self.decode([data_in])
+        packets, self.leftover_bytes = self.decode([data_in], leftover_bytes=self.leftover_bytes)
         return (packets, data_in)
 
     def set_larpix_uart_clk_ratio(self, value):
@@ -201,7 +207,6 @@ class SerialPort(IO):
             + b'\x00'*6 # unused
             + b'q' # stop byte
             )
-        print(data_out)
         self._write(data_out)
 
     def set_larpix_reset_cnt(self, value):
@@ -218,7 +223,6 @@ class SerialPort(IO):
             + b'\x00'*6 # unused
             + b'q' # stop byte
             )
-        print(data_out)
         self._write(data_out)
 
     def larpix_reset(self):
@@ -233,7 +237,6 @@ class SerialPort(IO):
             + b'\x00'*7 # unused
             + b'q' # stop byte
             )
-        print(data_out)
         self._write(data_out)
 
     def set_utility_pulse(self, pulse_len=None, pulse_rep=None):
@@ -261,8 +264,9 @@ class SerialPort(IO):
                 + b'q' # stop byte
                 )
         if data_out:
-            print(data_out)
             self._write(data_out)
+        else:
+            raise RuntimeError('set either or both of pulse_len and pulse_rep')
 
     def enable_utility_pulse(self):
         '''
@@ -277,7 +281,6 @@ class SerialPort(IO):
             + b'\x00'*6 # unused
             + b'q' # stop byte
             )
-        print(data_out)
         self._write(data_out)
 
     def disable_utility_pulse(self):
@@ -293,7 +296,19 @@ class SerialPort(IO):
             + b'\x00'*6 # unused
             + b'q' # stop byte
             )
-        print(data_out)
+        self._write(data_out)
+
+    def reset(self):
+        '''
+        Sends a special command to reset FPGA and larpix.
+
+        '''
+        data_out = (
+            b'c' # start byte
+            + b'\x06' # address
+            + b'\x00'*7 # unused
+            + b'q' # stop byte
+            )
         self._write(data_out)
 
     @classmethod

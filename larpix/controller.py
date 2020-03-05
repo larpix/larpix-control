@@ -108,6 +108,12 @@ class Controller(object):
         controller.init_network(1,1) # configure the 1-1 network
         controller.reset_network(1,1) # revert the 1-1 network to it's original state
 
+    In the event that you need to access the chip keys of a network in the order
+    of their depth within the network, use::
+
+        controller.get_network_keys(1,1) # get a list of chip keys starting with the root node and descending into the network
+        controller.get_network_keys(1,1,root_first_traversal=False) # get a list of chip keys starting with the chips deepest in the network and ascending
+
     You may also specify a network configuration file and use this to create all
     of the necessary network links and chips. See
     <https://larpix-control.readthedocs.io/en/stable/api/configs/controller.html>
@@ -263,6 +269,34 @@ class Controller(object):
             for name in network_names:
                 self.network[io_group][io_channel][name].add_node(chip_id, root=root)
 
+    def get_network_keys(self, io_group, io_channel, root_first_traversal=True):
+        '''
+        Returns a list of chip keys in order of depth within the miso_us network
+
+        :param io_group: io group of network
+
+        :param io_channel: io channel of network
+
+        :param root_first_traversal: ``True`` to traverse network starting from root nodes then increasing in network depth, ``False`` to traverse network starting from nodes furthest from root nodes and then decreasing in network depth
+
+        '''
+        subnetwork = self.network[io_group][io_channel]['miso_us']
+        ordered_keys = []
+
+        chip_ids = [chip_id for chip_id in subnetwork.nodes() if subnetwork.nodes[chip_id]['root']]
+
+        collected_chips = set(chip_ids)
+
+        while chip_ids:
+            for chip_id in chip_ids:
+                if isinstance(chip_id, int):
+                    ordered_keys.append(Key(io_group, io_channel, chip_id))
+                collected_chips.add(chip_id)
+            chip_ids = [link[1] for link in subnetwork.out_edges(chip_ids) if not link[1] in collected_chips]
+        if root_first_traversal:
+            return ordered_keys
+        return ordered_keys[::-1]
+
     def _create_network(self, io_group, io_channel, network_names):
         '''
         Creates specified network if they don't already exist
@@ -330,7 +364,7 @@ class Controller(object):
         inherited_data = ('miso_us_uart_map', 'miso_ds_uart_map', 'mosi_uart_map')
         orig_chips = copy(self.chips)
         orig_network = copy(self.network)
-        for chip in self.chips:
+        for chip in copy(self.chips):
             self.remove_chip(chip) # clear chips and network
         try:
             def propogate_inherited_values(network_spec, value_keys):
@@ -542,14 +576,9 @@ class Controller(object):
         '''
         subnetwork = self.network[io_group][io_channel]
         if chip_id is None:
-            chip_ids = [chip_id for chip_id in subnetwork['miso_us'].nodes() if subnetwork['miso_us'].nodes[chip_id]['root']]
-            configured_chips = set(chip_ids)
-
-            while chip_ids:
-                for chip_id in chip_ids:
-                    self.init_network(io_group, io_channel, chip_id=chip_id)
-                    configured_chips.add(chip_id)
-                chip_ids = [link[1] for link in subnetwork['miso_us'].out_edges(chip_ids) if not link[1] in configured_chips]
+            chip_keys = self.get_network_keys(io_group, io_channel, root_first_traversal=True)
+            for chip_key in chip_keys:
+                self.init_network(io_group, io_channel, chip_id=chip_key.chip_id)
             return
 
         packets = []
@@ -607,14 +636,9 @@ class Controller(object):
         '''
         subnetwork = self.network[io_group][io_channel]
         if chip_id is None:
-            chip_ids = [chip_id for chip_id in subnetwork['miso_us'].nodes() if not subnetwork['miso_us'].out_edges(chip_id)]
-            configured_chips = set(chip_ids)
-
-            while chip_ids:
-                for chip_id in chip_ids:
-                    self.reset_network(io_group, io_channel, chip_id=chip_id)
-                    configured_chips.add(chip_id)
-                chip_ids = [link[0] for link in subnetwork['miso_us'].in_edges(chip_ids) if not link[0] in configured_chips]
+            chip_keys = self.get_network_keys(io_group, io_channel, root_first_traversal=False)
+            for chip_key in chip_keys:
+                self.reset_network(io_group, io_channel, chip_id=chip_key.chip_id)
             return
 
         packets = []
@@ -709,7 +733,9 @@ class Controller(object):
         ASIC.
 
         By default, sends all registers. If registers is an int, then
-        only that register is sent. If registers is an iterable, then
+        only that register is sent. If registers is a string, then
+        the sent registers will set by looking at the configuration
+        register map. If registers is an iterable, then
         all of the registers in the iterable are sent.
 
         If write_read == 0 (default), the configurations will be sent
@@ -730,6 +756,8 @@ class Controller(object):
             registers = list(range(chip.config.num_registers))
         elif isinstance(registers, int):
             registers = [registers]
+        elif isinstance(registers, str):
+            registers = list(chip.config.register_map[registers])
         else:
             pass
         if message is None:
@@ -1058,17 +1086,17 @@ class Controller(object):
         '''
         if chip_key is None:
             for chip in self.chips:
-                self.disable_analog_monitor(chip_key=chip_key, channel=channel)
-        elif channel is None:
-            for channel in range(self[chip_key].config.num_channels):
-                self.disable_analog_monitor(chip_key=chip_key, channel=channel)
+                self.disable_analog_monitor(chip_key=chip, channel=channel)
         else:
             chip = self[chip_key]
             if chip.asic_version == 1:
                 chip.config.disable_analog_monitor()
                 self.write_configuration(chip_key, chip.config.csa_monitor_select_addresses)
             elif chip.asic_version == 2:
-                chip.config.csa_monitor_select[channel] = 0
+                if not channel is None:
+                    chip.config.csa_monitor_select[channel] = 0
+                else:
+                    chip.config.csa_monitor_select = [0]*64
                 self.write_configuration(chip_key, chip.config.register_map['csa_monitor_select'])
             else:
                 raise RuntimeError('chip has invalid asic version')
@@ -1134,11 +1162,11 @@ class Controller(object):
             chip = self[chip_key]
             if chip.asic_version == 1:
                 chip.config.disable_testpulse(channel_list)
-                self.write_configuration(chip_key, chip.conf.csa_testpulse_enable_addresses)
+                self.write_configuration(chip_key, chip.config.csa_testpulse_enable_addresses)
             elif chip.asic_version == 2:
                 for channel in channel_list:
                     chip.config.csa_testpulse_enable[channel] = 1
-                self.write_configuration(chip_key, chip.conf.register_map['csa_testpulse_enable'])
+                self.write_configuration(chip_key, chip.config.register_map['csa_testpulse_enable'])
             else:
                 raise RuntimeError('chip has invalid asic version')
         return
