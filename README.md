@@ -633,8 +633,8 @@ raw values to the proper encoding by retrieving it as a list (of length
 
 ```python
 packet_repr = raw_values[0:1] # list with one element
-packet_repr['chip_key'] # chip key for packet, e.g. b'1-1-246'
-packet_repr['adc_counts'] # list of ADC values for each packet
+packet_repr['chip_id'] # chip key for packet, e.g. 246
+packet_repr['dataword'] # list of ADC values for each packet
 packet_repr.dtype # description of data type (with names of each column)
 ```
 
@@ -642,9 +642,9 @@ You can also view entire "columns" of data:
 
 ```python
 # all packets' ADC counts, including non-data packets
-raw_values['adc_counts']
+raw_values['dataword']
 # Select based on data type using a numpy bool / "mask" array:
-raw_values['adc_counts'][raw_values['type'] == 0] # all data packets' ADC counts
+raw_values['dataword'][raw_values['packet_type'] == 0] # all data packets' ADC counts
 ```
 
 ``h5py`` and ``numpy`` optimize the retrieval of data so you can read

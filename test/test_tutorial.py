@@ -21,9 +21,9 @@ def test_min_example(capsys):
     pretend_input = ([packet], packet_bytes)
     controller.io.queue.append(pretend_input)
     controller.run(0.05, 'test run')
-    assert capsys.readouterr().out == 'Record: [ Key: None | Chip: 2 | Downstream | Data | Channel: 5 | Timstamp: 123456789 | Dataword: 145 | Trigger: normal | Local FIFO ok | Shared FIFO ok | Parity: 0 (valid: True) ]\n'
+    assert capsys.readouterr().out == 'Record: [ Key: None | Chip: 2 | Downstream | Data | Channel: 5 | Timestamp: 123456789 | Dataword: 145 | Trigger: normal | Local FIFO ok | Shared FIFO ok | Parity: 0 (valid: True) ]\n'
     print(controller.reads[0])
-    assert capsys.readouterr().out == '[ Key: None | Chip: 2 | Downstream | Data | Channel: 5 | Timstamp: 123456789 | Dataword: 145 | Trigger: normal | Local FIFO ok | Shared FIFO ok | Parity: 0 (valid: True) ]\n'
+    assert capsys.readouterr().out == '[ Key: None | Chip: 2 | Downstream | Data | Channel: 5 | Timestamp: 123456789 | Dataword: 145 | Trigger: normal | Local FIFO ok | Shared FIFO ok | Parity: 0 (valid: True) ]\n'
 
 
 def test_tutorial(capsys, tmpdir, temp_logfilename):
@@ -203,10 +203,14 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
 
 
     packet_repr = raw_values[0:1]
-    packet_repr['chip_key'] # chip key for packet, e.g. b'1-1-246'
-    packet_repr['adc_counts'] # list of ADC values for each packet
+    packet_repr['chip_id'] # chip id for packet, e.g. 246
+    packet_repr['dataword'] # list of ADC values for each packet
     packet_repr.dtype # description of data type (with names of each column)
 
+    # all packets' ADC counts, including non-data packets
+    raw_values['dataword']
+    # Select based on data type using a numpy bool / "mask" array:
+    raw_values['dataword'][raw_values['packet_type'] == 0] # all data packets' ADC counts
 
     datafile.close()
 

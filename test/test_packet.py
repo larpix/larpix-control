@@ -126,10 +126,12 @@ def test_fifo_diagnostics():
 
     # no fifo diagnostics => local/shared fifo events do nothing again
     p.fifo_diagnostics_enabled = False
-    assert p.timestamp == 36
+    print(p.bits)
+    print(p.bits[16:47])
+    assert p.timestamp == 18
     p.local_fifo_events = 7
     p.shared_fifo_events = 8
-    assert p.timestamp == 36
+    assert p.timestamp == 18
     assert p.local_fifo_events == None
     assert p.shared_fifo_events == None
 

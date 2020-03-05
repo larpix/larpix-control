@@ -181,7 +181,7 @@ class Packet_v2(object):
         elif ptype == self.DATA_PACKET:
             d['channel_id'] = self.channel_id
             d['timestamp'] = self.timestamp
-            d['timestamp'] = self.first_packet
+            d['first_packet'] = self.first_packet
             d['dataword'] = self.dataword
             d['trigger_type'] = self.trigger_type
             d['local_fifo'] = self.local_fifo
