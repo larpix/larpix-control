@@ -363,7 +363,7 @@ class Controller(object):
         inherited_data = ('miso_us_uart_map', 'miso_ds_uart_map', 'mosi_uart_map')
         orig_chips = copy(self.chips)
         orig_network = copy(self.network)
-        for chip in self.chips:
+        for chip in copy(self.chips):
             self.remove_chip(chip) # clear chips and network
         try:
             def propogate_inherited_values(network_spec, value_keys):
