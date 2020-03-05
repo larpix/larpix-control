@@ -1086,17 +1086,17 @@ class Controller(object):
         '''
         if chip_key is None:
             for chip in self.chips:
-                self.disable_analog_monitor(chip_key=chip_key, channel=channel)
-        elif channel is None:
-            for channel in range(self[chip_key].config.num_channels):
-                self.disable_analog_monitor(chip_key=chip_key, channel=channel)
+                self.disable_analog_monitor(chip_key=chip, channel=channel)
         else:
             chip = self[chip_key]
             if chip.asic_version == 1:
                 chip.config.disable_analog_monitor()
                 self.write_configuration(chip_key, chip.config.csa_monitor_select_addresses)
             elif chip.asic_version == 2:
-                chip.config.csa_monitor_select[channel] = 0
+                if not channel is None:
+                    chip.config.csa_monitor_select[channel] = 0
+                else:
+                    chip.config.csa_monitor_select = [0]*64
                 self.write_configuration(chip_key, chip.config.register_map['csa_monitor_select'])
             else:
                 raise RuntimeError('chip has invalid asic version')
@@ -1162,11 +1162,11 @@ class Controller(object):
             chip = self[chip_key]
             if chip.asic_version == 1:
                 chip.config.disable_testpulse(channel_list)
-                self.write_configuration(chip_key, chip.conf.csa_testpulse_enable_addresses)
+                self.write_configuration(chip_key, chip.config.csa_testpulse_enable_addresses)
             elif chip.asic_version == 2:
                 for channel in channel_list:
                     chip.config.csa_testpulse_enable[channel] = 1
-                self.write_configuration(chip_key, chip.conf.register_map['csa_testpulse_enable'])
+                self.write_configuration(chip_key, chip.config.register_map['csa_testpulse_enable'])
             else:
                 raise RuntimeError('chip has invalid asic version')
         return
