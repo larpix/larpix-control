@@ -17,20 +17,20 @@ from bidict import bidict
 import random
 from copy import deepcopy
 
-default_miso_us_uart_map = [0,1,2,3]
-default_miso_ds_uart_map = [2,3,0,1]
-default_mosi_uart_map = [0,1,2,3]
+default_miso_us_uart_map = [3,0,1,2]
+default_miso_ds_uart_map = [1,2,3,0]
+default_mosi_uart_map = [2,3,0,1]
 uart_us_table = bidict({
-    (0,1): 0,
-    (1,0): 3,
-    (-1,0): 1,
-    (0,-1): 2
+    (0,1): 3,
+    (1,0): 2,
+    (-1,0): 0,
+    (0,-1): 1
     })
 uart_ds_table = bidict({
-    (0,-1): 0,
-    (-1,0): 3,
-    (1,0): 1,
-    (0,1): 2
+    (0,-1): 1,
+    (-1,0): 0,
+    (1,0): 2,
+    (0,1): 3
     })
 
 def edge_dir(edge):
@@ -82,8 +82,6 @@ def generate_digraphs_from_upstream(g, root, ext):
     g_us = nx.DiGraph()
     g_us.add_nodes_from(g.nodes())
     g_us.add_edges_from([edge for edge in g.edges()])
-    g_us.add_node(ext)
-    g_us.add_edge(ext,root)
     g_us.nodes[root]['root'] = True
     g_us.nodes[ext]['chip_id'] = 'ext'
 
@@ -642,8 +640,10 @@ def generate_network_config(network_graphs, io_group, io_channel, name=None, pre
     '''
     g = network_graphs[0] # upstream (convienence handle)
     network_config = {
+        '_config_type': 'controller',
         'name': '{}'.format(max(g.nodes())),
-        'type': 'network',
+        'asic_version': 2,
+        'layout': None,
         'network': {}
         }
     if previous:
@@ -655,7 +655,7 @@ def generate_network_config(network_graphs, io_group, io_channel, name=None, pre
         network_config['network'][io_group] = dict()
     if not io_channel in network_config['network'][io_group]:
         network_config['network'][io_group][io_channel] = dict()
-    network_config['network'][io_group][io_channel]['chips'] = []
+    network_config['network'][io_group][io_channel]['nodes'] = []
 
     if not 'miso_us_uart_map' in network_config['network']:
         network_config['network']['miso_us_uart_map'] = default_miso_us_uart_map
@@ -672,27 +672,19 @@ def generate_network_config(network_graphs, io_group, io_channel, name=None, pre
     if not default_mosi_uart_map == network_config['network']['mosi_uart_map']:
         subnetwork['mosi_uart_map'] = default_mosi_uart_map
 
-    next_nodes = [node for node in g.nodes() if g.in_degree(node) < 1]
+    next_nodes = [node for node in g.nodes() if 'root' in g.nodes[node]]
     while next_nodes:
         for node in next_nodes:
-            if not isinstance(g.nodes[node]['chip_id'],int):
-                continue
-            subnetwork['chips'] += [{
+            subnetwork['nodes'] += [{
                 'chip_id': g.nodes[node]['chip_id'],
                 'miso_us': [None]*4
                 }]
-            chip_config = subnetwork['chips'][-1]
+            chip_config = subnetwork['nodes'][-1]
             for child in g.successors(node):
                 child_uart = uart_us_table[edge_dir((node,child))]
                 chip_config['miso_us'][default_miso_us_uart_map.index(child_uart)] = g.nodes[child]['chip_id']
             if not any(chip_config['miso_us']):
                 del chip_config['miso_us']
-            if 'root' in g.nodes[node]:
-                chip_config['root'] = True
-                chip_config['miso_ds'] = [None]*4
-                for parent in g.predecessors(node):
-                    parent_uart = uart_ds_table[edge_dir((parent,node))]
-                    chip_config['miso_ds'][default_miso_ds_uart_map.index(parent_uart)] = g.nodes[parent]['chip_id']
         next_nodes = [edge[1] for edge in g.out_edges(next_nodes)]
     return network_config
 
@@ -799,10 +791,12 @@ if __name__ == '__main__':
         input()
         exit()
 
-    previous_config = None
-    if os.path.exists(outfile):
-        with open(outfile,'r') as f:
-            previous_config = json.load(f)
-    new_config = generate_network_config((g_us, g_ds, g_mosi), args.io_group, args.io_channel, name=args.name, previous=previous_config)
-    with open(outfile,'w') as f:
-        json.dump(new_config, f, indent=4)
+    else:
+        previous_config = None
+        if os.path.exists(outfile):
+            print('loading existing file',outfile)
+            with open(outfile,'r') as f:
+                previous_config = json.load(f)
+        new_config = generate_network_config((g_us, g_ds, g_mosi), args.io_group, args.io_channel, name=args.name, previous=previous_config)
+        with open(outfile,'w') as f:
+            json.dump(new_config, f, indent=4)
