@@ -804,6 +804,8 @@ class Controller(object):
             registers = list(range(chip.config.num_registers))
         elif isinstance(registers, int):
             registers = [registers]
+        elif isinstance(registers, str):
+            registers = chip.config.register_map[registers]
         else:
             pass
         if message is None:
@@ -952,7 +954,7 @@ class Controller(object):
         associate the received Packets with the given ``message``.
 
         '''
-        sleeptime = 0.1
+        sleeptime = min(0.1, timelimit)
         self.start_listening()
         start_time = time.time()
         packets = []

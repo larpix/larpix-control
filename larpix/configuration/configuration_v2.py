@@ -629,7 +629,7 @@ _property_configuration = OrderedDict([
         ('threshold_polarity',
             (_compound_property, (['enable_dynamic_reset', 'enable_min_delta_adc', 'threshold_polarity', 'reset_length', 'mark_first_packet'], (int,bool), 0, 1), (1362,1363))),
         ('reset_length',
-            (_compound_property, (['enable_dynamic_reset', 'enable_min_delta_adc', 'threshold_parity', 'reset_length', 'mark_first_packet'], (int), 0, 7), (1363,1366))),
+            (_compound_property, (['enable_dynamic_reset', 'enable_min_delta_adc', 'threshold_polarity', 'reset_length', 'mark_first_packet'], (int), 0, 7), (1363,1366))),
         ('mark_first_packet',
             (_compound_property, (['enable_dynamic_reset', 'enable_min_delta_adc', 'threshold_polarity', 'reset_length', 'mark_first_packet'], (int,bool), 0, 1), (1366,1367))),
         ('reset_threshold',
