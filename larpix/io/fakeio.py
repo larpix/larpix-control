@@ -111,6 +111,8 @@ class FakeIO(IO):
         if not self.is_listening:
             raise RuntimeError('Cannot empty queue when not'
                     ' listening')
-        data = self.queue.popleft()
-        return data
+        if len(self.queue):
+            data = self.queue.popleft()
+            return data
+        return list(), b''
 
