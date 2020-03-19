@@ -147,21 +147,23 @@ class PacketCollection(object):
             packet.bits = bitarray(bits)
             self.packets.append(packet)
 
-    def extract(self, attr, **selection):
+    def extract(self, *attrs, **selection):
         '''
-        Extract the given attribute from packets specified by selection
+        Extract the given attribute(s) from packets specified by selection
         and return a list.
 
-        Any key used in Packet.export is a valid attribute or selection
+        Any attribute of a Packet is a valid attribute or selection
 
         Usage:
 
         >>> # Return a list of adc counts from any data packets
-        >>> adc_data = collection.extract('adc_counts')
+        >>> dataword = collection.extract('dataword', packet_type=0)
         >>> # Return a list of timestamps from chip 2 data
-        >>> timestamps = collection.extract('timestamp', chipid=2)
+        >>> timestamps = collection.extract('timestamp', chip_id=2, packet_type=Packet_v2.DATA_PACKET)
         >>> # Return the most recently read global threshold from chip 5
-        >>> threshold = collection.extract('value', register=32, type='config read', chip=5)[-1]
+        >>> threshold = collection.extract('register_value', register_address=32, packet_type=3, chip_id=5)[-1]
+        >>> # Return multiple attributes
+        >>> chip_keys, channel_ids = zip(*collection.extract('chip_key','channel_id'))
 
         .. note:: selecting on ``timestamp`` will also select
             TimestampPacket values.
@@ -169,10 +171,12 @@ class PacketCollection(object):
         values = []
         for p in self.packets:
             try:
-                d = p.export()
-                if all( d[key] == value for key, value in selection.items()):
-                    values.append(d[attr])
-            except KeyError:
+                if all(getattr(p,key) == value for key, value in selection.items()):
+                    if len(attrs) > 1:
+                        values.append([getattr(p,attr) for attr in attrs])
+                    else:
+                        values.append(getattr(p,attrs[0]))
+            except AttributeError:
                 continue
         return values
 

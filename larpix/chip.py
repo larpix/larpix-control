@@ -134,7 +134,10 @@ class Chip(object):
             for packet in self.reads[index]:
                 if packet.packet_type == packet.CONFIG_READ_PACKET:
                     updates[packet.register_address] = packet.register_data
-        self.config.from_dict_registers(updates)
+        if self.asic_version == 1:
+            self.config.from_dict_registers(updates)
+        else:
+            self.config.from_dict_registers(updates, endian=Packet_v2.endian)
 
     def export_reads(self, only_new_reads=True):
         '''

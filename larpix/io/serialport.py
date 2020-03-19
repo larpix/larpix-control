@@ -10,10 +10,7 @@ import warnings
 
 from larpix.io import IO
 from larpix import Packet
-
-warnings.simplefilter('default', DeprecationWarning)
-warnings.warn('The serialport module is deprecated and will be removed '
-        'in larpix-control v3.0.0.', DeprecationWarning)
+import larpix.bitarrayhelper as bah
 
 class SerialPort(IO):
     '''Wrapper for various serial port interfaces across platforms.
@@ -37,6 +34,8 @@ class SerialPort(IO):
     stop_byte = b'\x71'
     max_write = 250
     fpga_packet_size = 10
+    hwm = 10000 # max bytes to read from an empty queue
+
     def __init__(self, port=None, baudrate=1000000, timeout=0):
         super(SerialPort, self).__init__()
         if port is None:
@@ -50,6 +49,7 @@ class SerialPort(IO):
         self.serial_com = None
         self._initialize_serial_com()
         self.logger = None
+        self.leftover_bytes = b''
         if not (self._logger is None):
             self.logger = self._logger
         return
@@ -57,39 +57,27 @@ class SerialPort(IO):
     @staticmethod
     def _format_UART(packet):
         packet_bytes = packet.bytes()
-        daisy_chain_byte = b'\x00'
         formatted_packet = (SerialPort.start_byte + packet_bytes +
-                daisy_chain_byte + SerialPort.stop_byte)
+                SerialPort.stop_byte)
         return formatted_packet
 
     @staticmethod
-    def _parse_input(bytestream):
+    def _parse_input(bytestream, leftover_bytes=b''):
         packet_size = SerialPort.fpga_packet_size
         start_byte = SerialPort.start_byte[0]
         stop_byte = SerialPort.stop_byte[0]
-        metadata_byte_index = 8
-        data_bytes = slice(1,8)
-        # parse the bytestream into Packets + metadata
+        data_bytes = slice(1,9)
+        # parse the bytestream into Packets
         byte_packets = []
         skip_slices = []
+        bytestream = leftover_bytes + bytestream
         bytestream_len = len(bytestream)
         last_possible_start = bytestream_len - packet_size
         index = 0
         while index <= last_possible_start:
             if (bytestream[index] == start_byte and
                     bytestream[index+packet_size-1] == stop_byte):
-                '''
-                metadata = current_stream[metadata_byte_index]
-                # This is necessary because of differences between
-                # Python 2 and Python 3
-                if isinstance(metadata, int):  # Python 3
-                    code = 'uint:8='
-                elif isinstance(metadata, str):  # Python 2
-                    code = 'bytes:1='
-                byte_packets.append((Bits(code + str(metadata)),
-                    Packet(current_stream[data_bytes])))
-                '''
-                byte_packets.append(Packet(bytestream[index+1:index+8]))
+                byte_packets.append(Packet(bytestream[index+1:index+9]))
                 index += packet_size
             else:
                 # Throw out everything between here and the next start byte.
@@ -98,7 +86,9 @@ class SerialPort(IO):
                 index = bytestream.find(start_byte, index+1)
                 if index == -1:
                     index = bytestream_len
-        return byte_packets
+        if index <= bytestream_len:
+            leftover_bytes = bytestream[index:]
+        return byte_packets, leftover_bytes
 
     @staticmethod
     def format_bytestream(formatted_packets):
@@ -122,17 +112,20 @@ class SerialPort(IO):
         return [SerialPort._format_UART(packet) for packet in packets]
 
     @classmethod
-    def decode(cls, msgs):
+    def decode(cls, msgs, leftover_bytes=b''):
         '''
         Decodes a list of serial port bytestreams to packets
         '''
         packets = []
-        byte_packet_list = [SerialPort._parse_input(msg) for msg in msgs]
+        byte_packet_list = [None] * len(msgs)
+        for i in range(len(msgs)):
+            byte_packet_list[i], leftover_bytes = SerialPort._parse_input(msgs[i], leftover_bytes)
         for packet_list in byte_packet_list:
             packets += packet_list
         for packet in packets:
-            packet.chip_key = cls.generate_chip_key(chip_id=packet.chipid, io_chain=0)
-        return packets
+            packet.io_channel = 1
+            packet.io_group = 1
+        return packets, leftover_bytes
 
     @classmethod
     def is_valid_chip_key(cls, key):
@@ -191,12 +184,132 @@ class SerialPort(IO):
         '''
         data_in = b''
         keep_reading = True
+        count = 0
         while keep_reading:
             new_data = self._read(self.max_write)
             data_in += new_data
-            keep_reading = (len(new_data) == self.max_write)
-        packets = self.decode([data_in])
+            count = len(data_in)
+            keep_reading = (len(new_data) == self.max_write and count < self.hwm)
+        packets, self.leftover_bytes = self.decode([data_in], leftover_bytes=self.leftover_bytes)
         return (packets, data_in)
+
+    def set_larpix_uart_clk_ratio(self, value):
+        '''
+        Sends a special command to modify the larpix uart clk ratio (how many
+        clock cycles correspond to one bit). A value of 2 means 1 uart bit == 2
+        clk cycles
+
+        '''
+        data_out = (
+            b'c' # start byte
+            + b'\x00' # address
+            + bah.fromuint(value, 8, endian='big').tobytes()
+            + b'\x00'*6 # unused
+            + b'q' # stop byte
+            )
+        self._write(data_out)
+
+    def set_larpix_reset_cnt(self, value):
+        '''
+        Sends a special command to modify the length of the reset signal
+        sent to the larpix chips. The reset will be held low for value + 1
+        larpix clk rising edges
+
+        '''
+        data_out = (
+            b'c' # start byte
+            + b'\x01' # address
+            + bah.fromuint(value, 8, endian='big').tobytes()
+            + b'\x00'*6 # unused
+            + b'q' # stop byte
+            )
+        self._write(data_out)
+
+    def larpix_reset(self):
+        '''
+        Sends a special command to issue a larpix reset pulse. Pulse length
+        is set by set_larpix_reset_cnt().
+
+        '''
+        data_out = (
+            b'c' # start byte
+            + b'\x02' # address
+            + b'\x00'*7 # unused
+            + b'q' # stop byte
+            )
+        self._write(data_out)
+
+    def set_utility_pulse(self, pulse_len=None, pulse_rep=None):
+        '''
+        Sends a special command to issue set up utility pulser. Pulse length
+        is the number of larpix clk cyles pulse is high, and pulse rep is the
+        number of clk cycles until the next pulse.
+
+        '''
+        data_out = b''
+        if not pulse_len is None:
+            data_out += (
+                b'c' # start byte
+                + b'\x03' # address
+                + bah.fromuint(max(pulse_len-2,0), 32, endian='big').tobytes()[::-1] # -2 for proper register value -> clk cycles conv.
+                + b'\x00'*3 # unused
+                + b'q' # stop byte
+                )
+        if not pulse_rep is None:
+            data_out += (
+                b'c' # start byte
+                + b'\x04' # address
+                + bah.fromuint(max(pulse_rep-1,0), 32, endian='big').tobytes()[::-1] # -1 for proper register value -> clk cycles conv.
+                + b'\x00'*3 # unused
+                + b'q' # stop byte
+                )
+        if data_out:
+            self._write(data_out)
+        else:
+            raise RuntimeError('set either or both of pulse_len and pulse_rep')
+
+    def enable_utility_pulse(self):
+        '''
+        Sends a special command to enable the utility pulser. Pulse
+        characteristics can be set by set_utility_pulse().
+
+        '''
+        data_out = (
+            b'c' # start byte
+            + b'\x05' # address
+            + b'\x01' # enable
+            + b'\x00'*6 # unused
+            + b'q' # stop byte
+            )
+        self._write(data_out)
+
+    def disable_utility_pulse(self):
+        '''
+        Sends a special command to disable the utility pulser. Pulse
+        characteristics can be set by set_utility_pulse().
+
+        '''
+        data_out = (
+            b'c' # start byte
+            + b'\x05' # address
+            + b'\x00' # disable
+            + b'\x00'*6 # unused
+            + b'q' # stop byte
+            )
+        self._write(data_out)
+
+    def reset(self):
+        '''
+        Sends a special command to reset FPGA and larpix.
+
+        '''
+        data_out = (
+            b'c' # start byte
+            + b'\x06' # address
+            + b'\x00'*7 # unused
+            + b'q' # stop byte
+            )
+        self._write(data_out)
 
     @classmethod
     def _guess_port(cls):
