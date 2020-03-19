@@ -11,6 +11,7 @@ from .key import Key
 from .chip import Chip
 from .configuration import Configuration_v1, Configuration_v2
 from .packet import Packet_v1, Packet_v2, PacketCollection
+from . import bitarrayhelper as bah
 
 class Controller(object):
     '''
@@ -803,6 +804,8 @@ class Controller(object):
             registers = list(range(chip.config.num_registers))
         elif isinstance(registers, int):
             registers = [registers]
+        elif isinstance(registers, str):
+            registers = chip.config.register_map[registers]
         else:
             pass
         if message is None:
@@ -821,9 +824,9 @@ class Controller(object):
             sleep_time = stop_time - time.time()
             if sleep_time > 0:
                 time.sleep(sleep_time)
-            packets, bytestream = self.read()
-            self.stop_listening()
-            self.store_packets(packets, bytestream, message)
+        packets, bytestream = self.read()
+        self.stop_listening()
+        self.store_packets(packets, bytestream, message)
 
     def multi_write_configuration(self, chip_reg_pairs, write_read=0,
             message=None):
@@ -951,7 +954,7 @@ class Controller(object):
         associate the received Packets with the given ``message``.
 
         '''
-        sleeptime = 0.1
+        sleeptime = min(0.1, timelimit)
         self.start_listening()
         start_time = time.time()
         packets = []
@@ -996,7 +999,11 @@ class Controller(object):
                     configuration_data[packet_key][register_address] = (None, packet.register_data)
 
         for chip_key in chip_keys:
-            expected_data = dict([(register_address, int(bits.to01(),2)) for register_address, bits in enumerate(self[chip_key].config.all_data())])
+            expected_data = dict()
+            if self[chip_key].asic_version == 1:
+                expected_data = dict([(register_address, bah.touint(bits)) for register_address, bits in enumerate(self[chip_key].config.all_data())])
+            else:
+                expected_data = dict([(register_address, bah.touint(bits, endian=Packet_v2.endian)) for register_address, bits in enumerate(self[chip_key].config.all_data())])
             for register in registers[chip_key]:
                 configuration_data[chip_key][register] = (expected_data[register], configuration_data[chip_key][register][1])
                 if not configuration_data[chip_key][register][0] == configuration_data[chip_key][register][1]:
@@ -1081,17 +1088,17 @@ class Controller(object):
         '''
         if chip_key is None:
             for chip in self.chips:
-                self.disable_analog_monitor(chip_key=chip_key, channel=channel)
-        elif channel is None:
-            for channel in range(self[chip_key].config.num_channels):
-                self.disable_analog_monitor(chip_key=chip_key, channel=channel)
+                self.disable_analog_monitor(chip_key=chip, channel=channel)
         else:
             chip = self[chip_key]
             if chip.asic_version == 1:
                 chip.config.disable_analog_monitor()
                 self.write_configuration(chip_key, chip.config.csa_monitor_select_addresses)
             elif chip.asic_version == 2:
-                chip.config.csa_monitor_select[channel] = 0
+                if not channel is None:
+                    chip.config.csa_monitor_select[channel] = 0
+                else:
+                    chip.config.csa_monitor_select = [0]*64
                 self.write_configuration(chip_key, chip.config.register_map['csa_monitor_select'])
             else:
                 raise RuntimeError('chip has invalid asic version')
@@ -1157,11 +1164,11 @@ class Controller(object):
             chip = self[chip_key]
             if chip.asic_version == 1:
                 chip.config.disable_testpulse(channel_list)
-                self.write_configuration(chip_key, chip.conf.csa_testpulse_enable_addresses)
+                self.write_configuration(chip_key, chip.config.csa_testpulse_enable_addresses)
             elif chip.asic_version == 2:
                 for channel in channel_list:
                     chip.config.csa_testpulse_enable[channel] = 1
-                self.write_configuration(chip_key, chip.conf.register_map['csa_testpulse_enable'])
+                self.write_configuration(chip_key, chip.config.register_map['csa_testpulse_enable'])
             else:
                 raise RuntimeError('chip has invalid asic version')
         return

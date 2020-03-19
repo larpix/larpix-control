@@ -2,7 +2,7 @@
     "_config_type": "controller",
     "name": "network-3x3-tile-channel1",
     "asic_version": 2,
-    "layout": null,
+    "layout": "2.2.0",
     "network": {
         "1": {
             "1": {

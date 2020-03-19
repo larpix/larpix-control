@@ -126,7 +126,7 @@ particular time interval.
         - ``local_fifo_events`` (``u1``/unsigned byte): number of packets in the
           channel FIFO (only valid if FIFO diagnostics are enabled)
 
-        - ``shared_fifo_events`` (``u1``/unsigned byte): number of packets in the
+        - ``shared_fifo_events`` (``u2``/unsigned byte): number of packets in the
           chip FIFO (only valid if FIFO diagnostics are enabled)
 
         - ``counter`` (``u4``/unsigned 4-byte int): the message index (only
@@ -352,7 +352,7 @@ dtypes = {
                 ('register_data','u1'),
                 ('direction', 'u1'),
                 ('local_fifo_events','u1'),
-                ('shared_fifo_events','u1'),
+                ('shared_fifo_events','u2'),
                 ('counter','u4'),
                 ('fifo_diagnostics_enabled','u1'),
                 ],

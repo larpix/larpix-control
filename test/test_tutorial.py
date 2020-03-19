@@ -16,7 +16,7 @@ def test_min_example(capsys):
     chip1.config.threshold_global = 25
     controller.write_configuration('1-1-2', chip1.config.register_map['threshold_global']) # chip key, register 64
     assert capsys.readouterr().out == '[ Key: 1-1-2 | Chip: 2 | Upstream | Write | Register: 64 | Value: 25 | Parity: 1 (valid: True) ]\nRecord: [ Key: 1-1-2 | Chip: 2 | Upstream | Write | Register: 64 | Value: 25 | Parity: 1 (valid: True) ]\n'
-    packet = Packet_v2(b'\x02\x91\x15\xcd[\x07\x85\x00')
+    packet = Packet_v2(b'\x08\x14\x15\xcd[\x07\x91@')
     packet_bytes = packet.bytes()
     pretend_input = ([packet], packet_bytes)
     controller.io.queue.append(pretend_input)

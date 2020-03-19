@@ -147,11 +147,18 @@ def test_packet_init_default():
 def test_packet_init_bytestream():
     bytestream = b'\x3f' + b'\x00' * (Packet.num_bytes-2) + b'\xf8'
     p = Packet(bytestream)
-    expected = bitarray([0] * Packet.size)
-    expected[-6:] = bitarray([1]*6)
-    expected[:5] = bitarray([1]*5)
-    print(expected[0],expected[-1])
-    assert p.bits == expected
+    if isinstance(p, Packet_v1):
+        expected = bitarray([0] * Packet.size)
+        expected[-6:] = bitarray([1]*6)
+        expected[:5] = bitarray([1]*5)
+        print(expected[0],expected[-1])
+        assert p.bits == expected
+    else:
+        expected = bitarray([0] * Packet.size)
+        expected[:6] = bitarray([1]*6)
+        expected[-5:] = bitarray([1]*5)
+        print(expected[0],expected[-1])
+        assert p.bits == expected
 
 def test_packet_bytes_zeros():
     p = Packet()
@@ -161,11 +168,15 @@ def test_packet_bytes_zeros():
 
 def test_packet_bytes_custom():
     p = Packet()
-    p.bits[-6:] = bitarray([1]*6)  # First byte is 0b00111111
-    p.bits[:7] = bitarray([0]*2+[1]*5)  # Last byte is 0b00111110 (2 MSBs are padding)
+    p.bits[-6:] = bitarray([1]*6)
+    p.bits[:7] = bitarray([0]*2+[1]*5)
     b = p.bytes()
-    expected = b'\x3f' + b'\x00' * (Packet.num_bytes-2) + b'\x3e'
-    assert b == expected
+    if isinstance(p, Packet_v1):
+        expected = b'\x3f' + b'\x00' * (Packet.num_bytes-2) + b'\x3e'
+        assert b == expected
+    else:
+        expected = b'\x7c' + b'\x00' * (Packet.num_bytes-2) + b'\xfc'
+        assert b == expected
 
 def test_packet_v1_bytes_properties():
     p = Packet_v1()
@@ -457,7 +468,10 @@ def test_packet_v1_get_fifo_full_flag():
 def test_packet_set_register_address():
     p = Packet()
     p.register_address = 121
-    expected = bah.fromuint(121, 8)
+    if isinstance(p,Packet_v1):
+        expected = bah.fromuint(121, 8)
+    else:
+        expected = bah.fromuint(121, 8, endian=p.endian)
     assert p.bits[Packet.register_address_bits] == expected
 
 def test_packet_get_register_address():
@@ -469,7 +483,10 @@ def test_packet_get_register_address():
 def test_packet_set_register_data():
     p = Packet()
     p.register_data = 1
-    expected = bah.fromuint(1, 8)
+    if isinstance(p,Packet_v1):
+        expected = bah.fromuint(1, 8)
+    else:
+        expected = bah.fromuint(1, 8, endian=p.endian)
     assert p.bits[Packet.register_data_bits] == expected
 
 def test_packet_get_register_data():
@@ -1739,8 +1756,8 @@ def test_controller_verify_configuration_ok(capfd, chip):
     for packet in conf_data: packet.packet_type = Packet.CONFIG_READ_PACKET
     controller.io.queue.append((conf_data,b'hi'))
     ok, diff = controller.verify_configuration(chip_keys=chip.chip_key)
-    assert ok
     assert diff == {}
+    assert ok
 
 def test_controller_verify_configuration_missing_packet(capfd, chip):
     controller = Controller()
@@ -1827,11 +1844,11 @@ def test_packetcollection_v2_extract():
     expected = [10, 9, 8]
     assert pc.extract('chip_id') == expected
     expected = [36, 38]
-    assert pc.extract('dataword') == expected
+    assert pc.extract('dataword', packet_type=Packet_v2.DATA_PACKET) == expected
     expected = [36]
-    assert pc.extract('dataword', chip_id=10) == expected
-    expected = [8]
-    assert pc.extract('chip_id', type_str='test') == expected
+    assert pc.extract('dataword', chip_id=10, packet_type=Packet_v2.DATA_PACKET) == expected
+    expected = [[10,36],[9,38]]
+    assert pc.extract('chip_id','dataword', packet_type=Packet_v2.DATA_PACKET) == expected
 
 def test_packetcollection_to_dict():
     packet = Packet()

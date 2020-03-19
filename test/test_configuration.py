@@ -46,43 +46,44 @@ def test_v2_conf_all_registers():
 
 def test_conf():
     c = Configuration_v2()
+    endian = 'little'
 
     # test simple register
     c.threshold_global = 255
     assert c.threshold_global == 255
-    assert c.threshold_global_data == [(64, bah.fromuint(255,8))]
+    assert c.threshold_global_data == [(64, bah.fromuint(255,8, endian=endian))]
 
-    c.threshold_global_data = (64, bah.fromuint(253,8))
+    c.threshold_global_data = (64, bah.fromuint(253,8, endian=endian))
     assert c.threshold_global == 253
-    assert c.threshold_global_data == [(64, bah.fromuint(253,8))]
+    assert c.threshold_global_data == [(64, bah.fromuint(253,8, endian=endian))]
 
-    c.threshold_global_data = bah.fromuint(252,8)
+    c.threshold_global_data = bah.fromuint(252,8, endian=endian)
     assert c.threshold_global == 252
-    assert c.threshold_global_data == [(64, bah.fromuint(252,8))]
+    assert c.threshold_global_data == [(64, bah.fromuint(252,8, endian=endian))]
 
     # test list register
     c.pixel_trim_dac = [0]*64
     assert c.pixel_trim_dac == [0]*64
-    assert c.pixel_trim_dac_data == [(i, bah.fromuint(0,8)) for i in range(64)]
+    assert c.pixel_trim_dac_data == [(i, bah.fromuint(0,8, endian=endian)) for i in range(64)]
 
     c.pixel_trim_dac[1] = 1
     assert c.pixel_trim_dac[1] == 1
-    assert c.pixel_trim_dac_data[1] == (1, bah.fromuint(1,8))
-    assert c.pixel_trim_dac_data[0] == (0, bah.fromuint(0,8))
+    assert c.pixel_trim_dac_data[1] == (1, bah.fromuint(1,8, endian=endian))
+    assert c.pixel_trim_dac_data[0] == (0, bah.fromuint(0,8, endian=endian))
 
-    c.pixel_trim_dac_data = (1, bah.fromuint(2,8))
+    c.pixel_trim_dac_data = (1, bah.fromuint(2,8, endian=endian))
     assert c.pixel_trim_dac[1] == 2
-    assert c.pixel_trim_dac_data[1] == (1, bah.fromuint(2,8))
-    assert c.pixel_trim_dac_data[0] == (0, bah.fromuint(0,8))
+    assert c.pixel_trim_dac_data[1] == (1, bah.fromuint(2,8, endian=endian))
+    assert c.pixel_trim_dac_data[0] == (0, bah.fromuint(0,8, endian=endian))
 
     bits = bitarray()
     for i in range(64):
-        bits += bah.fromuint(31,8)
+        bits += bah.fromuint(31,8, endian=endian)
     c.pixel_trim_dac_data = bits
     assert c.pixel_trim_dac[1] == 31
     assert c.pixel_trim_dac[0] == 31
-    assert c.pixel_trim_dac_data[1] == (1, bah.fromuint(31,8))
-    assert c.pixel_trim_dac_data[0] == (0, bah.fromuint(31,8))
+    assert c.pixel_trim_dac_data[1] == (1, bah.fromuint(31,8, endian=endian))
+    assert c.pixel_trim_dac_data[0] == (0, bah.fromuint(31,8, endian=endian))
 
     # test compound register
     c.csa_gain = 1
@@ -126,7 +127,7 @@ def test_conf():
     # test list register (that covers <1 register)
     c.current_monitor_bank0 = [0]*4
     assert c.current_monitor_bank0 == [0]*4
-    assert c.current_monitor_bank0_data == [(109, bah.fromuint(0,8))]
+    assert c.current_monitor_bank0_data == [(109, bah.fromuint(0,8, endian=endian))]
 
     c.current_monitor_bank0[1] = 1
     assert c.current_monitor_bank0[1] == 1
@@ -148,7 +149,7 @@ def test_conf():
     c.enable_miso_downstream = [0]*4
     c.enable_miso_differential = [0]*4
     assert c.enable_miso_differential == [0]*4
-    assert c.enable_miso_differential_data == [(125, bah.fromuint(0,8))]
+    assert c.enable_miso_differential_data == [(125, bah.fromuint(0,8, endian=endian))]
 
     c.enable_miso_differential[1] = 1
     assert c.enable_miso_differential[1] == 1
@@ -169,15 +170,15 @@ def test_conf():
     # test long register
     c.periodic_trigger_cycles = 2**32-1
     assert c.periodic_trigger_cycles == 2**32-1
-    assert c.periodic_trigger_cycles_data == [(i, bah.fromuint(255,8)) for i in range(166,170)]
+    assert c.periodic_trigger_cycles_data == [(i, bah.fromuint(255,8, endian=endian)) for i in range(166,170)]
 
-    c.periodic_trigger_cycles_data = (169, bah.fromuint(254,8))
+    c.periodic_trigger_cycles_data = (166, bah.fromuint(254,8, endian=endian))
     assert c.periodic_trigger_cycles == 2**32-2
-    assert c.periodic_trigger_cycles_data[-1] == (169, bah.fromuint(254,8))
+    assert c.periodic_trigger_cycles_data[0] == (166, bah.fromuint(254, 8, endian=endian))
 
-    c.periodic_trigger_cycles_data = bah.fromuint(1,32)
+    c.periodic_trigger_cycles_data = bah.fromuint(1,32, endian=endian)
     assert c.periodic_trigger_cycles == 1
-    assert c.periodic_trigger_cycles_data[-1] == (169, bah.fromuint(1,8))
+    assert c.periodic_trigger_cycles_data[0] == (166, bah.fromuint(1,8, endian=endian))
 
 def test_compare():
     c = Configuration_v2()

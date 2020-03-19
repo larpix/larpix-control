@@ -1,4 +1,5 @@
 from bitarray import bitarray
+import copy
 
 from larpix import Packet_v2
 from larpix import bitarrayhelper as bah
@@ -19,9 +20,9 @@ def test_basic():
     assert p1 == Packet_v2()
     assert p1.bytes() == b'\x00'*8
 
-    p2 = Packet_v2(b'\x00'*7 + b'\x01')
+    p2 = Packet_v2(b'\x01' + b'\x00'*7)
     assert p2 != p1
-    assert p2.bits == bitarray('00000001') + bitarray('0'*56)
+    assert p2.bits == bitarray('10000000') + bitarray('0'*56)
 
 def test_field_assignment():
     '''
@@ -34,16 +35,18 @@ def test_field_assignment():
 
     def test_field(packet, field_name):
         print('testing {}'.format(field_name))
+        p = copy.deepcopy(packet)
 
         assert getattr(p,field_name) == 0
-        assert bah.touint(p.bits[getattr(p,field_name+'_bits')]) == 0
+        assert bah.touint(p.bits[getattr(p,field_name+'_bits')], endian=p.endian) == 0
 
         setattr(p,field_name,1)
         assert getattr(p,field_name) == 1
-        assert bah.touint(p.bits[getattr(p,field_name+'_bits')]) == 1
+        assert bah.touint(p.bits[getattr(p,field_name+'_bits')], endian=p.endian) == 1
         assert str(p) # just to make sure there are no errors in printing the string
 
         p_dict = p.export()
+        print(p_dict)
         assert field_name in p_dict
         assert p_dict[field_name] == 1
 
@@ -53,10 +56,11 @@ def test_field_assignment():
         p_dict['bits'] = p2.bits.to01()
         p.from_dict(p_dict)
         assert getattr(p,field_name) == 0
-        assert bah.touint(p.bits[getattr(p,field_name+'_bits')]) == 0
+        assert bah.touint(p.bits[getattr(p,field_name+'_bits')], endian=p.endian) == 0
 
 
     for type_name, packet_type in packet_types.items():
+        print('testing packet type {}'.format(type_name))
         p.packet_type = packet_type
         for field in shared_fields:
             test_field(p, field)
@@ -78,7 +82,7 @@ def test_chip_key():
         assert packet.io_group == group
         assert packet.io_channel == channel
         assert packet.chip_id == chip_id
-        assert bah.touint(p.bits[p.chip_id_bits]) == chip_id
+        assert bah.touint(p.bits[p.chip_id_bits], endian=p.endian) == chip_id
 
     # check default values
     assert_chip_key(p,None,None,None,0)
@@ -126,10 +130,10 @@ def test_fifo_diagnostics():
 
     # no fifo diagnostics => local/shared fifo events do nothing again
     p.fifo_diagnostics_enabled = False
-    assert p.timestamp == 36
+    assert p.timestamp == 268566528
     p.local_fifo_events = 7
     p.shared_fifo_events = 8
-    assert p.timestamp == 36
+    assert p.timestamp == 268566528
     assert p.local_fifo_events == None
     assert p.shared_fifo_events == None
 

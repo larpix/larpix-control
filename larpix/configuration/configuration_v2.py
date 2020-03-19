@@ -49,23 +49,27 @@ class Configuration_v2(BaseConfiguration):
     num_bits = 1896
     num_channels = 64
     # Additional class properties regarding configuration registers are set at the end of the file.
-    # Additional class properties regarding configuration registers are set at the end of the file.
+
+    _endian = 'little'
 
     def __init__(self):
         # Note: properties, getters and setters are constructed after this class definition at the bottom of the file.
         super(Configuration_v2, self).__init__()
         return
 
-    def all_data(self):
+    def all_data(self, endian='little'):
         bits = []
         for register_name in self.register_names:
             register_data =  getattr(self, register_name+'_data')
             for register_addr, register_bits in register_data:
                 if len(bits) == register_addr:
-                    bits += [register_bits]
+                    if endian[0] == 'l':
+                        bits += [register_bits]
+                    else:
+                        bits += [register_bits[::-1]]
         return bits
 
-    def from_dict_registers(self, d):
+    def from_dict_registers(self, d, endian='little'):
         '''
         Load in the configuration specified by a dict of (register,
         value) pairs.
@@ -74,7 +78,7 @@ class Configuration_v2(BaseConfiguration):
         for address, value in d.items():
             register_names = self.register_map_inv[address]
             for register_name in register_names:
-                setattr(self, register_names[0] + '_data', (address, bah.fromuint(value,8)))
+                setattr(self, register_names[0] + '_data', (address, bah.fromuint(value,8,endian=endian)))
         return
 
     def _is_register_value_pair(self, item):
@@ -138,7 +142,7 @@ def _basic_data_getter(register_name):
     def basic_data_getter_func(self):
         register_range = self.register_map[register_name]
         value = getattr(self, register_name)
-        all_data = bah.fromuint(value, 8*(register_range[-1]-register_range[0]+1))
+        all_data = bah.fromuint(value, 8*(register_range[-1]-register_range[0]+1), endian=self._endian)
         return_data = [(register, all_data[idx*8:idx*8+8]) for idx, register in enumerate(register_range)]
         return return_data
     return basic_data_getter_func
@@ -157,7 +161,7 @@ def _list_data_getter(register_name, n_bits):
         values = getattr(self, register_name)
         all_data = bitarray([])
         for value in values:
-            all_data += bah.fromuint(value, n_bits)
+            all_data += bah.fromuint(value, n_bits, endian=self._endian)
         if len(all_data) < 8:
             all_data += bitarray([0]*(8-len(all_data)%8)) # pad up to full register
         return [(register_addr, all_data[idx*8:idx*8+8]) for idx, register_addr in enumerate(register_range)]
@@ -175,12 +179,10 @@ def _compound_data_getter(registers):
 
     '''
     def compound_data_getter_func(self):
-        bits = bitarray([])
+        bits = bitarray([0]*8)
         for register_name in registers:
-            n_bits = self.bit_map[register_name][1] - self.bit_map[register_name][0]
-            bits += bah.fromuint(getattr(self, register_name), n_bits)
-        if len(bits) < 8:
-            bits += bitarray([0]*(8-len(bits))) # pad up to full register
+            start_bit, end_bit = self.bit_map[register_name]
+            bits[start_bit%8:end_bit-start_bit+start_bit%8] = bah.fromuint(getattr(self, register_name), end_bit-start_bit, endian=self._endian)
         return [(self.register_map[registers[0]][0], bits)]
     return compound_data_getter_func
 
@@ -202,7 +204,7 @@ def _compound_list_data_getter(registers, n_bits):
         for register_name in registers:
             values = getattr(self, register_name)
             for value in values:
-                bits += bah.fromuint(value, n_bits)
+                bits += bah.fromuint(value, n_bits, endian=self._endian)
         if len(bits)%8 != 0:
             bits += bitarray([0]*(8-len(bits)%8)) # pad up to full register
         return [(self.register_map[registers[0]][0], bits)]
@@ -234,7 +236,7 @@ def _basic_data_setter(register_name):
         else:
             # use all bits to set values
             bits = value
-            value = bah.touint(bits)
+            value = bah.touint(bits, endian=self._endian)
             setattr(self, register_name, value)
     return basic_data_setter_func
 
@@ -263,7 +265,7 @@ def _list_data_setter(register_name, n_bits, min_value, max_value):
         else:
             # use all bits to set values
             bits = values
-            item_values = [bah.touint(bits[idx:idx+n_bits]) for idx in range(0, len(bits), n_bits)]
+            item_values = [bah.touint(bits[idx:idx+n_bits], endian=self._endian) for idx in range(0, len(bits), n_bits)]
             setattr(self, register_name, _Smart_List(item_values, min_value, max_value))
     return list_data_setter_func
 
@@ -287,7 +289,7 @@ def _compound_data_setter(registers, register_name):
         else:
             # use all bits to set values
             set_bits = value
-            setattr(self, register_name, bah.touint(set_bits))
+            setattr(self, register_name, bah.touint(set_bits, endian=self._endian))
     return compound_data_setter_func
 
 def _compound_list_data_setter(registers, register_name, n_bits, min_value, max_value):
@@ -309,7 +311,7 @@ def _compound_list_data_setter(registers, register_name, n_bits, min_value, max_
                 setattr(self, register + '_data', set_bits[start_bit%8:end_bit-start_bit+start_bit%8])
         else:
             set_bits = value
-            values = [bah.touint(set_bits[idx:idx+n_bits]) for idx in range(0,len(set_bits),n_bits)]
+            values = [bah.touint(set_bits[idx:idx+n_bits], endian=self._endian) for idx in range(0,len(set_bits),n_bits)]
             setattr(self, register_name, _Smart_List(values, min_value, max_value))
     return compound_list_data_setter_func
 # /Data setter function formulas
@@ -503,7 +505,7 @@ _property_configuration = OrderedDict([
         ('csa_enable',
             (_list_property, ((int,bool), 0, 1, Configuration_v2.num_channels, 1), (528, 592))),
         ('ibias_tdac',
-            (_basic_property, (int, 0, 15), (592, 696))),
+            (_basic_property, (int, 0, 15), (592, 596))),
         ('ibias_comp',
             (_basic_property, (int, 0, 15), (600, 604))),
         ('ibias_buffer',
@@ -569,11 +571,11 @@ _property_configuration = OrderedDict([
         ('chip_id',
             (_basic_property, (int, 0, 255), (976,984))),
         ('load_config_defaults',
-            (_compound_property, (['load_config_defaults', 'enable_fifo_diagnostics', 'clk_ctrl'], (int,bool), 0, 1), (984,985))),
-        ('enable_fifo_diagnostics',
             (_compound_property, (['load_config_defaults', 'enable_fifo_diagnostics', 'clk_ctrl'], (int,bool), 0, 1), (985,986))),
+        ('enable_fifo_diagnostics',
+            (_compound_property, (['load_config_defaults', 'enable_fifo_diagnostics', 'clk_ctrl'], (int,bool), 0, 1), (986,987))),
         ('clk_ctrl',
-            (_compound_property, (['load_config_defaults', 'enable_fifo_diagnostics', 'clk_ctrl'], (int,bool), 0, 1), (986,988))),
+            (_compound_property, (['load_config_defaults', 'enable_fifo_diagnostics', 'clk_ctrl'], (int), 0, 2), (987,989))),
         ('enable_miso_upstream',
             (_list_property, ((int,bool), 0, 1, 4, 1), (992,996))),
         ('enable_miso_downstream',
@@ -627,7 +629,7 @@ _property_configuration = OrderedDict([
         ('threshold_polarity',
             (_compound_property, (['enable_dynamic_reset', 'enable_min_delta_adc', 'threshold_polarity', 'reset_length', 'mark_first_packet'], (int,bool), 0, 1), (1362,1363))),
         ('reset_length',
-            (_compound_property, (['enable_dynamic_reset', 'enable_min_delta_adc', 'threshold_polarity', 'reset_length', 'mark_first_packet'], (int,bool), 0, 1), (1363,1366))),
+            (_compound_property, (['enable_dynamic_reset', 'enable_min_delta_adc', 'threshold_polarity', 'reset_length', 'mark_first_packet'], (int), 0, 7), (1363,1366))),
         ('mark_first_packet',
             (_compound_property, (['enable_dynamic_reset', 'enable_min_delta_adc', 'threshold_polarity', 'reset_length', 'mark_first_packet'], (int,bool), 0, 1), (1366,1367))),
         ('reset_threshold',
