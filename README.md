@@ -132,7 +132,7 @@ Record: [ Key: 1-1-2 | Chip: 2 | Upstream | Write | Register: 64 | Value: 25 | P
 >>> pretend_input = ([packet], packet_bytes)
 >>> controller.io.queue.append(pretend_input)
 >>> controller.run(0.05, 'test run')
-Record: [ Key: None | Chip: 2 | Downstream | Data | Channel: 5 | Timstamp: 123456789 | Dataword: 145 | Trigger: normal | Local FIFO ok | Shared FIFO ok | Parity: 0 (valid: True) ]
+Record: [ Key: None | Chip: 2 | Downstream | Data | Channel: 5 | Timestamp: 123456789 | First packet: 0 | Dataword: 145 | Trigger: normal | Local FIFO ok | Shared FIFO ok | Parity: 0 (valid: True) ]
 >>> print(controller.reads[0])
 [ Key: None | Chip: 2 | Downstream | Data | Channel: 5 | Timstamp: 123456789 | Dataword: 145 | Trigger: normal | Local FIFO ok | Shared FIFO ok | Parity: 0 (valid: True) ]
 ```

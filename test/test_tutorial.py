@@ -21,9 +21,9 @@ def test_min_example(capsys):
     pretend_input = ([packet], packet_bytes)
     controller.io.queue.append(pretend_input)
     controller.run(0.05, 'test run')
-    assert capsys.readouterr().out == 'Record: [ Key: None | Chip: 2 | Downstream | Data | Channel: 5 | Timestamp: 123456789 | Dataword: 145 | Trigger: normal | Local FIFO ok | Shared FIFO ok | Parity: 0 (valid: True) ]\n'
+    assert capsys.readouterr().out == 'Record: [ Key: None | Chip: 2 | Downstream | Data | Channel: 5 | Timestamp: 123456789 | First packet: 0 | Dataword: 145 | Trigger: normal | Local FIFO ok | Shared FIFO ok | Parity: 0 (valid: True) ]\n'
     print(controller.reads[0])
-    assert capsys.readouterr().out == '[ Key: None | Chip: 2 | Downstream | Data | Channel: 5 | Timestamp: 123456789 | Dataword: 145 | Trigger: normal | Local FIFO ok | Shared FIFO ok | Parity: 0 (valid: True) ]\n'
+    assert capsys.readouterr().out == '[ Key: None | Chip: 2 | Downstream | Data | Channel: 5 | Timestamp: 123456789 | First packet: 0 | Dataword: 145 | Trigger: normal | Local FIFO ok | Shared FIFO ok | Parity: 0 (valid: True) ]\n'
 
 
 def test_tutorial(capsys, tmpdir, temp_logfilename):
