@@ -1844,11 +1844,11 @@ def test_packetcollection_v2_extract():
     expected = [10, 9, 8]
     assert pc.extract('chip_id') == expected
     expected = [36, 38]
-    assert pc.extract('dataword') == expected
+    assert pc.extract('dataword', packet_type=Packet_v2.DATA_PACKET) == expected
     expected = [36]
-    assert pc.extract('dataword', chip_id=10) == expected
-    expected = [8]
-    assert pc.extract('chip_id', type_str='test') == expected
+    assert pc.extract('dataword', chip_id=10, packet_type=Packet_v2.DATA_PACKET) == expected
+    expected = [[10,36],[9,38]]
+    assert pc.extract('chip_id','dataword', packet_type=Packet_v2.DATA_PACKET) == expected
 
 def test_packetcollection_to_dict():
     packet = Packet()

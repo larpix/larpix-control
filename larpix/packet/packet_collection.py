@@ -157,11 +157,11 @@ class PacketCollection(object):
         Usage:
 
         >>> # Return a list of adc counts from any data packets
-        >>> dataword = collection.extract('dataword')
+        >>> dataword = collection.extract('dataword', packet_type=0)
         >>> # Return a list of timestamps from chip 2 data
-        >>> timestamps = collection.extract('timestamp', chipid=2)
+        >>> timestamps = collection.extract('timestamp', chip_id=2, packet_type=Packet_v2.DATA_PACKET)
         >>> # Return the most recently read global threshold from chip 5
-        >>> threshold = collection.extract('value', register=32, type='config read', chip=5)[-1]
+        >>> threshold = collection.extract('register_value', register_address=32, packet_type=3, chip_id=5)[-1]
         >>> # Return multiple attributes
         >>> chip_keys, channel_ids = zip(*collection.extract('chip_key','channel_id'))
 
@@ -171,8 +171,11 @@ class PacketCollection(object):
         values = []
         for p in self.packets:
             try:
-                if all( getattr(p,key) == value for key, value in selection.items()):
-                    values.append([getattr(p,attr) for attr in attrs])
+                if all(getattr(p,key) == value for key, value in selection.items()):
+                    if len(attrs) > 1:
+                        values.append([getattr(p,attr) for attr in attrs])
+                    else:
+                        values.append(getattr(p,attrs[0]))
             except AttributeError:
                 continue
         return values

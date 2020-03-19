@@ -1,4 +1,5 @@
 from bitarray import bitarray
+import copy
 
 from larpix import Packet_v2
 from larpix import bitarrayhelper as bah
@@ -34,6 +35,7 @@ def test_field_assignment():
 
     def test_field(packet, field_name):
         print('testing {}'.format(field_name))
+        p = copy.deepcopy(packet)
 
         assert getattr(p,field_name) == 0
         assert bah.touint(p.bits[getattr(p,field_name+'_bits')], endian=p.endian) == 0
@@ -44,6 +46,7 @@ def test_field_assignment():
         assert str(p) # just to make sure there are no errors in printing the string
 
         p_dict = p.export()
+        print(p_dict)
         assert field_name in p_dict
         assert p_dict[field_name] == 1
 
@@ -57,6 +60,7 @@ def test_field_assignment():
 
 
     for type_name, packet_type in packet_types.items():
+        print('testing packet type {}'.format(type_name))
         p.packet_type = packet_type
         for field in shared_fields:
             test_field(p, field)
