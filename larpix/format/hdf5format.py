@@ -57,10 +57,10 @@ File Data
 The file data is saved in HDF5 datasets, and the specific data format
 depends on the LArPix+HDF5 version.
 
-Version 2.0 description
+Version 2.1 description
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-For version 2.0, there are two dataset: ``packets`` and ``messages``.
+For version 2.1, there are two dataset: ``packets`` and ``messages``.
 
 The ``packets`` dataset
 contains a list of all of the packets sent and received during a
@@ -102,6 +102,9 @@ particular time interval.
           (``type`` == 0), as the global timestamp in timestamp
           packets (``type`` == 4), and as the message timestamp in
           message packets (``type`` == 5).
+
+        - ``first_packet`` (``u1``/unsigned byte): indicates if this is the
+          packet recieved in a trigger burst (v2.1 or newer only)
 
         - ``dataword`` (``u1``/unsigned byte): the ADC data word
 
@@ -287,7 +290,7 @@ from larpix.larpix import Packet_v1, Packet_v2, TimestampPacket, MessagePacket
 from larpix.logger import Logger
 
 #: The most recent / up-to-date LArPix+HDF5 format version
-latest_version = '1.0'
+latest_version = '2.1'
 
 #: The dtype specification used in the HDF5 files.
 #:
@@ -353,6 +356,36 @@ dtypes = {
                 ('direction', 'u1'),
                 ('local_fifo_events','u1'),
                 ('shared_fifo_events','u2'),
+                ('counter','u4'),
+                ('fifo_diagnostics_enabled','u1'),
+                ],
+            'messages': [
+                ('message', 'S64'),
+                ('timestamp', 'u8'),
+                ('index', 'u4'),
+                ]
+            },
+        '2.1': { # compatible with v2 packets and timestamp packets only
+            'packets': [
+                ('io_group','u1'),
+                ('io_channel','u1'),
+                ('chip_id','u1'),
+                ('packet_type','u1'),
+                ('downstream_marker','u1'),
+                ('parity','u1'),
+                ('valid_parity','u1'),
+                ('channel_id','u1'),
+                ('timestamp','u8'),
+                ('first_packet','u1'),
+                ('dataword','u1'),
+                ('trigger_type','u1'),
+                ('local_fifo','u1'),
+                ('shared_fifo','u1'),
+                ('register_address','u1'),
+                ('register_data','u1'),
+                ('direction', 'u1'),
+                ('local_fifo_events','u1'),
+                ('shared_fifo_events','u1'),
                 ('counter','u4'),
                 ('fifo_diagnostics_enabled','u1'),
                 ],
@@ -437,6 +470,36 @@ dtype_property_index_lookup = {
                 'timestamp': 1,
                 'index': 2,
                 }
+            },
+        '2.1': {
+            'packets': {
+                'io_group': 0,
+                'io_channel': 1,
+                'chip_id': 2,
+                'packet_type': 3,
+                'downstream_marker': 4,
+                'parity': 5,
+                'valid_parity': 6,
+                'channel_id': 7,
+                'timestamp': 8,
+                'dataword': 9,
+                'trigger_type': 10,
+                'local_fifo': 11,
+                'shared_fifo': 12,
+                'register_address': 13,
+                'register_data': 14,
+                'direction': 15,
+                'local_fifo_events': 16,
+                'shared_fifo_events': 17,
+                'counter': 18,
+                'fifo_diagnostics_enabled': 19,
+                'first_packet': 20,
+                },
+            'messages': {
+                'message': 0,
+                'timestamp': 1,
+                'index': 2,
+                }
             }
         }
 
@@ -484,7 +547,7 @@ def to_file(filename, packet_list, mode='a', version=None):
             direction_index = (
                     dtype_property_index_lookup[version]['packets']
                     ['direction'])
-            if version == '2.0':
+            if version[0] == '2':
                 packet_type_index = (
                         dtype_property_index_lookup[version]['packets']
                         ['packet_type'])
@@ -533,9 +596,9 @@ def to_file(filename, packet_list, mode='a', version=None):
                 encoded_packet[direction_index] = {
                         Logger.WRITE: 0,
                         Logger.READ: 1}[encoded_packet[direction_index]]
-            if version == '2.0':
+            if version[0] == '2':
                 if isinstance(packet, (Packet_v1)):
-                    raise ValueError('version 2.0 hdf5format is incompatible with v1 packets')
+                    raise ValueError('version 2 hdf5format is incompatible with v1 packets')
                 if isinstance(packet, (TimestampPacket,MessagePacket)):
                     encoded_packet[packet_type_index] = packet.packet_type
                 elif packet.fifo_diagnostics_enabled:
@@ -618,12 +681,12 @@ def from_file(filename, version=None, start=None, end=None):
         for row in dset_iter:
             # TimestampPackets
             if (version in ('0.0','1.0') and row[props['type']] == 4) or \
-            (version == '2.0' and row[props['packet_type']] == 4):
+            (version in ('2.0','2.1') and row[props['packet_type']] == 4):
                 packets.append(TimestampPacket(row[props['timestamp']]))
                 continue
             # MessagePackets
             if (version in ('0.0','1.0') and row[props['type']] == 5) or \
-            (version == '2.0' and row[props['packet_type']] == 5):
+            (version in ('2.0','2.1') and row[props['packet_type']] == 5):
                 index = row[props['counter']]
                 message_row = message_dset[index]
                 message = message_row[message_props['message']].decode()
@@ -652,7 +715,7 @@ def from_file(filename, version=None, start=None, end=None):
                 if version != '0.0':
                     p.direction = row[props['direction']]
                 packets.append(p)
-            else:
+            elif version in ('2.0','2.1'):
                 p = Packet_v2()
                 p.io_group = row[props['io_group']]
                 p.io_channel = row[props['io_channel']]
@@ -665,6 +728,8 @@ def from_file(filename, version=None, start=None, end=None):
                 if p.packet_type == Packet_v2.DATA_PACKET:
                     p.channel_id = row[props['channel_id']]
                     p.timestamp = row[props['timestamp']]
+                    if version[-1] == '1':
+                        p.first_packet = row[props['first_packet']]
                     p.dataword = row[props['dataword']]
                     p.trigger_type = row[props['trigger_type']]
                     p.local_fifo = row[props['local_fifo']]

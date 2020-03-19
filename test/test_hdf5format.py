@@ -286,6 +286,7 @@ def test_to_file_v2_0_data_packet(tmpfile, data_packet_v2):
     new_packet.local_fifo = row[props['local_fifo']]
     new_packet.shared_fifo = row[props['shared_fifo']]
     new_packet.direction = row[props['direction']]
+    assert new_packet.timestamp == data_packet_v2.timestamp
     assert new_packet == data_packet_v2
 
 def test_to_file_v2_0_config_read_packet(tmpfile, config_read_packet_v2):

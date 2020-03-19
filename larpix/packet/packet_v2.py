@@ -42,6 +42,7 @@ class Packet_v2(object):
     # only data packets
     channel_id_bits = slice(10,16)
     timestamp_bits = slice(16,47)
+    first_packet_bits = slice(47,48)
     dataword_bits = slice(48,56)
     trigger_type_bits = slice(56,58)
     local_fifo_bits = slice(58,60)
@@ -100,7 +101,8 @@ class Packet_v2(object):
         if self.packet_type == self.DATA_PACKET:
             strings += ['Data']
             strings += ['Channel: {}'.format(self.channel_id)]
-            strings += ['Timstamp: {}'.format(self.timestamp)]
+            strings += ['Timestamp: {}'.format(self.timestamp)]
+            strings += ['First packet: {}'.format(self.first_packet)]
             strings += ['Dataword: {}'.format(self.dataword)]
             strings += ['Trigger: {}'.format({
                 self.NORMAL_TRIG: 'normal',
@@ -178,6 +180,7 @@ class Packet_v2(object):
         elif ptype == self.DATA_PACKET:
             d['channel_id'] = self.channel_id
             d['timestamp'] = self.timestamp
+            d['first_packet'] = self.first_packet
             d['dataword'] = self.dataword
             d['trigger_type'] = self.trigger_type
             d['local_fifo'] = self.local_fifo
@@ -387,6 +390,7 @@ class Packet_v2(object):
     parity = property(_basic_getter('parity'),_basic_setter('parity'))
     channel_id = property(_basic_getter('channel_id'),_basic_setter('channel_id'))
     dataword = property(_basic_getter('dataword'),_basic_setter('dataword'))
+    first_packet = property(_basic_getter('first_packet'),_basic_setter('first_packet'))
     trigger_type = property(_basic_getter('trigger_type'),_basic_setter('trigger_type'))
     register_address = property(_basic_getter('register_address'),_basic_setter('register_address'))
     register_data = property(_basic_getter('register_data'),_basic_setter('register_data'))
