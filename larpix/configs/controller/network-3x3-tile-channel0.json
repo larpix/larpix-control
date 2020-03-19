@@ -1,0 +1,99 @@
+{
+    "_config_type": "controller",
+    "name": "network-3x3-tile-channel0",
+    "asic_version": 2,
+    "layout": null,
+    "network": {
+        "1": {
+            "1": {
+                "nodes": [
+                    {
+                        "chip_id": "ext",
+                        "miso_us": [
+                            null,
+                            null,
+                            null,
+                            14
+                        ],
+                        "root": true
+                    },
+                    {
+                        "chip_id": 14,
+                        "miso_us": [
+                            null,
+                            null,
+                            13,
+                            24
+                        ]
+                    },
+                    {
+                        "chip_id": 13,
+                        "miso_us": [
+                            null,
+                            null,
+                            12,
+                            23
+                        ]
+                    },
+                    {
+                        "chip_id": 24,
+                        "miso_us": [
+                            null,
+                            null,
+                            null,
+                            34
+                        ]
+                    },
+                    {
+                        "chip_id": 12
+                    },
+                    {
+                        "chip_id": 23,
+                        "miso_us": [
+                            null,
+                            null,
+                            22,
+                            33
+                        ]
+                    },
+                    {
+                        "chip_id": 34
+                    },
+                    {
+                        "chip_id": 33,
+                        "miso_us": [
+                            null,
+                            null,
+                            32,
+                            null
+                        ]
+                    },
+                    {
+                        "chip_id": 22
+                    },
+                    {
+                        "chip_id": 32
+                    }
+                ]
+            }
+        },
+        "miso_us_uart_map": [
+            3,
+            0,
+            1,
+            2
+        ],
+        "miso_ds_uart_map": [
+            1,
+            2,
+            3,
+            0
+        ],
+        "mosi_uart_map": [
+            2,
+            3,
+            0,
+            1
+        ]
+    }
+}

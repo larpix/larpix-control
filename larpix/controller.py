@@ -363,7 +363,7 @@ class Controller(object):
         inherited_data = ('miso_us_uart_map', 'miso_ds_uart_map', 'mosi_uart_map')
         orig_chips = copy(self.chips)
         orig_network = copy(self.network)
-        for chip in self.chips:
+        for chip in copy(self.chips):
             self.remove_chip(chip) # clear chips and network
         try:
             def propogate_inherited_values(network_spec, value_keys):
@@ -732,7 +732,9 @@ class Controller(object):
         ASIC.
 
         By default, sends all registers. If registers is an int, then
-        only that register is sent. If registers is an iterable, then
+        only that register is sent. If registers is a string, then
+        the sent registers will set by looking at the configuration
+        register map. If registers is an iterable, then
         all of the registers in the iterable are sent.
 
         If write_read == 0 (default), the configurations will be sent
@@ -753,6 +755,8 @@ class Controller(object):
             registers = list(range(chip.config.num_registers))
         elif isinstance(registers, int):
             registers = [registers]
+        elif isinstance(registers, str):
+            registers = list(chip.config.register_map[registers])
         else:
             pass
         if message is None:
