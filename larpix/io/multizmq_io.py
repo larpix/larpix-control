@@ -143,7 +143,7 @@ class MultiZMQ_IO(IO):
                     bytestream_list += [message]
                     address_list += [self.receivers.inv[socket]]
         for message, address in zip(bytestream_list, address_list):
-            print(message)
+            #print(message)
             packets += self.decode([message], address=address)
         #print('len(bytestream_list) = %d' % len(bytestream_list))
         bytestream = b''.join(bytestream_list)
@@ -245,4 +245,4 @@ class MultiZMQ_IO(IO):
         for address in self.senders.keys():
             self.senders[address].close(linger=0)
             self.receivers[address].close(linger=0)
-            self.context.term()
+        self.context.term()
