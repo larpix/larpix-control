@@ -204,4 +204,3 @@ class PACMAN_IO(IO):
         if msg_data[1][0][0] == 'READ':
             return msg_data[1][0][-1]
         raise RuntimeError('Error received from server')
-
