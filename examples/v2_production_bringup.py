@@ -1,13 +1,12 @@
 from larpix import Controller
-from larpix.io import MultiZMQ_IO
+from larpix.io import PACMAN_IO
 
 ctl = Controller()
 
 # Bring up communications with io groups
-ctl.io = MultiZMQ_IO('io/production_io.json') # specifies ip addresses + etc for io groups
+ctl.io = PACMAN_IO('io/production_io.json') # specifies ip addresses + etc for io groups
 if not ctl.io.ping():
     raise RuntimeError
-ctl.io.reset() # be sure that chips start in default state
 
 # Bring up Hydra networks
 ctl.load('controller/production_hydra_networks.json') # specifies hydra network on each io channel / group

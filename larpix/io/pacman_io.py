@@ -228,4 +228,3 @@ class PACMAN_IO(IO):
             return True
         return False
                                            
-                    

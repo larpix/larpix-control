@@ -1,10 +1,53 @@
+'''
+A python interface to the pacman ZMQ message format.
+
+The pacman ZMQ messages are a raw bytestring with two components: a short
+header and N words. It's a bit cumbersome to work with bytestrings in data (and
+keep track of endianness / etc), so this module allows you to translate between
+native python objects and the pacman message bytestring.
+
+Access to the message content is provided by the `parse_msg(msg)` method which
+takes a single pacman message bytestring as an argument, e.g.::
+
+    msg = b'!-----\x01\x00P---------------' # a simple ping response
+    data = parse_msg(msg) # (('REP',123456,1), [('PONG')])
+    msg = b'D-----\x01\x00D\x01------datadata' # a simple data message
+    data = parse_msg(msg) # (('DATA',123456,1), [('DATA',1,1234,b'datadata')])
+
+The creation of messages can be performed with the inverse method,
+`format_msg(msg_type, msg_words)`. Here, the `msg_type` is one of `'DATA'`,
+`'REQ'`, or `'REP'`, and `msg_words` is a `list` of tuples indicating the word
+type (index 0) and the word data (index 1, 2, ...). Word types are specified
+by strings that can be found in the `word_type_table`. The necessary fields
+(and primitive types) for the word data is described in the `word_fmt_table`.
+E.g.::
+
+    data = ('REP', [('PONG')]) # simple ping response
+    msg = format_msg(*data) # b'!----\x00\x01\x00P\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+    data = ('DATA', [('DATA',1,1234,b'datadata')])
+    msg = format_msg(*data) # b'D----\x00\x01\x00D\x01\x00\x00\x00\x00\x00\x00datadata'
+
+To facilitate translating to/from larpix control packet objects, you can use
+the `format(pkts, msg_type)` and `parse(msg, io_group=None)` methods. E.g.::
+
+    packet = Packet()
+    packet.io_channel = 1
+    msg = format([packet]) # b'?----\x00\x01\x00D\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+    packets = parse(msg, io_group=1) # [Packet(b'\x00\x00\x00\x00\x00\x00\x00\x00')]
+    packets[0].io_group # 1
+
+Note that no `io_group` data is contained within a pacman message. This means
+that when formatting messages, packets' `io_group` field is ignored. And when
+parsing messages, an `io_group` value needs to be specified at the time of
+parsing.
+
+'''
 import struct
 from bidict import bidict
 import time
 
 from larpix import Packet_v2
-
-VERSION=b'\x00'
 
 HEADER_LEN=8
 WORD_LEN=16
@@ -86,7 +129,7 @@ def parse_header(msg):
 
     '''
     msg_header_data = msg_header_struct.unpack(msg[:HEADER_LEN])
-    return (msg_type_table.inv[msg_header_data[0]],*msg_header_data[1:])
+    return (msg_type_table.inv[msg_header_data[0]],) + tuple(msg_header_data[1:])
 
 def parse_word(msg_type, word):
     '''
@@ -95,7 +138,7 @@ def parse_word(msg_type, word):
 
     '''
     word_type = word_type_table[msg_type].inv[word[0:1]]
-    return (word_type, *word_struct_table[word_type].unpack(word)[1:])
+    return (word_type,) + tuple(word_struct_table[word_type].unpack(word)[1:])
 
 def format_msg(msg_type, msg_words):
     '''
