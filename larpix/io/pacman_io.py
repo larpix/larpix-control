@@ -22,7 +22,7 @@ class PACMAN_IO(IO):
     dataserver_port = '5556'
     _valid_config_classes = ['PACMAN_IO']
 
-    def __init__(self, config_filepath=None, hwm=20000):
+    def __init__(self, config_filepath=None, hwm=20000, relaxed=False):
         super(PACMAN_IO, self).__init__()
         self.load(config_filepath)
 
@@ -35,6 +35,9 @@ class PACMAN_IO(IO):
         self.hwm = hwm
         for receiver in self.receivers.values():
             receiver.set_hwm(self.hwm)
+        for sender in self.senders.values():
+            if relaxed:
+                sender.setsockopt(zmq.REQ_RELAXED,True)
         for address in self._io_group_table.inv:
             send_address = 'tcp://' + address + ':' + self.cmdserver_port
             receive_address = 'tcp://' + address + ':' + self.dataserver_port
@@ -183,7 +186,7 @@ class PACMAN_IO(IO):
 
         '''
         if io_group is None:
-            return [self.set_reg(reg, val, io_group=io_group) for io_group in self._io_group_table]
+            return dict([(io_group,self.set_reg(reg, val, io_group=io_group)) for io_group in self._io_group_table])
         msg = pacman_msg_format.format_msg('REQ',[('WRITE',reg,val)])
         addr = self._io_group_table[io_group]
         self.senders[addr].send(msg)
@@ -192,10 +195,12 @@ class PACMAN_IO(IO):
     def get_reg(self, reg, io_group=None):
         '''
         Read a 32-bit register from the pacman PL
+        if no io_group is specified, returns a dict of io_group, reg_value
+        else returns reg_value
 
         '''
         if io_group is None:
-            return [self.get_reg(reg, io_group=io_group) for io_group in self._io_group_table]
+            return dict([(io_group, self.get_reg(reg, io_group=io_group)) for io_group in self._io_group_table])
         msg = pacman_msg_format.format_msg('REQ',[('READ',reg,0)])
         addr = self._io_group_table[io_group]
         self.senders[addr].send(msg)
@@ -205,3 +210,22 @@ class PACMAN_IO(IO):
             return msg_data[1][0][-1]
         raise RuntimeError('Error received from server')
 
+    def ping(self, io_group=None):
+        '''
+        Send a ping message
+        if no io_group is specified, returns a dict of io_group, response
+        else returns response
+
+        '''
+        if io_group is None:
+            return dict([(io_group, self.ping(io_group=io_group)) for io_group in self._io_group_table])
+        msg = pacman_msg_format.format_msg('REQ',[('PING',)])
+        addr = self._io_group_table[io_group]
+        self.senders[addr].send(msg)
+        self._sender_replies[addr].append(self.senders[addr].recv())
+        msg_data = pacman_msg_format.parse_msg(self._sender_replies[addr][-1])
+        if msg_data[1][0][0] == 'PONG':
+            return True
+        return False
+                                           
+                    
