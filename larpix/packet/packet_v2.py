@@ -247,7 +247,7 @@ class Packet_v2(object):
     @property
     def io_group(self):
         ''''''
-        if hasattr(self, '_io_channel'):
+        if hasattr(self, '_io_group'):
             return self._io_group
         return None
 

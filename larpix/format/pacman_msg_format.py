@@ -47,7 +47,7 @@ import struct
 from bidict import bidict
 import time
 
-from larpix import Packet_v2
+from larpix import Packet_v2, TriggerPacket, SyncPacket, TimestampPacket
 
 HEADER_LEN=8
 WORD_LEN=16
@@ -96,7 +96,7 @@ msg_header_struct = struct.Struct(msg_header_fmt)
 word_fmt_table = dict(
     DATA='<cB2xL8s',
     TRIG='<cHxL8x',
-    SYNC='<cBxxL8x',
+    SYNC='<c2BxL8x',
     PING='<c15x',
     WRITE='<c3xL4xL',
     READ='<c3xL4xL',
@@ -164,43 +164,70 @@ def parse_msg(msg):
             ))
     return header, words
 
-def _packet_data_tx(pkt, *args):
-    return (pkt.io_channel, pkt.bytes())
+def _replace_none(obj, attr, default=0):
+    return getattr(obj, attr) if getattr(obj, attr) is not None else default
+
+def _packet_data_req(pkt, *args):
+    if isinstance(pkt, Packet_v2):
+        return ('TX',
+                _replace_none(pkt,'io_channel'),
+                pkt.bytes())
+    return tuple()
 
 def _packet_data_data(pkt, ts_pacman, *args):
-    (pkt.io_channel, ts_pacman, pkt.bytes())
+    if isinstance(pkt, Packet_v2):
+        return ('DATA',
+                _replace_none(pkt,'io_channel'),
+                ts_pacman,
+                pkt.bytes())
+    elif isinstance(pkt, SyncPacket):
+        return ('SYNC',
+                _replace_none(pkt,'sync_type'),
+                _replace_none(pkt,'clk_source'),
+                _replace_none(pkt,'timestamp'))
+    elif isinstance(pkt, TriggerPacket):
+        return ('TRIG',
+                _replace_none(pkt,'trigger_type'),
+                _replace_none(pkt,'timestamp'))
 
 def format(packets, msg_type='REQ', ts_pacman=0):
     '''
     Converts larpix packets into a single PACMAN message
 
     '''
-    word_type = 'TX'
-    get_data = _packet_data_tx
-
+    get_data = _packet_data_req
     if msg_type == 'DATA':
-        word_type = 'DATA'
         get_data = _packet_data_data
 
     word_datas = list()
     for packet in packets:
-        word_data = [word_type]
-        word_data += get_data(packet, ts_pacman)
+        word_data = get_data(packet, ts_pacman)
+        if len(word_data) == 0: continue
         word_datas.append(word_data)
+    print(word_datas)
     return format_msg(msg_type, word_datas)
 
 def parse(msg, io_group=None):
     '''
-    Converts a PACMAN message into larpix packets (ignoring non-data packets)
+    Converts a PACMAN message into larpix packets
 
     '''
     packets = list()
     header, word_datas = parse_msg(msg)
+    packets.append(TimestampPacket(timestamp=header[1]))
     for word_data in word_datas:
+        packet = None
         if word_data[0] in ('TX', 'DATA'):
             packet = Packet_v2(word_data[-1])
             packet.io_group = io_group
             packet.io_channel = word_data[1]
+        elif word_data[0] is 'TRIG':
+            packet = TriggerPacket(trigger_type=word_data[1], timestamp=word_data[2])
+            packet.io_group = io_group
+        elif word_data[0] is 'SYNC':
+            packet = SyncPacket(sync_type=word_data[1], clk_source=word_data[2] & 0x01, timestamp=word_data[3])
+            packet.io_group = io_group            
+        if packet is not None:
             packets.append(packet)
     return packets
 

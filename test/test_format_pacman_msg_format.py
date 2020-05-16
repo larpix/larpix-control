@@ -1,5 +1,5 @@
 from larpix.format.pacman_msg_format import *
-from larpix import Packet_v2
+from larpix import Packet_v2, TimestampPacket, SyncPacket, TriggerPacket
 
 def test_header():
     print('test_header')
@@ -15,7 +15,7 @@ def test_word():
     test_data = dict(
         DATA = (1,2,b'testing!'),
         TRIG = (1,2),
-        SYNC = (1,2),
+        SYNC = (1,2,3),
         PING = (),
         WRITE = (1,2),
         READ = (1,2),
@@ -36,9 +36,12 @@ def test_packets():
     for i in range(100):
         packets.append(Packet_v2())
         packets[-1].io_channel = i
+    packets.append(SyncPacket(timestamp=123456, sync_type=3, clk_source=1))
+    packets.append(TriggerPacket(timestamp=123456, trigger_type=4))
 
-    msg = format(packets)
+    msg = format(packets, msg_type='DATA')
     print(msg)
     new_packets = parse(msg)
-
-    assert packets == new_packets
+    
+    assert packets == new_packets[1:]
+    assert isinstance(new_packets[0], TimestampPacket)
