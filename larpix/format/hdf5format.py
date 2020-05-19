@@ -812,6 +812,7 @@ def _parse_packets_v2_1(row, message_dset, *args, **kwargs):
         p.first_packet = row['first_packet']
     return p
 
+_uint8_struct = struct.Struct("<B")
 def _format_packets_packet_v2_2(pkt, *args, version='2.2', dset='packets', **kwargs):
     encoded_packet = _format_packets_packet_v2_0(pkt, version=version, dset=dset)
     if isinstance(pkt, SyncPacket):
@@ -821,7 +822,6 @@ def _format_packets_packet_v2_2(pkt, *args, version='2.2', dset='packets', **kwa
         encoded_packet[dtype_property_index_lookup[version]['packets']['trigger_type']] = _uint8_struct.unpack(pkt.trigger_type)[0]
     return encoded_packet
 
-_uint8_struct = struct.Struct("<B")
 def _parse_packets_v2_2(row, message_dset, *args, **kwargs):
     p = _parse_packets_v2_1(row, message_dset, *args, **kwargs)
     if p is None:
