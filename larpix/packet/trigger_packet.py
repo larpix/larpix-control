@@ -13,6 +13,8 @@ class TriggerPacket(object):
     :param io_group: optional, an 8-bit io_group id
 
     '''
+    packet_type = 7
+    
     def __init__(self, trigger_type=None, timestamp=None, io_group=None):
         self.trigger_type = trigger_type
         self.timestamp = timestamp
@@ -52,6 +54,7 @@ class TriggerPacket(object):
         d['io_group'] = self.io_group
         d['trigger_type'] = self.trigger_type
         d['timestamp'] = self.timestamp
+        d['type'] = self.packet_type
         return d
 
     def from_dict(self, d):

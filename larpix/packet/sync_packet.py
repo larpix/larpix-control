@@ -17,6 +17,8 @@ class SyncPacket(object):
     :param io_group: optional, an 8-bit io_group id
 
     '''
+    packet_type = 6
+    
     pretty_sync_type = defaultdict(lambda:'OTHER')
     pretty_sync_type[b'S'] = 'SYNC'
     pretty_sync_type[b'H'] = 'HEARTBEAT'
@@ -68,6 +70,7 @@ class SyncPacket(object):
         d['sync_type'] = self.sync_type
         d['timestamp'] = self.timestamp
         d['clk_source'] = self.clk_source
+        d['type'] = self.packet_type
         return d
 
     def from_dict(self, d):
