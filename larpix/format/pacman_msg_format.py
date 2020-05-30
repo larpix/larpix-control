@@ -95,8 +95,8 @@ msg_header_struct = struct.Struct(msg_header_fmt)
 
 word_fmt_table = dict(
     DATA='<cB2xL8s',
-    TRIG='<cHxL8x',
-    SYNC='<c2BxL8x',
+    TRIG='<2cxL8x',
+    SYNC='<2cBxL8x',
     PING='<c15x',
     WRITE='<c3xL4xL',
     READ='<c3xL4xL',
@@ -204,7 +204,6 @@ def format(packets, msg_type='REQ', ts_pacman=0):
         word_data = get_data(packet, ts_pacman)
         if len(word_data) == 0: continue
         word_datas.append(word_data)
-    print(word_datas)
     return format_msg(msg_type, word_datas)
 
 def parse(msg, io_group=None):
@@ -215,6 +214,7 @@ def parse(msg, io_group=None):
     packets = list()
     header, word_datas = parse_msg(msg)
     packets.append(TimestampPacket(timestamp=header[1]))
+    packets[0].io_group = io_group
     for word_data in word_datas:
         packet = None
         if word_data[0] in ('TX', 'DATA'):
