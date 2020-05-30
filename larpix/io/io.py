@@ -10,17 +10,15 @@ class IO(object):
 
     '''
     _valid_config_classes = ['IO']
+    default_filepath = 'io/default.json'
 
     def __init__(self):
         '''
         Declaration of IO object
 
         :ivar is_listening: flag for ``start_listening`` and ``stop_listening``
-        :ivar default_filepath: default configuration path to load
 
         '''
-        self.default_filepath = 'io/default.json'
-
         self.is_listening = False
         self._io_group_table = bidict.bidict()
 
