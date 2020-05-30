@@ -6,6 +6,7 @@ from collections import defaultdict
 from larpix.io import IO
 from larpix.configs import load
 import larpix.format.pacman_msg_format as pacman_msg_format
+from larpix import Packet_v2
 
 class PACMAN_IO(IO):
     '''
@@ -17,10 +18,29 @@ class PACMAN_IO(IO):
     info on how messages are formatted, see `larpix.format.pacman_msg_format`.
 
     '''
+    default_filepath = 'io/pacman.json'
     max_msg_length = 2**16-1
     cmdserver_port = '5555'
     dataserver_port = '5556'
     _valid_config_classes = ['PACMAN_IO']
+
+    group_packets_by_io_group = True
+    interleave_packets_by_io_channel = True
+    double_send_packets = False
+    
+    _clk_ctrl_reg = 0x1010
+    _sw_reset_cycles_reg = 0x1014
+    _channel_offset = 0x2000
+    _channel_size = 0x1000
+    _uart_clock_ratio_offset = 0x10
+    _vddd_dac_reg = 0x24001
+    _vdda_dac_reg = 0x24011
+    _vddd_adc_reg = 0x24032
+    _vdda_adc_reg = 0x24042
+    _iddd_adc_reg = 0x24031
+    _idda_adc_reg = 0x24041
+    _adc2mv = lambda _,x: ((x >> 16) >> 3) * 4
+    _adc2ma = lambda _,x: ((x >> 16) * 500 * 0.01)
 
     def __init__(self, config_filepath=None, hwm=20000, relaxed=False):
         super(PACMAN_IO, self).__init__()
@@ -48,7 +68,7 @@ class PACMAN_IO(IO):
         for receiver in self.receivers.values():
             self.poller.register(receiver, zmq.POLLIN)
 
-    def send(self, packets, group_by_io_group=True, interleave_by_io_channel=True):
+    def send(self, packets):
         '''
         Sends a request message to PACMAN boards to send designated
         packets.
@@ -65,25 +85,35 @@ class PACMAN_IO(IO):
         '''
         msg_packets = list()
         # group packets into messages destined for a single io group (otherwise 1pkt = 1msg)
-        if group_by_io_group:
+        if self.group_packets_by_io_group:
             grouped_packets = self._group_by_attr(packets, 'io_group')
             for io_group, packets in grouped_packets.items():
                 msg_packets.append(packets)
         else:
-            msg_packets = packets
+            for packet in packets:
+                msg_packets.append([packet])
 
         # interleave across io group channels
-        if interleave_by_io_channel and group_by_io_group:
+        if self.interleave_packets_by_io_channel and self.group_packets_by_io_group:
             interleaved_msg_packets = list()
             for packets in msg_packets:
                 interleaved_msg_packets.append(self._interleave_by_attr(packets, 'io_channel'))
             msg_packets = interleaved_msg_packets
+
+        # double up sent packets to help avoid 512 bug
+        if self.double_send_packets:
+            doubled_msg_packets = list()
+            for packets in msg_packets:
+                for _ in range(2):
+                    doubled_msg_packets.append(packets)
+            msg_packets = doubled_msg_packets
 
         # convert packets to messages
         resp_addresses = list()
         for packets in msg_packets:
             io_group = packets[0].io_group
             for i in range(0, len(packets), self.max_msg_length):
+                #for packet in packets: print(packet)
                 msg = pacman_msg_format.format(packets, msg_type='REQ')
                 address = self._io_group_table[io_group]
                 self.senders[address].send(msg)
@@ -165,6 +195,9 @@ class PACMAN_IO(IO):
         for message, address in zip(bytestream_list, address_list):
             packets += pacman_msg_format.parse(message, io_group=self._io_group_table.inv[address])
         bytestream = b''.join(bytestream_list)
+        #print()
+        #for packet in packets:
+        #    if isinstance(packet, Packet_v2): print(packet)
         return packets,bytestream
 
     def cleanup(self):
@@ -228,3 +261,35 @@ class PACMAN_IO(IO):
             return True
         return False
                                            
+    def set_vddd(self, vddd_dac=0xDF40, io_group=None):
+        if io_group is None:
+            return dict([(io_group, self.set_vddd(vddd_dac, io_group=io_group)) for io_group in self._io_group_table])
+        self.set_reg(self._vddd_dac_reg, vddd_dac, io_group=io_group)
+        mv = self._adc2mv(self.get_reg(self._vddd_adc_reg, io_group=io_group))
+        ma = self._adc2ma(self.get_reg(self._iddd_adc_reg, io_group=io_group))
+        return mv, ma
+
+    def set_vdda(self, vdda_dac=0xDF40, io_group=None):
+        if io_group is None:
+            return dict([(io_group, self.set_vdda(vdda_dac, io_group=io_group)) for io_group in self._io_group_table])
+        self.set_reg(self._vdda_dac_reg, vdda_dac, io_group=io_group)
+        mv = self._adc2mv(self.get_reg(self._vdda_adc_reg, io_group=io_group))
+        ma = self._adc2ma(self.get_reg(self._idda_adc_reg, io_group=io_group))
+        return mv, ma
+
+    def set_uart_clock_ratio(self, channel, ratio, io_group=None):
+        if io_group is None:
+            return dict([(io_group, self.set_uart_clock_ratio(channel, ratio, io_group=io_group)) for io_group in self._io_group_table])
+        reg = self._channel_size*channel + self._uart_clock_ratio_offset + self._channel_offset
+        self.set_reg(reg, ratio, io_group=io_group)
+        return self.get_reg(reg, io_group=io_group)
+
+    def reset_larpix(self, length=256, io_group=None):
+        if io_group is None:
+            return dict([(io_group, self.reset_larpix(length, io_group=io_group)) for io_group in self._io_group_table])
+        self.set_reg(self._sw_reset_cycles_reg, length, io_group=io_group)
+        clk_ctrl = self.get_reg(self._clk_ctrl_reg, io_group=io_group)
+        self.set_reg(self._clk_ctrl_reg, clk_ctrl|4, io_group=io_group)
+        self.set_reg(self._clk_ctrl_reg, clk_ctrl, io_group=io_group)
+        return self.get_reg(self._clk_ctrl_reg, io_group=io_group)
+        
