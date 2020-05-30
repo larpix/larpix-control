@@ -1,3 +1,6 @@
+
+from larpix import Key
+
 class TriggerPacket(object):
     '''
     A packet-like object which contains trigger data (e.g. associated with
@@ -65,3 +68,13 @@ class TriggerPacket(object):
         if 'timestamp' in d:
             self.timestamp = d['timestamp']
 
+    @property
+    def chip_key(self):
+        if self.io_group:
+            return Key(self.io_group,0,0)
+        return None
+
+    @chip_key.setter
+    def	chip_key(self, val):
+        key = Key(val)
+        self.io_group = key.io_group

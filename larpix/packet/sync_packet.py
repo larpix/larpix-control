@@ -1,5 +1,7 @@
 from collections import defaultdict
 
+from larpix import Key
+
 class SyncPacket(object):
     '''
     A packet-like object which contains "sync" data (e.g. associated with
@@ -83,3 +85,13 @@ class SyncPacket(object):
         if 'clk_source' in d:
             self.clk_source = d['clk_source']
 
+    @property
+    def chip_key(self):
+        if self.io_group:
+            return Key(self.io_group,0,0)
+        return None
+
+    @chip_key.setter
+    def chip_key(self, val):
+        key = Key(val)
+        self.io_group = key.io_group
