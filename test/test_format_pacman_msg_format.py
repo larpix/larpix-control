@@ -14,8 +14,8 @@ def test_word():
     print('test_word')
     test_data = dict(
         DATA = (1,2,b'testing!'),
-        TRIG = (1,2),
-        SYNC = (1,2,3),
+        TRIG = (b'\x01',2),
+        SYNC = (b'H',1,2),
         PING = (),
         WRITE = (1,2),
         READ = (1,2),
@@ -36,8 +36,8 @@ def test_packets():
     for i in range(100):
         packets.append(Packet_v2())
         packets[-1].io_channel = i
-    packets.append(SyncPacket(timestamp=123456, sync_type=3, clk_source=1))
-    packets.append(TriggerPacket(timestamp=123456, trigger_type=4))
+    packets.append(SyncPacket(timestamp=123456, sync_type=b'H', clk_source=1))
+    packets.append(TriggerPacket(timestamp=123456, trigger_type=b'\x01'))
 
     msg = format(packets, msg_type='DATA')
     print(msg)
