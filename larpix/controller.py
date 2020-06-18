@@ -269,9 +269,9 @@ class Controller(object):
             for name in network_names:
                 self.network[io_group][io_channel][name].add_node(chip_id, root=root)
 
-    def get_network_keys(self, io_group, io_channel, root_first_traversal=True):
+    def get_network_ids(self, io_group, io_channel, root_first_traversal=True):
         '''
-        Returns a list of chip keys in order of depth within the miso_us network
+        Returns a list of chip ids in order of depth within the miso_us network
 
         :param io_group: io group of network
 
@@ -281,7 +281,7 @@ class Controller(object):
 
         '''
         subnetwork = self.network[io_group][io_channel]['miso_us']
-        ordered_keys = []
+        ordered_ids = []
 
         chip_ids = [chip_id for chip_id in subnetwork.nodes() if subnetwork.nodes[chip_id]['root']]
 
@@ -289,13 +289,26 @@ class Controller(object):
 
         while chip_ids:
             for chip_id in chip_ids:
-                if isinstance(chip_id, int):
-                    ordered_keys.append(Key(io_group, io_channel, chip_id))
+                ordered_ids.append(chip_id)
                 collected_chips.add(chip_id)
             chip_ids = [link[1] for link in subnetwork.out_edges(chip_ids) if not link[1] in collected_chips]
         if root_first_traversal:
-            return ordered_keys
-        return ordered_keys[::-1]
+            return ordered_ids
+        return ordered_ids[::-1]
+
+    def get_network_keys(self, io_group, io_channel, root_first_traversal=True):
+        '''
+        Returns a list of chip ids in order of depth within the miso_us network
+
+        :param io_group: io group of network
+
+        :param io_channel: io channel of network
+
+        :param root_first_traversal: ``True`` to traverse network starting from root nodes then increasing in network depth, ``False`` to traverse network starting from nodes furthest from root nodes and then decreasing in network depth
+
+        '''
+        chip_ids = self.get_network_ids(io_group, io_channel, root_first_traversal=root_first_traversal)
+        return [Key(io_group, io_channel, chip_id) for chip_id in chip_ids if isinstance(chip_id, int)]
 
     def _create_network(self, io_group, io_channel, network_names):
         '''
@@ -562,6 +575,43 @@ class Controller(object):
         self.chips = chips
         return system_info['name']
 
+    def init_network_and_verify(self, io_group=1, io_channel=1, chip_id=None, timeout=0.2, retries=10):
+        '''
+        Runs init network, verifying that registers are updated properly at each step
+        Will exit if any chip network configuration cannot be set correctly after
+        ``retries`` attempts
+
+        '''
+        if chip_id is None:
+            chip_ids = self.get_network_ids(io_group, io_channel, root_first_traversal=True)
+            for chip_id in chip_ids:
+                ok,diff = self.init_network_and_verify(io_group, io_channel, chip_id=chip_id, timeout=timeout, retries=retries)
+                if not ok:
+                    return ok,diff
+            return ok,dict()
+
+        keys_to_verify = list()
+        keys_to_verify.append(Key(io_group,io_channel,chip_id))
+        for us_link in self.network[io_group][io_channel]['miso_us'].in_edges(chip_id):
+            if not isinstance(us_link[0], int):
+                continue
+            parent_chip_id = us_link[0]
+            keys_to_verify.append(Key(io_group, io_channel, parent_chip_id))
+
+        print('init',io_group,io_channel,chip_id)
+        self.init_network(io_group, io_channel, chip_id)
+        ok,diff = self.verify_network(keys_to_verify, timeout=timeout)
+        for _ in range(retries):
+            if ok: return ok,diff
+            for chip_key in diff:
+                self.write_configuration(chip_key, diff[chip_key].keys())
+            ok,diff = self.verify_registers([
+                (chip_key, list(diff[chip_key].keys())) for chip_key in diff
+            ])
+        if not ok:
+            print('Failed to verify network nodes {}'.format(keys_to_verify))
+        return ok,diff
+
     def init_network(self, io_group=1, io_channel=1, chip_id=None):
         '''
         Configure a Hydra io node specified by chip_id, if none are specified,
@@ -572,13 +622,14 @@ class Controller(object):
          - Write chip_id to chip on io group + io channel (assuming chip id 1)
          - Write enable_miso_downstream to chip chip_id
          - Write enable_mosi to chip chip_id
+         - Write enable_miso_differential to chip chip_id
 
         '''
         subnetwork = self.network[io_group][io_channel]
         if chip_id is None:
-            chip_keys = self.get_network_keys(io_group, io_channel, root_first_traversal=True)
-            for chip_key in chip_keys:
-                self.init_network(io_group, io_channel, chip_id=chip_key.chip_id)
+            chip_ids = self.get_network_ids(io_group, io_channel, root_first_traversal=True)
+            for chip_id in chip_ids:
+                self.init_network(io_group, io_channel, chip_id=chip_id)
             return
 
         packets = []
@@ -599,7 +650,7 @@ class Controller(object):
         if chip_key:
             # Only modify chip configuration if node points to a chip object
 
-            # Write chip_id to specified chip (assuming it has chip id 1)
+            # Write chip_id to specified chip
             self[chip_key].config.chip_id = chip_key.chip_id
             packets += self[chip_key].get_configuration_write_packets(registers=Configuration_v2.register_map['chip_id'])
             packets[-1].chip_id = 1
@@ -727,7 +778,7 @@ class Controller(object):
         return packets, bytestream
 
     def write_configuration(self, chip_key, registers=None, write_read=0,
-            message=None):
+                            message=None, connection_delay=0.2):
         '''
         Send the configurations stored in chip.config to the LArPix
         ASIC.
@@ -771,6 +822,7 @@ class Controller(object):
         mess_with_listening = write_read != 0 and not already_listening
         if mess_with_listening:
             self.start_listening()
+            time.sleep(connection_delay)
             stop_time = time.time() + write_read
         self.send(packets)
         if mess_with_listening:
@@ -782,7 +834,7 @@ class Controller(object):
             self.store_packets(packets, bytestream, message)
 
     def read_configuration(self, chip_key, registers=None, timeout=1,
-            message=None):
+                           message=None, connection_delay=0.2):
         '''
         Send "configuration read" requests to the LArPix ASIC.
 
@@ -818,6 +870,7 @@ class Controller(object):
             already_listening = self.io.is_listening
         if not already_listening:
             self.start_listening()
+            time.sleep(connection_delay)
             stop_time = time.time() + timeout
         self.send(packets)
         if not already_listening:
@@ -829,7 +882,7 @@ class Controller(object):
         self.store_packets(packets, bytestream, message)
 
     def multi_write_configuration(self, chip_reg_pairs, write_read=0,
-            message=None):
+                                  message=None, connection_delay=0.2):
         '''
         Send multiple write configuration commands at once.
 
@@ -878,6 +931,7 @@ class Controller(object):
         mess_with_listening = write_read != 0 and not already_listening
         if mess_with_listening:
             self.start_listening()
+            time.sleep(connection_delay)
             stop_time = time.time() + write_read
         self.send(packets)
         if mess_with_listening:
@@ -890,7 +944,7 @@ class Controller(object):
             self.store_packets(packets, bytestream, message)
 
     def multi_read_configuration(self, chip_reg_pairs, timeout=1,
-            message=None):
+                                 message=None, connection_delay=0.2):
         '''
         Send multiple read configuration commands at once.
 
@@ -937,16 +991,16 @@ class Controller(object):
             already_listening = self.io.is_listening
         if not already_listening:
             self.start_listening()
+            time.sleep(connection_delay)
             stop_time = time.time() + timeout
         self.send(packets)
         if not already_listening:
             sleep_time = stop_time - time.time()
             if sleep_time > 0:
                 time.sleep(sleep_time)
-            #time.sleep(stop_time - time.time())
-            packets, bytestream = self.read()
-            self.stop_listening()
-            self.store_packets(packets, bytestream, message)
+        packets, bytestream = self.read()
+        self.stop_listening()
+        self.store_packets(packets, bytestream, message)
 
     def run(self, timelimit, message):
         '''
@@ -968,7 +1022,7 @@ class Controller(object):
         data = b''.join(bytestreams)
         self.store_packets(packets, data, message)
 
-    def verify_registers(self, chip_key_register_pairs, timeout=0.1):
+    def verify_registers(self, chip_key_register_pairs, timeout=1, connection_delay=0.02):
         '''
         Read chip configuration from specified chip and registers and return ``True`` if the
         read chip configuration matches the current configuration stored in chip instance.
@@ -983,28 +1037,39 @@ class Controller(object):
         '''
         return_value = True
         different_fields = {}
-        registers = dict(chip_key_register_pairs)
-        for chip_key, chip_registers in registers.items():
+        registers = {}
+        for chip_key, chip_registers in chip_key_register_pairs:
             if not isinstance(chip_registers, (list,tuple,range)):
-                registers[chip_key] = [chip_registers]
-        chip_keys = registers.keys()
-        self.multi_read_configuration(chip_key_register_pairs, timeout=timeout)
+                if chip_key in registers:
+                    registers[chip_key] += [chip_registers]
+                else:
+                    registers[chip_key] = [chip_registers]
+            else:
+                if chip_key in registers:
+                    registers[chip_key] += list(chip_registers)
+                else:
+                    registers[chip_key] = list(chip_registers)
+        self.multi_read_configuration(chip_key_register_pairs, timeout=timeout, connection_delay=connection_delay)
         configuration_data = dict([
-            (chip_key, dict([(register,(None, None)) for register in chip_registers])) for chip_key, chip_registers in registers.items()])
+            (chip_key, dict([
+                (register,(None, None))
+                for register in chip_registers]))
+            for chip_key, chip_registers in registers.items()])
         for packet in self.reads[-1]:
             packet_key = packet.chip_key
-            if (packet.packet_type == packet.CONFIG_READ_PACKET):
+            if (hasattr(packet,'CONFIG_READ_PACKET') and packet.packet_type == packet.CONFIG_READ_PACKET):
                 register_address = packet.register_address
                 if packet_key in configuration_data and register_address in configuration_data[packet_key]:
                     configuration_data[packet_key][register_address] = (None, packet.register_data)
-
-        for chip_key in chip_keys:
+                    
+        for chip_key in registers.keys():
             expected_data = dict()
             if self[chip_key].asic_version == 1:
                 expected_data = dict([(register_address, bah.touint(bits)) for register_address, bits in enumerate(self[chip_key].config.all_data())])
             else:
                 expected_data = dict([(register_address, bah.touint(bits, endian=Packet_v2.endian)) for register_address, bits in enumerate(self[chip_key].config.all_data())])
-            for register in registers[chip_key]:
+
+            for register in set(registers[chip_key]):
                 configuration_data[chip_key][register] = (expected_data[register], configuration_data[chip_key][register][1])
                 if not configuration_data[chip_key][register][0] == configuration_data[chip_key][register][1]:
                     return_value = False
@@ -1014,7 +1079,7 @@ class Controller(object):
                 del configuration_data[chip_key]
         return (return_value, configuration_data)
 
-    def verify_configuration(self, chip_keys=None, timeout=0.1):
+    def verify_configuration(self, chip_keys=None, timeout=1):
         '''
         Read chip configuration from specified chip(s) and return ``True`` if the
         read chip configuration matches the current configuration stored in chip instance.
@@ -1038,7 +1103,7 @@ class Controller(object):
         chip_key_register_pairs = [(chip_key, range(self[chip_key].config.num_registers)) for chip_key in chip_keys]
         return self.verify_registers(chip_key_register_pairs, timeout=timeout)
 
-    def verify_network(self, chip_keys=None, timeout=0.1):
+    def verify_network(self, chip_keys=None, timeout=1):
         '''
         Read chip network configuration from specified chip(s) and return ``True``
         if the read chip configurations matches
@@ -1058,7 +1123,8 @@ class Controller(object):
         network_registers = list(Configuration_v2.register_map['chip_id']) + \
             list(Configuration_v2.register_map['enable_mosi']) + \
             list(Configuration_v2.register_map['enable_miso_upstream']) + \
-            list(Configuration_v2.register_map['enable_miso_downstream'])
+            list(Configuration_v2.register_map['enable_miso_downstream']) + \
+            list(Configuration_v2.register_map['enable_miso_differential'])
         chip_key_register_pairs = [(chip_key, network_registers) for chip_key in chip_keys]
         return self.verify_registers(chip_key_register_pairs)
 
