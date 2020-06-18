@@ -135,6 +135,8 @@ class Packet_v2(object):
             strings += ['Register: {}'.format(self.register_address)]
             strings += ['Value: {}'.format(self.register_data)]
 
+        if hasattr(self, 'receipt_timestamp'):
+            strings += ['Receipt TS: {}'.format(self.receipt_timestamp)]
         strings += ['Parity: {} (valid: {})'.format(self.parity,
             self.has_valid_parity())]
         return '[ ' + ' | '.join(strings) + ' ]'
@@ -194,6 +196,8 @@ class Packet_v2(object):
             d['register_data'] = self.register_data
         if hasattr(self,'direction'):
             d['direction'] = self.direction
+        if hasattr(self,'receipt_timestamp'):
+            d['receipt_timestamp'] = self.receipt_timestamp
         return d
 
     def from_dict(self, d):

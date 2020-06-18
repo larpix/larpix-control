@@ -410,7 +410,7 @@ from larpix.larpix import Packet_v1, Packet_v2, TimestampPacket, MessagePacket, 
 from larpix.logger import Logger
 
 #: The most recent / up-to-date LArPix+HDF5 format version
-latest_version = '2.2'
+latest_version = '2.3'
 
 #: The dtype specification used in the HDF5 files.
 #:
@@ -545,6 +545,38 @@ dtypes = {
                 ('timestamp', 'u8'),
                 ('index', 'u4'),
                 ]
+            },
+            '2.3': { # compatible with v2 packets, timestamp packets,
+                 # sync packets, and trigger packets only
+            'packets': [
+                ('io_group','u1'),
+                ('io_channel','u1'),
+                ('chip_id','u1'),
+                ('packet_type','u1'),
+                ('downstream_marker','u1'),
+                ('parity','u1'),
+                ('valid_parity','u1'),
+                ('channel_id','u1'),
+                ('timestamp','u8'),
+                ('dataword','u1'),
+                ('trigger_type','u1'),
+                ('local_fifo','u1'),
+                ('shared_fifo','u1'),
+                ('register_address','u1'),
+                ('register_data','u1'),
+                ('direction', 'u1'),
+                ('local_fifo_events','u1'),
+                ('shared_fifo_events','u1'),
+                ('counter','u4'),
+                ('fifo_diagnostics_enabled','u1'),
+                ('first_packet','u1'),
+                ('receipt_timestamp','u4')
+                ],
+            'messages': [
+                ('message', 'S64'),
+                ('timestamp', 'u8'),
+                ('index', 'u4'),
+                ]
             }
         }
 
@@ -651,8 +683,38 @@ dtype_property_index_lookup = {
                 'timestamp': 1,
                 'index': 2,
                 }
-            },
-        '2.2': {
+        },
+    '2.2': {
+        'packets': {
+                'io_group': 0,
+                'io_channel': 1,
+                'chip_id': 2,
+                'packet_type': 3,
+                'downstream_marker': 4,
+                'parity': 5,
+                'valid_parity': 6,
+                'channel_id': 7,
+                'timestamp': 8,
+                'dataword': 9,
+                'trigger_type': 10,
+                'local_fifo': 11,
+                'shared_fifo': 12,
+                'register_address': 13,
+                'register_data': 14,
+                'direction': 15,
+                'local_fifo_events': 16,
+                'shared_fifo_events': 17,
+                'counter': 18,
+                'fifo_diagnostics_enabled': 19,
+                'first_packet': 20,
+                },
+            'messages': {
+                'message': 0,
+                'timestamp': 1,
+                'index': 2,
+                }
+    },
+    '2.3': {
             'packets': {
                 'io_group': 0,
                 'io_channel': 1,
@@ -675,6 +737,7 @@ dtype_property_index_lookup = {
                 'counter': 18,
                 'fifo_diagnostics_enabled': 19,
                 'first_packet': 20,
+                'receipt_timestamp': 21,
                 },
             'messages': {
                 'message': 0,
@@ -814,7 +877,7 @@ def _parse_packets_v2_1(row, message_dset, *args, **kwargs):
 
 _uint8_struct = struct.Struct("<B")
 def _format_packets_packet_v2_2(pkt, *args, version='2.2', dset='packets', **kwargs):
-    encoded_packet = _format_packets_packet_v2_0(pkt, version=version, dset=dset)
+    encoded_packet = _format_packets_packet_v2_0(pkt, *args, version=version, dset=dset, **kwargs)
     if isinstance(pkt, SyncPacket):
         encoded_packet[dtype_property_index_lookup[version]['packets']['trigger_type']] = _uint8_struct.unpack(pkt.sync_type)[0]
         encoded_packet[dtype_property_index_lookup[version]['packets']['dataword']] = pkt.clk_source
@@ -839,6 +902,16 @@ def _parse_packets_v2_2(row, message_dset, *args, **kwargs):
                 timestamp = row['timestamp']
             )
     return p
+
+def _format_packets_packet_v2_3(pkt, *args, version='2.3', dset='packets', **kwargs):
+    return _format_packets_packet_v2_2(pkt, *args, version=version, dset=dset, **kwargs)
+
+def _parse_packets_v2_3(row, message_dset, *args, **kwargs):
+    p = _parse_packets_v2_2(row, message_dset, *args, **kwargs)
+    if isinstance(p, Packet_v2):
+        p.receipt_timestamp = row['receipt_timestamp']
+    return p
+    
 
 # A map between packet class and the formatting method used to convert to structured
 # dtypes.
@@ -891,7 +964,19 @@ _format_method_lookup = {
         },
         'messages': {
             MessagePacket: _format_messages_message_packet_v1_0
-        }
+        },
+    },
+    '2.3': {
+        'packets': {
+            Packet_v2: _format_packets_packet_v2_3,
+            TimestampPacket: _format_packets_packet_v2_3,
+            MessagePacket: _format_packets_packet_v2_3,
+            SyncPacket: _format_packets_packet_v2_3,
+            TriggerPacket: _format_packets_packet_v2_3
+        },
+        'messages': {
+            MessagePacket: _format_messages_message_packet_v1_0
+        }       
     }
 }
 
@@ -914,7 +999,10 @@ _parse_method_lookup = {
     },
     '2.2': {
         'packets': _parse_packets_v2_2
-    }
+    },
+    '2.3': {
+        'packets': _parse_packets_v2_3
+    }    
 }
 
 def to_file(filename, packet_list, mode='a', version=None):

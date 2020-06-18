@@ -94,8 +94,8 @@ msg_header_fmt = '<cLxH'
 msg_header_struct = struct.Struct(msg_header_fmt)
 
 word_fmt_table = dict(
-    DATA='<cB2xL8s',
-    TRIG='<2cxL8x',
+    DATA='<cBLxx8s',
+    TRIG='<2cxxL8x',
     SYNC='<2cBxL8x',
     PING='<c15x',
     WRITE='<c3xL4xL',
@@ -219,6 +219,7 @@ def parse(msg, io_group=None):
         packet = None
         if word_data[0] in ('TX', 'DATA'):
             packet = Packet_v2(word_data[-1])
+            packet.receipt_timestamp = word_data[2]
             packet.io_group = io_group
             packet.io_channel = word_data[1]
         elif word_data[0] is 'TRIG':
