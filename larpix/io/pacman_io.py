@@ -1,6 +1,7 @@
 import itertools
 import zmq
 import bidict
+import time
 from collections import defaultdict
 
 from larpix.io import IO
@@ -195,7 +196,7 @@ class PACMAN_IO(IO):
         for message, address in zip(bytestream_list, address_list):
             packets += pacman_msg_format.parse(message, io_group=self._io_group_table.inv[address])
         bytestream = b''.join(bytestream_list)
-        #print()
+        #print(bytestream)
         #for packet in packets:
         #    if isinstance(packet, Packet_v2): print(packet)
         return packets,bytestream
@@ -261,18 +262,22 @@ class PACMAN_IO(IO):
             return True
         return False
                                            
-    def set_vddd(self, vddd_dac=0xDF40, io_group=None):
+    def set_vddd(self, vddd_dac=0xD5A3, io_group=None, settling_time=0.1):
         if io_group is None:
             return dict([(io_group, self.set_vddd(vddd_dac, io_group=io_group)) for io_group in self._io_group_table])
         self.set_reg(self._vddd_dac_reg, vddd_dac, io_group=io_group)
+        if settling_time:
+            time.sleep(settling_time)
         mv = self._adc2mv(self.get_reg(self._vddd_adc_reg, io_group=io_group))
         ma = self._adc2ma(self.get_reg(self._iddd_adc_reg, io_group=io_group))
         return mv, ma
 
-    def set_vdda(self, vdda_dac=0xDF40, io_group=None):
+    def set_vdda(self, vdda_dac=0xD5A3, io_group=None, settling_time=0.1):
         if io_group is None:
             return dict([(io_group, self.set_vdda(vdda_dac, io_group=io_group)) for io_group in self._io_group_table])
         self.set_reg(self._vdda_dac_reg, vdda_dac, io_group=io_group)
+        if settling_time:
+            time.sleep(settling_time)        
         mv = self._adc2mv(self.get_reg(self._vdda_adc_reg, io_group=io_group))
         ma = self._adc2ma(self.get_reg(self._idda_adc_reg, io_group=io_group))
         return mv, ma
