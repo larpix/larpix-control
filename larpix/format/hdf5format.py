@@ -747,7 +747,7 @@ dtype_property_index_lookup = {
             }
         }
 
-def _format_raw_packet_v0_0(pkt, *args, version='0.0', dset='raw_packet', **kwargs):
+def _format_raw_packet_v0_0(pkt, version='0.0', dset='raw_packet', *args, **kwargs):
     dict_rep = pkt.export()
     encoded_packet = [
         dict_rep.get(key, b'') if val_type[0] == 'S'  # string
@@ -779,7 +779,7 @@ def _parse_raw_packet_v0_0(row, message_dset, *args, **kwargs):
         return p
     return None
 
-def _format_packets_packet_v1_0(pkt, *args, version='1.0', dset='packets', **kwargs):
+def _format_packets_packet_v1_0(pkt, version='1.0', dset='packets', *args, **kwargs):
     encoded_packet = _format_raw_packet_v0_0(pkt, *args, version=version, dset=dset, **kwargs)
     if hasattr(pkt, 'direction'):
         encoded_packet[dtype_property_index_lookup[version][dset]['direction']] = {
@@ -787,7 +787,7 @@ def _format_packets_packet_v1_0(pkt, *args, version='1.0', dset='packets', **kwa
             Logger.READ: 1}[pkt.direction]
     return encoded_packet
 
-def _format_messages_message_packet_v1_0(pkt, *args, counter=0, **kwargs):
+def _format_messages_message_packet_v1_0(pkt, counter=0, *args, **kwargs):
     return (pkt.message, pkt.timestamp, counter)
 
 def _parse_packets_v1_0(row, message_dset, *args, **kwargs):
@@ -821,7 +821,7 @@ def _parse_packets_v1_0(row, message_dset, *args, **kwargs):
         return p
     return None
 
-def _format_packets_packet_v2_0(pkt, *args, version='2.0', dset='packets', **kwargs):
+def _format_packets_packet_v2_0(pkt, version='2.0', dset='packets', *args, **kwargs):
     encoded_packet = _format_packets_packet_v1_0(pkt, version=version, dset=dset)
     if encoded_packet is not None:
         encoded_packet[dtype_property_index_lookup[version][dset]['packet_type']] = pkt.packet_type
@@ -866,7 +866,7 @@ def _parse_packets_v2_0(row, message_dset, *args, **kwargs):
         return p
     return None
 
-def _format_packets_packet_v2_1(pkt, *args, version='2.1', dset='packets', **kwargs):
+def _format_packets_packet_v2_1(pkt, version='2.1', dset='packets', *args, **kwargs):
     return _format_packets_packet_v2_0(pkt, *args, version=version, dset=dset, **kwargs)
 
 def _parse_packets_v2_1(row, message_dset, *args, **kwargs):
@@ -876,7 +876,7 @@ def _parse_packets_v2_1(row, message_dset, *args, **kwargs):
     return p
 
 _uint8_struct = struct.Struct("<B")
-def _format_packets_packet_v2_2(pkt, *args, version='2.2', dset='packets', **kwargs):
+def _format_packets_packet_v2_2(pkt, version='2.2', dset='packets', *args, **kwargs):
     encoded_packet = _format_packets_packet_v2_0(pkt, *args, version=version, dset=dset, **kwargs)
     if isinstance(pkt, SyncPacket):
         encoded_packet[dtype_property_index_lookup[version]['packets']['trigger_type']] = _uint8_struct.unpack(pkt.sync_type)[0]
@@ -903,7 +903,7 @@ def _parse_packets_v2_2(row, message_dset, *args, **kwargs):
             )
     return p
 
-def _format_packets_packet_v2_3(pkt, *args, version='2.3', dset='packets', **kwargs):
+def _format_packets_packet_v2_3(pkt, version='2.3', dset='packets', *args, **kwargs):
     return _format_packets_packet_v2_2(pkt, *args, version=version, dset=dset, **kwargs)
 
 def _parse_packets_v2_3(row, message_dset, *args, **kwargs):
