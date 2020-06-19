@@ -33,21 +33,23 @@ functions.
 
 The larpix package contains:
 ```
-larpix
-├── __init__.py
+larpix/
 ├── bitarrayhelper.py
 ├── chip.py
 ├── configs
-│   ├── __init__.py
 │   ├── chip
-│   │   ├── __init__.py
 │   │   ├── csa_bypass.json
 │   │   ├── default.json
 │   │   ├── default_v2.json
+│   │   ├── __init__.py
 │   │   ├── physics.json
 │   │   └── quiet.json
 │   ├── controller
+│   │   ├── bare-die-v2-v1.0.0.json
 │   │   ├── __init__.py
+│   │   ├── network-3x3-tile-channel0.json
+│   │   ├── network-3x3-tile-channel1.json
+│   │   ├── network-3x3-tile-channel2.json
 │   │   ├── pcb-10_chip_info.json
 │   │   ├── pcb-1_chip_info.json
 │   │   ├── pcb-2_chip_info.json
@@ -56,8 +58,8 @@ larpix
 │   │   ├── pcb-5_chip_info.json
 │   │   ├── pcb-6_chip_info.json
 │   │   └── v2_example.json
+│   ├── __init__.py
 │   └── io
-│       ├── __init__.py
 │       ├── daq-srv1.json
 │       ├── daq-srv2.json
 │       ├── daq-srv3.json
@@ -66,30 +68,34 @@ larpix
 │       ├── daq-srv6.json
 │       ├── daq-srv7.json
 │       ├── default.json
-│       └── loopback.json
+│       ├── __init__.py
+│       ├── loopback.json
+│       └── pacman.json
 ├── configuration
-│   ├── __init__.py
 │   ├── configuration.py
 │   ├── configuration_v1.py
-│   └── configuration_v2.py
+│   ├── configuration_v2.py
+│   └── __init__.py
 ├── controller.py
-├── example.py
 ├── format
-│   ├── __init__.py
 │   ├── hdf5format.py
-│   └── message_format.py
-├── io
 │   ├── __init__.py
+│   ├── message_format.py
+│   └── pacman_msg_format.py
+├── __init__.py
+├── io
 │   ├── fakeio.py
+│   ├── __init__.py
 │   ├── io.py
 │   ├── multizmq_io.py
+│   ├── pacman_io.py
 │   ├── serialport.py
 │   └── zmq_io.py
 ├── key.py
 ├── larpix.py
 ├── logger
-│   ├── __init__.py
 │   ├── h5_logger.py
+│   ├── __init__.py
 │   ├── logger.py
 │   └── stdout_logger.py
 ├── packet
@@ -98,15 +104,21 @@ larpix
 │   ├── packet_collection.py
 │   ├── packet_v1.py
 │   ├── packet_v2.py
-│   └── timestamp_packet.py
+│   ├── sync_packet.py
+│   ├── timestamp_packet.py
+│   └── trigger_packet.py
 ├── quickstart.py
 ├── serial_helpers
-│   ├── __init__.py
 │   ├── analyzers.py
 │   ├── dataformatter.py
 │   ├── dataloader.py
-│   └── datalogger.py
+│   ├── datalogger.py
+│   └── __init__.py
 └── timestamp.py
+
+scripts/
+├── gen_controller_config.py
+└── gen_hydra_simple.py
 ```
 
 ## Minimal working example
@@ -338,6 +350,7 @@ ASICs. There is an appropriate Controller method for that:
 controller.write_configuration(chip_key)  # send all registers
 controller.write_configuration(chip_key, 32)  # send only register 32
 controller.write_configuration(chip_key, [32, 50])  # send registers 32 and 50
+controller.write_configuration(chip_key, 'threshold_global') # send register for 'threshold_global'
 ```
 
 Register addresses can be looked up using the configuration object:
@@ -349,7 +362,7 @@ threshold_global_reg = chip5.config.register_map['threshold_global']
 And register names:
 
 ```python
-threshold_global_name = chip.5.config.register_map_inv[64]
+threshold_global_name = chip5.config.register_map_inv[64]
 ```
 
 For configurations which extend over multiple registers, the relevant
@@ -656,6 +669,65 @@ interactive python sessions if you are about to quit.)
 ```python
 datafile.close()
 ```
+
+## Running with a PACMANv1r1 board (v2 asic)
+
+Before you can configure the system, you need to generate a configuration file
+for the PACMAN_IO interface. This sets up the mapping from chip keys to the ip
+addresses of the physical devices. One example configuration is provided in
+``larpix/configs/io/pacman.json``, which assumes that you can perform hostname
+DNS resolution.
+
+After powering up the PACMAN board, you can create a new PACMAN io object with
+```
+from larpix import Controller
+from larpix.io import PACMAN_IO
+controller = Controller()
+controller.io = PACMAN_IO(config_filepath='<io config file path>')
+controller.load('<controller config file path>')
+controller.io.ping() # returns a dict of (io_group, ping_success)
+'''
+
+To set the correct supply voltages
+```
+controller.io.set_vddd() # set default vddd (~1.8V)
+controller.io.set_vdda() # set default vdda (~1.8V)
+```
+These automatically query the built-in ADCs and return the set voltage and current
+in mV and mA, respectively.
+
+To bring up the Hydra network (and work around the known bugs in v2), do the
+following:
+```
+# First bring up the network using as few packets as possible
+controller.io.group_packets_by_io_group = False # this throttles the data rate to avoid FIFO collisions
+for io_group, io_channels in controller.network.items():
+    for io_channel in io_channels:
+        controller.init_network(io_group, io_channel)
+
+# Configure the IO for a slower UART and differential signaling
+controller.io.double_send_packets = True # double up packets to avoid 512 bug when configuring
+for io_group, io_channels in controller.network.items():
+    for io_channel in io_channels:
+        chip_keys = controller.get_network_keys(io_group,io_channel,root_first_traversal=False)
+        for chip_key in chip_keys:
+            controller[chip_key].config.clk_ctrl = 1
+            controller[chip_key].config.enable_miso_differential = [1,1,1,1]
+            controller.write_configuration(chip_key, 'enable_miso_differential')
+            controller.write_configuration(chip_key, 'clk_ctrl')
+for io_group, io_channels in controller.network.items():
+    for io_channel in io_channels:
+        controller.io.set_uart_clock_ratio(io_channel, 4, io_group=io_group)
+
+controller.io.double_send_packets = False
+controller.io.group_packets_by_io_group = True
+```
+At this point, you can happily interface with the ASICs using everything you
+learned above. I also recommend you glance at the section below (**Running with
+a Bern DAQ board**), which describes some shortcut functions available in the
+`Controller` class. In particular, it is good practice to ``verify_configuration``
+before proceeding with anything.
+            
 
 ## Running with a Bern DAQ board (v1 asic)
 
