@@ -66,9 +66,9 @@ def generate_chip_id(g, method='chip_id_simple'):
 
     '''
     for node in g.nodes():
-        if 'chip_id' in g.node[node]:
+        if 'chip_id' in g.nodes[node]:
             continue
-        g.node[node]['chip_id'] = globals()[method](g, node)
+        g.nodes[node]['chip_id'] = globals()[method](g, node)
 
 def generate_digraphs_from_upstream(g, root, ext):
     '''
@@ -102,6 +102,19 @@ def generate_digraphs_from_upstream(g, root, ext):
 
     return g_us, g_ds, g_mosi
 
+def generate_2d_grid_digraph(x_slots, y_slots, *args):
+    g = nx.grid_2d_graph(x_slots, y_slots, create_using=nx.DiGraph)
+    for node in args:
+        g.add_node(node)
+    for x in range(-1,2):
+        for y in range(-1,2):
+            if abs(x) + abs(y) == 1:
+                for node in args:
+                    if (node[0]+x,node[1]+y) in g.nodes():
+                        g.add_edge(node,(node[0]+x,node[1]+y))
+                        g.add_edge((node[0]+x,node[1]+y),node)
+    return g
+
 def generate_hydra_simple_digraphs(x_slots, y_slots, root, ext, avoid=None, seed=12345):
     '''
     Generates a simple hydra io networks using the simple algorithm. Roughly,
@@ -133,7 +146,8 @@ def generate_hydra_simple_digraphs(x_slots, y_slots, root, ext, avoid=None, seed
     '''
     random.seed(seed)
 
-    g = nx.grid_2d_graph(x_slots, y_slots, create_using=nx.DiGraph) # base graph for upstream
+    g = generate_2d_grid_digraph(x_slots, y_slots, root, ext)
+    #    g = nx.grid_2d_graph(x_slots, y_slots, create_using=nx.DiGraph) # base graph for upstream
 
     if avoid:
         g.remove_nodes_from(avoid)
@@ -384,8 +398,9 @@ def generate_hydra_min_fifo_load_beam_search_digraphs(x_slots, y_slots, root, ex
 
     '''
     random.seed(seed)
-
-    g = nx.grid_2d_graph(x_slots, y_slots, create_using=nx.DiGraph) # base graph for upstream
+    
+    g = generate_2d_grid_digraph(x_slots, y_slots, root, ext)
+    #    g = nx.grid_2d_graph(x_slots, y_slots, create_using=nx.DiGraph) # base graph for upstream
 
     if avoid:
         g.remove_nodes_from(avoid)
@@ -548,7 +563,8 @@ def generate_hydra_fifo_product_digraphs(x_slots, y_slots, root, ext, avoid=None
 
     random.seed(seed)
 
-    g = nx.grid_2d_graph(x_slots, y_slots, create_using=nx.DiGraph) # base graph for upstream
+    g = generate_2d_grid_digraph(x_slots, y_slots, root, ext)
+    #    g = nx.grid_2d_graph(x_slots, y_slots, create_using=nx.DiGraph) # base graph for upstream
 
     if avoid:
         g.remove_nodes_from(avoid)
@@ -611,6 +627,8 @@ def generate_hydra_greedy_tree_digraphs(x_slots, y_slots, root, ext, avoid=None,
     for x in range(x_slots):
         for y in range(y_slots):
             g.add_node((x,y))
+    g.add_node(ext)
+    g.add_node(root)
 
     if avoid:
         g.remove_nodes_from(avoid)
@@ -716,6 +734,8 @@ def plot(g, name='default', labels='chip_id', figsize=(6, 6), interactive=True):
     else:
         nx.draw_networkx(g, dict([(node,node) for node in g.nodes]), labels=dict([(node,'') for node in g.nodes]))
     plt.tight_layout()
+    if not interactive:
+        plt.savefig(name+'.png')
 
 if __name__ == '__main__':
     import argparse
@@ -740,15 +760,14 @@ if __name__ == '__main__':
     parser.add_argument('--y_slots', '-y', type=int, required=True, help='''
         max number of slots for network nodes (in y dim)
         ''')
-    parser.add_argument('--root', '-r', type=int, required=True, nargs=2, help='''
-        position for root node
+    parser.add_argument('--root', '-r', type=json.loads, required=False, default=None, help='''
+        position for root node as list '[x,y]', (optional, default=<ext node>)
         ''')
-    parser.add_argument('--ext', '-e', type=int, required=True, nargs=2, help='''
-        position for external placeholder node
+    parser.add_argument('--ext', '-e', type=json.loads, required=True, help='''
+        position for ext node as list '[x,y]', (optional, default=<ext node>)
         ''')
-    parser.add_argument('--avoid', type=int, required=False, default=[], nargs='+', help='''
-        positions of nodes to avoid, specified as unified list of x, y positions
-        (even idexes are x positions, odd are y positions)
+    parser.add_argument('--avoid', type=json.loads, required=False, default=list(), help='''
+        positions of nodes to avoid, specified as list of x, y positions '[[x,y],[x,y]]'
         ''')
     parser.add_argument('--chip_id', type=str, required=False, default='chip_id_simple',
         help='''sets method for generating and assigning chip ids, options are
@@ -771,9 +790,11 @@ if __name__ == '__main__':
     outfile = args.outfile
     if not outfile:
         outfile = args.name + '.json'
-    avoid = [(int(args.avoid[i]), int(args.avoid[i+1])) for i in range(0,len(args.avoid),2)]
+    avoid = [tuple(pos) for pos in args.avoid]
+    ext = tuple(args.ext)
+    root = tuple(args.root) if args.root is not None else ext
     g_us, g_ds, g_mosi = globals()['generate_hydra_' + args.algorithm + '_digraphs'](args.x_slots,
-        args.y_slots, tuple(args.root), tuple(args.ext), avoid=avoid, seed=args.seed)
+        args.y_slots, root, ext, avoid=avoid, seed=args.seed)
 
     generate_chip_id(g_us, method=args.chip_id) # add chip ids to each node
     generate_chip_id(g_ds, method=args.chip_id) # add chip ids to each node
@@ -794,6 +815,8 @@ if __name__ == '__main__':
         exit()
 
     else:
+        plot(g_us, name=outfile.strip('.json'), interactive=False)
+        
         previous_config = None
         if os.path.exists(outfile):
             print('loading existing file',outfile)
