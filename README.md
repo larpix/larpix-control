@@ -679,17 +679,17 @@ addresses of the physical devices. One example configuration is provided in
 DNS resolution.
 
 After powering up the PACMAN board, you can create a new PACMAN io object with
-```
+```python
 from larpix import Controller
 from larpix.io import PACMAN_IO
 controller = Controller()
 controller.io = PACMAN_IO(config_filepath='<io config file path>')
 controller.load('<controller config file path>')
 controller.io.ping() # returns a dict of (io_group, ping_success)
-'''
+```
 
 To set the correct supply voltages
-```
+```python
 controller.io.set_vddd() # set default vddd (~1.8V)
 controller.io.set_vdda() # set default vdda (~1.8V)
 ```
@@ -698,7 +698,7 @@ in mV and mA, respectively.
 
 To bring up the Hydra network (and work around the known bugs in v2), do the
 following:
-```
+```python
 # First bring up the network using as few packets as possible
 controller.io.group_packets_by_io_group = False # this throttles the data rate to avoid FIFO collisions
 for io_group, io_channels in controller.network.items():
