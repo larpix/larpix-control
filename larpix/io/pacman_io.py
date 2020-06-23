@@ -32,7 +32,7 @@ class PACMAN_IO(IO):
     default and assembles the packets sent in each call to ``send``
     into as few messages as possible destined for a single io group. E.g.
     sending three packets (2 for ``io_group=1``, 1 for ``io_group=2``)
-    will combine the packets for ``io_group=`` into a single message to
+    will combine the packets for ``io_group=1`` into a single message to
     transfer over the network. This reduces overhead associated with
     network latency and allows large data transfers to happen much faster.
 
@@ -114,15 +114,6 @@ class PACMAN_IO(IO):
         '''
         Sends a request message to PACMAN boards to send designated
         packets.
-
-        By default, groups all packets destined for same PACMAN board
-        into a single message, otherwise sends each packet in new
-        message (slow if many packets).
-
-        By default, packets will be interleaved across io channels,
-        e.g <ch0>, <ch1>, <ch0>, <ch1>, <ch0>, <ch0>, ... This allows
-        the PACMAN board to transmit the data in a parallel fashion
-        (~8x speed up when sending data to multiple channels).
 
         '''
         msg_packets = list()
@@ -219,6 +210,7 @@ class PACMAN_IO(IO):
     def empty_queue(self):
         '''
         Fetch and parse waiting packets on pacman data socket
+
         returns tuple of list of packets, full bytestream of all messages
 
         '''
@@ -248,7 +240,7 @@ class PACMAN_IO(IO):
         Close the ZMQ objects to prevent a memory leak.
 
         This method is only required if you plan on instantiating a new
-        ``MultiZMQ_IO`` object.
+        ``PACMAN_IO`` object.
 
         '''
         for address in self.senders.keys():
@@ -271,7 +263,8 @@ class PACMAN_IO(IO):
     def get_reg(self, reg, io_group=None):
         '''
         Read a 32-bit register from the pacman PL
-        if no io_group is specified, returns a dict of io_group, reg_value
+
+        If no ``io_group`` is specified, returns a ``dict`` of ``io_group, reg_value``
         else returns reg_value
 
         '''
@@ -289,7 +282,8 @@ class PACMAN_IO(IO):
     def ping(self, io_group=None):
         '''
         Send a ping message
-        if no io_group is specified, returns a dict of io_group, response
+
+        If no ``io_group`` is specified, returns a ``dict`` of ``io_group, response``
         else returns response
 
         '''
@@ -310,7 +304,8 @@ class PACMAN_IO(IO):
     def set_vddd(self, vddd_dac=0xD5A3, io_group=None, settling_time=0.1):
         '''
         Sets PACMAN VDDD voltage
-        If no vddd_dac value is specified, sets VDDD to default of ~1.8V
+
+        If no ``vddd_dac`` value is specified, sets VDDD to default of ~1.8V
 
         Returns the resulting VDDD and IDDD values from the built-in ADC as
         a tuple of mV and mA respectively
@@ -328,9 +323,10 @@ class PACMAN_IO(IO):
     def set_vdda(self, vdda_dac=0xD5A3, io_group=None, settling_time=0.1):
         '''
         Sets PACMAN VDDA voltage
-        If no vddd_dac value is specified, sets VDDD to default of ~1.8V
 
-        Returns the resulting VDDD and IDDD values from the built-in ADC as
+        If no ``vdda_dac`` value is specified, sets VDDA to default of ~1.8V
+
+        Returns the resulting VDDA and IDDA values from the built-in ADC as
         a tuple of mV and mA respectively
 
         '''
@@ -364,7 +360,7 @@ class PACMAN_IO(IO):
         '''
         Issues a reset of the specified length (in larpix MCLK cycles).
 
-        Default values issue a hard reset.
+        If no ``length`` specified, issue a hard reset.
 
         Returns the value of the clock/reset control register after the reset
 

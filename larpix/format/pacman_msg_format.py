@@ -6,40 +6,44 @@ header and N words. It's a bit cumbersome to work with bytestrings in data (and
 keep track of endianness / etc), so this module allows you to translate between
 native python objects and the pacman message bytestring.
 
-Access to the message content is provided by the `parse_msg(msg)` method which
+To import this module::
+
+    import larpix.format.pacman_msg_format as pacman_msg_fmt
+
+Access to the message content is provided by the ``parse_msg(msg)`` method which
 takes a single pacman message bytestring as an argument, e.g.::
 
     msg = b'!-----\x01\x00P---------------' # a simple ping response
-    data = parse_msg(msg) # (('REP',123456,1), [('PONG')])
+    data = pacman_msg_fmt.parse_msg(msg) # (('REP',123456,1), [('PONG')])
     msg = b'D-----\x01\x00D\x01------datadata' # a simple data message
-    data = parse_msg(msg) # (('DATA',123456,1), [('DATA',1,1234,b'datadata')])
+    data = pacman_msg_fmt.parse_msg(msg) # (('DATA',123456,1), [('DATA',1,1234,b'datadata')])
 
 The creation of messages can be performed with the inverse method,
-`format_msg(msg_type, msg_words)`. Here, the `msg_type` is one of `'DATA'`,
-`'REQ'`, or `'REP'`, and `msg_words` is a `list` of tuples indicating the word
+``format_msg(msg_type, msg_words)``. Here, the ``msg_type`` is one of ``'DATA'``,
+``'REQ'``, or ``'REP'``, and ``msg_words`` is a ``list`` of tuples indicating the word
 type (index 0) and the word data (index 1, 2, ...). Word types are specified
-by strings that can be found in the `word_type_table`. The necessary fields
-(and primitive types) for the word data is described in the `word_fmt_table`.
+by strings that can be found in the ``word_type_table``. The necessary fields
+(and primitive types) for the word data is described in the ``word_fmt_table``.
 E.g.::
 
     data = ('REP', [('PONG')]) # simple ping response
-    msg = format_msg(*data) # b'!----\x00\x01\x00P\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+    msg = pacman_msg_fmt.format_msg(*data) # b'!----\x00\x01\x00P\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
     data = ('DATA', [('DATA',1,1234,b'datadata')])
-    msg = format_msg(*data) # b'D----\x00\x01\x00D\x01\x00\x00\x00\x00\x00\x00datadata'
+    msg = pacman_msg_fmt.format_msg(*data) # b'D----\x00\x01\x00D\x01\x00\x00\x00\x00\x00\x00datadata'
 
-To facilitate translating to/from larpix control packet objects, you can use
-the `format(pkts, msg_type)` and `parse(msg, io_group=None)` methods. E.g.::
+To facilitate translating to/from ``larpix-control`` packet objects, you can use
+the ``format(pkts, msg_type)`` and ``parse(msg, io_group=None)`` methods. E.g.::
 
-    packet = Packet()
+    packet = Packet_v2()
     packet.io_channel = 1
-    msg = format([packet]) # b'?----\x00\x01\x00D\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+    msg = pacman_msg_fmt.format([packet]) # b'?----\x00\x01\x00D\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
-    packets = parse(msg, io_group=1) # [Packet(b'\x00\x00\x00\x00\x00\x00\x00\x00')]
+    packets = pacman_msg_fmt.parse(msg, io_group=1) # [Packet_v2(b'\x00\x00\x00\x00\x00\x00\x00\x00')]
     packets[0].io_group # 1
 
-Note that no `io_group` data is contained within a pacman message. This means
-that when formatting messages, packets' `io_group` field is ignored. And when
-parsing messages, an `io_group` value needs to be specified at the time of
+Note that no ``io_group`` data is contained within a pacman message. This means
+that when formatting messages, packets' ``io_group`` field is ignored, and when
+parsing messages, an ``io_group`` value needs to be specified at the time of
 parsing.
 
 '''
@@ -110,6 +114,12 @@ word_struct_table = dict([
     ])
 
 def format_header(msg_type, msg_words):
+    '''
+    Generates a header-formatted bytestring of
+    message type ``msg_type`` and with ``msg_words``
+    specified words
+
+    '''
     return msg_header_struct.pack(
         msg_type_table[msg_type],
         int(time.time()),
@@ -117,6 +127,16 @@ def format_header(msg_type, msg_words):
         )
 
 def format_word(msg_type, word_type, *data):
+    '''
+    Generates a word-formatted bytestring of
+    word type specified by the ``msg_type`` and
+    ``word_type``. The data contained within the word
+    should be passed in as additional positional arguments
+    in the order that they appear in the word (least significant byte first). E.g. for a data word::
+
+        data_word = format_word('DATA','DATA',<io_channel>,<receipt_timestamp>,<data_word_content>)
+
+    '''
     return word_struct_table[word_type].pack(
         word_type_table[msg_type][word_type],
         *data
@@ -124,8 +144,9 @@ def format_word(msg_type, word_type, *data):
 
 def parse_header(msg):
     '''
-    Returns a tuple of the data contained in the header:
-    (<msg type>, <msg time>, <msg words>)
+    Returns a tuple of the data contained in the header::
+
+        (<msg type>, <msg time>, <msg words>)
 
     '''
     msg_header_data = msg_header_struct.unpack(msg[:HEADER_LEN])
@@ -142,7 +163,7 @@ def parse_word(msg_type, word):
 
 def format_msg(msg_type, msg_words):
     '''
-    msg_data should be a list of tuples that can be passed into format_word
+    ``msg_words`` should be a list of tuples that can be unpacked and passed into ``format_word``
 
     '''
     bytestream = format_header(msg_type, len(msg_words))
@@ -152,7 +173,9 @@ def format_msg(msg_type, msg_words):
 
 def parse_msg(msg):
     '''
-    returns a tuple of (<header data>, [<word 0 data>, ...])
+    returns a tuple of::
+
+        (<header data>, [<word 0 data>, ...])
 
     '''
     header = parse_header(msg)
@@ -178,7 +201,7 @@ def _packet_data_data(pkt, ts_pacman, *args):
     if isinstance(pkt, Packet_v2):
         return ('DATA',
                 _replace_none(pkt,'io_channel'),
-                ts_pacman,
+                pkt.receipt_timestamp if hasattr(pkt,'receipt_timestamp') else ts_pacman,
                 pkt.bytes())
     elif isinstance(pkt, SyncPacket):
         return ('SYNC',
@@ -192,7 +215,10 @@ def _packet_data_data(pkt, ts_pacman, *args):
 
 def format(packets, msg_type='REQ', ts_pacman=0):
     '''
-    Converts larpix packets into a single PACMAN message
+    Converts larpix packets into a single PACMAN message.
+    The message header is automatically generated.
+
+    Note:: For request messages, this method only formats ``Packet_v2`` objects. For data messages, this method only formats ``Packet_v2``, ``SyncPacket``, and ``TriggerPacket`` objects.
 
     '''
     get_data = _packet_data_req
@@ -209,6 +235,11 @@ def format(packets, msg_type='REQ', ts_pacman=0):
 def parse(msg, io_group=None):
     '''
     Converts a PACMAN message into larpix packets
+
+    The header is parsed into a ``TimestampPacket``,
+    data words are parsed into ``Packet_v2`` objects,
+    trigger words are parsed into ``TriggerPacket`` objects,
+    and sync words are parsed into ``SyncPacket`` objects.
 
     '''
     packets = list()
@@ -227,7 +258,7 @@ def parse(msg, io_group=None):
             packet.io_group = io_group
         elif word_data[0] is 'SYNC':
             packet = SyncPacket(sync_type=word_data[1], clk_source=word_data[2] & 0x01, timestamp=word_data[3])
-            packet.io_group = io_group            
+            packet.io_group = io_group
         if packet is not None:
             packets.append(packet)
     return packets
