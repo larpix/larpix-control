@@ -5,7 +5,7 @@ import numpy as np
 import h5py
 
 from larpix.logger import Logger
-from larpix import Packet, TimestampPacket, Packet_v1, Packet_v2
+from larpix import Packet, TimestampPacket, Packet_v1, Packet_v2, SyncPacket, TriggerPacket
 from larpix.format.hdf5format import to_file, latest_version
 
 class HDF5Logger(Logger):
@@ -36,6 +36,8 @@ class HDF5Logger(Logger):
         Packet_v1: 'packets',
         Packet_v2: 'packets',
         TimestampPacket: 'packets',
+        SyncPacket: 'packets',
+        TriggerPacket: 'packets'
     }
 
     def __init__(self, filename=None, buffer_length=10000,

@@ -1,12 +1,11 @@
 from larpix import Controller
-from larpix.io import ZMQ_IO
+from larpix.io import PACMAN_IO
 
 ctl = Controller()
 
 # Bring up communications with io group
-ctl.io = ZMQ_IO('io/manual_io.json') # specifies ip addresses + etc for io group
+ctl.io = PACMAN_IO('io/manual_io.json') # specifies ip addresses + etc for io group
 ctl.io.ping()
-ctl.io.reset() # be sure that chips start in default state
 
 # Load network configuration
 ctl.load('controller/testing_network.json')

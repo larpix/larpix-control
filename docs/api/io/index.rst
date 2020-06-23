@@ -17,5 +17,6 @@ Here is the documentation for various implemented IO classes.
    zmq_io
    multizmq_io
    fakeio
+   pacman_io
 
 :ref:`genindex`

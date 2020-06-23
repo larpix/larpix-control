@@ -1,4 +1,5 @@
 import pytest
+import zmq
 
 @pytest.fixture
 def temp_logfilename():
@@ -226,3 +227,42 @@ def test_running_with_bern_daq_v1():
     for key,chip in controller.chips.items():
         chip.config.load('chip/quiet.json')
         print(key, chip.config)
+
+def test_running_with_pacman_v1r1():
+    from larpix import Controller
+    from larpix.io import PACMAN_IO
+    controller = Controller()
+    controller.io = PACMAN_IO(config_filepath='io/pacman.json',timeout=1000)
+    controller.load('controller/network-3x3-tile-channel0.json')
+    assert isinstance(controller.io.ping(),dict)
+
+    with pytest.raises(zmq.ZMQError):
+        controller.io.set_vddd()
+    with pytest.raises(zmq.ZMQError):
+        controller.io.set_vdda()
+
+    # First bring up the network using as few packets as possible
+    controller.io.group_packets_by_io_group = False # this throttles the data rate to avoid FIFO collisions
+    for io_group, io_channels in controller.network.items():
+        for io_channel in io_channels:
+            with pytest.raises(zmq.ZMQError):
+                controller.init_network(io_group, io_channel)
+
+    # Configure the IO for a slower UART and differential signaling
+    controller.io.double_send_packets = True # double up packets to avoid 512 bug when configuring
+    for io_group, io_channels in controller.network.items():
+        for io_channel in io_channels:
+            chip_keys = controller.get_network_keys(io_group,io_channel,root_first_traversal=False)
+            for chip_key in chip_keys:
+                controller[chip_key].config.clk_ctrl = 1
+                controller[chip_key].config.enable_miso_differential = [1,1,1,1]
+                with pytest.raises(zmq.ZMQError):
+                    controller.write_configuration(chip_key, 'enable_miso_differential')
+                    controller.write_configuration(chip_key, 'clk_ctrl')
+    for io_group, io_channels in controller.network.items():
+        for io_channel in io_channels:
+            with pytest.raises(zmq.ZMQError):
+                controller.io.set_uart_clock_ratio(io_channel, 4, io_group=io_group)
+
+    controller.io.double_send_packets = False
+    controller.io.group_packets_by_io_group = True

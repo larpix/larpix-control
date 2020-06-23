@@ -59,6 +59,13 @@ def _nice_json(d, depth=1):
             l += ['\"{}\": \"{}\"'.format(key,value)]
         elif isinstance(value,dict):
             l += ['\"{}\": {}'.format(key, _nice_json(value, depth+1))]
+        elif isinstance(value,bool):
+            if value:
+                l += ['\"{}\": true'.format(key)]
+            else:
+                l += ['\"{}\": false'.format(key)]
+        elif value is None:
+            l += ['\"{}\": null'.format(key)]
         else:
             l += ['\"{}\": {}'.format(key,value)]
     return '{\n'+depth*'    ' + (',\n'+depth*'    ').join(l) + '\n' +(depth-1)*'    '+'}'

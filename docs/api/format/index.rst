@@ -9,4 +9,7 @@ The data formats used for LArPix are:
    hdf5format
    message_format
 
+   pacman_msg_format
+
+
 :ref:`genindex`

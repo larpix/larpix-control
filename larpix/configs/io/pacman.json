@@ -2,6 +2,6 @@
     "_config_type": "io",
     "io_class": "PACMAN_IO",
     "io_group": [
-        [1, "daq-srv1.local"]
+        [1, "pacman.local"]
     ]
 }
