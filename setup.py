@@ -36,7 +36,7 @@ setup(
             'pyserial ~=3.4',
             'pytest ~=4.2',
             'bitarray ~=0.8',
-            'pyzmq ~= 16.0',
+            'pyzmq ~= 18.0',
             'sphinx_rtd_theme ~= 0.4.2',
             'numpy ~= 1.16',
             'h5py ~= 2.9',
