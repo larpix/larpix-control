@@ -25,32 +25,32 @@ class PACMAN_IO(IO):
         interleave_packets_by_io_channel
         double_send_packets
 
-    To enable each option set the flag to ``True``; to disable, set to 
-    ``False``. 
+    To enable each option set the flag to ``True``; to disable, set to
+    ``False``.
 
     The ``group_packets_by_io_group`` option is enabled by
     default and assembles the packets sent in each call to ``send``
     into as few messages as possible destined for a single io group. E.g.
     sending three packets (2 for ``io_group=1``, 1 for ``io_group=2``)
     will combine the packets for ``io_group=`` into a single message to
-    transfer over the network. This reduces overhead associated with 
+    transfer over the network. This reduces overhead associated with
     network latency and allows large data transfers to happen much faster.
 
-    The ``interleave_packets_by_io_channel`` option is enabled by default and 
-    interleaves packets within a given message to each io_channel on a 
-    given io_group. E.g. 3 packets destined for ``io_channel=1``, 
-    ``io_channel=1``, and ``io_channel=2`` will be reordered to 
-    ``io_channel=1``, ``io_channel=2``, and ``io_channel=1``. The order of 
+    The ``interleave_packets_by_io_channel`` option is enabled by default and
+    interleaves packets within a given message to each io_channel on a
+    given io_group. E.g. 3 packets destined for ``io_channel=1``,
+    ``io_channel=1``, and ``io_channel=2`` will be reordered to
+    ``io_channel=1``, ``io_channel=2``, and ``io_channel=1``. The order of
     the packets is preserved for each io_channel. This increases the data
     throughput by about a factor of N, where N is the number of io channels in
     the message.
 
     The ``double_send_packets`` option is disabled by default and duplicates
     each packet sent to the PACMAN by a call to ``send()``. This is useful
-    for working around the 512 bug when you need to insure that a packet 
+    for working around the 512 bug when you need to insure that a packet
     reaches a chip, but you don't care about introducing extra packets into
     the system (i.e. when configuring chips).
-    
+
 
     '''
     default_filepath = 'io/pacman.json'
@@ -62,7 +62,7 @@ class PACMAN_IO(IO):
     group_packets_by_io_group = True
     interleave_packets_by_io_channel = True
     double_send_packets = False
-    
+
     _clk_ctrl_reg = 0x1010
     _sw_reset_cycles_reg = 0x1014
     _channel_offset = 0x2000
@@ -77,7 +77,7 @@ class PACMAN_IO(IO):
     _adc2mv = lambda _,x: ((x >> 16) >> 3) * 4
     _adc2ma = lambda _,x: ((x >> 16) * 500 * 0.01)
 
-    def __init__(self, config_filepath=None, hwm=20000, relaxed=False):
+    def __init__(self, config_filepath=None, hwm=20000, relaxed=True, timeout=-1):
         super(PACMAN_IO, self).__init__()
         self.load(config_filepath)
 
@@ -90,9 +90,16 @@ class PACMAN_IO(IO):
         self.hwm = hwm
         for receiver in self.receivers.values():
             receiver.set_hwm(self.hwm)
+            receiver.setsockopt(zmq.CONNECT_TIMEOUT,timeout)
+            receiver.setsockopt(zmq.LINGER,0)
+            receiver.setsockopt(zmq.RCVTIMEO,timeout)
         for sender in self.senders.values():
             if relaxed:
                 sender.setsockopt(zmq.REQ_RELAXED,True)
+            sender.setsockopt(zmq.LINGER,0)
+            sender.setsockopt(zmq.CONNECT_TIMEOUT,timeout)
+            sender.setsockopt(zmq.RCVTIMEO,timeout)
+            sender.setsockopt(zmq.SNDTIMEO,timeout)
         for address in self._io_group_table.inv:
             send_address = 'tcp://' + address + ':' + self.cmdserver_port
             receive_address = 'tcp://' + address + ':' + self.dataserver_port
@@ -290,18 +297,21 @@ class PACMAN_IO(IO):
             return dict([(io_group, self.ping(io_group=io_group)) for io_group in self._io_group_table])
         msg = pacman_msg_format.format_msg('REQ',[('PING',)])
         addr = self._io_group_table[io_group]
-        self.senders[addr].send(msg)
-        self._sender_replies[addr].append(self.senders[addr].recv())
-        msg_data = pacman_msg_format.parse_msg(self._sender_replies[addr][-1])
-        if msg_data[1][0][0] == 'PONG':
-            return True
+        try:
+            self.senders[addr].send(msg)
+            self._sender_replies[addr].append(self.senders[addr].recv())
+            msg_data = pacman_msg_format.parse_msg(self._sender_replies[addr][-1])
+            if msg_data[1][0][0] == 'PONG':
+                return True
+        except zmq.ZMQError as e:
+            print('IO error on {}: {}'.format(io_group,e))
         return False
-                                           
+
     def set_vddd(self, vddd_dac=0xD5A3, io_group=None, settling_time=0.1):
         '''
         Sets PACMAN VDDD voltage
         If no vddd_dac value is specified, sets VDDD to default of ~1.8V
-        
+
         Returns the resulting VDDD and IDDD values from the built-in ADC as
         a tuple of mV and mA respectively
 
@@ -319,16 +329,16 @@ class PACMAN_IO(IO):
         '''
         Sets PACMAN VDDA voltage
         If no vddd_dac value is specified, sets VDDD to default of ~1.8V
-        
+
         Returns the resulting VDDD and IDDD values from the built-in ADC as
         a tuple of mV and mA respectively
 
-        '''        
+        '''
         if io_group is None:
             return dict([(io_group, self.set_vdda(vdda_dac, io_group=io_group)) for io_group in self._io_group_table])
         self.set_reg(self._vdda_dac_reg, vdda_dac, io_group=io_group)
         if settling_time:
-            time.sleep(settling_time)        
+            time.sleep(settling_time)
         mv = self._adc2mv(self.get_reg(self._vdda_adc_reg, io_group=io_group))
         ma = self._adc2ma(self.get_reg(self._idda_adc_reg, io_group=io_group))
         return mv, ma
@@ -338,12 +348,12 @@ class PACMAN_IO(IO):
         Sets PACMAN UART clock speed relative to the larpix master clock
         for the specified channel
 
-        For a nominal 10MHz clock, a ratio value of 4 results in a 2.5MHz 
+        For a nominal 10MHz clock, a ratio value of 4 results in a 2.5MHz
         UART clock.
-        
+
         Returns the value of the UART clock register that was set
 
-        '''                
+        '''
         if io_group is None:
             return dict([(io_group, self.set_uart_clock_ratio(channel, ratio, io_group=io_group)) for io_group in self._io_group_table])
         reg = self._channel_size*channel + self._uart_clock_ratio_offset + self._channel_offset
@@ -358,7 +368,7 @@ class PACMAN_IO(IO):
 
         Returns the value of the clock/reset control register after the reset
 
-        '''                        
+        '''
         if io_group is None:
             return dict([(io_group, self.reset_larpix(length, io_group=io_group)) for io_group in self._io_group_table])
         # set reset cycles
@@ -368,4 +378,4 @@ class PACMAN_IO(IO):
         self.set_reg(self._clk_ctrl_reg, clk_ctrl|4, io_group=io_group)
         self.set_reg(self._clk_ctrl_reg, clk_ctrl, io_group=io_group)
         return self.get_reg(self._clk_ctrl_reg, io_group=io_group)
-        
+
