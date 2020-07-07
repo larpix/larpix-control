@@ -57,124 +57,31 @@ File Data
 The file data is saved in HDF5 datasets, and the specific data format
 depends on the LArPix+HDF5 version.
 
+Version 2.3 description
+^^^^^^^^^^^^^^^^^^^^^^^
+
+For version 2.3, the ``receipt_timestamp`` (``u4``/unsigned int) field
+has been added to the ``packets`` dataset. Additionally, "empty" fields
+for data/config write/config read/test packets are now filled according
+to the bit content of the packet. E.g. a row representing a config write
+packet will still fill the ``dataword`` column as though the packet was
+a data packet. Finally, there are some moderate performance improvements.
+
 Version 2.2 description
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-For version 2.2, there are two dataset: ``packets`` and ``messages``.
+For version 2.2, two new packet types have been introduced to store
+data contained in ``SyncPacket``s and ``TriggerPacket``s, with ``type``
+being 6 and 7 respectively.
 
-The ``packets`` dataset
-contains a list of all of the packets sent and received during a
-particular time interval.
+``SyncPacket``s will fill the ``timestamp`` field with the 32-bit
+timestamp associated with the sync packet, the ``dataword`` field
+with the value of ``clk_source`` (if applicable), ant the
+``trigger_type`` field with the sync type (an unsigned byte).
 
-    - Shape: ``(N,)``, ``N >= 0``
-
-    - Datatype: a compound datatype (called "structured type" in
-      h5py/numpy). Not all fields are relevant for each packet. Unused
-      fields are set to a default value of 0 or the empty string.
-      Keys/fields:
-
-        - ``io_group`` (``u1``/unsigned byte): an id associated with the
-          high-level io group associated with this packet
-
-        - ``io_channel`` (``u1``/unsigned byte): the id associated with the
-          mid-level io channel associated with this packet
-
-        - ``packet_type`` (``u1``/unsigned byte): the packet type code, which
-          can be interpreted according to the map stored in the
-          'packets' attribute 'packet_types'
-
-        - ``chip_id`` (``u1``/unsigned byte): the LArPix chip id
-
-        - ``parity`` (``u1``/unsigned byte): the packet parity bit (0 or
-          1)
-
-        - ``valid_parity`` (``u1``/unsigned byte): 1 if the packet
-          parity is valid (odd), 0 if it is invalid
-
-        - ``downstream_marker`` (``u1``/unsigned byte): a marker to indicate the
-          hydra io network direction for this packet
-
-        - ``channel_id`` (``u1``/unsigned byte): the ASIC channel
-
-        - ``timestamp`` (``u8``/unsigned 8-byte long int): the timestamp
-          associated with the packet. **Caution**: this field does
-          "many-duty" as both the ASIC timestamp in data packets
-          (``type`` == 0), as the global timestamp in timestamp
-          packets (``type`` == 4), as the message timestamp in
-          message packets (``type`` == 5), as the timestamp in sync packets
-          (``type`` == 6), and the timestamp in trigger packets (``type`` == 7).
-
-        - ``first_packet`` (``u1``/unsigned byte): indicates if this is the
-          packet recieved in a trigger burst (v2.1 or newer only)
-
-        - ``dataword`` (``u1``/unsigned byte): the ADC data word
-          **Caution**: as of v2.2, this field does double duty as both the 
-          LArPix ADC value in data packets (``type`` == 0) and the clk source
-          value in sync packets (``type`` == 6).
-
-        - ``trigger_type`` (``u1``/unsigned byte): the trigger type assciated
-          with this packet **Caution**: as of v2.2, this field does triple
-          duty as both the LArPix packet trigger type in data packets 
-          (``type`` == 0), the sync type in sync packets (``type`` == 6), and
-          the trigger type in trigger packets (``type`` == 7).
-
-        - ``local_fifo` (``u1``/unsigned byte): 1 if the channel FIFO is >50%
-          full, 3 if the channel FIFO is 100% full
-
-        - ``shared_fifo`` (``u1``/unsigned byte): 1 if the chip FIFO is >50%
-          full, 3 if the channel FIFO is 100% full
-
-        - ``register_address`` (``u1``/unsigned byte): the configuration
-          register index
-
-        - ``register_data`` (``u1``/unsigned byte): the configuration register
-          value
-
-        - ``direction`` (``u1``/unsigned byte): 0 if packet was sent to
-          ASICs, 1 if packet was received from ASICs.
-
-        - ``local_fifo_events`` (``u1``/unsigned byte): number of packets in the
-          channel FIFO (only valid if FIFO diagnostics are enabled)
-
-        - ``shared_fifo_events`` (``u2``/unsigned byte): number of packets in the
-          chip FIFO (only valid if FIFO diagnostics are enabled)
-
-        - ``counter`` (``u4``/unsigned 4-byte int): the message index (only
-          valid for message type packets)
-
-        - ``fifo_diagnostics_enabled`` (``u1``/unsigned byte): flag for when
-          fifo diagnostics are enabled (1 if enabled, 0 if not)
-
-
-    - Packet types lookup: the ``packets`` dataset has an attribute
-      ``'packet_types'`` which contains the following lookup table for
-      packets::
-
-        0: 'data',
-        1: 'test',
-        2: 'config write',
-        3: 'config read',
-        4: 'timestamp',
-        5: 'message',
-        6: 'sync',
-        7: 'trigger'
-
-The ``messages`` dataset has the full messages referred to by message
-packets in the ``packets`` dataset.
-
-    - Shape: ``(N,)``, ``N >= 0``
-
-    - Datatype: a compound datatype with fields:
-
-        - ``message`` (``S64``/64-character string): the message
-
-        - ``timestamp`` (``u8``/unsigned 8-byte long int): the timestamp
-          associated with the message
-
-        - ``index`` (``u4``/unsigned 4-byte int): the message index,
-          which should be equal to the row index in the ``messages``
-          dataset
-
+``TriggerPacket``s will fill the ``timestamp`` field with the 32-bit
+timestamp associated with the trigger packet and the ``trigger_type``
+field with the trigger bits (an unsigned byte).
 
 Version 2.1 description
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -904,7 +811,22 @@ def _parse_packets_v2_2(row, message_dset, *args, **kwargs):
     return p
 
 def _format_packets_packet_v2_3(pkt, version='2.3', dset='packets', *args, **kwargs):
-    return _format_packets_packet_v2_2(pkt, *args, version=version, dset=dset, **kwargs)
+    encoded_packet = [0]*len(dtypes[version][dset])
+    i = 0
+    for value_name, value_type in dtypes[version][dset]:
+        if hasattr(pkt, value_name):
+            encoded_packet[i] = getattr(pkt, value_name)
+        elif value_name == 'valid_parity' and hasattr(pkt, 'has_valid_parity'):
+            encoded_packet[i] = pkt.has_valid_parity()
+        elif value_type[0] == 'S': # string default
+            encoded_packet[i] = ''
+        i += 1
+    if pkt.packet_type == 6: # sync packets
+        encoded_packet[dtype_property_index_lookup[version]['packets']['trigger_type']] = _uint8_struct.unpack(pkt.sync_type)[0]
+        encoded_packet[dtype_property_index_lookup[version]['packets']['dataword']] = pkt.clk_source
+    elif pkt.packet_type == 7: # trigger packets
+        encoded_packet[dtype_property_index_lookup[version]['packets']['trigger_type']] = _uint8_struct.unpack(pkt.trigger_type)[0]            
+    return encoded_packet
 
 def _parse_packets_v2_3(row, message_dset, *args, **kwargs):
     p = _parse_packets_v2_2(row, message_dset, *args, **kwargs)

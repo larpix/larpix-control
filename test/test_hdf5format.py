@@ -50,6 +50,7 @@ def data_packet_v2():
     p.assign_parity()
     p.chip_key = Key('1-2-123')
     p.direction = 1
+    p.receipt_timestamp = 123456
     return p
 
 @pytest.fixture
@@ -384,6 +385,36 @@ def test_from_file_v2_2_many_packets(tmpfile, data_packet_v2,
     packets = [data_packet_v2, config_read_packet_v2, timestamp_packet,
                message_packet, sync_packet, trigger_packet]
     to_file(tmpfile, packets, version='2.2')
+    new_packets_dict = from_file(tmpfile)
+    assert new_packets_dict['created']
+    assert new_packets_dict['version']
+    assert new_packets_dict['modified']
+    new_packets = new_packets_dict['packets']
+    _ = [print(str(packet) +'\n' + str(packets[i])) for i,packet in enumerate(new_packets)]
+    assert new_packets[0] == data_packet_v2
+    assert new_packets[1] == config_read_packet_v2
+    assert new_packets[2] == timestamp_packet
+    assert new_packets[3] == message_packet
+    assert new_packets[4] == sync_packet
+    assert new_packets[5] == trigger_packet
+
+def test_to_file_v2_3_many_packets(tmpfile, data_packet_v2, config_read_packet_v2,
+                                   timestamp_packet, message_packet, sync_packet,
+                                   trigger_packet):
+    to_file(tmpfile, [data_packet_v2, config_read_packet_v2,
+                      timestamp_packet, message_packet, sync_packet,
+                      trigger_packet],
+            version='2.3')
+    f = h5py.File(tmpfile, 'r')
+    assert len(f['packets']) == 6
+    assert len(f['messages']) == 1
+
+def test_from_file_v2_3_many_packets(tmpfile, data_packet_v2,
+                                     config_read_packet_v2, timestamp_packet,
+                                     message_packet, sync_packet, trigger_packet):
+    packets = [data_packet_v2, config_read_packet_v2, timestamp_packet,
+               message_packet, sync_packet, trigger_packet]
+    to_file(tmpfile, packets, version='2.3')
     new_packets_dict = from_file(tmpfile)
     assert new_packets_dict['created']
     assert new_packets_dict['version']
