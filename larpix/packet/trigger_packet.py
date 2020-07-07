@@ -47,7 +47,7 @@ class TriggerPacket(object):
         if self.io_group is not None:
             strings.append('io_group={}'.format(self.io_group))        
         if self.trigger_type is not None:
-            strings.append('sync_type={}'.format(self.trigger_type))
+            strings.append('trigger_type={}'.format(self.trigger_type))
         if self.timestamp is not None:
             strings.append('timestamp={}'.format(self.timestamp))
         return 'TriggerPacket('+', '.join(strings)+')'
