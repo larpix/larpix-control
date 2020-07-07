@@ -90,14 +90,14 @@ class PACMAN_IO(IO):
         self.hwm = hwm
         for receiver in self.receivers.values():
             receiver.set_hwm(self.hwm)
-            receiver.setsockopt(zmq.CONNECT_TIMEOUT,timeout)
+            receiver.setsockopt(zmq.CONNECT_TIMEOUT,max(timeout,0))
             receiver.setsockopt(zmq.LINGER,0)
             receiver.setsockopt(zmq.RCVTIMEO,timeout)
         for sender in self.senders.values():
             if relaxed:
                 sender.setsockopt(zmq.REQ_RELAXED,True)
             sender.setsockopt(zmq.LINGER,0)
-            sender.setsockopt(zmq.CONNECT_TIMEOUT,timeout)
+            sender.setsockopt(zmq.CONNECT_TIMEOUT,max(timeout,0))
             sender.setsockopt(zmq.RCVTIMEO,timeout)
             sender.setsockopt(zmq.SNDTIMEO,timeout)
         for address in self._io_group_table.inv:
