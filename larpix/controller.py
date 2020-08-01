@@ -362,9 +362,151 @@ class Controller(object):
             print('loading v2 network...')
             return self.load_network(filename)
 
+    def _propogate_inherited_values(self, network_spec, value_keys):
+        dict_to_return = dict()
+        for value_key in value_keys:
+            dict_to_return[value_key] = network_spec[value_key]
+
+        for key, group_spec in network_spec.items():
+            if key in value_keys:
+                continue
+            dict_to_return[key] = group_spec
+
+            for value_key in value_keys:
+                if not value_key in group_spec:
+                    dict_to_return[key][value_key] = dict_to_return[value_key]
+
+            for subkey, channel_spec in network_spec[key].items():
+                if subkey in value_keys:
+                    continue
+                for value_key in value_keys:
+                    if not value_key in channel_spec:
+                       dict_to_return[key][subkey][value_key] = dict_to_return[key][value_key]
+
+                for idx, node_spec in enumerate(channel_spec['nodes']):
+                    for value_key in value_keys:
+                        if not value_key in node_spec:
+                           dict_to_return[key][subkey]['nodes'][idx][value_key] = dict_to_return[key][subkey][value_key]
+
+        return dict_to_return
+
+    def _create_network_node(self, io_group, io_channel, node):
+        chip_id = node['chip_id']
+        if isinstance(chip_id, int):
+            # create new chip object
+            chip_key = Key(io_group, io_channel, chip_id)
+            root = True if 'root' in node and node['root'] else False
+            self.add_chip(chip_key, version=2, root=root)
+        else:
+            # dummy node
+            root = True if 'root' in node and node['root'] else False
+            self.add_network_node(io_group, io_channel, self.network_names, chip_id, root)
+
+    def _link_miso_us_network_node(self, io_group, io_channel, node, hydra_network_nodes, mapping_spec):
+        chip_id = node['chip_id']
+        subnetwork = self.network[io_group][io_channel]
+
+        if 'miso_us' in node:
+            try:
+                uarts = None
+                if mapping_spec == 'old':
+                    uarts = enumerate(node['miso_us_uart_map'])
+                elif mapping_spec == 'new':
+                    uarts = enumerate(node['miso_uart_map'])
+                for idx, uart in uarts:
+                    link = (chip_id, node['miso_us'][idx])
+                    if link[1] is None: continue
+                    self.add_network_link(io_group, io_channel, 'miso_us', link, uart)
+            except KeyError:
+                raise KeyError('error generating upstream network node {}-{}-{}'.format(io_group,io_channel,chip_id))
+
+    def _link_miso_ds_network_node(self, io_group, io_channel, node, hydra_network_nodes, mapping_spec):
+        chip_id = node['chip_id']
+        subnetwork = self.network[io_group][io_channel]
+
+        if 'miso_ds' in node:
+            try:
+                uarts = None
+                if mapping_spec == 'old':
+                    uarts = enumerate(node['miso_ds_uart_map'])
+                elif mapping_spec == 'new':
+                    uarts = enumerate(node['miso_uart_map'])
+                for idx, uart in uarts:
+                    link = (chip_id, node['miso_ds'][idx])
+                    if link[1] is None: continue
+                    self.add_network_link(io_group, io_channel, 'miso_ds', link, uart)
+            except KeyError:
+                raise KeyError('error generating downstream network node {}-{}-{}'.format(io_group,io_channel,chip_id))
+        elif subnetwork['miso_us'].in_edges(chip_id):
+            try:
+                for link in subnetwork['miso_us'].in_edges(chip_id):
+                    other_chip_id = link[0]
+                    other_spec = [spec for spec in hydra_network_nodes if spec['chip_id'] == other_chip_id][0]
+                    uart = None
+                    if mapping_spec == 'old':
+                        uart = node['miso_ds_uart_map'][other_spec['miso_us'].index(chip_id)]
+                    elif mapping_spec == 'new':
+                        uart = node['miso_uart_map'][other_spec['usds_link_map'][other_spec['miso_us'].index(chip_id)]]
+                    link = (chip_id, other_chip_id)
+                    self.add_network_link(io_group, io_channel, 'miso_ds', link, uart)
+            except KeyError:
+                raise KeyError('error auto-generating downstream network node {}-{}-{}'.format(io_group,io_channel,chip_id))
+
+    def _link_mosi_network_node(self, io_group, io_channel, node, hydra_network_nodes, mapping_spec):
+        chip_id = node['chip_id']
+        subnetwork = self.network[io_group][io_channel]
+
+        if 'mosi' in node:
+            try:
+                for idx, uart in enumerate(node['mosi_uart_map']):
+                    link = (node['mosi'][idx], chip_id)
+                    if link[1] is None: continue
+                    self.add_network_link(io_group, io_channel, 'mosi', link, uart)
+            except KeyError:
+                raise KeyError('mosi_uart_map unspecified for {}-{}-{}'.format(io_group,io_channel,chip_id))
+        elif subnetwork['miso_us'].in_edges(chip_id) or subnetwork['miso_ds'].in_edges(chip_id):
+            try:
+                # create links for existing miso_us connections
+                if subnetwork['miso_us'].in_edges(chip_id):
+                    for link in subnetwork['miso_us'].in_edges(chip_id):
+                        other_chip_id = link[0]
+                        other_spec = [spec for spec in hydra_network_nodes if spec['chip_id'] == other_chip_id][0]
+                        uart = None
+                        if mapping_spec == 'old':
+                            uart = node['mosi_uart_map'][other_spec['miso_us'].index(chip_id)]
+                        elif mapping_spec == 'new':
+                            uart = node['mosi_uart_map'][other_spec['usds_link_map'][other_spec['miso_us'].index(chip_id)]]
+                        link = (other_chip_id, chip_id)
+                        self.add_network_link(io_group, io_channel, 'mosi', link, uart)
+
+                # create links for existing miso_ds connections
+                if subnetwork['miso_ds'].in_edges(chip_id):
+                    for link in subnetwork['miso_ds'].in_edges(chip_id):
+                        other_chip_id = link[0]
+                        other_spec = [spec for spec in hydra_network_nodes if spec['chip_id'] == other_chip_id][0]
+                        uart = None
+                        if 'miso_ds' in other_spec:
+                            if mapping_spec == 'old':
+                                uart = node['mosi_uart_map'][other_spec['miso_ds'].index(chip_id)]
+                            elif mapping_spec == 'new':
+                                uart = node['mosi_uart_map'][other_spec['usds_link_map'][other_spec['miso_ds'].index(chip_id)]]
+                        else:
+                            # look up via ds uart channel map
+                            ds_uart = subnetwork['miso_ds'].edges[link]['uart']
+                            if mapping_spec == 'old':
+                                uart = node['mosi_uart_map'][node_spec['miso_us_uart_map'].index(ds_uart)]
+                            elif mapping_spec == 'new':
+                                uart = node['mosi_uart_map'][other_spec['usds_link_map'][node['miso_uart_map'].index(ds_uart)]]
+                        link = (other_chip_id, chip_id)
+                        self.add_network_link(io_group, io_channel, 'mosi', link, uart)
+            except KeyError:
+                raise KeyError('mosi_uart_map unspecified for {}-{}-{}'.format(io_group,io_channel,chip_id))
+
     def load_network(self, filename):
         '''
-        Loads the specified file using hydra io network configuration format
+        Loads the specified file using the hydra io network configuration format
+        with either a miso_us_uart_map/miso_ds_uart_map/mosi_uart_map specification
+        or a miso_uart_map/mosi_uart_map/usds_uart_map specification.
 
         After loading the network, running
         ``controller.init_network(<io group>, <io channel>)`` will configure the
@@ -374,181 +516,64 @@ class Controller(object):
 
         '''
         system_info = configs.load(filename)
-        inherited_data = ('miso_us_uart_map', 'miso_ds_uart_map', 'mosi_uart_map')
+        inherited_data = tuple()
+        old_style_inherited_data = ('miso_us_uart_map', 'miso_ds_uart_map', 'mosi_uart_map')
+        new_style_inherited_data = ('miso_uart_map', 'mosi_uart_map', 'usds_link_map')
+        mapping_spec = None
+        if all([key in system_info['network'].keys() for key in old_style_inherited_data]):
+            inherited_data = old_style_inherited_data
+            mapping_spec = 'old'
+        elif all([key in system_info['network'].keys() for key in new_style_inherited_data]):
+            inherited_data = new_style_inherited_data
+            mapping_spec = 'new'
+        else:
+            raise RuntimeError('uart mapping specification missing or invalid')
+
         orig_chips = copy(self.chips)
         orig_network = copy(self.network)
+        # clear chips and network
         for chip in copy(self.chips):
-            self.remove_chip(chip) # clear chips and network
+            self.remove_chip(chip)
+        for network_name in self.network_names:
+            for io_group, io_channels in self.network.items():
+                for io_channel, hydra_network in io_channels.items():
+                    for node in hydra_network[network_name]:
+                        self.network[io_group][io_channel][network_name].remove_node(node)
         try:
-            def propogate_inherited_values(network_spec, value_keys):
-                dict_to_return = dict()
-                for value_key in value_keys:
-                    dict_to_return[value_key] = network_spec[value_key]
-
-                for key, group_spec in network_spec.items():
-                    if key in value_keys:
-                        continue
-                    dict_to_return[key] = group_spec
-
-                    for value_key in value_keys:
-                        if not value_key in group_spec:
-                            dict_to_return[key][value_key] = dict_to_return[value_key]
-
-                    for subkey, channel_spec in network_spec[key].items():
-                        if subkey in value_keys:
-                            continue
-                        for value_key in value_keys:
-                            if not value_key in channel_spec:
-                               dict_to_return[key][subkey][value_key] = dict_to_return[key][value_key]
-
-                        for idx, node_spec in enumerate(channel_spec['nodes']):
-                            for value_key in value_keys:
-                                if not value_key in node_spec:
-                                   dict_to_return[key][subkey]['nodes'][idx][value_key] = dict_to_return[key][subkey][value_key]
-
-                return dict_to_return
-
             self.chips = OrderedDict()
-            full_network_spec = propogate_inherited_values(system_info['network'], inherited_data)
+            full_network_spec = self._propogate_inherited_values(system_info['network'], inherited_data)
 
             # create nodes + chip objects first
             for key, group_spec in full_network_spec.items():
-                if key in inherited_data:
-                    continue
-                io_group = key
-                for subkey, channel_spec in full_network_spec[io_group].items():
-                    if subkey in inherited_data:
-                        continue
-                    io_channel = subkey
+                if key in inherited_data: continue
+                for subkey, channel_spec in full_network_spec[key].items():
+                    if subkey in inherited_data: continue
                     for node_spec in channel_spec['nodes']:
-                        io_group = int(io_group)
-                        io_channel = int(io_channel)
-                        chip_id = node_spec['chip_id']
-                        if isinstance(chip_id, int):
-                            # create new chip object
-                            chip_key = Key(io_group, io_channel, chip_id)
-                            root = False
-                            if 'root' in node_spec and node_spec['root']:
-                                root = True
-                            self.add_chip(chip_key, version=2, root=root)
-                        else:
-                            # dummy node
-                            root = False
-                            if 'root' in node_spec and node_spec['root']:
-                                root = True
-                            self.add_network_node(io_group, io_channel, self.network_names, chip_id, root)
+                        self._create_network_node(int(key), int(subkey), node_spec)
 
             # then create miso_us network
             for key, group_spec in full_network_spec.items():
-                if key in inherited_data:
-                    continue
-                io_group = key
-                for subkey, channel_spec in full_network_spec[io_group].items():
-                    if subkey in inherited_data:
-                        continue
-                    io_channel = subkey
+                if key in inherited_data: continue
+                for subkey, channel_spec in full_network_spec[key].items():
+                    if subkey in inherited_data: continue
                     for node_spec in channel_spec['nodes']:
-                        io_group = int(io_group)
-                        io_channel = int(io_channel)
-                        chip_id = node_spec['chip_id']
-                        subnetwork = self.network[io_group][io_channel]
-
-                        if 'miso_us' in node_spec:
-                            try:
-                                for idx, uart in enumerate(node_spec['miso_us_uart_map']):
-                                    link = (chip_id, node_spec['miso_us'][idx])
-                                    if link[1] is None:
-                                        continue
-                                    self.add_network_link(io_group, io_channel, 'miso_us', link, uart)
-                            except KeyError:
-                                raise KeyError('miso_us_uart_map unspecified for {}-{}-{}'.format(io_group,io_channel,chip_id))
+                        self._link_miso_us_network_node(int(key),int(subkey),node_spec,channel_spec['nodes'],mapping_spec)
 
             # then create miso_ds network
             for key, group_spec in full_network_spec.items():
-                if key in inherited_data:
-                    continue
-                io_group = key
-                for subkey, channel_spec in full_network_spec[io_group].items():
-                    if subkey in inherited_data:
-                        continue
-                    io_channel = subkey
+                if key in inherited_data: continue
+                for subkey, channel_spec in full_network_spec[key].items():
+                    if subkey in inherited_data: continue
                     for node_spec in channel_spec['nodes']:
-                        io_group = int(io_group)
-                        io_channel = int(io_channel)
-                        chip_id = node_spec['chip_id']
-                        subnetwork = self.network[io_group][io_channel]
-
-                        if 'miso_ds' in node_spec:
-                            try:
-                                for idx, uart in enumerate(node_spec['miso_ds_uart_map']):
-                                    link = (chip_id, node_spec['miso_ds'][idx])
-                                    if link[1] is None:
-                                        continue
-                                    self.add_network_link(io_group, io_channel, 'miso_ds', link, uart)
-                            except KeyError:
-                                raise KeyError('miso_us_uart_map unspecified for {}-{}-{}'.format(io_group,io_channel,chip_id))
-                        elif subnetwork['miso_us'].in_edges(chip_id):
-                            try:
-                                for link in subnetwork['miso_us'].in_edges(chip_id):
-                                    other_chip_id = link[0]
-                                    other_spec = [spec for spec in channel_spec['nodes'] if spec['chip_id'] == other_chip_id][0]
-                                    uart = node_spec['miso_ds_uart_map'][other_spec['miso_us'].index(chip_id)]
-                                    link = (chip_id, other_chip_id)
-                                    self.add_network_link(io_group, io_channel, 'miso_ds', link, uart)
-                            except KeyError:
-                                raise KeyError('miso_ds_uart_map unspecified for {}-{}-{}'.format(io_group,io_channel,chip_id))
+                        self._link_miso_ds_network_node(int(key),int(subkey),node_spec,channel_spec['nodes'],mapping_spec)
 
             # finally, create mosi network
             for key, group_spec in full_network_spec.items():
-                if key in inherited_data:
-                    continue
-                io_group = key
-                for subkey, channel_spec in full_network_spec[io_group].items():
-                    if subkey in inherited_data:
-                        continue
-                    io_channel = subkey
+                if key in inherited_data: continue
+                for subkey, channel_spec in full_network_spec[key].items():
+                    if subkey in inherited_data: continue
                     for node_spec in channel_spec['nodes']:
-                        io_group = int(io_group)
-                        io_channel = int(io_channel)
-                        chip_id = node_spec['chip_id']
-                        subnetwork = self.network[io_group][io_channel]
-
-                        if 'mosi' in node_spec:
-                            try:
-                                for idx, uart in enumerate(node_spec['mosi_uart_map']):
-                                    link = (chip_id, node_spec['mosi'][idx])
-                                    if link[1] is None:
-                                        continue
-                                    self.add_network_link(io_group, io_channel, 'mosi', link, uart)
-                            except KeyError:
-                                raise KeyError('mosi_uart_map unspecified for {}-{}-{}'.format(io_group,io_channel,chip_id))
-                        elif subnetwork['miso_us'].in_edges(chip_id) or subnetwork['miso_ds'].in_edges(chip_id):
-                            try:
-                                # create links for existing miso_us connections
-                                if subnetwork['miso_us'].in_edges(chip_id):
-                                    for link in subnetwork['miso_us'].in_edges(chip_id):
-                                        other_chip_id = link[0]
-                                        other_spec = [spec for spec in channel_spec['nodes'] if spec['chip_id'] == other_chip_id][0]
-                                        uart = node_spec['mosi_uart_map'][other_spec['miso_us'].index(chip_id)]
-                                        link = (other_chip_id, chip_id)
-                                        self.add_network_link(io_group, io_channel, 'mosi', link, uart)
-
-                                # create links for existing miso_ds connections
-                                if subnetwork['miso_ds'].in_edges(chip_id):
-                                    for link in subnetwork['miso_ds'].in_edges(chip_id):
-                                        other_chip_id = link[0]
-                                        other_spec = [spec for spec in channel_spec['nodes'] if spec['chip_id'] == other_chip_id][0]
-                                        uart = None
-                                        if 'miso_ds' in other_spec:
-                                            uart = node_spec['mosi_uart_map'][other_spec['miso_ds'].index(chip_id)]
-                                        else:
-                                            # look up via ds uart channel map
-                                            ds_uart = subnetwork['miso_ds'].edges[link]['uart']
-                                            uart = node_spec['mosi_uart_map'][node_spec['miso_us_uart_map'].index(ds_uart)]
-                                        link = (other_chip_id, chip_id)
-                                        self.add_network_link(io_group, io_channel, 'mosi', link, uart)
-                            except KeyError:
-                                raise KeyError('mosi_uart_map unspecified for {}-{}-{}'.format(io_group,io_channel,chip_id))
+                        self._link_mosi_network_node(int(key), int(subkey), node_spec, channel_spec['nodes'],mapping_spec)
 
         except Exception as err:
             self.chips = orig_chips
@@ -574,6 +599,89 @@ class Controller(object):
             chips[chip_key] = Chip(chip_key=chip_key, version=1)
         self.chips = chips
         return system_info['name']
+
+    def _default_chip_id_generator(self, io_group, io_channel):
+            attempts = 0
+            reserved_ids = [255,0,1]
+            existing_ids = reserved_ids + self.get_network_ids(io_group, io_channel)
+            chip_id = (existing_ids[-1] + 1) % 256
+            while chip_id in existing_ids:
+                chip_id = (chip_id + 1) % 256
+                attempts += 1
+                if attempts > 256:
+                    raise RuntimeError('All possible chip ids are taken on network {} {}!'.format(io_group, io_channel))
+            return chip_id
+
+    def grow_network(self, io_group, io_channel, chip_id,
+        miso_uart_map=[3,0,1,2], mosi_uart_map=[0,1,2,3], usds_link_map=[2,3,0,1],
+        chip_id_generator=_default_chip_id_generator, timeout=0.01
+        ):
+        '''
+        Recurisve algorithm to auto-complete a network from a stub. It works by
+        attempting to link to each available upstream node in succession, keeping links
+        that are verified. Repeats on each newly generated node until no possible links
+        remain.
+
+        To use with a completely unconfigured network you must first configure
+        the root node representing the control system::
+
+            controller.add_network_node(io_group, io_channel, ('miso_us','miso_ds','mosi'), 'ext', root=True)
+
+        You can then grow the network from this stub::
+
+            controller.grow_network(io_group, io_channel, 'ext')
+
+        This algorithim is limited to a regular geometry defined by the same
+        miso_uart_map/mosi_uart_map/usds_link_map for each chip.
+
+        :param io_group: the io group designation for the network
+
+        :param io_channel: the io channel designation for the network
+
+        :param chip_id: the chip id of the chip to start growth from
+
+        :param miso_uart_map: a length 4 iterable indicating the miso channel used to send data to a chip at position i relative to the active chip
+
+        :param mosi_uart_map: a length 4 iterable indicating the mosi channel used to receive data from a chip at position i relative to the active chip
+
+        :param usds_link_map: a length 4 iterable indicating the relative position of the active chip from the perspective of the chip at position i
+
+        :param chip_id_generator: a function that takes a controller, io_group, and io_channel and returns a unique chip id for that network
+
+        :param timeout: the time duration in seconds to wait for a response from each configured node
+
+        :returns: the generated 'miso_us', 'miso_ds', and 'mosi' networks as a `dict`
+
+        '''
+
+        network = self.network[io_group][io_channel]
+        curr_chip_id = chip_id
+        next_chip_ids = list()
+        for idx in range(4):
+            # check to see if uart is already in use
+            proposed_ds_uart = miso_uart_map[usds_link_map[idx]]
+            if any([network['miso_us'].edges[link]['uart'] == proposed_ds_uart for link in network['miso_us'].in_edges(curr_chip_id)]):
+                continue
+            # attempt to create next link
+            next_chip_id = chip_id_generator(self, io_group, io_channel)
+            next_chip_key = Key(io_group, io_channel, next_chip_id)
+            self.add_chip(next_chip_key)
+            self.add_network_link(io_group, io_channel, 'miso_us', (curr_chip_id, next_chip_id), miso_uart_map[idx])
+            self.add_network_link(io_group, io_channel, 'miso_ds', (next_chip_id, curr_chip_id), proposed_ds_uart)
+            self.add_network_link(io_group, io_channel, 'mosi', (next_chip_id, curr_chip_id), mosi_uart_map[idx])
+            self.add_network_link(io_group, io_channel, 'mosi', (curr_chip_id, next_chip_id), mosi_uart_map[usds_link_map[idx]])
+            ok,diff = self.init_network_and_verify(io_group, io_channel, next_chip_id, retries=0, timeout=timeout)
+            if ok:
+                next_chip_ids.append(next_chip_id)
+            else:
+                self.reset_network(io_group, io_channel, next_chip_id)
+                self.remove_chip(next_chip_key)
+
+        # repeat on child nodes
+        for chip_id in next_chip_ids:
+            self.grow_network(io_group, io_channel, chip_id, miso_uart_map=miso_uart_map, mosi_uart_map=mosi_uart_map, usds_link_map=usds_link_map, chip_id_generator=chip_id_generator)
+
+        return network
 
     def init_network_and_verify(self, io_group=1, io_channel=1, chip_id=None, timeout=0.2, retries=10):
         '''
@@ -1061,7 +1169,7 @@ class Controller(object):
                 register_address = packet.register_address
                 if packet_key in configuration_data and register_address in configuration_data[packet_key]:
                     configuration_data[packet_key][register_address] = (None, packet.register_data)
-                    
+
         for chip_key in registers.keys():
             expected_data = dict()
             if self[chip_key].asic_version == 1:

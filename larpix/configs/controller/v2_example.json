@@ -10,7 +10,7 @@
                     {
                         "chip_id": "ext",
                         "root": true,
-                        "miso_us": [null,null,2,null]
+                        "miso_us": [null,null,null,2]
                     },
                     {
                         "chip_id": 2,
@@ -29,8 +29,8 @@
                 ]
             }
         },
-        "miso_us_uart_map": [0,1,2,3],
-        "miso_ds_uart_map": [2,3,0,1],
-        "mosi_uart_map": [2,3,0,1]
+        "miso_uart_map": [3,0,1,2],
+        "mosi_uart_map": [0,1,2,3],
+        "usds_link_map": [2,3,0,1]
     }
 }
