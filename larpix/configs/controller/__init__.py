@@ -15,14 +15,14 @@ The v2 configuration file is a standard JSON file structured as follows:
         "layout": <string identifier for layout version, e.g. "1.2.0">,
         "asic_version": 2,
         "network": {
-            "miso_us_uart_map": [<uart channel for position in array, required>, ...],
-            "miso_ds_uart_map": [<uart channel for position in array, required>, ...],
+            "miso_uart_map": [<uart channel for position in array, required>, ...],
             "mosi_uart_map": [<uart channel for position in array, required>, ...],
+            "usds_link_map": [<position of chip relative to neighbor, required>, ...],
             "<io_group>": {
-                "miso_us_uart_map": [<uart channels for io_group, optional>, ...],
+                "miso_uart_map": [<uart channels for io_group, optional>, ...],
                 ...
                 "<io_channel>": {
-                    "miso_us_uart_map": [<uart channels for io_group, optional>, ...],
+                    "miso_uart_map": [<uart channels for io_group, optional>, ...],
                     ...
                     "nodes": [
                         {
@@ -31,7 +31,7 @@ The v2 configuration file is a standard JSON file structured as follows:
                             "miso_ds": [<chip_ids of downstream chips, optional>],
                             "mosi": [<chip_ids of chips to listen to, optional>],
                             "root": <bool indicating if this is a root node, optional>,
-                            "miso_us_uart_map": [<uart channels for chip, optional>, ...],
+                            "miso_uart_map": [<uart channels for chip, optional>, ...],
                             ...
                         },
                         ...
@@ -55,23 +55,95 @@ network is then defined with a collection of Hydra networks, each associated
 with a specific io_group and io_channel. The io_group, io_channel pair must
 be unique for each Hydra network.
 
-For the configuration file, the basic logic for each hydra network is that for each
-chip, you must specify a chip id. Links within the directed graphs are then specified via
-4-item arrays. A simplified example is provided below:
+For the configuration file, the basic requirement for each hydra network is that for each
+node in the network, you must specify a chip id. The chip id must be an integer
+between 2 and 254 for an ASIC, but other systems (i.e. an FPGA that can interpret
+the LArPix UART protocol) can be specified by a string. Each chip id must be
+unique within each io_group, io_channel sub-network.
+
+To specify links within the 3 directed graphs (miso_us, miso_ds, and mosi), a
+4-item array is used. Each 4-item array indicates the chip id of the neighboring
+nodes that should be connected to the given chip. So for example::
+
+    {
+        "chip_id": 23,
+        "miso_us": [24,null,null,null],
+        "miso_ds": [null,22,null,null],
+        "mosi":    [24,22,null,null]
+    }
+
+will create a miso_us graph where data flows from chip 23 to chip 24, a miso_ds
+graph where data flows from chip 23 to chip 22, and a mosi graph where data
+flows from chip 24 to 23 and chip 22 to 23 (note the opposite convention for the
+mosi graph).
+
+The position of the chip id within the 4-item array indicates the relative physical
+location of the neighboring chip. A suggested ordering might be
+`[<top>,<left>,<down>,<right>]`, thus the previous example indicates
+that the current chip should be linked to chip 24 which is above the current chip.
+The definition of `<top>`,`<left>`,`<down>`, and `<right>` is fixed by which of
+the four LArPix UARTs is used to communicate to a chip in that position. This
+is declared with the `"miso_uart_map"` and `"mosi_uart_map"` definitions.
+As an example, the upper left corner of the LArPix ASIC is UART 0 and the upper
+right corner of the chip is UART 3, thus we can define
+`<top>` as the first position in each array by declaring
+`"miso_uart_map": [3,X,X,X]` and `"mosi_uart_map": [0,X,X,X]` which will read
+packets in on UART 0 and send packets out on UART 3. It doesn't matter where
+in the array `<top>` is defined, as long as you have a consistent convention between
+the `miso_uart_map`, `mosi_uart_map`, and each of your networks (`miso_us`,`miso_ds`,
+and `mosi`).
+
+It would become very tedious and difficult to debug if for every node you had
+to specify all of the links on all three of the graphs, so the configuration
+parser is smarter than that. Most of the time, the networks that you'll want to
+specify have the same upstream and downstream connections (albeit with the
+directions flipped), so if the `"miso_ds"` field is not explicitly defined, it
+will be inferred based on the miso_us network that was created. Likewise, usually
+the mosi connections should be the same as the upstream and downstream connections.
+Thus, if this field is not set explicitly it will be inferred automatically based
+on the miso_us graph and the miso_ds graph.
+
+However, in order for the auto-parsing methods to work, they need some information
+about how the chips are oriented with respect to eachother. This is defined by
+the `"usds_link_map"`. This field is also a 4-item array, however the value now
+represents the position of the given chip from the perspective of the neighbor.
+So, following the example from above, we can define two directions `<top>` and
+`<bottom>` with `"miso_uart_map": [3,X,1,X]` and `"mosi_uart_map": [0,X,2,X]`.
+If we have two chips (let's say 22 and 23 with chip 23 above chip 22), to
+determine the `"usds_link_map"` we have to consider both where chip 23 is from the
+perspective of chip 22 (`<top>`, or index 0 from our definition) and where chip 22
+is from the perspective of chip 23 (`<bottom>`, or index 2 from out definition).
+This means that the `"usds_link_map"` for chip 22 should be `[2,X,X,X]`, or in
+other words the chip (23) that is in the direction of `<top>` (index 0) from
+the current chip (22) sees the current chip (22) in the direction of `<down>`
+(index 2). Likewise the `"usds_link_map" for chip 23 should be `[X,X,0,X]`.
+Now as long as you maintain the same definitions of `<top>` and `<bottom>` for
+all of the chips in the network, you can set `"usds_link_map"` at the top level
+to be `[2,X,0,X]` you don't need to worry about figuring this out for each
+node in the network.
+
+The final necessary component of the configuration is to declare some nodes
+as `root` nodes. These are special nodes which are used to indicated the first
+node to be configured during the initialization of the network. Typically, the
+placeholder node representing the external system is set as the root node.
+
+
+Putting all of this together, simple example of a complete network
+configuration is provided below:
 
 .. parsed-literal::
     "network": {
         "1": {
             "2": {
-                "chips": [
+                "nodes": [
                     {
                         "chip_id": "ext",
-                        "miso_us": [null,null,2,null]
+                        "miso_us": [null,null,2,null],
+                        "root": true
                     }
                     {
                         "chip_id": 2,
-                        "miso_us": [3,null,null,null],
-                        "root": true
+                        "miso_us": [null,3,null,null]
                     },
                     {
                         "chip_id": 3
@@ -79,92 +151,41 @@ chip, you must specify a chip id. Links within the directed graphs are then spec
                 ]
             }
         }
-        "miso_us_uart_map": [0,1,2,3],
-        "miso_ds_uart_map": [2,3,0,1],
-        "mosi_uart_map": [0,1,2,3]
+        "miso_uart_map": [3,0,1,2],
+        "mosi_uart_map": [0,1,2,3],
+        "usds_link_map": [2,3,0,1]
     }
 
 In this example, we define a single 2-chip Hydra network with io_group=1
-and io_channel=2. The "chips" array is filled with dicts representing each
-chip in the network. Within the chip specification, the "chip_id" field sets
-the chip_id configuration register for that chip and must be unique within
-each io_group, io_channel sub-network. The "miso_us" array lists the chip_ids
-that should receive upstream packets from this chip's miso_us channels. Using
-the miso_us_uart map specified in the example, index=0 refers to a connection on
-miso uart channel 0, index=1 refers to uart channel 1, etc. The miso_us should
-be specified for each chip that is linked to other chips.
+and io_channel=2. The `"nodes"` array is filled with dicts representing each
+node in the network. Globally, we've defined our "directions" with the
+`miso_uart_map` and `mosi_uart_map`, and we've set up the `usds_link_map` so
+that the auto-parsing algorithm can work. Within the `"nodes"` array, we specify
+three nodes (`ext`,`2`,`3`); two of which represent chips (`2`,`3`), and one of
+which represents the external FPGA used to communicate with the network (`ext`).
+The external FPGA is set as the `root` node so that the initialization of the
+network starts from that node. We've declared miso_us links for the `ext` and
+`2` nodes, but because we have not specified any miso_ds or mosi links. The
+auto-parsing algorithm with generate the following graphs::
 
-'Dummy' nodes can be specified by using a string for the "chip_id", rather than
-an integer. These represent network links to non-chip object, e.g. an fpga, etc.
-In general, you must specify one dummy link that points to at least one chip on
-the "miso_us" network.
+    miso_us: 'ext'  -> 2  -> 3
+    miso_ds: 'ext' <-  2 <-  3
+    mosi:    'ext' <-> 2 <-> 3
 
-In each network there must be at least 1 "root" node. The node must have the
-"root" field set to true. This determines the order in which chips will be configured.
-The uart channel of each position in miso_ds network is inferred by the
-miso_ds_uart_map, so for the example configuration uart0 of chip 2 will send
-downstream packets. All other network links will be inferred from these fields.
+with the active uarts::
 
-If you'd like to manually specify miso_us links for a chip,
-you can specify their chip ids in a list of 4 upstream channels. Values of null
-are ignored, and non-integer values are interpreted as placeholders (i.e. no
-physical chip, but we'd like to enable the miso_us channel for some reason or
-another). The physical uart to enable/disable
-during the configuration of the network is gleaned from the "miso_us_uart_map".
-The "miso_us_uart_map" can be specified at any layer of the configuration (io
-group, io channel, or chip) and will override the values specified at the
-network level.
+    miso_us: 1    -> 0    -> X
+    miso_ds: X   <-  3   <-  2
+    mosi:    2,0 <-> 1,3 <-> 3
 
-A similar logic applies for the miso_ds, however by default, this network
-uses the converse of the miso_us configuration (with the uart channel specified
-by "miso_ds_uart_map"). For example, to declare a miso_us/miso_ds connection
-between two chips, you may simple declare:
+Or, assuming you are using our definition above for `<top>`,`<bottom>`,etc.)::
 
-    "chips": [
-        {
-            "chip_id": 2,
-            "miso_us":[3,null,null,null],
-            "miso_us_uart_map": [0,1,2,3]
-        },
-        {
-            "chip_id": 3,
-            "miso_ds_uart_map": [2,3,0,1]
-        }
-    ]
-
-This will initialize chip 2 with the miso_us enabled on uart channel 0 and
-chip 3 with the miso_ds enabled on uart channel 2. Placeholders (such as 'ext')
-be used with miso_ds as well.
-
-For mosi, the default behavior is to use the converse of both the
-miso_us and miso_ds graphs using the same uarts. E.g. the above example would
-have chip 2 with mosi enabled on uart channel 0 and chip 3 with mosi enabled on
-uart channel 2. You can override this behavior by setting the "mosi" field to
-an array of the chips to link on the mosi graph. To override which physical uart
-to used, the "mosi_uart_map" is used in a similar fashion as miso_us.
-
-To properly create the uart maps, it requires knowing the routing of mosi/miso
-channels between the chips. The miso_us_uart_map determines which uart miso
-channel to enable if a miso upstream graph edge originates from the given chip.
-The miso_ds_uart_map determines which uart miso channel to enable if an a miso
-downstream graph edge originates from the given chip. And the mosi_uart_map
-determines which uart channel to enable if a mosi graph edge ends on the given
-chip. E.g.::
-
-    "miso_us_uart_map": [3,0,1,2],
-    "miso_ds_uart_map": [1,2,3,0],
-    "mosi_uart_map": [0,3,2,1]
-
-declares that a link created at index 1 will use uart channel 0 (if it is a miso_us link),
-channel 2 (if it is a miso_ds link), or channel 3 (if it is a mosi link).
-
-Finally, the ``'root'`` field is used to specify special 'root' nodes within the
-network. These are the nodes that will be configured first when initializing a
-network (with the next nodes order of configuration determined via the mosi_us
-configuration). If not specified, the node is assumed to not be a root node.
+       ext
+        v
+    3 < 2
 
 The top-level "_include" field can be used to specify files to inherit from.
-All fields of the configuration down to the "chips" array level can be inherited.
+All fields of the configuration down to the "nodes" array level can be inherited.
 A standard use for this would be to specify each hydra network for a given channel
 independently, and inherit from all of the files in a single configuration
 file. E.g.::
