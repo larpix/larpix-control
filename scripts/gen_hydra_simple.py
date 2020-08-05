@@ -17,20 +17,14 @@ from bidict import bidict
 import random
 from copy import deepcopy
 
-default_miso_us_uart_map = [3,0,1,2]
-default_miso_ds_uart_map = [1,2,3,0]
-default_mosi_uart_map = [2,3,0,1]
-uart_us_table = bidict({
-    (0,1): 3,
-    (1,0): 2,
-    (-1,0): 0,
-    (0,-1): 1
-    })
-uart_ds_table = bidict({
-    (0,-1): 1,
-    (-1,0): 0,
-    (1,0): 2,
-    (0,1): 3
+default_miso_uart_map = [3,0,1,2]
+default_mosi_uart_map = [0,1,2,3]
+default_usds_link_map = [2,3,0,1]
+dir_table = bidict({
+    (0,1): 0,
+    (1,0): 3,
+    (-1,0): 1,
+    (0,-1): 2
     })
 
 def edge_dir(edge):
@@ -174,6 +168,66 @@ def generate_hydra_simple_digraphs(x_slots, y_slots, root, ext, avoid=None, seed
 
         metric = [len(nx.descendants(g, edge[1])) + len(nx.descendants(g, edge[0])) for edge in edges]
         g.remove_edge(*edges[np.argmax(metric)])
+        nodes = [node for node in g.nodes() if g.in_degree(node) > 1]
+
+    return generate_digraphs_from_upstream(g, root, ext)
+
+def generate_hydra_simple2_digraphs(x_slots, y_slots, root, ext, avoid=None, seed=12345):
+    '''
+    Generates a simple hydra io networks using the simple2 algorithm. Roughly,
+    this algorithm generates a simple hydra io network based on an upstream
+    network. The upstream network is found in the same way as the simple algorithm
+    except the score metric is the connection with the fewest children.
+
+    This generally performs the best of all the algorithms developed.
+
+    There is not a unique solution and so a random seed is used to generate the network
+
+    :param x_slots: maximum number of x positions for nodes
+
+    :param y_slots: maximum number of y positions for nodes
+
+    :param root: ``(x,y)`` position for root node, ``0 <= x < x_slots``, ``0 <= y < y_slots``
+
+    :param ext: position of the node representing the external system
+
+    :param avoid: ``list`` of ``(x,y)`` nodes to exclude from network
+
+    :param seed: random seed for configuration (insures repeatabilty)
+
+    :returns: 3 networkx ``DiGraph``s indicating the upstream miso network, the downstream miso network, and the mosi network
+
+    '''
+    random.seed(seed)
+
+    g = generate_2d_grid_digraph(x_slots, y_slots, root, ext)
+    #    g = nx.grid_2d_graph(x_slots, y_slots, create_using=nx.DiGraph) # base graph for upstream
+
+    if avoid:
+        g.remove_nodes_from(avoid)
+
+    # create root
+    g.remove_edges_from(list(g.in_edges(root)))
+
+    # remove in edges from each successor
+    nodes = list(g.successors(root))
+    while nodes:
+        random.shuffle(nodes)
+        edges_to_remove = [edge for edge in g.in_edges(nodes) \
+            if edge[::-1] in g.out_edges(nodes) \
+            and g.in_degree(edge[1]) > 1]
+        g.remove_edges_from(edges_to_remove)
+        nodes = list(set([edge[1] for edge in g.out_edges(nodes)]))
+
+    # get all redundant connections
+    nodes = [node for node in g.nodes() if g.in_degree(node) > 1]
+    while nodes:
+        edges = list(g.in_edges(nodes))
+        random.shuffle(edges)
+
+        # get edge with least number of children
+        edge_metric = sorted([(len(nx.descendants(g, edge[1])), edge) for edge in edges])
+        g.remove_edge(*edge_metric[0][1])
         nodes = [node for node in g.nodes() if g.in_degree(node) > 1]
 
     return generate_digraphs_from_upstream(g, root, ext)
@@ -398,7 +452,7 @@ def generate_hydra_min_fifo_load_beam_search_digraphs(x_slots, y_slots, root, ex
 
     '''
     random.seed(seed)
-    
+
     g = generate_2d_grid_digraph(x_slots, y_slots, root, ext)
     #    g = nx.grid_2d_graph(x_slots, y_slots, create_using=nx.DiGraph) # base graph for upstream
 
@@ -675,20 +729,20 @@ def generate_network_config(network_graphs, io_group, io_channel, name=None, pre
         network_config['network'][io_group][io_channel] = dict()
     network_config['network'][io_group][io_channel]['nodes'] = []
 
-    if not 'miso_us_uart_map' in network_config['network']:
-        network_config['network']['miso_us_uart_map'] = default_miso_us_uart_map
-    if not 'miso_ds_uart_map' in network_config['network']:
-        network_config['network']['miso_ds_uart_map'] = default_miso_ds_uart_map
+    if not 'miso_uart_map' in network_config['network']:
+        network_config['network']['miso_uart_map'] = default_miso_uart_map
     if not 'mosi_uart_map' in network_config['network']:
         network_config['network']['mosi_uart_map'] = default_mosi_uart_map
+    if not 'usds_link_map' in network_config['network']:
+        network_config['network']['usds_link_map'] = default_usds_link_map
 
     subnetwork = network_config['network'][io_group][io_channel]
-    if not default_miso_us_uart_map == network_config['network']['miso_us_uart_map']:
-        subnetwork['miso_us_uart_map'] = default_miso_us_uart_map
-    if not default_miso_ds_uart_map == network_config['network']['miso_ds_uart_map']:
-        subnetwork['miso_ds_uart_map'] = default_miso_ds_uart_map
+    if not default_miso_uart_map == network_config['network']['miso_uart_map']:
+        subnetwork['miso_uart_map'] = default_miso_uart_map
     if not default_mosi_uart_map == network_config['network']['mosi_uart_map']:
         subnetwork['mosi_uart_map'] = default_mosi_uart_map
+    if not default_usds_link_map == network_config['network']['usds_link_map']:
+        subnetwork['usds_link_map'] = default_usds_link_map
 
     next_nodes = [node for node in g.nodes() if 'root' in g.nodes[node]]
     while next_nodes:
@@ -699,8 +753,8 @@ def generate_network_config(network_graphs, io_group, io_channel, name=None, pre
                 }]
             chip_config = subnetwork['nodes'][-1]
             for child in g.successors(node):
-                child_uart = uart_us_table[edge_dir((node,child))]
-                chip_config['miso_us'][default_miso_us_uart_map.index(child_uart)] = g.nodes[child]['chip_id']
+                child_idx = dir_table[edge_dir((node,child))]
+                chip_config['miso_us'][child_idx] = g.nodes[child]['chip_id']
             if not any(chip_config['miso_us']):
                 del chip_config['miso_us']
             if 'root' in g.nodes[node]:
@@ -733,6 +787,8 @@ def plot(g, name='default', labels='chip_id', figsize=(6, 6), interactive=True):
         nx.draw_networkx(g, dict([(node,node) for node in g.nodes]), labels=dict([(node,g.nodes[node][labels]) for node in g.nodes]))
     else:
         nx.draw_networkx(g, dict([(node,node) for node in g.nodes]), labels=dict([(node,'') for node in g.nodes]))
+    plt.xlabel('x index')
+    plt.ylabel('y index')
     plt.tight_layout()
     if not interactive:
         plt.savefig(name+'.png')
@@ -773,14 +829,14 @@ if __name__ == '__main__':
         help='''sets method for generating and assigning chip ids, options are
         'chip_id_simple' and 'chip_id_position'
         ''')
-    parser.add_argument('--algorithm', type=str, required=False, default='min_fifo_load',
-        help='''sets method for generating network links, options are 'min_fifo_load', 'min_fifo_load_base', 'min_fifo_load_beam_search', 'fifo_product', 'greedy_tree', and 'simple'
+    parser.add_argument('--algorithm', type=str, required=False, default='simple2',
+        help='''sets method for generating network links, options are 'min_fifo_load', 'min_fifo_load_base', 'min_fifo_load_beam_search', 'fifo_product', 'greedy_tree', 'simple', and 'simple2
         ''')
     parser.add_argument('--io_group', type=int, required=False, default=1,
-        help='''sets io group'
+        help='''sets io group
         ''')
     parser.add_argument('--io_channel', type=int, required=False, default=1,
-        help='''sets io channel'
+        help='''sets io channel
         ''')
     parser.add_argument('--plot', action='store_true', help='''
         flag to plot network instead of generating file
@@ -793,13 +849,17 @@ if __name__ == '__main__':
     avoid = [tuple(pos) for pos in args.avoid]
     ext = tuple(args.ext)
     root = tuple(args.root) if args.root is not None else ext
+    print('seed is {}'.format(args.seed))
+    print('creating {}x{} network with {} starting at {}, avoiding {}...'.format(args.x_slots, args.y_slots, args.algorithm, root, avoid))
     g_us, g_ds, g_mosi = globals()['generate_hydra_' + args.algorithm + '_digraphs'](args.x_slots,
         args.y_slots, root, ext, avoid=avoid, seed=args.seed)
 
+    print('generating chip ids...')
     generate_chip_id(g_us, method=args.chip_id) # add chip ids to each node
     generate_chip_id(g_ds, method=args.chip_id) # add chip ids to each node
     generate_chip_id(g_mosi, method=args.chip_id) # add chip ids to each node
 
+    print('calculating metrics...')
     fifo_loads = [fifo_load(g_us, node) for node in g_us.nodes()]
     n_children = [len(nx.descendants(g_us,node)) for node in g_us.nodes()]
     print('nodes: ', len(fifo_loads))
@@ -815,8 +875,8 @@ if __name__ == '__main__':
         exit()
 
     else:
-        plot(g_us, name=outfile.strip('.json'), interactive=False)
-        
+        plot(g_us, name=outfile[:-5], interactive=False)
+
         previous_config = None
         if os.path.exists(outfile):
             print('loading existing file',outfile)
