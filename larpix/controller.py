@@ -494,7 +494,7 @@ class Controller(object):
                             # look up via ds uart channel map
                             ds_uart = subnetwork['miso_ds'].edges[link]['uart']
                             if mapping_spec == 'old':
-                                uart = node['mosi_uart_map'][node_spec['miso_us_uart_map'].index(ds_uart)]
+                                uart = node['mosi_uart_map'][node['miso_us_uart_map'].index(ds_uart)]
                             elif mapping_spec == 'new':
                                 uart = node['mosi_uart_map'][other_spec['usds_link_map'][node['miso_uart_map'].index(ds_uart)]]
                         link = (other_chip_id, chip_id)
