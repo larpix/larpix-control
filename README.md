@@ -694,7 +694,11 @@ controller.io.set_vddd() # set default vddd (~1.8V)
 controller.io.set_vdda() # set default vdda (~1.8V)
 ```
 These automatically query the built-in ADCs and return the set voltage and current
-in mV and mA, respectively.
+in mV and mA, respectively. And to power on the chips
+```python
+controller.io.enable_tile()
+```
+which will enable the LDOs for VDDD/VDDA and the driver chips / FPGA outputs for IO. 
 
 To bring up the Hydra network (and work around the known bugs in v2), do the
 following:

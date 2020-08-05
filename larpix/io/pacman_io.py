@@ -63,6 +63,7 @@ class PACMAN_IO(IO):
     interleave_packets_by_io_channel = True
     double_send_packets = False
 
+    _base_ctrl_reg = 0x10
     _clk_ctrl_reg = 0x1010
     _sw_reset_cycles_reg = 0x1014
     _channel_offset = 0x2000
@@ -74,8 +75,10 @@ class PACMAN_IO(IO):
     _vdda_adc_reg = 0x24042
     _iddd_adc_reg = 0x24031
     _idda_adc_reg = 0x24041
+    _vplus_adc_reg = 0x24022
+    _iplus_adc_reg = 0x24021
     _adc2mv = lambda _,x: ((x >> 16) >> 3) * 4
-    _adc2ma = lambda _,x: ((x >> 16) * 500 * 0.01)
+    _adc2ma = lambda _,x: ((x >> 16) - (x >> 31) * 65535) * 500 * 0.01
 
     def __init__(self, config_filepath=None, hwm=20000, relaxed=True, timeout=-1):
         super(PACMAN_IO, self).__init__()
@@ -301,6 +304,20 @@ class PACMAN_IO(IO):
             print('IO error on {}: {}'.format(io_group,e))
         return False
 
+    def get_vddd(self, io_group=None):
+        '''
+        Gets PACMAN VDDD voltage
+
+        Returns VDDD and IDDD values from the built-in ADC as
+        a tuple of mV and mA respectively
+
+        '''
+        if io_group is None:
+            return dict([(io_group, self.get_vddd(io_group=io_group)) for io_group in self._io_group_table])
+        mv = self._adc2mv(self.get_reg(self._vddd_adc_reg, io_group=io_group))
+        ma = self._adc2ma(self.get_reg(self._iddd_adc_reg, io_group=io_group))
+        return mv, ma
+    
     def set_vddd(self, vddd_dac=0xD5A3, io_group=None, settling_time=0.1):
         '''
         Sets PACMAN VDDD voltage
@@ -316,10 +333,22 @@ class PACMAN_IO(IO):
         self.set_reg(self._vddd_dac_reg, vddd_dac, io_group=io_group)
         if settling_time:
             time.sleep(settling_time)
-        mv = self._adc2mv(self.get_reg(self._vddd_adc_reg, io_group=io_group))
-        ma = self._adc2ma(self.get_reg(self._iddd_adc_reg, io_group=io_group))
-        return mv, ma
+        return self.get_vddd(io_group=io_group)
 
+    def get_vdda(self, io_group=None):
+        '''
+        Gets PACMAN VDDA voltage
+
+        Returns VDDA and IDDA values from the built-in ADC as
+        a tuple of mV and mA respectively
+
+        '''
+        if io_group is None:
+            return dict([(io_group, self.get_vdda(io_group=io_group)) for io_group in self._io_group_table])
+        mv = self._adc2mv(self.get_reg(self._vdda_adc_reg, io_group=io_group))
+        ma = self._adc2ma(self.get_reg(self._idda_adc_reg, io_group=io_group))
+        return mv, ma
+    
     def set_vdda(self, vdda_dac=0xD5A3, io_group=None, settling_time=0.1):
         '''
         Sets PACMAN VDDA voltage
@@ -335,9 +364,61 @@ class PACMAN_IO(IO):
         self.set_reg(self._vdda_dac_reg, vdda_dac, io_group=io_group)
         if settling_time:
             time.sleep(settling_time)
-        mv = self._adc2mv(self.get_reg(self._vdda_adc_reg, io_group=io_group))
-        ma = self._adc2ma(self.get_reg(self._idda_adc_reg, io_group=io_group))
+        return self.get_vdda(io_group=io_group)
+
+    def get_vplus(self, io_group=None):
+        '''
+        Gets PACMAN Vplus voltage
+
+        Returns Vplus and Iplus values from the built-in ADC as
+        a tuple of mV and mA respectively
+
+        '''
+        if io_group is None:
+            return dict([(io_group, self.get_vplus(io_group=io_group)) for io_group in self._io_group_table])
+        mv = self._adc2mv(self.get_reg(self._vplus_adc_reg, io_group=io_group))
+        ma = self._adc2ma(self.get_reg(self._iplus_adc_reg, io_group=io_group))
         return mv, ma
+
+    def enable_tile(self, tile_indices=None, io_group=None):
+        '''
+        Enables the specified pixel tile(s) (first tile is index=0, second 
+        tile is index=1, ...).
+
+        Returns the value of the new tile enable mask
+
+        '''
+        if io_group is None:
+            return dict([(io_group, self.enable_tile(tile_indices=tile_indices, io_group=io_group)) for io_group in self._io_group_table])
+        if tile_indices is None:
+            tile_indices = list(range(8))
+        elif isinstance(tile_indices,int):
+            tile_indices = [tile_indices]
+        val = self.get_reg(self._base_ctrl_reg, io_group=io_group)
+        for idx in tile_indices:
+            val = val | (1 << idx)
+        self.set_reg(self._base_ctrl_reg, val, io_group=io_group)
+        return (self.get_reg(self._base_ctrl_reg, io_group=io_group) & 0xFF)
+
+    def disable_tile(self, tile_indices=None, io_group=None):
+        '''
+        Disables the specified pixel tile(s) (first tile is index=0, second
+        tile is index=1, ...).
+
+        Returns the value of the new tile enable mask
+
+        '''
+        if io_group is None:
+            return dict([(io_group, self.disable_tile(tile_indices=tile_indices, io_group=io_group)) for io_group in self._io_group_table])
+        if tile_indices is None:
+            tile_indices = list(range(8))
+        elif isinstance(tile_indices,int):
+            tile_indices = [tile_indices]
+        val = self.get_reg(self._base_ctrl_reg, io_group=io_group)
+        for idx in tile_indices:
+            val = val & (0xFFFFFFFF & ~(1 << idx))
+        self.set_reg(self._base_ctrl_reg, val, io_group=io_group)
+        return (self.get_reg(self._base_ctrl_reg, io_group=io_group) & 0xFF)
 
     def set_uart_clock_ratio(self, channel, ratio, io_group=None):
         '''
