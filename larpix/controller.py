@@ -650,6 +650,7 @@ class Controller(object):
         :param chip_id_generator: a function that takes a controller, io_group, and io_channel and returns a unique chip id for that network
 
         :param timeout: the time duration in seconds to wait for a response from each configured node
+
         :param modify_mosi: flag to configure each chip's mosi, if set to ``True`` algorithm will also write the mosi configuration when probing chips, this will almost certainly leave you with deaf nodes and is not what you want. Leave at default ``False``
 
         :param differential: ``True`` to also enable differential signalling
@@ -665,6 +666,7 @@ class Controller(object):
             # don't try existing links
             if miso_uart_map[idx] in [network['miso_us'].edges[edge]['uart'] for edge in network['miso_us'].out_edges(chip_id)]:
                 continue
+
             # attempt to create next link
             next_chip_id = chip_id_generator(self, io_group, io_channel)
             next_chip_key = Key(io_group, io_channel, next_chip_id)
@@ -673,8 +675,9 @@ class Controller(object):
             self.add_network_link(io_group, io_channel, 'miso_ds', (next_chip_id, curr_chip_id), miso_uart_map[usds_link_map[idx]])
             self.add_network_link(io_group, io_channel, 'mosi', (next_chip_id, curr_chip_id), mosi_uart_map[idx])
             self.add_network_link(io_group, io_channel, 'mosi', (curr_chip_id, next_chip_id), mosi_uart_map[usds_link_map[idx]])
-            
-            ok,diff = self.init_network_and_verify(io_group, io_channel, next_chip_id, retries=0, timeout=timeout, modify_mosi=False, differential=differential)
+
+            # configure link and verify
+            ok,diff = self.init_network_and_verify(io_group, io_channel, next_chip_id, retries=0, timeout=timeout, modify_mosi=modify_mosi, differential=differential)
             if ok:
                 next_chip_ids.append(next_chip_id)
             else:
@@ -683,7 +686,7 @@ class Controller(object):
 
         # repeat on child nodes
         for chip_id in next_chip_ids:
-            self.grow_network(io_group, io_channel, chip_id, miso_uart_map=miso_uart_map, mosi_uart_map=mosi_uart_map, usds_link_map=usds_link_map, chip_id_generator=chip_id_generator, differential=differential)
+            self.grow_network(io_group, io_channel, chip_id, miso_uart_map=miso_uart_map, mosi_uart_map=mosi_uart_map, usds_link_map=usds_link_map, chip_id_generator=chip_id_generator, differential=differential, modify_mosi=modify_mosi, timeout=timeout)
 
         return network
 
@@ -779,7 +782,7 @@ class Controller(object):
             # Enable miso_downstream, mosi on chip
             if differential:
                 self[chip_key].config.enable_miso_differential = [1]*4
-            
+
             self[chip_key].config.enable_miso_downstream = [0]*4
             for ds_link in subnetwork['miso_ds'].out_edges(chip_id):
                 ds_uart = subnetwork['miso_ds'].edges[ds_link]['uart']
@@ -844,7 +847,7 @@ class Controller(object):
             parent_uart = subnetwork['miso_us'].edges[us_link]['uart']
             self[parent_chip_key].config.enable_miso_upstream[parent_uart] = 0
             packets += self[parent_chip_key].get_configuration_write_packets(registers=Configuration_v2.register_map['enable_miso_upstream'])
-            
+
         self.send(packets)
 
 
