@@ -1,0 +1,4 @@
+LArPix v2 ASIC Configuration Registers
+--------------------------------------
+
+.. automodule:: larpix.configuration.configuration_v2

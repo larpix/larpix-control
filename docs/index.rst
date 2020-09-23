@@ -12,8 +12,9 @@ Here is the documentation for LArPix Control.
    :maxdepth: 2
 
    api/larpix
-   api/io/index
+   api/chip/index
    api/configs/index
+   api/io/index
    api/logger/index
    api/format/index
 

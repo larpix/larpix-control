@@ -1,0 +1,36 @@
+{
+    "_config_type": "controller",
+    "name": "lightpix_v1_example",
+    "asic_version": "lightpix-v1.0",
+    "layout": null,
+    "network": {
+        "1": {
+            "1": {
+                "nodes": [
+                    {
+                        "chip_id": "ext",
+                        "root": true,
+                        "miso_us": [null,null,null,2]
+                    },
+                    {
+                        "chip_id": 2,
+                        "miso_us": [3,null,null,4]
+                    },
+                    {
+                        "chip_id": 3
+                    },
+                    {
+                        "chip_id": 4,
+                        "miso_us": [5,null,null,null]
+                    },
+                    {
+                        "chip_id": 5
+                    }
+                ]
+            }
+        },
+        "miso_uart_map": [3,0,1,2],
+        "mosi_uart_map": [0,1,2,3],
+        "usds_link_map": [2,3,0,1]
+    }
+}

@@ -1,0 +1,5 @@
+LArPix v1 ASIC Configuration Registers
+--------------------------------------
+
+.. autoattribute:: larpix.configuration.Configuration.register_names
+.. automodule:: larpix.configuration.configuration_v1
