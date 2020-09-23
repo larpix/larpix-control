@@ -9,7 +9,7 @@ from copy import copy
 from . import configs
 from .key import Key
 from .chip import Chip
-from .configuration import Configuration_v1, Configuration_v2
+from .configuration import Configuration_v1, Configuration_v2, Configuration_Lightpix_v1
 from .packet import Packet_v1, Packet_v2, PacketCollection
 from . import bitarrayhelper as bah
 
@@ -358,9 +358,9 @@ class Controller(object):
         if system_info['asic_version'] == 1:
             print('loading v1 controller...')
             return self.load_controller(filename)
-        if system_info['asic_version'] == 2:
+        if system_info['asic_version'] in (2, 'lightpix-1'):
             print('loading v2 network...')
-            return self.load_network(filename)
+            return self.load_network(filename, version=system_info['asic_version'])
 
     def _propogate_inherited_values(self, network_spec, value_keys):
         dict_to_return = dict()
@@ -390,13 +390,13 @@ class Controller(object):
 
         return dict_to_return
 
-    def _create_network_node(self, io_group, io_channel, node):
+    def _create_network_node(self, io_group, io_channel, node, version=2):
         chip_id = node['chip_id']
         if isinstance(chip_id, int):
             # create new chip object
             chip_key = Key(io_group, io_channel, chip_id)
             root = True if 'root' in node and node['root'] else False
-            self.add_chip(chip_key, version=2, root=root)
+            self.add_chip(chip_key, version=version, root=root)
         else:
             # dummy node
             root = True if 'root' in node and node['root'] else False
@@ -502,7 +502,7 @@ class Controller(object):
             except KeyError:
                 raise KeyError('mosi_uart_map unspecified for {}-{}-{}'.format(io_group,io_channel,chip_id))
 
-    def load_network(self, filename):
+    def load_network(self, filename, version=2):
         '''
         Loads the specified file using the hydra io network configuration format
         with either a miso_us_uart_map/miso_ds_uart_map/mosi_uart_map specification
@@ -549,7 +549,7 @@ class Controller(object):
                 for subkey, channel_spec in full_network_spec[key].items():
                     if subkey in inherited_data: continue
                     for node_spec in channel_spec['nodes']:
-                        self._create_network_node(int(key), int(subkey), node_spec)
+                        self._create_network_node(int(key), int(subkey), node_spec, version=version)
 
             # then create miso_us network
             for key, group_spec in full_network_spec.items():
@@ -615,7 +615,7 @@ class Controller(object):
     def grow_network(self, io_group, io_channel, chip_id,
         miso_uart_map=[3,0,1,2], mosi_uart_map=[0,1,2,3], usds_link_map=[2,3,0,1],
         chip_id_generator=_default_chip_id_generator, timeout=0.01,
-        modify_mosi=False, differential=True
+        modify_mosi=False, differential=True, version=2
         ):
         '''
         Recurisve algorithm to auto-complete a network from a stub. It works by
@@ -670,7 +670,7 @@ class Controller(object):
             # attempt to create next link
             next_chip_id = chip_id_generator(self, io_group, io_channel)
             next_chip_key = Key(io_group, io_channel, next_chip_id)
-            self.add_chip(next_chip_key)
+            self.add_chip(next_chip_key, version=version)
             self.add_network_link(io_group, io_channel, 'miso_us', (curr_chip_id, next_chip_id), miso_uart_map[idx])
             self.add_network_link(io_group, io_channel, 'miso_ds', (next_chip_id, curr_chip_id), miso_uart_map[usds_link_map[idx]])
             self.add_network_link(io_group, io_channel, 'mosi', (next_chip_id, curr_chip_id), mosi_uart_map[idx])
@@ -763,20 +763,20 @@ class Controller(object):
             parent_chip_key = Key(io_group, io_channel, parent_chip_id)
             parent_uart = subnetwork['miso_us'].edges[us_link]['uart']
             self[parent_chip_key].config.enable_miso_upstream[parent_uart] = 1
-            packets += self[parent_chip_key].get_configuration_write_packets(registers=Configuration_v2.register_map['enable_miso_upstream'])
+            packets += self[parent_chip_key].get_configuration_write_packets(registers=self[parent_chip_key].config.register_map['enable_miso_upstream'])
 
             for mosi_link in subnetwork['mosi'].in_edges(parent_chip_id):
                 mosi_uart = subnetwork['mosi'].edges[mosi_link]['uart']
                 if not self[parent_chip_key].config.enable_mosi[mosi_uart]:
                     self[parent_chip_key].config.enable_mosi[mosi_uart] = 1
-                    packets += self[parent_chip_key].get_configuration_write_packets(registers=Configuration_v2.register_map['enable_mosi'])
+                    packets += self[parent_chip_key].get_configuration_write_packets(registers=self[parent_chip_key].config.register_map['enable_mosi'])
 
         if chip_key:
             # Only modify chip configuration if node points to a chip object
 
             # Write chip_id to specified chip
             self[chip_key].config.chip_id = chip_key.chip_id
-            packets += self[chip_key].get_configuration_write_packets(registers=Configuration_v2.register_map['chip_id'])
+            packets += self[chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['chip_id'])
             packets[-1].chip_id = 1
 
             # Enable miso_downstream, mosi on chip
@@ -787,14 +787,14 @@ class Controller(object):
             for ds_link in subnetwork['miso_ds'].out_edges(chip_id):
                 ds_uart = subnetwork['miso_ds'].edges[ds_link]['uart']
                 self[chip_key].config.enable_miso_downstream[ds_uart] = 1
-            packets += self[chip_key].get_configuration_write_packets(registers=Configuration_v2.register_map['enable_miso_downstream'])
+            packets += self[chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['enable_miso_downstream'])
 
             if modify_mosi:
                 self[chip_key].config.enable_mosi = [0]*4
                 for mosi_link in subnetwork['mosi'].in_edges(chip_id):
                     mosi_uart = subnetwork['mosi'].edges[mosi_link]['uart']
                     self[chip_key].config.enable_mosi[mosi_uart] = 1
-                packets += self[chip_key].get_configuration_write_packets(registers=Configuration_v2.register_map['enable_mosi'])
+                packets += self[chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['enable_mosi'])
 
         self.send(packets)
 
@@ -828,15 +828,15 @@ class Controller(object):
 
             # Enable mosi
             self[chip_key].config.enable_mosi = [1]*4
-            packets += self[chip_key].get_configuration_write_packets(registers=Configuration_v2.register_map['enable_mosi'])
+            packets += self[chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['enable_mosi'])
 
             # Disable miso_downstream
             self[chip_key].config.enable_miso_downstream = [0]*4
-            packets += self[chip_key].get_configuration_write_packets(registers=Configuration_v2.register_map['enable_miso_downstream'])
+            packets += self[chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['enable_miso_downstream'])
 
             # Write default chip_id to specified chip
             self[chip_key].config.chip_id = 1
-            packets += self[chip_key].get_configuration_write_packets(registers=Configuration_v2.register_map['chip_id'])
+            packets += self[chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['chip_id'])
 
         # Disable miso_upstream on parent chips
         for us_link in subnetwork['miso_us'].in_edges(chip_id):
@@ -846,7 +846,7 @@ class Controller(object):
             parent_chip_key = Key(io_group, io_channel, parent_chip_id)
             parent_uart = subnetwork['miso_us'].edges[us_link]['uart']
             self[parent_chip_key].config.enable_miso_upstream[parent_uart] = 0
-            packets += self[parent_chip_key].get_configuration_write_packets(registers=Configuration_v2.register_map['enable_miso_upstream'])
+            packets += self[parent_chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['enable_miso_upstream'])
 
         self.send(packets)
 
@@ -1248,12 +1248,13 @@ class Controller(object):
             chip_keys = self.chips.keys()
         if isinstance(chip_keys,(str,Key)):
             chip_keys = [chip_keys]
-        network_registers = list(Configuration_v2.register_map['chip_id']) + \
-            list(Configuration_v2.register_map['enable_mosi']) + \
-            list(Configuration_v2.register_map['enable_miso_upstream']) + \
-            list(Configuration_v2.register_map['enable_miso_downstream']) + \
-            list(Configuration_v2.register_map['enable_miso_differential'])
-        chip_key_register_pairs = [(chip_key, network_registers) for chip_key in chip_keys]
+        chip_key_register_pairs = [
+            (chip_key, list(self[chip_key].config.register_map['chip_id']) + \
+            list(self[chip_key].config.register_map['enable_mosi']) + \
+            list(self[chip_key].config.register_map['enable_miso_upstream']) + \
+            list(self[chip_key].config.register_map['enable_miso_downstream']) + \
+            list(self[chip_key].config.register_map['enable_miso_differential']))
+            for chip_key in chip_keys]
         return self.verify_registers(chip_key_register_pairs)
 
     def enable_analog_monitor(self, chip_key, channel):
@@ -1267,7 +1268,7 @@ class Controller(object):
             chip.config.disable_analog_monitor()
             chip.config.enable_analog_monitor(channel)
             self.write_configuration(chip_key, chip.config.csa_monitor_select_addresses)
-        elif chip.asic_version == 2:
+        elif chip.asic_version in (2, 'lightpix-1'):
             chip.config.csa_monitor_select = [0]*chip.config.num_channels
             chip.config.csa_monitor_select[channel] = 1
             self.write_configuration(chip_key, chip.config.register_map['csa_monitor_select'])
@@ -1288,7 +1289,7 @@ class Controller(object):
             if chip.asic_version == 1:
                 chip.config.disable_analog_monitor()
                 self.write_configuration(chip_key, chip.config.csa_monitor_select_addresses)
-            elif chip.asic_version == 2:
+            elif chip.asic_version in (2, 'lightpix-1'):
                 if not channel is None:
                     chip.config.csa_monitor_select[channel] = 0
                 else:
@@ -1310,7 +1311,7 @@ class Controller(object):
             chip.config.csa_testpulse_dac_amplitude = start_dac
             self.write_configuration(chip_key, chip.config.csa_testpulse_enable_addresses +
                                      [chip.config.csa_testpulse_dac_amplitude_address])
-        elif chip.asic_version == 2:
+        elif chip.asic_version in (2, 'lightpix-1'):
             chip.config.csa_testpulse_enable = [1]*chip.config.num_channels
             for channel in channel_list:
                 chip.config.csa_testpulse_enable[channel] = 0
@@ -1333,7 +1334,7 @@ class Controller(object):
                 raise ValueError('Minimum DAC exceeded')
             self.write_configuration(chip_key, [chip.config.csa_testpulse_dac_amplitude_address],
                                      write_read=read_time)
-        elif chip.asic_version == 2:
+        elif chip.asic_version in (2, 'lightpix-1'):
             if chip.config.csa_testpulse_dac - pulse_dac < min_dac:
                 raise ValueError('Minimum DAC exceeded')
             try:
@@ -1359,7 +1360,7 @@ class Controller(object):
             if chip.asic_version == 1:
                 chip.config.disable_testpulse(channel_list)
                 self.write_configuration(chip_key, chip.config.csa_testpulse_enable_addresses)
-            elif chip.asic_version == 2:
+            elif chip.asic_version in (2, 'lightpix-1'):
                 for channel in channel_list:
                     chip.config.csa_testpulse_enable[channel] = 1
                 self.write_configuration(chip_key, chip.config.register_map['csa_testpulse_enable'])
@@ -1382,7 +1383,7 @@ class Controller(object):
             if chip.asic_version == 1:
                 chip.config.disable_channels(channel_list)
                 self.write_configuration(chip_key, Configuration_v1.channel_mask_addresses)
-            elif chip.asic_version == 2:
+            elif chip.asic_version in (2, 'lightpix-1'):
                 for channel in channel_list:
                     chip.config.channel_mask[channel] = 1
                     self.write_configuration(chip_key, chip.config.register_map['channel_mask'])
@@ -1404,7 +1405,7 @@ class Controller(object):
             if chip.asic_version == 1:
                 chip.config.enable_channels(channel_list)
                 self.write_configuration(chip_key, Configuration_v1.channel_mask_addresses)
-            elif chip.asic_version == 2:
+            elif chip.asic_version in (2, 'lightpix-1'):
                 for channel in channel_list:
                     chip.config.channel_mask[channel] = 0
                 self.write_configuration(chip_key, chip.config.register_map['channel_mask'])

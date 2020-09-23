@@ -5,7 +5,7 @@ from ..key import Key
 
 class Packet_v2(object):
     '''
-    Representation of a 64 bit LArPix v2 UART data packet.
+    Representation of a 64 bit LArPix v2 (or LightPix v1) UART data packet.
 
     Packet_v2 objects are internally represented as bitarrays, but a variety of
     helper properties allow one to access and set the data stored in the bitarrays in

@@ -24,15 +24,3 @@ Packets
 .. automodule:: larpix.packet.timestamp_packet
 .. automodule:: larpix.packet.message_packet
 .. automodule:: larpix.packet.packet_collection
-
-v1 configuration registers
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. autoattribute:: larpix.configuration.Configuration.register_names
-.. automodule:: larpix.configuration.configuration_v1
-
-v2 configuration registers
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. automodule:: larpix.configuration.configuration_v2
-

@@ -1,0 +1,10 @@
+{
+    "_config_type": "chip",
+    "_include": ["chip/default_v2.json"],
+    "class": "Configuration_Lightpix_v1",
+    "register_values": {
+        "lightpix_mode": 0,
+        "hit_threshold": 16,
+        "timeout": 30
+    }
+}

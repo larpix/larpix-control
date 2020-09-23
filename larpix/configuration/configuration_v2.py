@@ -645,28 +645,35 @@ Configuration_v2.bit_map = OrderedDict()
 Configuration_v2.register_map = OrderedDict()
 Configuration_v2.register_names = []
 
-for _name, _prop_config in _property_configuration.items():
-    _prop_formula = _prop_config[0]
-    _formula_args = _prop_config[1]
-    _bit_range = _prop_config[2]
+def _generate_properties(cls, property_configuration, verbose=False):
+    for _name, _prop_config in property_configuration.items():
+        _prop_formula = _prop_config[0]
+        _formula_args = _prop_config[1]
+        _bit_range = _prop_config[2]
+        if verbose:
+            print('Generate {}.{} using bits {}\n\t{}({}) '.format(cls,_name, _bit_range, _prop_formula, _formula_args))
 
-    # Add to class attributes
-    Configuration_v2.register_names += [_name]
-    Configuration_v2.bit_map[_name] = _bit_range
-    Configuration_v2.register_map[_name] = range(_bit_range[0]//8, max(_bit_range[1]//8,_bit_range[0]//8+1))
+        # Add to class attributes
+        cls.register_names += [_name]
+        cls.bit_map[_name] = _bit_range
+        cls.register_map[_name] = range(_bit_range[0]//8, max(_bit_range[1]//8,_bit_range[0]//8+1))
 
-    # Create properties
-    _prop, _prop_data = _prop_formula(_name, Configuration_v2.register_map[_name],
-        range(*Configuration_v2.bit_map[_name]), *_formula_args)
-    setattr(Configuration_v2, _name, _prop)
-    setattr(Configuration_v2, _name+'_data', _prop_data)
+        # Create properties
+        _prop, _prop_data = _prop_formula(_name, cls.register_map[_name],
+            range(*cls.bit_map[_name]), *_formula_args)
+        setattr(cls, _name, _prop)
+        setattr(cls, _name+'_data', _prop_data)
 
-# Create a look up table from register address to names
-Configuration_v2.register_map_inv = OrderedDict()
-for register_name, register_addr_range in Configuration_v2.register_map.items():
-    for register_addr in register_addr_range:
-        try:
-            Configuration_v2.register_map_inv[register_addr] += [register_name]
-        except KeyError:
-            Configuration_v2.register_map_inv[register_addr] = [register_name]
+    # Create a look up table from register address to names
+    cls.register_map_inv = OrderedDict()
+    for register_name, register_addr_range in cls.register_map.items():
+        for register_addr in register_addr_range:
+            try:
+                cls.register_map_inv[register_addr] += [register_name]
+            except KeyError:
+                cls.register_map_inv[register_addr] = [register_name]
+
+_generate_properties(Configuration_v2, _property_configuration, verbose=False)
+
+
 

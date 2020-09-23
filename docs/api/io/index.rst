@@ -1,10 +1,6 @@
 LArPix IO
 =========
 
-.. autoclass:: larpix.io.IO
-
-    .. automethod:: larpix.io.IO.__init__
-
 Implementations
 ^^^^^^^^^^^^^^^
 
@@ -18,5 +14,14 @@ Here is the documentation for various implemented IO classes.
    multizmq_io
    fakeio
    pacman_io
+
+
+IO Class API
+^^^^^^^^^^^^
+
+.. autoclass:: larpix.io.IO
+
+    .. automethod:: larpix.io.IO.__init__
+
 
 :ref:`genindex`

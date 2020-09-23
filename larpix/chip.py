@@ -1,5 +1,5 @@
 from .key import Key
-from .configuration import Configuration_v1, Configuration_v2
+from .configuration import Configuration_v1, Configuration_v2, Configuration_Lightpix_v1
 from .packet import Packet_v1, Packet_v2
 
 class Chip(object):
@@ -21,7 +21,8 @@ class Chip(object):
             self.config = Configuration_v1()
         elif self.asic_version == 2:
             self.config = Configuration_v2()
-            self.upstream = [None]*4
+        elif self.asic_version == 'lightpix-v1.0':
+            self.config = Configuration_Lightpix_v1()
         else:
             raise RuntimeError('chip asic version is invalid')
         chip_key = Key(chip_key)
@@ -58,7 +59,7 @@ class Chip(object):
         '''
         if self.asic_version == 1:
             return True
-        elif self.asic_version == 2:
+        elif self.asic_version in (2, 'lightpix-v1.0'):
             return self.config.chip_id == self.chip_id
 
     def get_configuration_packets(self, packet_type, registers=None):

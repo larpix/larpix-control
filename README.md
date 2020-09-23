@@ -33,88 +33,92 @@ functions.
 
 The larpix package contains:
 ```
-larpix/
-├── bitarrayhelper.py
+larpix
+├── controller.py
+├── timestamp.py
+├── key.py
 ├── chip.py
+├── quickstart.py
+├── bitarrayhelper.py
+├── packet
+│   ├── packet_v2.py
+│   ├── packet_v1.py
+│   ├── packet_collection.py
+│   ├── sync_packet.py
+│   ├── trigger_packet.py
+│   ├── message_packet.py
+│   ├── timestamp_packet.py
+│   └── __init__.py
+├── io
+│   ├── pacman_io.py
+│   ├── serialport.py
+│   ├── multizmq_io.py
+│   ├── fakeio.py
+│   ├── zmq_io.py
+│   ├── io.py
+│   └── __init__.py
+├── __init__.py
+├── configuration
+│   ├── configuration_v2.py
+│   ├── configuration_v1.py
+│   ├── configuration.py
+│   ├── configuration_lightpix_v1.py
+│   └── __init__.py
+├── format
+│   ├── hdf5format.py
+│   ├── pacman_msg_format.py
+│   ├── message_format.py
+│   └── __init__.py
+├── logger
+│   ├── h5_logger.py
+│   ├── logger.py
+│   ├── stdout_logger.py
+│   └── __init__.py
 ├── configs
-│   ├── chip
-│   │   ├── csa_bypass.json
-│   │   ├── default.json
-│   │   ├── default_v2.json
-│   │   ├── __init__.py
-│   │   ├── physics.json
-│   │   └── quiet.json
+│   ├── __init__.py
 │   ├── controller
-│   │   ├── bare-die-v2-v1.0.0.json
 │   │   ├── __init__.py
 │   │   ├── network-3x3-tile-channel0.json
-│   │   ├── network-3x3-tile-channel1.json
 │   │   ├── network-3x3-tile-channel2.json
+│   │   ├── network-3x3-tile-channel1.json
+│   │   ├── lightpix_v1_example.json
+│   │   ├── v2_example.json
+│   │   ├── bare-die-v2-v1.0.0.json
 │   │   ├── pcb-10_chip_info.json
 │   │   ├── pcb-1_chip_info.json
 │   │   ├── pcb-2_chip_info.json
 │   │   ├── pcb-3_chip_info.json
 │   │   ├── pcb-4_chip_info.json
 │   │   ├── pcb-5_chip_info.json
-│   │   ├── pcb-6_chip_info.json
-│   │   └── v2_example.json
-│   ├── __init__.py
-│   └── io
-│       ├── daq-srv1.json
-│       ├── daq-srv2.json
-│       ├── daq-srv3.json
-│       ├── daq-srv4.json
-│       ├── daq-srv5.json
-│       ├── daq-srv6.json
-│       ├── daq-srv7.json
-│       ├── default.json
+│   │   └── pcb-6_chip_info.json
+│   ├── io
+│   │   ├── __init__.py
+│   │   ├── default.json
+│   │   ├── daq-srv1.json
+│   │   ├── daq-srv2.json
+│   │   ├── daq-srv3.json
+│   │   ├── daq-srv4.json
+│   │   ├── daq-srv5.json
+│   │   ├── daq-srv6.json
+│   │   ├── daq-srv7.json
+│   │   ├── pacman.json
+│   │   ├── pacman_loopback.json
+│   │   └── loopback.json
+│   └── chip
 │       ├── __init__.py
-│       ├── loopback.json
-│       └── pacman.json
-├── configuration
-│   ├── configuration.py
-│   ├── configuration_v1.py
-│   ├── configuration_v2.py
-│   └── __init__.py
-├── controller.py
-├── format
-│   ├── hdf5format.py
-│   ├── __init__.py
-│   ├── message_format.py
-│   └── pacman_msg_format.py
-├── __init__.py
-├── io
-│   ├── fakeio.py
-│   ├── __init__.py
-│   ├── io.py
-│   ├── multizmq_io.py
-│   ├── pacman_io.py
-│   ├── serialport.py
-│   └── zmq_io.py
-├── key.py
-├── larpix.py
-├── logger
-│   ├── h5_logger.py
-│   ├── __init__.py
-│   ├── logger.py
-│   └── stdout_logger.py
-├── packet
-│   ├── __init__.py
-│   ├── message_packet.py
-│   ├── packet_collection.py
-│   ├── packet_v1.py
-│   ├── packet_v2.py
-│   ├── sync_packet.py
-│   ├── timestamp_packet.py
-│   └── trigger_packet.py
-├── quickstart.py
+│       ├── default_v2.json
+│       ├── csa_bypass.json
+│       ├── quiet.json
+│       ├── default.json
+│       ├── physics.json
+│       └── default_lightpix_v1.json
 ├── serial_helpers
 │   ├── analyzers.py
 │   ├── dataformatter.py
 │   ├── dataloader.py
 │   ├── datalogger.py
 │   └── __init__.py
-└── timestamp.py
+└── larpix.py
 
 scripts/
 ├── gen_controller_config.py
@@ -698,7 +702,7 @@ in mV and mA, respectively. And to power on the chips
 ```python
 controller.io.enable_tile()
 ```
-which will enable the LDOs for VDDD/VDDA and the driver chips / FPGA outputs for IO. 
+which will enable the LDOs for VDDD/VDDA and the driver chips / FPGA outputs for IO.
 
 To bring up the Hydra network (and work around the known bugs in v2), do the
 following:
@@ -731,7 +735,7 @@ learned above. I also recommend you glance at the section below (**Running with
 a Bern DAQ board**), which describes some shortcut functions available in the
 `Controller` class. In particular, it is good practice to ``verify_configuration``
 before proceeding with anything.
-            
+
 
 ## Running with a Bern DAQ board (v1 asic)
 
