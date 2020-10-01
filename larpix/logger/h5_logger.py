@@ -1,5 +1,7 @@
 import time
 import os
+import threading
+import queue
 
 import numpy as np
 import h5py
@@ -50,6 +52,8 @@ class HDF5Logger(Logger):
         self.buffer_length = buffer_length
 
         self._buffer = {'packets': []}
+        self._worker_queue = queue.Queue()
+        self._worker = None
         if not self.filename:
             self.filename = self._default_filename()
         self.filename = os.path.join(self.directory, self.filename)
@@ -93,7 +97,7 @@ class HDF5Logger(Logger):
             self._buffer[dataset].append(data_obj)
 
         if any([len(buff) > self.buffer_length for dataset, buff in self._buffer.items()]):
-            self.flush()
+            self.flush(block=False)
 
     def enable(self):
         '''
@@ -105,12 +109,28 @@ class HDF5Logger(Logger):
             initializing (Optional, default=``True``)
         '''
         super(HDF5Logger, self).enable()
-        to_file(self.filename, [], version=self.version)
+        self.flush(block=False)
 
-    def flush(self):
-        '''
-        Flushes any held data to the output file
-        '''
-        to_file(self.filename, self._buffer['packets'],
-                version=self.version)
+    def flush(self, block=True):
+        self._worker_queue.put(self._buffer['packets'].copy())
+        if self._worker is None:
+            self._launch_worker()
+        if block:
+            self._worker_queue.join()
         self._buffer['packets'] = []
+
+    def _launch_worker(self):
+        self._worker = threading.Thread(target=self._writer)
+        self._worker.start()
+
+    def _writer(self):
+        try:
+            while True:
+                packets = self._worker_queue.get(timeout=1)
+                to_file(self.filename, packets, version=self.version)
+                self._worker_queue.task_done()
+        except:
+            pass
+        finally:
+            self._worker = None
+
