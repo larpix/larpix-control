@@ -1,7 +1,11 @@
 import time
 import os
 import threading
-import queue
+import sys
+if sys.version_info[0] >= 3:
+    from queue import Queue
+else:
+    from Queue import Queue
 
 import numpy as np
 import h5py
@@ -52,7 +56,7 @@ class HDF5Logger(Logger):
         self.buffer_length = buffer_length
 
         self._buffer = {'packets': []}
-        self._worker_queue = queue.Queue()
+        self._worker_queue = Queue()
         self._worker = None
         if not self.filename:
             self.filename = self._default_filename()
@@ -112,7 +116,7 @@ class HDF5Logger(Logger):
         self.flush(block=False)
 
     def flush(self, block=True):
-        self._worker_queue.put(self._buffer['packets'].copy())
+        self._worker_queue.put(self._buffer['packets'])
         if self._worker is None:
             self._launch_worker()
         if block:
