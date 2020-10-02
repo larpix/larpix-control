@@ -3,9 +3,9 @@ import os
 import threading
 import sys
 if sys.version_info[0] >= 3:
-    from queue import Queue
+    from queue import Queue, Empty
 else:
-    from Queue import Queue
+    from Queue import Queue, Empty
 
 import numpy as np
 import h5py
@@ -133,8 +133,11 @@ class HDF5Logger(Logger):
                 packets = self._worker_queue.get(timeout=1)
                 to_file(self.filename, packets, version=self.version)
                 self._worker_queue.task_done()
-        except:
+        except Empty:
             pass
+        except:
+            print('HDF5Logger IO thread error!')
+            raise
         finally:
             self._worker = None
 
