@@ -367,7 +367,6 @@ def _data_validator(register_name):
     def data_validator(func):
         @functools.wraps(func)
         def data_validated_func(self, value):
-            print('validate',register_name,value)
             if self._is_register_value_pair(value):
                 register_addr, bits  = value
                 if register_addr < self.register_map[register_name][0] \

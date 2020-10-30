@@ -2,9 +2,10 @@ from __future__ import print_function
 
 import pytest
 import h5py
+import copy
 
 from larpix.larpix import (Packet_v1, Packet_v2, PacketCollection, TimestampPacket,
-                           MessagePacket, Key, SyncPacket, TriggerPacket)
+                           MessagePacket, Key, SyncPacket, TriggerPacket, Chip)
 from larpix.format.hdf5format import (to_file, from_file,
         dtype_property_index_lookup)
 
@@ -101,6 +102,11 @@ def sync_packet():
 def trigger_packet():
     p = TriggerPacket(io_group=1, trigger_type=b'0', timestamp=123456)
     return p
+
+@pytest.fixture
+def chip():
+    c = Chip('1-2-3')
+    return c
 
 def test_to_file_v0_0_empty(tmpfile):
     to_file(tmpfile, [], version='0.0')
@@ -427,6 +433,23 @@ def test_from_file_v2_3_many_packets(tmpfile, data_packet_v2,
     assert new_packets[3] == message_packet
     assert new_packets[4] == sync_packet
     assert new_packets[5] == trigger_packet
+
+def test_to_file_v2_4_chips(tmpfile, chip):
+    chips = [copy.deepcopy(chip) for i in range(10)]
+    for i,chip in enumerate(chips):
+        chip.chip_id = i
+    chips[0].config.pixel_trim_dac[12] = 0
+    chips[1].config.threshold_global = 1
+    to_file(tmpfile, chip_list=chips, version='2.4')
+    new_chips = from_file(tmpfile, load_configs=True)['configs']
+    assert [chip.chip_key for chip in chips] == [chip.chip_key for chip in new_chips]
+    assert [chip.config for chip in chips] == [chip.config for chip in new_chips]
+    assert new_chips[0].config.pixel_trim_dac[12] == chips[0].config.pixel_trim_dac[12]
+    assert new_chips[1].config.threshold_global == chips[1].config.threshold_global
+
+    new_chips = from_file(tmpfile, load_configs=slice(1,4))['configs']
+    assert len(new_chips) == 3
+    assert new_chips[0].chip_key == chips[1].chip_key
 
 def test_from_file_incompatible(tmpfile):
     to_file(tmpfile, [], version='0.0')
