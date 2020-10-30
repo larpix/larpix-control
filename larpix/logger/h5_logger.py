@@ -77,6 +77,18 @@ class HDF5Logger(Logger):
         log_postfix = '.h5'
         return (log_prefix + '_' + log_specifier + '_' + log_postfix)
 
+    def record_configs(self, chips):
+        '''
+        Write the specified chip configurations to the log file
+
+        .. note:: this method will also flush any data in the buffer to the log file
+
+        :param chips: list of chips to record timestamps
+
+        '''
+        self.flush(block=True)
+        to_file(self.filename, chip_list=chips, version=self.version)
+
     def record(self, data, direction=Logger.WRITE):
         '''
         Send the specified data to log file
@@ -111,6 +123,7 @@ class HDF5Logger(Logger):
 
         :param enable: ``True`` if you want to enable the logger after
             initializing (Optional, default=``True``)
+
         '''
         super(HDF5Logger, self).enable()
         self.flush(block=False)

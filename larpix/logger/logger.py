@@ -22,6 +22,15 @@ class Logger(object):
         self._enabled = enabled
         self._open = False
 
+    def record_configs(self, chips):
+        '''
+        Save specified chip configs to log file (if applicable)
+
+        :param configs: list of Chips to log
+
+        '''
+        pass
+
     def record(self, data, direction=0, *args, **kwargs):
         '''
         Log specified data.

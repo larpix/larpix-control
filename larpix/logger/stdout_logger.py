@@ -36,6 +36,18 @@ class StdoutLogger(Logger):
         if len(self._buffer) > self.buffer_length:
             self.flush()
 
+    def record_configs(self, chips):
+        '''
+        Print chips configs to stdout
+
+        :param chips: list of chips to print
+
+        '''
+        for chip in chips:
+            print(chip)
+            print(chip.config)
+            print()
+
     def flush(self):
         '''
         Flushes any held data
