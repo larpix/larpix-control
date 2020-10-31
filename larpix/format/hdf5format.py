@@ -80,8 +80,6 @@ contains a timestamped entry for each chip config that has been logged
         - ``timestamp`` (``u8``/unsigned long): a DAQ-system unix timestamp
           associated with when the config was written to the file
 
-        - ``asic_version`` (``s``): a string identifying the asic version
-
         - ``io_group`` (``u1``/unsigned byte): an id associated with the
           high-level io group associated with this network node
 
@@ -91,13 +89,7 @@ contains a timestamped entry for each chip config that has been logged
         - ``chip_id`` (``u1``/unsigned byte): the id associated with the low-level
           asic
 
-        - ``r0`` (``u1``: unsigned byte): the value of the asic's 0th register address
-
-        - ``r1`` (``u1``: unsigned byte): the value of the asic's 1st register address
-
-        ...
-
-        - ``rN`` (``u1``: unsigned byte): the value of the asic's Nth register address
+        - ``registers`` (``(239,)u1``: unsigned byte): the value at each of the asic's register addresses
 
 Version 2.3 description
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -113,15 +105,15 @@ Version 2.2 description
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 For version 2.2, two new packet types have been introduced to store
-data contained in ``SyncPacket``s and ``TriggerPacket``s, with ``type``
+data contained in ``SyncPacket`` and ``TriggerPacket``, with ``type``
 being 6 and 7 respectively.
 
-``SyncPacket``s will fill the ``timestamp`` field with the 32-bit
+``SyncPacket`` will fill the ``timestamp`` field with the 32-bit
 timestamp associated with the sync packet, the ``dataword`` field
 with the value of ``clk_source`` (if applicable), ant the
 ``trigger_type`` field with the sync type (an unsigned byte).
 
-``TriggerPacket``s will fill the ``timestamp`` field with the 32-bit
+``TriggerPacket`` will fill the ``timestamp`` field with the 32-bit
 timestamp associated with the trigger packet and the ``trigger_type``
 field with the trigger bits (an unsigned byte).
 
