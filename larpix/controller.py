@@ -1219,6 +1219,9 @@ class Controller(object):
                     )
                 for chip_key in retry_configuration_data.keys():
                     configuration_data[chip_key].update(retry_configuration_data[chip_key])
+                for chip_key,register in retry_chip_key_register_pairs:
+                    if chip_key not in retry_configuration_data or register not in retry_configuration_data[chip_key]:
+                        del configuration_data[chip_key][register]
                 return_value = all([
                     configuration_data[chip_key][register][0] == configuration_data[chip_key][register][1]
                     for chip_key in configuration_data
