@@ -1150,7 +1150,7 @@ class Controller(object):
         data = b''.join(bytestreams)
         self.store_packets(packets, data, message)
 
-    def verify_registers(self, chip_key_register_pairs, timeout=1, connection_delay=0.02):
+    def verify_registers(self, chip_key_register_pairs, timeout=1, connection_delay=0.02, n=1):
         '''
         Read chip configuration from specified chip and registers and return ``True`` if the
         read chip configuration matches the current configuration stored in chip instance.
@@ -1159,6 +1159,8 @@ class Controller(object):
         :param chip_key_register_pair: a ``list`` of key register pairs as documented in ``controller.multi_read_configuration``
 
         :param timeout: set how long to wait for response in seconds (optional)
+
+        :param n: sets maximum recursion depth, will continue to attempt to verify registers until this depth is reached or all registers have responded, a value <1 allows for infinite recursion (optional)
 
         :returns: 2-``tuple`` of a ``bool`` representing if all registers match and a ``dict`` representing all differences. Differences are specified as ``{<chip_key>: {<register>: (<expected>, <read>)}}``
 
@@ -1205,6 +1207,23 @@ class Controller(object):
                     del configuration_data[chip_key][register]
             if not len(configuration_data[chip_key]):
                 del configuration_data[chip_key]
+
+        if not return_value and n != 1:
+            retry_chip_key_register_pairs = [(key,value) for key,value in configuration_data.items() if value[-1] is None]
+            if len(retry_chip_key_register_pairs):
+                retry_return_value, retry_configuration_data = self.verify_registers(
+                    retry_chip_key_register_pairs,
+                    timeout=timeout,
+                    connection_delay=connection_delay,
+                    n=n-1
+                    )
+                for chip_key in retry_configuration_data.keys():
+                    configuration_data[chip_key].update(retry_configuration_data[chip_key])
+                return_value = all([
+                    configuration_data[chip_key][register][0] == configuration_data[chip_key][register][1]
+                    for chip_key in configuration_data
+                    for register in configuration_data[chip_key]
+                    ])
         return (return_value, configuration_data)
 
     def verify_configuration(self, chip_keys=None, timeout=1):
