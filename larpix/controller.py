@@ -1226,7 +1226,7 @@ class Controller(object):
                     ])
         return (return_value, configuration_data)
 
-    def verify_configuration(self, chip_keys=None, timeout=1):
+    def verify_configuration(self, chip_keys=None, timeout=1, connection_delay=0.02, n=1):
         '''
         Read chip configuration from specified chip(s) and return ``True`` if the
         read chip configuration matches the current configuration stored in chip instance.
@@ -1240,6 +1240,8 @@ class Controller(object):
 
         :param timeout: how long to wait for response in seconds
 
+        :param n: set recursion limit for rechecking non-responding registers
+
         :returns: 2-``tuple`` with same format as ``controller.verify_registers``
 
         '''
@@ -1248,7 +1250,7 @@ class Controller(object):
         if isinstance(chip_keys,(str,Key)):
             chip_keys = [chip_keys]
         chip_key_register_pairs = [(chip_key, range(self[chip_key].config.num_registers)) for chip_key in chip_keys]
-        return self.verify_registers(chip_key_register_pairs, timeout=timeout)
+        return self.verify_registers(chip_key_register_pairs, timeout=timeout, connection_delay=connection_delay, n=n)
 
     def verify_network(self, chip_keys=None, timeout=1):
         '''
