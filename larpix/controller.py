@@ -1209,7 +1209,7 @@ class Controller(object):
                 del configuration_data[chip_key]
 
         if not return_value and n != 1:
-            retry_chip_key_register_pairs = [(key,value) for key,value in configuration_data.items() if value[-1] is None]
+            retry_chip_key_register_pairs = [(key,registre) for key,value in configuration_data.items() for register in value if value[register][-1] is None]
             if len(retry_chip_key_register_pairs):
                 retry_return_value, retry_configuration_data = self.verify_registers(
                     retry_chip_key_register_pairs,
