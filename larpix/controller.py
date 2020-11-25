@@ -1303,7 +1303,7 @@ class Controller(object):
                 for chip_key in diff
                 for register in diff[chip_key]
                 ]
-            self.multi_write_configuration(chip_reg_pairs, write_read=0, connection_delay=connection_delay)
+            self.multi_write_configuration(chip_key_register_pairs, write_read=0, connection_delay=connection_delay)
             if n != 1:
                 ok,diff = self.enforce_registers(chip_key_register_pairs, timeout=timeout, connection_delay=connection_delay, n=n-1, n_verify=n_verify)
             else:
