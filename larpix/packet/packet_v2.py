@@ -3,29 +3,29 @@ from bitarray import bitarray
 from .. import bitarrayhelper as bah
 from ..key import Key
 
-def _clears_cached_int(property):
+def _clears_cached_int(func):
     '''
-    Modify a property so that it deletes the cached `_int` attribute, if it
+    Modify a class function so that it deletes the cached `_int` attribute, if it
     exists
 
     '''
-    def new_property(self, value):
+    def new_func(self, *args, **kwargs):
         if hasattr(self, '_int'):
             del self._int
-        return property(self,value)
-    return new_property
+        return func(self, *args, **kwargs)
+    return new_func
 
-def _clears_cached_chip_key(property):
+def _clears_cached_chip_key(func):
     '''
-    Modify a property so that it deletes the cached `_chip_key` attribute, if it
+    Modify a class function so that it deletes the cached `_chip_key` attribute, if it
     exists
 
     '''
-    def new_property(self, value):
+    def new_func(self, *args, **kwargs):
         if hasattr(self, '_chip_key'):
             del self._chip_key
-        return property(self,value)
-    return new_property
+        return func(self,*args,**kwargs)
+    return new_func
 
 class Packet_v2(object):
     '''
@@ -409,15 +409,14 @@ class Packet_v2(object):
         bit_slice = self.chip_id_bits
         self.bits[bit_slice] = bah.fromuint(value, bit_slice, endian=self.endian)
 
-    def _basic_getter(cls,name):
+    def _basic_getter(cls, name):
         bit_slice = getattr(cls, name + '_bits')
-        mask = ~((2**cls.size)-1 << bit_slice.stop)
+        mask = (~(((2**cls.size)-1 << (bit_slice.stop-bit_slice.start))) & (2**cls.size)-1)
         def basic_getter_func(self):
             return (self.as_int() >> bit_slice.start) & mask
-            #return bah.touint(self.bits[bit_slice], endian=self.endian)
         return basic_getter_func
 
-    def _basic_setter(cls,name):
+    def _basic_setter(cls, name):
         bit_slice = getattr(cls, name + '_bits')
         @_clears_cached_int
         def basic_setter_func(self, value):
