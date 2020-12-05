@@ -105,7 +105,6 @@ class Packet_v2(object):
             raise ValueError('Invalid number of bytes: %s' %
                     len(bytestream))
         self._int = None
-        self.as_int()
 
     def __eq__(self, other):
         return self.bits == other.bits
