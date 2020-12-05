@@ -692,13 +692,14 @@ def _format_packets_packet_v2_3(pkt, version='2.3', dset='packets', *args, **kwa
     encoded_packet = [0]*len(dtypes[version][dset])
     i = 0
     for value_name, value_type in dtypes[version][dset]:
-        try:
-            encoded_packet[i] = getattr(pkt, value_name)
-        except AttributeError:
+        encoded_packet[i] = getattr(pkt, value_name, None)
+        if encoded_packet[i] is None:
             if value_name == 'valid_parity' and hasattr(pkt, 'has_valid_parity'):
                 encoded_packet[i] = pkt.has_valid_parity()
             elif value_type[0] == 'S': # string default
                 encoded_packet[i] = ''
+            else:
+                encoded_packet[i] = 0
         i += 1
     if pkt.packet_type == 6: # sync packets
         encoded_packet[dtype_property_index_lookup[version]['packets']['trigger_type']] = _uint8_struct.unpack(pkt.sync_type)[0]
@@ -991,7 +992,7 @@ def to_file(filename, packet_list=None, chip_list=None, mode='a', version=None, 
         if workers > 1:
             packet_args = zip(packet_list, [version]*len(packet_list), [packet_dset_name]*len(packet_list))
             with multiprocessing.Pool(workers) as p:
-              encoded_packets = list(filter(bool, p.starmap(_encode_packet, packet_args)))
+                encoded_packets = list(filter(bool, p.starmap(_encode_packet, packet_args)))
         else:
             encoded_packets = list(filter(bool, [_encode_packet(packet, version, packet_dset_name) for packet in packet_list]))
 
