@@ -10,8 +10,7 @@ def _clears_cached_int(func):
 
     '''
     def new_func(self, *args, **kwargs):
-        if hasattr(self, '_int'):
-            del self._int
+        self._int = None
         return func(self, *args, **kwargs)
     return new_func
 
@@ -105,6 +104,8 @@ class Packet_v2(object):
         else:
             raise ValueError('Invalid number of bytes: %s' %
                     len(bytestream))
+        self._int = None
+        self.as_int()
 
     def __eq__(self, other):
         return self.bits == other.bits
@@ -246,7 +247,7 @@ class Packet_v2(object):
                 setattr(self, key, value)
 
     def as_int(self):
-        if not hasattr(self, '_int'):
+        if self._int is None:
             self._int = bah.touint(self.bits, endian=self.endian)
         return self._int
 
