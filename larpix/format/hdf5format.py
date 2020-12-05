@@ -692,12 +692,13 @@ def _format_packets_packet_v2_3(pkt, version='2.3', dset='packets', *args, **kwa
     encoded_packet = [0]*len(dtypes[version][dset])
     i = 0
     for value_name, value_type in dtypes[version][dset]:
-        if hasattr(pkt, value_name):
+        try:
             encoded_packet[i] = getattr(pkt, value_name)
-        elif value_name == 'valid_parity' and hasattr(pkt, 'has_valid_parity'):
-            encoded_packet[i] = pkt.has_valid_parity()
-        elif value_type[0] == 'S': # string default
-            encoded_packet[i] = ''
+        except AttributeError:
+            if value_name == 'valid_parity' and hasattr(pkt, 'has_valid_parity'):
+                encoded_packet[i] = pkt.has_valid_parity()
+            elif value_type[0] == 'S': # string default
+                encoded_packet[i] = ''
         i += 1
     if pkt.packet_type == 6: # sync packets
         encoded_packet[dtype_property_index_lookup[version]['packets']['trigger_type']] = _uint8_struct.unpack(pkt.sync_type)[0]
