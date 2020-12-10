@@ -15,19 +15,16 @@ def main(input_filename, output_filename, block_size):
     last = time.time()
     for i_block in range(total_blocks):
         start = i_block * block_size
-        end = start + block_size
+        end = min(start + block_size, total_messages)
         if start == end: return
 
         if time.time() > last + 1:
-            print('reading block {} of {}...\r'.format(i_block,total_blocks),end='')
+            print('reading block {} of {}...\r'.format(i_block+1,total_blocks),end='')
             last = time.time()
         rd = from_rawfile(input_filename, start=start, end=end)
         pkts = list()
         for i_msg,data in enumerate(zip(rd['io_groups'], rd['msgs'])):
             io_group,msg = data
-            if time.time() > last + 1:
-                print('reading block {} of {}\tpacket {} of {}...\r'.format(i_block,total_blocks,i_msg,len(rd['msgs'])),end='')
-                last = time.time()
             pkts.extend(parse(msg, io_group=io_group))
         to_file(output_filename, packet_list=pkts)
     print()
