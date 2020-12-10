@@ -3,6 +3,29 @@ from bitarray import bitarray
 from .. import bitarrayhelper as bah
 from ..key import Key
 
+def _clears_cached_int(func):
+    '''
+    Modify a class function so that it deletes the cached `_int` attribute, if it
+    exists
+
+    '''
+    def new_func(self, *args, **kwargs):
+        self._int = None
+        return func(self, *args, **kwargs)
+    return new_func
+
+def _clears_cached_chip_key(func):
+    '''
+    Modify a class function so that it deletes the cached `_chip_key` attribute, if it
+    exists
+
+    '''
+    def new_func(self, *args, **kwargs):
+        if hasattr(self, '_chip_key'):
+            del self._chip_key
+        return func(self,*args,**kwargs)
+    return new_func
+
 class Packet_v2(object):
     '''
     Representation of a 64 bit LArPix v2 (or LightPix v1) UART data packet.
@@ -71,6 +94,7 @@ class Packet_v2(object):
     endian = 'little'
 
     def __init__(self, bytestream=None):
+        self._int = None
         if bytestream is None:
             self.bits = bitarray(self.size,endian=self.endian)
             self.bits.setall(False)
@@ -221,6 +245,11 @@ class Packet_v2(object):
             else:
                 setattr(self, key, value)
 
+    def as_int(self):
+        if self._int is None:
+            self._int = bah.touint(self.bits, endian=self.endian)
+        return self._int
+
     @property
     def chip_key(self):
         ''''''
@@ -232,10 +261,9 @@ class Packet_v2(object):
         return self._chip_key
 
     @chip_key.setter
+    @_clears_cached_int
+    @_clears_cached_chip_key
     def chip_key(self, value):
-        # remove cached key
-        if hasattr(self, '_chip_key'):
-            del self._chip_key
         if value is None:
             self.io_channel = None
             self.io_group = None
@@ -256,10 +284,8 @@ class Packet_v2(object):
         return None
 
     @io_group.setter
+    @_clears_cached_chip_key
     def io_group(self, value):
-        if hasattr(self, '_chip_key'):
-            # remove cached key
-            del self._chip_key
         if value is None:
             if hasattr(self, '_io_group'):
                 del self._io_group
@@ -274,10 +300,8 @@ class Packet_v2(object):
         return None
 
     @io_channel.setter
+    @_clears_cached_chip_key
     def io_channel(self, value):
-        if hasattr(self, '_chip_key'):
-            # remove cached key
-            del self._chip_key
         if value is None:
             if hasattr(self, '_io_channel'):
                 del self._io_channel
@@ -292,6 +316,7 @@ class Packet_v2(object):
         return bah.touint(self.bits[self.timestamp_bits], endian=self.endian)
 
     @timestamp.setter
+    @_clears_cached_int
     def timestamp(self, value):
         if self.fifo_diagnostics_enabled:
             self.bits[self.fifo_diagnostics_timestamp_bits] = bah.fromuint(value, self.fifo_diagnostics_timestamp_bits, endian=self.endian)
@@ -303,6 +328,7 @@ class Packet_v2(object):
         return self.local_fifo%2
 
     @local_fifo_half.setter
+    @_clears_cached_int
     def local_fifo_half(self, value):
         self.local_fifo = self.local_fifo_full*2 + value
 
@@ -311,6 +337,7 @@ class Packet_v2(object):
         return self.local_fifo//2
 
     @local_fifo_full.setter
+    @_clears_cached_int
     def local_fifo_full(self, value):
         self.local_fifo = value*2 + self.local_fifo_half
 
@@ -319,6 +346,7 @@ class Packet_v2(object):
         return self.shared_fifo%2
 
     @shared_fifo_half.setter
+    @_clears_cached_int
     def shared_fifo_half(self, value):
         self.shared_fifo = self.shared_fifo_full*2 + value
 
@@ -327,12 +355,14 @@ class Packet_v2(object):
         return self.shared_fifo//2
 
     @shared_fifo_full.setter
+    @_clears_cached_int
     def shared_fifo_full(self, value):
         self.shared_fifo = value*2 + self.shared_fifo_half
 
     def compute_parity(self):
         return 1 - (self.bits[self.parity_calc_bits].count(True) % 2)
 
+    @_clears_cached_int
     def assign_parity(self):
         self.parity = self.compute_parity()
 
@@ -347,6 +377,7 @@ class Packet_v2(object):
         return None
 
     @local_fifo_events.setter
+    @_clears_cached_int
     def local_fifo_events(self, value):
         if self.fifo_diagnostics_enabled:
             bit_slice = self.local_fifo_events_bits
@@ -360,6 +391,7 @@ class Packet_v2(object):
         return None
 
     @shared_fifo_events.setter
+    @_clears_cached_int
     def shared_fifo_events(self, value):
         if self.fifo_diagnostics_enabled:
             bit_slice = self.shared_fifo_events_bits
@@ -371,32 +403,36 @@ class Packet_v2(object):
         return bah.touint(self.bits[bit_slice], endian=self.endian)
 
     @chip_id.setter
+    @_clears_cached_int
+    @_clears_cached_chip_key
     def chip_id(self, value):
-        if hasattr(self,'_chip_key'):
-            del self._chip_key
         bit_slice = self.chip_id_bits
         self.bits[bit_slice] = bah.fromuint(value, bit_slice, endian=self.endian)
 
-    def _basic_getter(name):
+    @classmethod
+    def _basic_getter(cls, name):
+        bit_slice = getattr(cls, name + '_bits')
+        mask = (~(((2**cls.size)-1 << (bit_slice.stop-bit_slice.start))) & (2**cls.size)-1)
         def basic_getter_func(self):
-            bit_slice = getattr(self, name + '_bits')
-            return bah.touint(self.bits[bit_slice], endian=self.endian)
+            return (self.as_int() >> bit_slice.start) & mask
         return basic_getter_func
 
-    def _basic_setter(name):
+    @classmethod
+    def _basic_setter(cls, name):
+        bit_slice = getattr(cls, name + '_bits')
+        @_clears_cached_int
         def basic_setter_func(self, value):
-            bit_slice = getattr(self, name + '_bits')
             self.bits[bit_slice] = bah.fromuint(value, bit_slice, endian=self.endian)
         return basic_setter_func
 
-    packet_type = property(_basic_getter('packet_type'),_basic_setter('packet_type'))
-    downstream_marker = property(_basic_getter('downstream_marker'),_basic_setter('downstream_marker'))
-    parity = property(_basic_getter('parity'),_basic_setter('parity'))
-    channel_id = property(_basic_getter('channel_id'),_basic_setter('channel_id'))
-    dataword = property(_basic_getter('dataword'),_basic_setter('dataword'))
-    first_packet = property(_basic_getter('first_packet'),_basic_setter('first_packet'))
-    trigger_type = property(_basic_getter('trigger_type'),_basic_setter('trigger_type'))
-    register_address = property(_basic_getter('register_address'),_basic_setter('register_address'))
-    register_data = property(_basic_getter('register_data'),_basic_setter('register_data'))
-    local_fifo = property(_basic_getter('local_fifo'),_basic_setter('local_fifo'))
-    shared_fifo = property(_basic_getter('shared_fifo'),_basic_setter('shared_fifo'))
+Packet_v2.packet_type = property(Packet_v2._basic_getter('packet_type'),Packet_v2._basic_setter('packet_type'))
+Packet_v2.downstream_marker = property(Packet_v2._basic_getter('downstream_marker'),Packet_v2._basic_setter('downstream_marker'))
+Packet_v2.parity = property(Packet_v2._basic_getter('parity'),Packet_v2._basic_setter('parity'))
+Packet_v2.channel_id = property(Packet_v2._basic_getter('channel_id'),Packet_v2._basic_setter('channel_id'))
+Packet_v2.dataword = property(Packet_v2._basic_getter('dataword'),Packet_v2._basic_setter('dataword'))
+Packet_v2.first_packet = property(Packet_v2._basic_getter('first_packet'),Packet_v2._basic_setter('first_packet'))
+Packet_v2.trigger_type = property(Packet_v2._basic_getter('trigger_type'),Packet_v2._basic_setter('trigger_type'))
+Packet_v2.register_address = property(Packet_v2._basic_getter('register_address'),Packet_v2._basic_setter('register_address'))
+Packet_v2.register_data = property(Packet_v2._basic_getter('register_data'),Packet_v2._basic_setter('register_data'))
+Packet_v2.local_fifo = property(Packet_v2._basic_getter('local_fifo'),Packet_v2._basic_setter('local_fifo'))
+Packet_v2.shared_fifo = property(Packet_v2._basic_getter('shared_fifo'),Packet_v2._basic_setter('shared_fifo'))

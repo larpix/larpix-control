@@ -342,6 +342,8 @@ MessagePacket packets to the console
 
 '''
 import time
+import os
+import multiprocessing
 
 import h5py
 import numpy as np
@@ -690,12 +692,14 @@ def _format_packets_packet_v2_3(pkt, version='2.3', dset='packets', *args, **kwa
     encoded_packet = [0]*len(dtypes[version][dset])
     i = 0
     for value_name, value_type in dtypes[version][dset]:
-        if hasattr(pkt, value_name):
-            encoded_packet[i] = getattr(pkt, value_name)
-        elif value_name == 'valid_parity' and hasattr(pkt, 'has_valid_parity'):
-            encoded_packet[i] = pkt.has_valid_parity()
-        elif value_type[0] == 'S': # string default
-            encoded_packet[i] = ''
+        encoded_packet[i] = getattr(pkt, value_name, None)
+        if encoded_packet[i] is None:
+            if value_name == 'valid_parity' and hasattr(pkt, 'has_valid_parity'):
+                encoded_packet[i] = pkt.has_valid_parity()
+            elif value_type[0] == 'S': # string default
+                encoded_packet[i] = ''
+            else:
+                encoded_packet[i] = 0
         i += 1
     if pkt.packet_type == 6: # sync packets
         encoded_packet[dtype_property_index_lookup[version]['packets']['trigger_type']] = _uint8_struct.unpack(pkt.sync_type)[0]
@@ -845,7 +849,20 @@ _parse_method_lookup = {
     }
 }
 
-def to_file(filename, packet_list=None, chip_list=None, mode='a', version=None):
+def _encode_packet(packet, version, packet_dset_name):
+    '''
+    Worker function to parse a packet into a tuple to be used as a numpy structured type
+
+    '''
+    if packet.__class__ in _format_method_lookup[version].get(packet_dset_name, tuple()):
+        encoded_packet = _format_method_lookup[version][packet_dset_name][packet.__class__](packet)
+        for idx in range(len(encoded_packet)):
+            if encoded_packet[idx] is None:
+                encoded_packet[idx] = 0
+        return(tuple(encoded_packet))
+    return False
+
+def to_file(filename, packet_list=None, chip_list=None, mode='a', version=None, workers=None):
     '''
     Save the given packets to the given file.
 
@@ -868,6 +885,8 @@ def to_file(filename, packet_list=None, chip_list=None, mode='a', version=None):
     '''
     if packet_list is None: packet_list = []
     if chip_list is None: chip_list = []
+    if workers is None:
+      workers = max(min(os.cpu_count(), int(len(packet_list)//10000)),1)
 
     with h5py.File(filename, mode) as f:
         # Create header
@@ -969,14 +988,15 @@ def to_file(filename, packet_list=None, chip_list=None, mode='a', version=None):
         encoded_packets = []
         messages = []
         configs = []
-        for i, packet in enumerate(packet_list):
-            if packet.__class__ in _format_method_lookup[version].get(packet_dset_name, tuple()):
-                encoded_packet = _format_method_lookup[version][packet_dset_name][packet.__class__](packet)
-                for idx in range(len(encoded_packet)):
-                    if encoded_packet[idx] is None:
-                        encoded_packet[idx] = 0
-                encoded_packets.append(tuple(encoded_packet))
 
+        if workers > 1:
+            packet_args = zip(packet_list, [version]*len(packet_list), [packet_dset_name]*len(packet_list))
+            with multiprocessing.Pool(workers) as p:
+                encoded_packets = list(filter(bool, p.starmap(_encode_packet, packet_args)))
+        else:
+            encoded_packets = list(filter(bool, [_encode_packet(packet, version, packet_dset_name) for packet in packet_list]))
+
+        for i, packet in enumerate(packet_list):
             if version != '0.0' and packet.__class__ in _format_method_lookup[version].get(message_dset_name, tuple()):
                 encoded_message = _format_method_lookup[version][message_dset_name][packet.__class__](packet, counter=message_start_index + len(messages))
                 messages.append(encoded_message)
