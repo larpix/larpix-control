@@ -32,7 +32,7 @@ case, to convert to the standard ``larpix.format.hdf5format``::
 
     rd = from_rawfile('raw.h5')
     pkts = list()
-    for io_group,msg in zip(rd['io_group'], rd['msgs']):
+    for io_group,msg in zip(rd['io_groups'], rd['msgs']):
         pkts.extend(parse(msg, io_group=io_group))
     to_file('new_filename.h5', packet_list=pkts)
 
@@ -202,6 +202,34 @@ def to_rawfile(filename, msgs=None, version=None, io_groups=None):
         f['msgs'].flush()
         f['io_groups'].flush()
 
+def _synchronize(attempts, *dsets):
+    success = False
+    lengths = [0]*len(dsets)
+    for _ in range(attempts):
+        for i,dset in enumerate(dsets):
+            dset.id.refresh()
+            lengths[i] = len(dset)
+        if all([lengths[0] == length for length in lengths[1:]]):
+            success = True
+            break
+    if not success:
+        warnings.RuntimeWarning('Could not achieve a stable file state after {} attempts! Data may be weird...'.format(attempts))
+
+def len_rawfile(filename, attempts=10):
+    '''
+    Check the total length of the file in number of messages
+
+    :param filename: filename to check
+
+    :param attempts: a parameter only relevant if file is being actively written to, specifies number of refreshes to try if a synchronized state between the msgs and io_groups datasets is not achieved
+
+    :returns: integer number of messages in file
+
+    '''
+    with h5py.File(filename, 'r', swmr=True, libver='latest') as f:
+        _synchronize(attempts, f['msgs'], f['io_groups'])
+        return len(f['msgs'])
+
 def from_rawfile(filename, version=None, start=None, end=None, attempts=10):
     '''
     Read a chunk of bytestring messages from an existing file
@@ -230,15 +258,7 @@ def from_rawfile(filename, version=None, start=None, end=None, attempts=10):
         version = '{}.{}'.format(version_major,version_minor)
 
         # check to make sure that the msgs and io_groups dsets are synchronized
-        success = False
-        for _ in range(attempts):
-            f['msgs'].id.refresh()
-            f['io_groups'].id.refresh()
-            if len(f['msgs']) == len(f['io_groups']):
-                success = True
-                break
-        if not success:
-            warnings.RuntimeWarning('Could not achieve a stable file state after {} attempts! Data may be weird...'.format(attempts))
+        _synchronize(attempts, f['msgs'], f['io_groups'])
 
         # define chunk of data to load
         start = max(start,0) if start is not None else 0
@@ -249,10 +269,10 @@ def from_rawfile(filename, version=None, start=None, end=None, attempts=10):
         msgs = _parse_msgs(f['msgs'][start:end], version)
         io_groups = _parse_io_groups(f['io_groups'][start:end], version)
 
-    return dict(
-        created=created,
-        modified=modified,
-        version=version,
-        msgs=msgs,
-        io_groups=io_groups
-        )
+        return dict(
+            created=created,
+            modified=modified,
+            version=version,
+            msgs=msgs,
+            io_groups=io_groups
+            )
