@@ -31,8 +31,7 @@ setup(
         classifiers=[
             'Development Status :: 4 - Beta',
             'Intended Audience :: Science/Research',
-            'Programming Language :: Python :: 3',
-            'Programming Language :: Python :: 2'
+            'Programming Language :: Python :: 3'
         ],
         keywords='dune physics',
         packages=find_packages(),
@@ -49,7 +48,8 @@ setup(
             ],
         scripts=[
             'scripts/gen_controller_config.py',
-            'scripts/gen_hydra_simple.py'
+            'scripts/gen_hydra_simple.py',
+            'scripts/convert_rawhdf5_to_hdf5.py'
             ],
         package_data={
             'larpix.configs': ['*/*.json'],
