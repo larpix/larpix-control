@@ -94,6 +94,7 @@ class Packet_v2(object):
     endian = 'little'
 
     def __init__(self, bytestream=None):
+        self._int = None
         if bytestream is None:
             self.bits = bitarray(self.size,endian=self.endian)
             self.bits.setall(False)
@@ -104,7 +105,6 @@ class Packet_v2(object):
         else:
             raise ValueError('Invalid number of bytes: %s' %
                     len(bytestream))
-        self._int = None
 
     def __eq__(self, other):
         return self.bits == other.bits
@@ -409,6 +409,7 @@ class Packet_v2(object):
         bit_slice = self.chip_id_bits
         self.bits[bit_slice] = bah.fromuint(value, bit_slice, endian=self.endian)
 
+    @classmethod
     def _basic_getter(cls, name):
         bit_slice = getattr(cls, name + '_bits')
         mask = (~(((2**cls.size)-1 << (bit_slice.stop-bit_slice.start))) & (2**cls.size)-1)
@@ -416,6 +417,7 @@ class Packet_v2(object):
             return (self.as_int() >> bit_slice.start) & mask
         return basic_getter_func
 
+    @classmethod
     def _basic_setter(cls, name):
         bit_slice = getattr(cls, name + '_bits')
         @_clears_cached_int
@@ -423,14 +425,14 @@ class Packet_v2(object):
             self.bits[bit_slice] = bah.fromuint(value, bit_slice, endian=self.endian)
         return basic_setter_func
 
-Packet_v2.packet_type = property(Packet_v2._basic_getter(Packet_v2,'packet_type'),Packet_v2._basic_setter(Packet_v2,'packet_type'))
-Packet_v2.downstream_marker = property(Packet_v2._basic_getter(Packet_v2,'downstream_marker'),Packet_v2._basic_setter(Packet_v2,'downstream_marker'))
-Packet_v2.parity = property(Packet_v2._basic_getter(Packet_v2,'parity'),Packet_v2._basic_setter(Packet_v2,'parity'))
-Packet_v2.channel_id = property(Packet_v2._basic_getter(Packet_v2,'channel_id'),Packet_v2._basic_setter(Packet_v2,'channel_id'))
-Packet_v2.dataword = property(Packet_v2._basic_getter(Packet_v2,'dataword'),Packet_v2._basic_setter(Packet_v2,'dataword'))
-Packet_v2.first_packet = property(Packet_v2._basic_getter(Packet_v2,'first_packet'),Packet_v2._basic_setter(Packet_v2,'first_packet'))
-Packet_v2.trigger_type = property(Packet_v2._basic_getter(Packet_v2,'trigger_type'),Packet_v2._basic_setter(Packet_v2,'trigger_type'))
-Packet_v2.register_address = property(Packet_v2._basic_getter(Packet_v2,'register_address'),Packet_v2._basic_setter(Packet_v2,'register_address'))
-Packet_v2.register_data = property(Packet_v2._basic_getter(Packet_v2,'register_data'),Packet_v2._basic_setter(Packet_v2,'register_data'))
-Packet_v2.local_fifo = property(Packet_v2._basic_getter(Packet_v2,'local_fifo'),Packet_v2._basic_setter(Packet_v2,'local_fifo'))
-Packet_v2.shared_fifo = property(Packet_v2._basic_getter(Packet_v2,'shared_fifo'),Packet_v2._basic_setter(Packet_v2,'shared_fifo'))
+Packet_v2.packet_type = property(Packet_v2._basic_getter('packet_type'),Packet_v2._basic_setter('packet_type'))
+Packet_v2.downstream_marker = property(Packet_v2._basic_getter('downstream_marker'),Packet_v2._basic_setter('downstream_marker'))
+Packet_v2.parity = property(Packet_v2._basic_getter('parity'),Packet_v2._basic_setter('parity'))
+Packet_v2.channel_id = property(Packet_v2._basic_getter('channel_id'),Packet_v2._basic_setter('channel_id'))
+Packet_v2.dataword = property(Packet_v2._basic_getter('dataword'),Packet_v2._basic_setter('dataword'))
+Packet_v2.first_packet = property(Packet_v2._basic_getter('first_packet'),Packet_v2._basic_setter('first_packet'))
+Packet_v2.trigger_type = property(Packet_v2._basic_getter('trigger_type'),Packet_v2._basic_setter('trigger_type'))
+Packet_v2.register_address = property(Packet_v2._basic_getter('register_address'),Packet_v2._basic_setter('register_address'))
+Packet_v2.register_data = property(Packet_v2._basic_getter('register_data'),Packet_v2._basic_setter('register_data'))
+Packet_v2.local_fifo = property(Packet_v2._basic_getter('local_fifo'),Packet_v2._basic_setter('local_fifo'))
+Packet_v2.shared_fifo = property(Packet_v2._basic_getter('shared_fifo'),Packet_v2._basic_setter('shared_fifo'))
