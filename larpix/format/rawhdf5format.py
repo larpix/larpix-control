@@ -4,27 +4,24 @@ much faster conversion to file at the expense of human readability.
 
 To use, pass a list of bytestring messages into the ``to_rawfile()`` method::
 
-    msgs = [b'this is a test message!!!', b'this is a different message!!!!!']
+    msgs = [b'this is a test message', b'this is a different message']
     to_rawfile('raw.h5', msgs)
-
-Data is stored as a ``uint8`` and so must be padded to the nearest multiple of
-8-bytes (that's why the messages in the example are so excited).
 
 To access the data in the file, the inverse method ``from_rawfile()`` is used::
 
     rd = from_rawfile('raw.h5')
-    rd['msgs'] # [b'this is a test message!!!', b'this is a different message!!!!!']
+    rd['msgs'] # [b'this is a test message', b'this is a different message']
 
 Message may be recieved from multiple ``io_group`` sources, in this case, a
 per-message ``io_group`` can be specified as a list of integers of the same
 length as the ``msgs`` list and passed into the file at the same time::
 
-    msgs = [b'message from 1!!!', b'message from 2!!!']
+    msgs = [b'message from 1', b'message from 2']
     io_groups = [1, 2]
     to_rawfile('raw.h5', msgs=msgs, io_groups=io_groups)
 
     rd = from_rawfile('raw.h5')
-    rd['msgs'] # [b'message from 1!!!', b'message from 2!!!']
+    rd['msgs'] # [b'message from 1', b'message from 2']
     rd['io_groups'] # [1, 2]
 
 This format was created with a specific application in mind - provide a
@@ -57,7 +54,7 @@ Datasets (v0.0)
 ---------------
 The hdf5 format contains two datasets ``msgs`` and ``io_groups``:
 
-    - ``msgs``: shape ``(N,)``; variable-length ``uint8`` arrays representing each message
+    - ``msgs``: shape ``(N,)``; variable-length ``uint1`` arrays representing each message
 
     - ``io_groups``: shape ``(N,)``; ``uint1`` array representing the ``io_group`` associated with each message
 
@@ -76,18 +73,20 @@ latest_version = '0.0'
 #: Structured as ``dataset_dtypes['<version>']['<dataset>'] = <dtype>``.
 dataset_dtypes = {
     '0.0': {
-        'msgs': h5py.vlen_dtype(np.dtype('u8')),
+        'msgs': h5py.vlen_dtype(np.dtype('u1')),
         'io_groups': np.dtype('u1')
     }
 }
 def _store_msgs_v0_0(msgs, version):
-    return np.array([np.array([msg], dtype=np.void).view('u8') for msg in msgs], dtype=dataset_dtypes[version]['msgs'])
+    msg_dtype = np.dtype('u1')
+    arr_dtype = dataset_dtypes[version]['msgs']
+    return np.array([np.frombuffer(msg, dtype=msg_dtype) for msg in msgs], dtype=arr_dtype)
 
 def _store_io_groups_v0_0(io_groups, version):
     return np.array(io_groups, dtype=dataset_dtypes[version]['io_groups'])
 
 def _parse_msgs_v0_0(msgs, version):
-    return [bytes(msg) for msg in msgs]
+    return [msg.tobytes() for msg in msgs]
 
 def _parse_io_groups_v0_0(io_groups, version):
     return list(io_groups.astype(int))
