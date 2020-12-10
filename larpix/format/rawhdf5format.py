@@ -69,12 +69,12 @@ _latest_version = '0.0'
 
 dataset_dtypes = {
     '0.0': {
-        'msgs': h5py.vlen_dtype(np.dtype('u1')),
+        'msgs': h5py.vlen_dtype(np.dtype('u8')),
         'io_groups': np.dtype('u1')
     }
 }
 def _store_msgs_v0_0(msgs, version):
-    return np.array([np.array(list(msg), dtype=np.dtype('u1')) for msg in msgs], dtype=dataset_dtypes[version]['msgs'])
+    return np.array([np.array([msg], dtype=np.void).view('u8') for msg in msgs], dtype=dataset_dtypes[version]['msgs'])
 
 def _store_io_groups_v0_0(io_groups, version):
     return np.array(io_groups, dtype=dataset_dtypes[version]['io_groups'])
