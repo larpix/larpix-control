@@ -24,40 +24,29 @@ class PACMAN_IO(IO):
 
     This object handles the ZMQ messaging protocol to send and receive
     formatted messages to/from the PACMAN boards. If you want more
-    info on how messages are formatted, see `larpix.format.pacman_msg_format`.
+    info on how messages are formatted, see ``larpix.format.pacman_msg_format``.
 
-    The PACMAN_IO object has three flags for optimizing communications
-    which you may or may not want to enable::
+    The PACMAN_IO object has five flags for optimizing communications
+    which you may or may not want to enable:
 
-        group_packets_by_io_group
-        interleave_packets_by_io_channel
-        double_send_packets
+        - ``group_packets_by_io_group``
+        - ``interleave_packets_by_io_channel``
+        - ``double_send_packets``
+        - ``enable_raw_file_writing``
+        - ``disable_packet_parsing``
 
     To enable each option set the flag to ``True``; to disable, set to
     ``False``.
 
-    The ``group_packets_by_io_group`` option is enabled by
-    default and assembles the packets sent in each call to ``send``
-    into as few messages as possible destined for a single io group. E.g.
-    sending three packets (2 for ``io_group=1``, 1 for ``io_group=2``)
-    will combine the packets for ``io_group=1`` into a single message to
-    transfer over the network. This reduces overhead associated with
-    network latency and allows large data transfers to happen much faster.
+        - The ``group_packets_by_io_group`` option is enabled by default and assembles the packets sent in each call to ``send`` into as few messages as possible destined for a single io group. E.g. sending three packets (2 for ``io_group=1``, 1 for ``io_group=2``) will combine the packets for ``io_group=1`` into a single message to transfer over the network. This reduces overhead associated with network latency and allows large data transfers to happen much faster.
 
-    The ``interleave_packets_by_io_channel`` option is enabled by default and
-    interleaves packets within a given message to each io_channel on a
-    given io_group. E.g. 3 packets destined for ``io_channel=1``,
-    ``io_channel=1``, and ``io_channel=2`` will be reordered to
-    ``io_channel=1``, ``io_channel=2``, and ``io_channel=1``. The order of
-    the packets is preserved for each io_channel. This increases the data
-    throughput by about a factor of N, where N is the number of io channels in
-    the message.
+        - The ``interleave_packets_by_io_channel`` option is enabled by default and interleaves packets within a given message to each io_channel on a given io_group. E.g. 3 packets destined for ``io_channel=1``, ``io_channel=1``, and ``io_channel=2`` will be reordered to ``io_channel=1``, ``io_channel=2``, and ``io_channel=1``. The order of the packets is preserved for each io_channel. This increases the data throughput by about a factor of N, where N is the number of io channels in the message.
 
-    The ``double_send_packets`` option is disabled by default and duplicates
-    each packet sent to the PACMAN by a call to ``send()``. This is useful
-    for working around the 512 bug when you need to insure that a packet
-    reaches a chip, but you don't care about introducing extra packets into
-    the system (i.e. when configuring chips).
+        - The ``double_send_packets`` option is disabled by default and duplicates each packet sent to the PACMAN by a call to ``send()``. This is potentially useful for working around the 512 bug when you need to insure that a packet reaches a chip, but you don't care about introducing extra packets into the system (i.e. when configuring chips).
+
+        - The ``enable_raw_file_writing`` option will directly dump data to a larpix raw hdf5 formatted file. This is used as a more performant means of logging data (see ``larpix.format.rawhdf5format``). The data file name can be accessed or changed via the ``raw_filename`` attribute, or can be set when creating the ``PACMAN_IO`` object with the ``raw_directory`` and ``raw_filename`` keyword args.
+
+        - The ``disable_packet_parsing`` option will skip converting PACMAN messages into ``larpix.packet`` types. Thus if ``disable_packet_parsing=True``, every call to ``empty_queue`` will return ``[], b''``. Typically used in conjunction with ``enable_raw_file_writing``, this allows the PACMAN_IO class to read data much faster.
 
 
     '''
@@ -277,8 +266,12 @@ class PACMAN_IO(IO):
     def _to_raw_file(queue_, filename, timeout=1, max_msgs=100000):
         start_time = time.time()
         while (time.time() < start_time + timeout or not queue_.empty()):
-            msgs = list()
-            io_groups = list()
+            # wait for data
+            try:
+                msgs, io_groups = queue_.get(timeout=timeout)
+            except Empty:
+                continue
+            # buffer data
             while len(msgs) < max_msgs:
                 try:
                     new_msgs, new_io_groups = queue_.get(False)
@@ -286,6 +279,7 @@ class PACMAN_IO(IO):
                     io_groups.extend(new_io_groups)
                 except Empty:
                     break
+            # write to file
             if len(msgs):
                 rawhdf5format.to_rawfile(filename, msgs=msgs, io_groups=io_groups)
                 start_time = time.time()
@@ -295,6 +289,10 @@ class PACMAN_IO(IO):
         self._raw_file_worker.start()
 
     def join(self):
+        '''
+        Wait for raw file worker to finish
+
+        '''
         self._raw_file_worker.join()
 
     @property
@@ -306,7 +304,7 @@ class PACMAN_IO(IO):
         if hasattr(self,'_raw_filename') \
                 and value != self._raw_filename \
                 and self._raw_file_worker.is_alive():
-            self._raw_file_worker.join()
+            self.join()
         self._raw_filename = value
 
     def set_reg(self, reg, val, io_group=None):
