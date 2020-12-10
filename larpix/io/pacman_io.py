@@ -4,6 +4,7 @@ import bidict
 import time
 from collections import defaultdict
 import multiprocessing
+import queue
 import os
 
 from larpix.io import IO
@@ -66,7 +67,7 @@ class PACMAN_IO(IO):
     group_packets_by_io_group = True
     interleave_packets_by_io_channel = True
     double_send_packets = False
-    enable_raw_file = False
+    enable_raw_file_writing = False
     disable_packet_parsing = False
 
     _base_ctrl_reg = 0x10
@@ -269,17 +270,18 @@ class PACMAN_IO(IO):
         self.context.term()
 
     @staticmethod
-    def _to_raw_file(queue, filename, timeout=1):
+    def _to_raw_file(queue_, filename, timeout=1):
         start_time = time.time()
-        while time.time() < start_time + timeout or not queue.empty():
+        while time.time() < start_time + timeout or not queue_.empty():
             try:
-                msgs, io_groups = queue.get(timeout=timeout)
+                msgs, io_groups = queue_.get(timeout=timeout)
                 rawhdf5format.to_rawfile(filename, msgs=msgs, io_groups=io_groups)
-            except Empty:
+            except queue.Empty:
                 pass
 
     def _launch_raw_file_worker(self):
         self._raw_file_worker = multiprocessing.Process(target=self._to_raw_file, args=(self._raw_file_queue, self.raw_filename))
+        self._raw_file_worker.start()
 
     @property
     def raw_filename(self):
