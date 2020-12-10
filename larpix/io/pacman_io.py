@@ -4,7 +4,11 @@ import bidict
 import time
 from collections import defaultdict
 import multiprocessing
-import queue
+import sys
+if sys.version_info[0] >= 3:
+    from queue import Empty
+else:
+    from Queue import Empty
 import os
 
 from larpix.io import IO
@@ -280,7 +284,7 @@ class PACMAN_IO(IO):
                     new_msgs, new_io_groups = queue_.get(False)
                     msgs.extend(new_msgs)
                     io_groups.extend(new_io_groups)
-                except queue.Empty:
+                except Empty:
                     break
             if len(msgs):
                 rawhdf5format.to_rawfile(filename, msgs=msgs, io_groups=io_groups)
