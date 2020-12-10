@@ -3,10 +3,13 @@ import zmq
 import bidict
 import time
 from collections import defaultdict
+import multiprocessing
+import os
 
 from larpix.io import IO
 from larpix.configs import load
 import larpix.format.pacman_msg_format as pacman_msg_format
+import larpix.format.rawhdf5format as rawhdf5format
 from larpix import Packet_v2
 
 class PACMAN_IO(IO):
@@ -54,6 +57,7 @@ class PACMAN_IO(IO):
 
     '''
     default_filepath = 'io/pacman.json'
+    default_raw_filename_fmt = 'raw_%Y_%m_%d_%H_%M_%S_%Z.h5'
     max_msg_length = 2**16-1
     cmdserver_port = '5555'
     dataserver_port = '5556'
@@ -62,6 +66,8 @@ class PACMAN_IO(IO):
     group_packets_by_io_group = True
     interleave_packets_by_io_channel = True
     double_send_packets = False
+    enable_raw_file = False
+    disable_packet_parsing = False
 
     _base_ctrl_reg = 0x10
     _clk_ctrl_reg = 0x1010
@@ -80,7 +86,7 @@ class PACMAN_IO(IO):
     _adc2mv = lambda _,x: ((x >> 16) >> 3) * 4
     _adc2ma = lambda _,x: ((x >> 16) - (x >> 31) * 65535) * 500 * 0.01
 
-    def __init__(self, config_filepath=None, hwm=20000, relaxed=True, timeout=-1):
+    def __init__(self, config_filepath=None, hwm=20000, relaxed=True, timeout=-1, raw_directory='./', raw_filename=None):
         super(PACMAN_IO, self).__init__()
         self.load(config_filepath)
 
@@ -112,6 +118,14 @@ class PACMAN_IO(IO):
         self.poller = zmq.Poller()
         for receiver in self.receivers.values():
             self.poller.register(receiver, zmq.POLLIN)
+
+        self._raw_file_queue = multiprocessing.Queue()
+        self.raw_filename = os.path.join(
+            raw_directory,
+            raw_filename if raw_filename is not None \
+                else time.strftime(self.default_raw_filename_fmt)
+        )
+        self._launch_raw_file_worker()
 
     def send(self, packets):
         '''
@@ -230,12 +244,15 @@ class PACMAN_IO(IO):
                     n_recv += 1
                     bytestream_list += [message]
                     address_list += [self.receivers.inv[socket]]
-        for message, address in zip(bytestream_list, address_list):
-            packets += pacman_msg_format.parse(message, io_group=self._io_group_table.inv[address])
-        bytestream = b''.join(bytestream_list)
-        #print(bytestream)
-        #for packet in packets:
-        #    if isinstance(packet, Packet_v2): print(packet)
+        if not self.disable_packet_parsing:
+            for message, address in zip(bytestream_list, address_list):
+                packets += pacman_msg_format.parse(message, io_group=self._io_group_table.inv[address])
+            bytestream = b''.join(bytestream_list)
+        if self.enable_raw_file_writing:
+            self._raw_file_queue.put((bytestream_list, [self._io_group_table.inv[address] for address in address_list]))
+            if not self._raw_file_worker.is_alive():
+                self._launch_raw_file_worker()
+
         return packets,bytestream
 
     def cleanup(self):
@@ -250,6 +267,31 @@ class PACMAN_IO(IO):
             self.senders[address].close(linger=0)
             self.receivers[address].close(linger=0)
         self.context.term()
+
+    @staticmethod
+    def _to_raw_file(queue, filename, timeout=1):
+        start_time = time.time()
+        while time.time() < start_time + timeout or not queue.empty():
+            try:
+                msgs, io_groups = queue.get(timeout=timeout)
+                rawhdf5format.to_rawfile(filename, msgs=msgs, io_groups=io_groups)
+            except Empty:
+                pass
+
+    def _launch_raw_file_worker(self):
+        self._raw_file_worker = multiprocessing.Process(target=self._to_raw_file, args=(self._raw_file_queue, self.raw_filename))
+
+    @property
+    def raw_filename(self):
+        return self._raw_filename
+
+    @raw_filename.setter
+    def raw_filename(self,value):
+        if hasattr(self,'_raw_filename') \
+                and value != self._raw_filename \
+                and self._raw_file_worker.is_alive():
+            self._raw_file_worker.join()
+        self._raw_filename = value
 
     def set_reg(self, reg, val, io_group=None):
         '''
@@ -317,7 +359,7 @@ class PACMAN_IO(IO):
         mv = self._adc2mv(self.get_reg(self._vddd_adc_reg, io_group=io_group))
         ma = self._adc2ma(self.get_reg(self._iddd_adc_reg, io_group=io_group))
         return mv, ma
-    
+
     def set_vddd(self, vddd_dac=0xD5A3, io_group=None, settling_time=0.1):
         '''
         Sets PACMAN VDDD voltage
@@ -348,7 +390,7 @@ class PACMAN_IO(IO):
         mv = self._adc2mv(self.get_reg(self._vdda_adc_reg, io_group=io_group))
         ma = self._adc2ma(self.get_reg(self._idda_adc_reg, io_group=io_group))
         return mv, ma
-    
+
     def set_vdda(self, vdda_dac=0xD5A3, io_group=None, settling_time=0.1):
         '''
         Sets PACMAN VDDA voltage
@@ -382,7 +424,7 @@ class PACMAN_IO(IO):
 
     def enable_tile(self, tile_indices=None, io_group=None):
         '''
-        Enables the specified pixel tile(s) (first tile is index=0, second 
+        Enables the specified pixel tile(s) (first tile is index=0, second
         tile is index=1, ...).
 
         Returns the value of the new tile enable mask
