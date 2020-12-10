@@ -270,18 +270,28 @@ class PACMAN_IO(IO):
         self.context.term()
 
     @staticmethod
-    def _to_raw_file(queue_, filename, timeout=1):
+    def _to_raw_file(queue_, filename, timeout=1, max_msgs=100000):
         start_time = time.time()
-        while time.time() < start_time + timeout or not queue_.empty():
-            try:
-                msgs, io_groups = queue_.get(timeout=timeout)
+        while (time.time() < start_time + timeout or not queue_.empty()):
+            msgs = list()
+            io_groups = list()
+            while len(msgs) < max_msgs:
+                try:
+                    new_msgs, new_io_groups = queue_.get(False)
+                    msgs.extend(new_msgs)
+                    io_groups.extend(new_io_groups)
+                except queue.Empty:
+                    break
+            if len(msgs):
                 rawhdf5format.to_rawfile(filename, msgs=msgs, io_groups=io_groups)
-            except queue.Empty:
-                pass
+                start_time = time.time()
 
     def _launch_raw_file_worker(self):
         self._raw_file_worker = multiprocessing.Process(target=self._to_raw_file, args=(self._raw_file_queue, self.raw_filename))
         self._raw_file_worker.start()
+
+    def join(self):
+        self._raw_file_worker.join()
 
     @property
     def raw_filename(self):
