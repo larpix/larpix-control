@@ -1,30 +1,34 @@
 '''
-This is an alternative hdf5 format that allows for much faster conversion to
-file than the ``larpix.format.hdf5format`` at the expense of human readability.
+This is an alternative to the ``larpix.format.hdf5format``format that allows for
+much faster conversion to file at the expense of human readability.
+
 To use, pass a list of bytestring messages into the ``to_rawfile()`` method::
 
-    msgs = [b'this is a test message', b'this is a different message']
+    msgs = [b'this is a test message!!!', b'this is a different message!!!!!']
     to_rawfile('raw.h5', msgs)
+
+Data is stored as a ``uint8`` and so must be padded to the nearest multiple of
+8-bytes (that's why the messages in the example are so excited).
 
 To access the data in the file, the inverse method ``from_rawfile()`` is used::
 
     rd = from_rawfile('raw.h5')
-    rd['msgs'] # [b'this is a test message', b'this is a different message']
+    rd['msgs'] # [b'this is a test message!!!', b'this is a different message!!!!!']
 
 Message may be recieved from multiple ``io_group`` sources, in this case, a
 per-message ``io_group`` can be specified as a list of integers of the same
 length as the ``msgs`` list and passed into the file at the same time::
 
-    msgs = [b'message from 1', b'message from 2']
+    msgs = [b'message from 1!!!', b'message from 2!!!']
     io_groups = [1, 2]
     to_rawfile('raw.h5', msgs=msgs, io_groups=io_groups)
 
     rd = from_rawfile('raw.h5')
-    rd['msgs'] # [b'message from 1', b'message from 2']
+    rd['msgs'] # [b'message from 1!!!', b'message from 2!!!']
     rd['io_groups'] # [1, 2]
 
 This format was created with a specific application in mind - provide a
-temporary but fast persistent file format for PACMAN messages. When used in this
+temporary but fast file format for PACMAN messages. When used in this
 case, to convert to the standard ``larpix.format.hdf5format``::
 
     from larpix.format.pacman_msg_format import parse
@@ -36,27 +40,26 @@ case, to convert to the standard ``larpix.format.hdf5format``::
         pkts.extend(parse(msg, io_group=io_group))
     to_file('new_filename.h5', packet_list=pkts)
 
+but as always, the most efficient means of accessing the data is to operate on
+the data itself, rather than converting between types.
+
 Metadata (v0.0)
 ---------------
-The group ``meta`` contains file-level information stored as attributes:
+The group ``meta`` contains file metadata stored as attributes:
 
-    - ``created``: float, unix timestamp since the 1970 epoch in seconds
-        indicating when file was first created
+    - ``created``: ``float``, unix timestamp since the 1970 epoch in seconds indicating when file was first created
 
-    - ``modified``: float, unix timestamp since the 1970 epoch in seconds
-        indicating when the file was last written to
+    - ``modified``: ``float``, unix timestamp since the 1970 epoch in seconds indicating when the file was last written to
 
-    - ``version``: str, a string representing the file version, formatted as
-        ``'major.minor'``
+    - ``version``: ``str``, file version, formatted as ``'major.minor'``
 
 Datasets (v0.0)
 ---------------
-The hdf5 format contains two datasets ``msgs`` and ``io_groups``. The ``msgs``
-dataset contains 1 row for each bytestring message stored as a variable length
-string. The ``io_groups`` dataset contains 1 row for each bytestring message and
-contains the ``io_group`` associated with the message at the same row index. This
-allows for storing data from multiple ``io_group`` sources, i.e. two PACMAN cards
-in the same experiment.
+The hdf5 format contains two datasets ``msgs`` and ``io_groups``:
+
+    - ``msgs``: shape ``(N,)``; variable-length ``uint8`` arrays representing each message
+
+    - ``io_groups``: shape ``(N,)``; ``uint1`` array representing the ``io_group`` associated with each message
 
 '''
 import time
@@ -65,8 +68,12 @@ import warnings
 import h5py
 import numpy as np
 
-_latest_version = '0.0'
+#: Most up-to-date raw larpix hdf5 format version.
+latest_version = '0.0'
 
+#: Description of the datasets and their dtypes used in each version of the raw larpix hdf5 format.
+#:
+#: Structured as ``dataset_dtypes['<version>']['<dataset>'] = <dtype>``.
 dataset_dtypes = {
     '0.0': {
         'msgs': h5py.vlen_dtype(np.dtype('u8')),
@@ -142,18 +149,18 @@ def to_rawfile(filename, msgs=None, version=None, io_groups=None):
 
     :param filename: desired filename for the file to write or update
 
-    :param msgs: iterable of variable-length bytestrings to write to the file, if None specified, will only create file and update metadata
+    :param msgs: iterable of variable-length bytestrings to write to the file. If ``None`` specified, will only create file and update metadata.
 
-    :param version: a string of major.minor version desired, if None specified, will use the latest file format version (if new file) or version in file (if updating an existing file)
+    :param version: a string of major.minor version desired. If ``None`` specified, will use the latest file format version (if new file) or version in file (if updating an existing file).
 
-    :param io_groups: iterable of io_groups to associate with each message, if None specified, will use a default value of 0 for each message
+    :param io_groups: iterable of io_groups to associate with each message. If ``None`` specified, will use a default value of ``0`` for each message.
 
     '''
     now = time.time()
     with h5py.File(filename, 'a', libver='latest') as f:
         if 'meta' not in f.keys():
             # new file
-            version = _latest_version if version is None else version
+            version = latest_version if version is None else version
             f.create_group('meta')
             f['meta'].attrs['version'] = version
             f['meta'].attrs['created'] = now
@@ -177,74 +184,79 @@ def to_rawfile(filename, msgs=None, version=None, io_groups=None):
 
             f['meta'].attrs['modified'] = now
 
-        io_groups = io_groups if io_groups is not None else np.zeros(len(msgs))
-        assert len(io_groups) == len(msgs), 'Data length mismatch! msgs is length {}, but io_groups is length {}'.format(len(msgs),len(io_groups))
+        # update data
+        if msgs is not None:
+            io_groups = io_groups if io_groups is not None else np.zeros(len(msgs))
+            assert len(io_groups) == len(msgs), 'Data length mismatch! msgs is length {}, but io_groups is length {}'.format(len(msgs),len(io_groups))
 
-        # resize datasets
-        curr_idx = len(f['msgs'])
-        f['msgs'].resize((curr_idx+len(msgs),))
-        f['io_groups'].resize((curr_idx+len(io_groups),))
+            # resize datasets
+            curr_idx = len(f['msgs'])
+            f['msgs'].resize((curr_idx+len(msgs),))
+            f['io_groups'].resize((curr_idx+len(io_groups),))
 
-        # store in file
-        msgs_array = _store_msgs(
-            msgs,
-            version=version
-            )
-        io_groups_array = _store_io_groups(
-            io_groups,
-            version=version
-            )
+            # store in file
+            msgs_array = _store_msgs(
+                msgs,
+                version=version
+                )
+            io_groups_array = _store_io_groups(
+                io_groups,
+                version=version
+                )
 
-        f['msgs'][curr_idx:curr_idx + len(msgs_array)] = msgs_array
-        f['io_groups'][curr_idx:curr_idx + len(io_groups_array)] = io_groups_array
+            f['msgs'][curr_idx:curr_idx + len(msgs_array)] = msgs_array
+            f['io_groups'][curr_idx:curr_idx + len(io_groups_array)] = io_groups_array
 
         # flush
         f['msgs'].flush()
         f['io_groups'].flush()
 
 def _synchronize(attempts, *dsets):
-    success = False
+    if len(dsets) <= 1:
+        return
+    success = attempts != 0
+    attempt = 1
     lengths = [0]*len(dsets)
-    for _ in range(attempts):
+    while (attempt <= attempts or attempts < 0) and not success:
+        attempt += 1
         for i,dset in enumerate(dsets):
             dset.id.refresh()
             lengths[i] = len(dset)
         if all([lengths[0] == length for length in lengths[1:]]):
             success = True
-            break
     if not success:
-        warnings.RuntimeWarning('Could not achieve a stable file state after {} attempts! Data may be weird...'.format(attempts))
+        raise RuntimeError('Could not achieve a stable file state after {} attempts!'.format(attempts))
 
-def len_rawfile(filename, attempts=10):
+def len_rawfile(filename, attempts=1):
     '''
-    Check the total length of the file in number of messages
+    Check the total number of messages in a file
 
     :param filename: filename to check
 
-    :param attempts: a parameter only relevant if file is being actively written to, specifies number of refreshes to try if a synchronized state between the msgs and io_groups datasets is not achieved
+    :param attempts: a parameter only relevant if file is being actively written to by another process, specifies number of refreshes to try if a synchronized state between the datasets is not achieved. A value less than ``0`` busy blocks until a synchronized state is achieved. A value greater than ``0`` tries to achieve synchronization a max of ``attempts`` before throwing a ``RuntimeError``. And a value of ``0`` does not attempt to synchronize
 
-    :returns: integer number of messages in file
+    :returns: ``int`` number of messages in file
 
     '''
     with h5py.File(filename, 'r', swmr=True, libver='latest') as f:
         _synchronize(attempts, f['msgs'], f['io_groups'])
         return len(f['msgs'])
 
-def from_rawfile(filename, version=None, start=None, end=None, attempts=10):
+def from_rawfile(filename, start=None, end=None, version=None, attempts=1):
     '''
     Read a chunk of bytestring messages from an existing file
 
     :param filename: filename to read bytestrings from
 
-    :param version: required version compatibility, if None specified, uses the version stored in the file metadata
+    :param version: required version compatibility. If ``None`` specified, uses the version stored in the file metadata
 
-    :param start: index for the start position when reading from the file, >=0, default=0, if a value less than 0 is specified, data is read from the beginning of the file
+    :param start: index for the start position when reading from the file (default = ``None``). If a value less than 0 is specified, index is relative to the end of the file. If ``None`` is specified, data is read from the start of the file.
 
-    :param end: index for the end position when reading from the file, <= len(data), default=len(data), if a value less than the length of the data in the file, data is read until the end of the file
+    :param end: index for the end position when reading from the file (default = ``None``). If a value less than 0 is specified, index is relative to the end of the file. If ``None`` is specified, data is read until the end of the file.
 
-    :param attempts: a parameter only relevant if file is being actively written to, specifies number of refreshes to try if a synchronized state between the msgs and io_groups datasets is not achieved
+    :param attempts: a parameter only relevant if file is being actively written to by another process, specifies number of refreshes to try if a synchronized state between the datasets is not achieved. A value less than ``0`` busy blocks until a synchronized state is achieved. A value greater than ``0`` tries to achieve synchronization a max of ``attempts`` before throwing a ``RuntimeError``. And a value of ``0`` does not attempt to synchronize
 
-    :returns: dict with keys for 'created', 'modified', and 'version' metadata, along with the 'msgs': a list of bystrings and 'io_groups': a list of integers
+    :returns: ``dict`` with keys for ``'created'``, ``'modified'``, and ``'version'`` metadata, along with ``'msgs'`` (a ``list`` of bytestring messages) and ``'io_groups'`` (a ``list`` of ``int``)
 
     '''
     with h5py.File(filename, 'r', swmr=True, libver='latest') as f:
@@ -261,9 +273,8 @@ def from_rawfile(filename, version=None, start=None, end=None, attempts=10):
         _synchronize(attempts, f['msgs'], f['io_groups'])
 
         # define chunk of data to load
-        start = max(start,0) if start is not None else 0
-        end = min(end,len(f['msgs'])) if end is not None else len(f['msgs'])
-        assert start <= end, 'Invalid chunk specification! (start={}, end={})'.format(start, end)
+        start = int(start) if start is not None else 0
+        end = int(end) if end is not None else len(f['msgs'])
 
         # get data from file
         msgs = _parse_msgs(f['msgs'][start:end], version)
