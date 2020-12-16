@@ -23,7 +23,7 @@ def main(input_filename, output_filename, block_size):
             last = time.time()
         rd = from_rawfile(input_filename, start=start, end=end)
         pkts = list()
-        for i_msg,data in enumerate(zip(rd['io_groups'], rd['msgs'])):
+        for i_msg,data in enumerate(zip(rd['msg_headers']['io_groups'], rd['msgs'])):
             io_group,msg = data
             pkts.extend(parse(msg, io_group=io_group))
         to_file(output_filename, packet_list=pkts)
