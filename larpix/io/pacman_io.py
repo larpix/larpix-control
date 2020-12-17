@@ -281,7 +281,7 @@ class PACMAN_IO(IO):
                     break
             # write to file
             if len(msgs):
-                rawhdf5format.to_rawfile(filename, msgs=msgs, io_groups=io_groups)
+                rawhdf5format.to_rawfile(filename, msgs=msgs, msg_headers={'io_groups': io_groups}, io_version=pacman_msg_format.latest_version)
                 start_time = time.time()
 
     def _launch_raw_file_worker(self):
