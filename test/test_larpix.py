@@ -1534,17 +1534,17 @@ def test_controller_get_chip_error(chip):
     test_key_dict = chip.chip_key.to_dict()
     test_key_dict['chip_id'] += 1
     test_key = Key.from_dict(test_key_dict)
-    with pytest.raises(ValueError, message='Should fail: bad chip id'):
+    with pytest.raises(ValueError):
         controller[test_key]
     test_key_dict = chip.chip_key.to_dict()
     test_key_dict['io_channel'] += 1
     test_key = Key.from_dict(test_key_dict)
-    with pytest.raises(ValueError, message='Should fail: bad channel id'):
+    with pytest.raises(ValueError):
         controller[test_key]
     test_key_dict = chip.chip_key.to_dict()
     test_key_dict['io_group'] += 1
     test_key = Key.from_dict(test_key_dict)
-    with pytest.raises(ValueError, message='Should fail: bad group id'):
+    with pytest.raises(ValueError):
         controller[test_key]
 
 def test_controller_read():
