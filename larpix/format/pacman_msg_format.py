@@ -256,10 +256,10 @@ def parse(msg, io_group=None):
             packet.receipt_timestamp = word_data[2]
             packet.io_group = io_group
             packet.io_channel = word_data[1]
-        elif word_data[0] is 'TRIG':
+        elif word_data[0] == 'TRIG':
             packet = TriggerPacket(trigger_type=word_data[1], timestamp=word_data[2])
             packet.io_group = io_group
-        elif word_data[0] is 'SYNC':
+        elif word_data[0] == 'SYNC':
             packet = SyncPacket(sync_type=word_data[1], clk_source=word_data[2] & 0x01, timestamp=word_data[3])
             packet.io_group = io_group
         if packet is not None:
