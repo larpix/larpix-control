@@ -1,5 +1,11 @@
 import time
 import os
+import threading
+import sys
+if sys.version_info[0] >= 3:
+    from queue import Queue, Empty
+else:
+    from Queue import Queue, Empty
 
 import numpy as np
 import h5py
@@ -50,6 +56,8 @@ class HDF5Logger(Logger):
         self.buffer_length = buffer_length
 
         self._buffer = {'packets': []}
+        self._worker_queue = Queue()
+        self._worker = None
         if not self.filename:
             self.filename = self._default_filename()
         self.filename = os.path.join(self.directory, self.filename)
@@ -68,6 +76,18 @@ class HDF5Logger(Logger):
             log_specifier = time.strftime(time_format, timestamp)
         log_postfix = '.h5'
         return (log_prefix + '_' + log_specifier + '_' + log_postfix)
+
+    def record_configs(self, chips):
+        '''
+        Write the specified chip configurations to the log file
+
+        .. note:: this method will also flush any data in the buffer to the log file
+
+        :param chips: list of chips to record timestamps
+
+        '''
+        self.flush(block=True)
+        to_file(self.filename, chip_list=chips, version=self.version)
 
     def record(self, data, direction=Logger.WRITE):
         '''
@@ -93,7 +113,7 @@ class HDF5Logger(Logger):
             self._buffer[dataset].append(data_obj)
 
         if any([len(buff) > self.buffer_length for dataset, buff in self._buffer.items()]):
-            self.flush()
+            self.flush(block=False)
 
     def enable(self):
         '''
@@ -103,14 +123,34 @@ class HDF5Logger(Logger):
 
         :param enable: ``True`` if you want to enable the logger after
             initializing (Optional, default=``True``)
+
         '''
         super(HDF5Logger, self).enable()
-        to_file(self.filename, [], version=self.version)
+        self.flush(block=False)
 
-    def flush(self):
-        '''
-        Flushes any held data to the output file
-        '''
-        to_file(self.filename, self._buffer['packets'],
-                version=self.version)
+    def flush(self, block=True):
+        self._worker_queue.put(self._buffer['packets'])
+        if self._worker is None:
+            self._launch_worker()
+        if block:
+            self._worker_queue.join()
         self._buffer['packets'] = []
+
+    def _launch_worker(self):
+        self._worker = threading.Thread(target=self._writer)
+        self._worker.start()
+
+    def _writer(self):
+        try:
+            while True:
+                packets = self._worker_queue.get(timeout=1)
+                to_file(self.filename, packets, version=self.version)
+                self._worker_queue.task_done()
+        except Empty:
+            pass
+        except:
+            print('HDF5Logger IO thread error!')
+            raise
+        finally:
+            self._worker = None
+

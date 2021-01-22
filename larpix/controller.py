@@ -1150,15 +1150,16 @@ class Controller(object):
         data = b''.join(bytestreams)
         self.store_packets(packets, data, message)
 
-    def verify_registers(self, chip_key_register_pairs, timeout=1, connection_delay=0.02):
+    def verify_registers(self, chip_key_register_pairs, timeout=1, connection_delay=0.02, n=1):
         '''
         Read chip configuration from specified chip and registers and return ``True`` if the
         read chip configuration matches the current configuration stored in chip instance.
-        ``chip_key`` is a single chip key.
 
         :param chip_key_register_pair: a ``list`` of key register pairs as documented in ``controller.multi_read_configuration``
 
         :param timeout: set how long to wait for response in seconds (optional)
+
+        :param n: sets maximum recursion depth, will continue to attempt to verify registers until this depth is reached or all registers have responded, a value <1 allows for infinite recursion (optional)
 
         :returns: 2-``tuple`` of a ``bool`` representing if all registers match and a ``dict`` representing all differences. Differences are specified as ``{<chip_key>: {<register>: (<expected>, <read>)}}``
 
@@ -1205,9 +1206,29 @@ class Controller(object):
                     del configuration_data[chip_key][register]
             if not len(configuration_data[chip_key]):
                 del configuration_data[chip_key]
+
+        if not return_value and n != 1:
+            retry_chip_key_register_pairs = [(key,register) for key,value in configuration_data.items() for register in value if value[register][-1] is None]
+            if len(retry_chip_key_register_pairs):
+                retry_return_value, retry_configuration_data = self.verify_registers(
+                    retry_chip_key_register_pairs,
+                    timeout=timeout,
+                    connection_delay=connection_delay,
+                    n=n-1
+                    )
+                for chip_key in retry_configuration_data.keys():
+                    configuration_data[chip_key].update(retry_configuration_data[chip_key])
+                for chip_key,register in retry_chip_key_register_pairs:
+                    if chip_key not in retry_configuration_data or register not in retry_configuration_data[chip_key]:
+                        del configuration_data[chip_key][register]
+                return_value = all([
+                    configuration_data[chip_key][register][0] == configuration_data[chip_key][register][1]
+                    for chip_key in configuration_data
+                    for register in configuration_data[chip_key]
+                    ])
         return (return_value, configuration_data)
 
-    def verify_configuration(self, chip_keys=None, timeout=1):
+    def verify_configuration(self, chip_keys=None, timeout=1, connection_delay=0.02, n=1):
         '''
         Read chip configuration from specified chip(s) and return ``True`` if the
         read chip configuration matches the current configuration stored in chip instance.
@@ -1221,6 +1242,8 @@ class Controller(object):
 
         :param timeout: how long to wait for response in seconds
 
+        :param n: set recursion limit for rechecking non-responding registers
+
         :returns: 2-``tuple`` with same format as ``controller.verify_registers``
 
         '''
@@ -1229,7 +1252,7 @@ class Controller(object):
         if isinstance(chip_keys,(str,Key)):
             chip_keys = [chip_keys]
         chip_key_register_pairs = [(chip_key, range(self[chip_key].config.num_registers)) for chip_key in chip_keys]
-        return self.verify_registers(chip_key_register_pairs, timeout=timeout)
+        return self.verify_registers(chip_key_register_pairs, timeout=timeout, connection_delay=connection_delay, n=n)
 
     def verify_network(self, chip_keys=None, timeout=1):
         '''
@@ -1256,6 +1279,64 @@ class Controller(object):
             list(self[chip_key].config.register_map['enable_miso_differential']))
             for chip_key in chip_keys]
         return self.verify_registers(chip_key_register_pairs)
+
+    def enforce_registers(self, chip_key_register_pairs, timeout=1, connection_delay=0.02, n=1, n_verify=1):
+        '''
+        Read chip configuration from specified chip and registers and write registers to
+        read chip configurations that do not match the current configuration stored in chip instance.
+
+        :param chip_key_register_pair: a ``list`` of key register pairs as documented in ``controller.multi_read_configuration``
+
+        :param timeout: set how long to wait for response in seconds (optional)
+
+        :param n: sets maximum recursion depth, will continue to attempt to enforce registers until this depth is reached or all registers have responded, a value <1 allows for infinite recursion (optional)
+
+        :param n_verify: maximum recursion depth for verify registers (optional)
+
+        :returns: 2-``tuple`` with same format as ``controller.verify_registers``
+
+        '''
+        ok,diff = self.verify_registers(chip_key_register_pairs, timeout=timeout, connection_delay=connection_delay, n=n_verify)
+        if not ok:
+            chip_key_register_pairs = [
+                (chip_key, register)
+                for chip_key in diff
+                for register in diff[chip_key]
+                ]
+            self.multi_write_configuration(chip_key_register_pairs, write_read=0, connection_delay=connection_delay)
+            if n != 1:
+                ok,diff = self.enforce_registers(chip_key_register_pairs, timeout=timeout, connection_delay=connection_delay, n=n-1, n_verify=n_verify)
+            else:
+                ok,diff = self.verify_registers(chip_key_register_pairs, timeout=timeout, connection_delay=connection_delay, n=n_verify)
+        return ok,diff
+
+    def enforce_configuration(self, chip_keys=None, timeout=1, connection_delay=0.02, n=1, n_verify=1):
+        '''
+        Read chip configuration from specified chip(s) and write registers to
+        read chip configuration that do not match the current configuration stored in chip instance.
+        ``chip_keys`` can be a single chip key, a list of chip keys, or ``None``. If
+        ``chip_keys`` is ``None`` all chip configs will be enforced.
+
+        Also returns a dict containing the values of registers that are different
+        (read register, stored register)
+
+        :param chip_keys: ``list`` of chip_keys to verify
+
+        :param timeout: how long to wait for response in seconds
+
+        :param n: set recursion limit for enforcing non-matching registers (optional)
+
+        :param n_verify: set recursion limit for verifying registers (optional)
+
+        :returns: 2-``tuple`` with same format as ``controller.verify_registers``
+
+        '''
+        if chip_keys is None:
+            chip_keys = self.chips.keys()
+        if isinstance(chip_keys,(str,Key)):
+            chip_keys = [chip_keys]
+        chip_key_register_pairs = [(chip_key, range(self[chip_key].config.num_registers)) for chip_key in chip_keys]
+        return self.enforce_registers(chip_key_register_pairs, timeout=timeout, connection_delay=connection_delay, n=n, n_verify=n_verify)
 
     def enable_analog_monitor(self, chip_key, channel):
         '''

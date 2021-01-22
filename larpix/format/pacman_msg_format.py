@@ -53,6 +53,9 @@ import time
 
 from larpix import Packet_v2, TriggerPacket, SyncPacket, TimestampPacket
 
+#: Most up-to-date message format version.
+latest_version = '0.0'
+
 HEADER_LEN=8
 WORD_LEN=16
 MSG_TYPE_DATA=b'D'

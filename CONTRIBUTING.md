@@ -26,8 +26,8 @@ commands to use:
 1. Make a [fork](https://help.github.com/en/articles/fork-a-repo) of
 larpix/larpix-control on GitHub and work from there
 
-2. Clone the fork to your local computer and checkout the ``master``
-   branch with ``git checkout master``. Optionally, create a new feature
+2. Clone the fork to your local computer and checkout the ``latest``
+   branch with ``git checkout latest``. Optionally, create a new feature
    branch if you plan on working on multiple independent features at the
    same time. The branch name format we use is ``issue/XXX-ABCD`` where
    ``XXX`` is the GitHub issue number and ``ABCD`` is a one-or-two-word
@@ -59,9 +59,9 @@ larpix/larpix-control on GitHub and work from there
    repository:
     1. ``git remote add upstream https://github.com/larpix/larpix-control.git``
     (do this once)
-    2. ``git fetch upstream master``
-    3. ``git rebase upstream/master`` (preferred) or
-    ``git merge upstream/master`` (if you insist)
+    2. ``git fetch upstream latest``
+    3. ``git rebase upstream/latest`` (preferred) or
+    ``git merge upstream/latest`` (if you insist)
     4. You will have to force-push to your personal fork if you rebased
     in step 3. First do a dry run: ``git push --force --dry-run`` and
     verify that the branch and remote address are correct. Then delete
@@ -71,8 +71,8 @@ larpix/larpix-control on GitHub and work from there
    in-progress work, [open a pull
    request](https://help.github.com/en/articles/creating-a-pull-request-from-a-fork).
    :bangbang: ***Be sure to select a base repository of ``larpix/larpix-control`` and
-   a base of ``master``. The default will be ``release`` but you should
-   change it to ``master``!*** Cite the issue number you're working on in
+   a base of ``latest``. The default will be ``stable`` but you should
+   change it to ``latest``!*** Cite the issue number you're working on in
    the body of the pull request. Select as a "reviewer" whoever you were
    communicating with about the feature you developed. We might suggest or
    require changes to be made before we (or you) merge in your work.
@@ -80,9 +80,9 @@ larpix/larpix-control on GitHub and work from there
 7. We use the "Merge Pull Request" button on the pull request page.
 
 8. To update your fork to reflect your new changes:
-    1. ``git checkout master``
-    2. ``git fetch upstream master``
-    3. ``git merge upstream/master``
+    1. ``git checkout latest``
+    2. ``git fetch upstream latest``
+    3. ``git merge upstream/latest``
     4. Once you're satisfied, you can delete your feature branch with
     ``git branch -d issue/issue#-feature-name``. Delete the remote
     branch on GitHub by navigating to the "branches" page under the
