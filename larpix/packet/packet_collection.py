@@ -211,7 +211,7 @@ class PacketCollection(object):
 
     def by_chip_key(self):
         '''
-        Return a dict of { chipid: PacketCollection }.
+        Return a dict of { chip_key: PacketCollection }.
 
         '''
         chip_groups = {}
@@ -226,7 +226,7 @@ class PacketCollection(object):
             new_collection.message = self.message + ' | chip {}'.format(chip_key)
             new_collection.read_id = self.read_id
             new_collection.parent = self
-            to_return[chipid] = new_collection
+            to_return[chip_key] = new_collection
         return to_return
 
     def with_chipid(self, chipid):
