@@ -37,12 +37,12 @@ setup(
         packages=find_packages(),
         install_requires=[
             'pyserial ~=3.4',
-            'pytest ~=5.4',
+            'pytest ~=6.2',
             'bitarray ~=0.8',
             'pyzmq ~= 18.0',
             'sphinx_rtd_theme ~= 0.5',
             'numpy ~= 1.16',
-            'h5py ~= 2.9',
+            'h5py ~= 3.1',
             'bidict ~= 0.18.0',
             'networkx ~= 2.2'
             ],
