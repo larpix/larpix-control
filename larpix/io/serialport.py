@@ -375,17 +375,17 @@ class SerialPort(IO):
         '''Initialize the low-level serial com connection'''
         self.resolved_port = self._resolve_port_name()
         self.port_type = self._resolve_port_type()
-        if self.port_type is 'pyserial':
+        if self.port_type == 'pyserial':
             self._ready_port = self._ready_port_pyserial
             import serial
             self.serial_com = serial.Serial(self.resolved_port,
                                             baudrate=self.baudrate,
                                             timeout=self.timeout)
-        elif self.port_type is 'pylibftdi':
+        elif self.port_type == 'pylibftdi':
             self._ready_port = self._ready_port_pylibftdi
             import pylibftdi
             self.serial_com = pylibftdi.Device(self.resolved_port)
-        elif self.port_type is 'test':
+        elif self.port_type == 'test':
             self._ready_port = self._ready_port_test
             import test.test_larpix as test_lib
             self.serial_com = test_lib.FakeSerialPort()
@@ -398,7 +398,7 @@ class SerialPort(IO):
         if self.port is None:
             # Must set port
             raise ValueError('You must choose a serial port for operation')
-        if self.port is 'auto':
+        if self.port == 'auto':
             # Try to guess the correct port
             return self._guess_port()
         return self.port
@@ -409,7 +409,7 @@ class SerialPort(IO):
             if self.resolved_port.startswith('/dev'):
                 # Looks like a tty device.  Use pyserial.
                 return 'pyserial'
-            elif self.resolved_port is 'test':
+            elif self.resolved_port == 'test':
                 # Testing port. Don't use an external library
                 return 'test'
             elif not self.resolved_port.startswith('/dev'):

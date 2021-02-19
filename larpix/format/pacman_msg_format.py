@@ -53,6 +53,9 @@ import time
 
 from larpix import Packet_v2, TriggerPacket, SyncPacket, TimestampPacket
 
+#: Most up-to-date message format version.
+latest_version = '0.0'
+
 HEADER_LEN=8
 WORD_LEN=16
 MSG_TYPE_DATA=b'D'
@@ -212,6 +215,7 @@ def _packet_data_data(pkt, ts_pacman, *args):
         return ('TRIG',
                 _replace_none(pkt,'trigger_type'),
                 _replace_none(pkt,'timestamp'))
+    return tuple()
 
 def format(packets, msg_type='REQ', ts_pacman=0):
     '''
@@ -253,10 +257,10 @@ def parse(msg, io_group=None):
             packet.receipt_timestamp = word_data[2]
             packet.io_group = io_group
             packet.io_channel = word_data[1]
-        elif word_data[0] is 'TRIG':
+        elif word_data[0] == 'TRIG':
             packet = TriggerPacket(trigger_type=word_data[1], timestamp=word_data[2])
             packet.io_group = io_group
-        elif word_data[0] is 'SYNC':
+        elif word_data[0] == 'SYNC':
             packet = SyncPacket(sync_type=word_data[1], clk_source=word_data[2] & 0x01, timestamp=word_data[3])
             packet.io_group = io_group
         if packet is not None:

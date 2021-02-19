@@ -35,6 +35,5 @@ for io_group in ctl.network:
             test_channel = 4
             ctl.enable_analog_monitor(chip_key, test_channel)
             # etc
-        chip_keys = [link[1] for link in us_subnetwork.out_edges(chip_keys)]
 
 # Full system tests
