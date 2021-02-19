@@ -215,6 +215,7 @@ def _packet_data_data(pkt, ts_pacman, *args):
         return ('TRIG',
                 _replace_none(pkt,'trigger_type'),
                 _replace_none(pkt,'timestamp'))
+    return tuple()
 
 def format(packets, msg_type='REQ', ts_pacman=0):
     '''
