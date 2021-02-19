@@ -33,6 +33,7 @@ def test_word():
 
 def test_packets():
     packets = []
+    packets.append(TimestampPacket(timestamp=1234567))
     for i in range(100):
         packets.append(Packet_v2())
         packets[-1].io_channel = i
@@ -42,6 +43,6 @@ def test_packets():
     msg = format(packets, msg_type='DATA')
     print(msg)
     new_packets = parse(msg)
-    
-    assert packets == new_packets[1:]
+
+    assert packets[1:] == new_packets[1:]
     assert isinstance(new_packets[0], TimestampPacket)
