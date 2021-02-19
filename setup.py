@@ -15,16 +15,13 @@ with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
 with open(os.path.join(here, 'VERSION')) as f:
     version = f.read()
 
-with open(os.path.join(here, 'LICENSE.txt')) as f:
-    license = f.read()
-
 setup(
         name='larpix-control',
         version=version,
         description='Control the LArPix chip',
         long_description=long_description,
-        long_description_content_type="text/markdown",
-        license=license,
+        long_description_content_type='text/markdown',
+        license='Other/Proprietary License',
         url='https://github.com/larpix/larpix-control',
         author='Peter Madigan and Sam Kohn',
         author_email='pmadigan@lbl.gov',
