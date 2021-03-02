@@ -5,9 +5,9 @@ name: Python tests
 
 on:
   push:
-    branches: [ release latest ]
+    branches: [ release, latest ]
   pull_request:
-    branches: [ release latest ]
+    branches: [ release, latest ]
   workflow_dispatch: {}
 
 jobs:
