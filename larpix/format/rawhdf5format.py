@@ -121,6 +121,9 @@ The hdf5 format contains two datasets ``msgs`` and ``msg_headers``:
 '''
 import time
 import warnings
+import os
+os.environ['HDF5_USE_FILE_LOCKING'] = 'FALSE' # needed for error-free SWMR writer access
+_file_read_reattempts = 100 # also needed to ignore inevitable reader errors for SWMR mode
 
 import h5py
 import numpy as np
@@ -248,12 +251,13 @@ def to_rawfile(filename, msgs=None, version=None, msg_headers=None, io_version=N
             f.swmr_mode = True
         else:
             # existing file
-            file_version = f['meta'].attrs['version']
-            assert (file_version == version) or (version is None), 'Version mismatch! file: {}, requested: {}'.format(file_version, version)
-            version = file_version
-            assert (io_version is None) or ('io_version' in f['meta'].attrs.keys() and f['meta'].attrs['io_version'].split('.')[0] == io_version.split('.')[0] and f['meta'].attrs['io_version'].split('.')[-1] >= io_version.split('.')[-1]), 'IO version mismatch! file: {}, requested {}'.format(f['meta'].attrs['io_version'],io_version)
-
             f.swmr_mode = True
+
+            file_version = f['meta'].attrs['version']
+            assert (file_version == version) or (version is None), \
+                'Version mismatch! file: {}, requested: {}'.format(file_version, version)
+            version = file_version
+            assert (io_version is None) or ('io_version' in f['meta'].attrs.keys() and f['meta'].attrs['io_version'].split('.')[0] == io_version.split('.')[0] and f['meta'].attrs['io_version'].split('.')[-1] >= io_version.split('.')[-1]), 'IO version mismatch! file: {}, requested {}'.format(f['meta'].attrs['io_version'], io_version)
 
             f['meta'].attrs['modified'] = now
 
@@ -294,7 +298,7 @@ def to_rawfile(filename, msgs=None, version=None, msg_headers=None, io_version=N
 def _synchronize(attempts, *dsets):
     if len(dsets) <= 1:
         return
-    success = attempts != 0
+    success = attempts == 0
     attempt = 1
     lengths = [0]*len(dsets)
     while (attempt <= attempts or attempts < 0) and not success:
@@ -318,9 +322,19 @@ def len_rawfile(filename, attempts=1):
     :returns: ``int`` number of messages in file
 
     '''
-    with h5py.File(filename, 'r', swmr=True, libver='latest') as f:
-        _synchronize(attempts, f['msgs'], f['msg_headers'])
-        return len(f['msgs'])
+    err = None
+    for _ in range(_file_read_reattempts):
+        try:
+            with h5py.File(filename, 'r', swmr=True, libver='latest') as f:
+                _synchronize(attempts, f['msgs'], f['msg_headers'])
+                return len(f['msgs'])
+        except OSError as e:
+            if e.errno is None:
+                warnings.warn(str(e) + '\ntrying again...', RuntimeWarning)
+                err = e
+            else:
+                raise e
+    raise err
 
 def from_rawfile(filename, start=None, end=None, version=None, io_version=None, msg_headers_only=False, mask=None, attempts=1):
     '''
@@ -345,41 +359,52 @@ def from_rawfile(filename, start=None, end=None, version=None, io_version=None, 
     :returns: ``dict`` with keys for ``'created'``, ``'modified'``, ``'version'``, and ``'io_version'`` metadata, along with ``'msgs'`` (a ``list`` of bytestring messages) and ``'msg_headers'`` (a dict with message header field name: ``list`` of message header field data, 1 per message)
 
     '''
-    with h5py.File(filename, 'r', swmr=True, libver='latest') as f:
-        # fetch metadata
-        created = f['meta'].attrs['created']
-        modified = f['meta'].attrs['modified']
+    err = None
+    for _ in range(_file_read_reattempts):
+        try:
+            with h5py.File(filename, 'r', swmr=True, libver='latest') as f:
+                # fetch metadata
+                created = f['meta'].attrs['created']
+                modified = f['meta'].attrs['modified']
 
-        # check file format version is compatible
-        file_version = f['meta'].attrs['version']
-        version_major = file_version.split('.')[0]
-        assert (version is None) or (file_version >= version and version_major == version.split('.')[0]), 'Incompatible version mismatch! file: {}, requested: {}'.format(file_version, version)
-        version_minor = min(file_version.split('.')[-1], version.split('.')[-1]) if version is not None else file_version.split('.')[-1]
-        version = '{}.{}'.format(version_major,version_minor)
+                # check file format version is compatible
+                file_version = f['meta'].attrs['version']
+                version_major = file_version.split('.')[0]
+                assert (version is None) or (file_version >= version and version_major == version.split('.')[0]), 'Incompatible version mismatch! file: {}, requested: {}'.format(file_version, version)
+                version_minor = min(file_version.split('.')[-1], version.split('.')[-1]) if version is not None else file_version.split('.')[-1]
+                version = '{}.{}'.format(version_major,version_minor)
 
-        # check io format version is compatible
-        file_io_version = f['meta'].attrs['io_version'] if 'io_version' in f['meta'].attrs.keys() else None
-        io_version_major, io_version_minor = file_io_version.split('.') if file_io_version is not None else (None,None)
-        assert (io_version is None) or (file_io_version is None) or (io_version_major == io_version.split('.')[0] and io_version_minor >= io_version.split('.')[-1]), 'IO version mismatch! file: {}, requested {}'.format(file_io_version,io_version)
-        io_version = file_io_version
+                # check io format version is compatible
+                file_io_version = f['meta'].attrs['io_version'] if 'io_version' in f['meta'].attrs.keys() else None
+                io_version_major, io_version_minor = file_io_version.split('.') if file_io_version is not None else (None,None)
+                assert (io_version is None) or (file_io_version is None) or (io_version_major == io_version.split('.')[0] and io_version_minor >= io_version.split('.')[-1]), 'IO version mismatch! file: {}, requested {}'.format(file_io_version,io_version)
+                io_version = file_io_version
 
-        # check to make sure that the msgs and headers dsets are synchronized
-        _synchronize(attempts, f['msgs'], f['msg_headers'])
+                # check to make sure that the msgs and headers dsets are synchronized
+                _synchronize(attempts, f['msgs'], f['msg_headers'])
 
-        # define chunk of data to load
-        start = int(start) if start is not None else 0
-        end = int(end) if end is not None else len(f['msgs'])
-        mask = mask if mask is not None else slice(start,end)
+                # define chunk of data to load
+                start = int(start) if start is not None else 0
+                end = int(end) if end is not None else len(f['msgs'])
+                mask = mask if mask is not None else slice(start,end)
 
-        # get data from file
-        msg_headers = _parse_msg_headers(f['msg_headers'][mask], version)
-        msgs = _parse_msgs(f['msgs'][mask], version) if not msg_headers_only else None
+                # get data from file
+                msg_headers = _parse_msg_headers(f['msg_headers'][mask], version)
+                msgs = _parse_msgs(f['msgs'][mask], version) if not msg_headers_only else None
 
-        return dict(
-            created=created,
-            modified=modified,
-            version=version,
-            io_version=io_version,
-            msgs=msgs,
-            msg_headers=msg_headers
-            )
+                return dict(
+                    created=created,
+                    modified=modified,
+                    version=version,
+                    io_version=io_version,
+                    msgs=msgs,
+                    msg_headers=msg_headers
+                    )
+        except OSError as e:
+            if e.errno is None:
+                warnings.warn(str(e) + '\ntrying again...', RuntimeWarning)
+                err = e
+            else:
+                raise e
+        raise err
+
