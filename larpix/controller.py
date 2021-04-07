@@ -1071,6 +1071,40 @@ class Controller(object):
             self.stop_listening()
             self.store_packets(packets, bytestream, message)
 
+    def differential_write_configuration(self, chip_config_pairs, write_read=0,
+            message=None, connection_delay=0.2):
+        '''
+        Send different configuration registers between configs passed in
+        ``chip_config_pairs`` and existing configs. Performs a single
+        ``multi_write_configuration``.
+
+        :param chip_config_pairs: list of ``(chip_key, config_object)`` pairs to perform differential write against
+
+        :returns: list of ``(chip_key, list_of_registers)`` pairs
+
+        '''
+        if message is None:
+            message = 'differential configuration write'
+        else:
+            message = 'differential configuration write: ' + message
+
+        register_names = [
+            (key, list(self[key].config.compare(config)))
+            for key, config in chip_config_pairs
+            ]
+        register_addresses = [
+            (key, sorted(list(set([addr for name in names for addr in self[key].config.register_map[name]]))))
+            for key, names in register_names
+            ]
+
+        self.multi_write_configuration(
+            register_addresses,
+            write_read=write_read,
+            connection_delay=connection_delay,
+            message=message
+            )
+        return register_addresses
+
     def multi_read_configuration(self, chip_reg_pairs, timeout=1,
                                  message=None, connection_delay=0.2):
         '''
