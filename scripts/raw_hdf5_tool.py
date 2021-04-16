@@ -63,7 +63,7 @@ def merge_files(input_filenames, output_filename, block_size):
     return
 
 def split_file(input_filename, output_directory, max_length, block_size):
-    with h5py.File(input_filename, 'r') as fi:
+    with h5py.File(input_filename, 'r', libver='latest', swmr=True) as fi:
         output_filename_fmt = os.path.join(output_directory, os.path.basename(input_filename)[:-2]) + '{}.h5'
 
         i = 0
@@ -91,6 +91,8 @@ def split_file(input_filename, output_directory, max_length, block_size):
                     for attr,value in fi['meta'].items():
                         fo['meta'].attrs[attr] = value
 
+                    fo.swmr_mode = True
+
                 # resize datasets
                 prev_idx = curr_idx
                 curr_idx += end - start
@@ -100,6 +102,9 @@ def split_file(input_filename, output_directory, max_length, block_size):
                 # copy data
                 fo['msgs'][prev_idx:curr_idx] = fi['msgs'][start:end]
                 fo['msg_headers'][prev_idx:curr_idx] = fi['msg_headers'][start:end]
+
+                f['msgs'].flush()
+                f['msg_headers'].flush()
         except:
             raise
         finally:
