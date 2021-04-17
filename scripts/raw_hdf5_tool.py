@@ -69,16 +69,17 @@ def split_file(input_filename, output_directory, max_length, block_size):
         i = 0
         curr_idx, prev_idx = 0, 0
         fo = None
+
         try:
             for start in tqdm(range(0, len(fi['msgs']), block_size)) if _has_tqdm else range(0, len(fi['msgs']), block_size):
                 end = min(start+block_size, len(fi['msgs']))
 
-                if fo is None or (curr_idx >= max_length and max_length > 0):
+                if fo is None or (os.stat(output_filename).st_size >= max_length and max_length > 0):
                     # open next file
                     if fo is not None:
                         fo.close()
-                    fo = h5py.File(output_filename_fmt.format(i), 'a', libver='latest')
-                    print(output_filename_fmt.format(i))
+                    output_filename = output_filename_fmt.format(i)
+                    fo = h5py.File(output_filename, 'a', libver='latest')
                     i += 1
                     curr_idx, prev_idx = 0, 0
 
@@ -88,7 +89,7 @@ def split_file(input_filename, output_directory, max_length, block_size):
                     fo.create_dataset('msg_headers', shape=(0,), maxshape=(None,), compression='gzip', dtype=fi['msg_headers'].dtype)
 
                     # copy meta data
-                    for attr,value in fi['meta'].items():
+                    for attr,value in fi['meta'].attrs.items():
                         fo['meta'].attrs[attr] = value
 
                     fo.swmr_mode = True
