@@ -2,7 +2,9 @@ from larpix import Configuration_v2
 from bitarray import bitarray
 import larpix.bitarrayhelper as bah
 from larpix import configs
+
 import json
+import random
 
 def test_v2_conf_all_registers():
     default_filename = 'chip/default_v2.json'
@@ -229,3 +231,47 @@ def test_get_nondefault_registers():
             'csa_enable': [({'index': 35, 'value': 0}, {'index': 35,
                 'value': 1})],
             }
+
+def test_v2_conf_all_data():
+    c = Configuration_v2()
+    config_data = c.all_data()
+
+    assert len(config_data) == c.num_registers, \
+        f'config data length incorrect (should be {c.num_registers}, is {len(config_data)})'
+
+    for reg_name in c.register_map.keys():
+        reg_data = getattr(c, f'{reg_name}_data')
+        for reg_addr, bits in reg_data:
+            assert bits == config_data[reg_addr], \
+                f'register {reg_addr} mismatch (should be {bits}, is {config_data[reg_addr]})'
+
+def test_v2_conf_some_data():
+    c = Configuration_v2()
+
+    req_addrs = range(c.num_registers)
+    addrs, bits = c.some_data(req_addrs)
+    config_data = c.all_data()
+
+    # check all addresses
+    assert len(addrs) == len(req_addrs), \
+        f'config data length incorrect (should be {len(req_addrs)}, is {len(addrs)})'
+    assert set(addrs) == set(req_addrs), \
+        f'config data values incorrect (should be {set(req_addrs)}, is {set(addrs)})'
+
+    for addr, addr_bits in zip(addrs, bits):
+        assert addr_bits == config_data[addr], \
+            f'register {addr} mismatch (should be {config_data[addr]}, is {addr_bits})'
+
+    # check partial addresses
+    req_addrs = random.sample(range(c.num_registers), c.num_registers//2)
+    addrs, bits = c.some_data(req_addrs)
+
+    # check all addresses
+    assert len(addrs) == len(req_addrs), \
+        f'config data length incorrect (should be {len(req_addrs)}, is {len(addrs)})'
+    assert set(addrs) == set(req_addrs), \
+        f'config data values incorrect (should be {set(req_addrs)}, is {set(addrs)})'
+
+    for addr, addr_bits in zip(addrs, bits):
+        assert addr_bits == config_data[addr], \
+            f'register {addr} mismatch (should be {config_data[addr]}, is {addr_bits})'
