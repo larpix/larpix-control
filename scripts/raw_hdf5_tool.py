@@ -133,7 +133,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('-i', nargs='+', required=True, help='Input file(s)')
     parser.add_argument('-o', required=True, type=str, help='Output file or directory')
-    parser.add_argument('--max_length', type=int, default=_default_max_length, required=False, help='Max dataset length (split only, default=%(default)s)')
+    parser.add_argument('--max_length', type=int, default=_default_max_length, required=False, help='Max dataset length (split only, default=%(default)s bytes)')
     parser.add_argument('--block_size', type=int, default=_default_block_size, required=False, help='Block size used for reads (default=%(default)s)')
     parser.add_argument('--merge', action='store_true', help='Flag to merge files')
     parser.add_argument('--split', action='store_true', help='Flag to split files')
