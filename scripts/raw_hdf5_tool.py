@@ -104,8 +104,8 @@ def split_file(input_filename, output_directory, max_length, block_size):
                 fo['msgs'][prev_idx:curr_idx] = fi['msgs'][start:end]
                 fo['msg_headers'][prev_idx:curr_idx] = fi['msg_headers'][start:end]
 
-                f['msgs'].flush()
-                f['msg_headers'].flush()
+                fo['msgs'].flush()
+                fo['msg_headers'].flush()
         except:
             raise
         finally:
