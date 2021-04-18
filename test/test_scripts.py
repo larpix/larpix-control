@@ -42,11 +42,9 @@ def packet_hdf5_tmpfile(tmpdir, test_packets):
 def test_convert_rawhdf5_to_hdf5(tmpdir, raw_hdf5_tmpfile):
     out_filename = os.path.join(tmpdir, 'datalog_convert_test.h5')
     proc = subprocess.run(
-        ['convert_rawhdf5_to_hdf5.py', '-i', raw_hdf5_tmpfile, '-o', out_filename, '--block_size', '10']
+        ['convert_rawhdf5_to_hdf5.py', '-i', raw_hdf5_tmpfile, '-o', out_filename, '--block_size', '10'],
+        check=True
         )
-    out = proc.stdout.decode('utf-8') + '\n' + proc.stderr.decode('utf-8') if sys.version_info[1] == 6 else None
-    assert proc.returncode == 0, \
-        f'Return code: {proc.returncode}\nout: {out}'
 
     # test read from file
     new_packets = p_h5_fmt.from_file(out_filename)['packets']
@@ -59,41 +57,34 @@ def test_packet_hdf5_tool(tmpdir, packet_hdf5_tmpfile, test_packets):
 
     # test merge
     proc = subprocess.run(
-        ['packet_hdf5_tool.py', '--merge', '-i', packet_hdf5_tmpfile, packet_hdf5_tmpfile, '-o', out_filename, '--block_size', '10']
+        ['packet_hdf5_tool.py', '--merge', '-i', packet_hdf5_tmpfile, packet_hdf5_tmpfile, '-o', out_filename, '--block_size', '10'],
+        check=True
         )
-    out = proc.stdout.decode('utf-8') + '\n' + proc.stderr.decode('utf-8') if sys.version_info[1] == 6 else None
-    assert proc.returncode == 0, \
-        f'Return code: {proc.returncode}\nout: {out}'
 
     # test read from file
     orig_packets = p_h5_fmt.from_file(packet_hdf5_tmpfile)['packets']
     orig_packets += p_h5_fmt.from_file(packet_hdf5_tmpfile)['packets']
     new_packets = p_h5_fmt.from_file(out_filename)['packets']
     assert len(orig_packets) == len(new_packets)
-    assert orig_packets == new_packets, \
-        f'Return code: {proc.returncode}\nout: {out}'
+    assert orig_packets == new_packets
 
 def test_raw_hdf5_tool(tmpdir, raw_hdf5_tmpfile, test_packets):
     out_filename = os.path.join(tmpdir, 'raw_tool_test.h5')
 
     # test merge
     proc = subprocess.run(
-        ['raw_hdf5_tool.py', '--merge', '-i', raw_hdf5_tmpfile, raw_hdf5_tmpfile, '-o', out_filename, '--block_size', '10']
+        ['raw_hdf5_tool.py', '--merge', '-i', raw_hdf5_tmpfile, raw_hdf5_tmpfile, '-o', out_filename, '--block_size', '10'],
+        check=True
         )
-    out = proc.stdout.decode('utf-8') + '\n' + proc.stderr.decode('utf-8') if sys.version_info[1] == 6 else None
-    assert proc.returncode == 0, \
-        f'Return code: {proc.returncode}\nout: {out}'
 
     # test read data
     assert r_h5_fmt.from_rawfile(raw_hdf5_tmpfile)['msgs'] + r_h5_fmt.from_rawfile(raw_hdf5_tmpfile)['msgs'] == r_h5_fmt.from_rawfile(out_filename)['msgs']
 
     # test merge
     proc = subprocess.run(
-        ['raw_hdf5_tool.py', '--split', '-i', out_filename, '-o', tmpdir, '--max_length', '0', '--block_size', '10']
+        ['raw_hdf5_tool.py', '--split', '-i', out_filename, '-o', tmpdir, '--max_length', '0', '--block_size', '10'],
+        check=True
         )
-    out = proc.stdout.decode('utf-8') + '\n' + proc.stderr.decode('utf-8') if sys.version_info[1] == 6 else None
-    assert proc.returncode == 0, \
-        f'Return code: {proc.returncode}\nout: {out}'
 
     # test read data
     assert r_h5_fmt.from_rawfile(raw_hdf5_tmpfile)['msgs'] + r_h5_fmt.from_rawfile(raw_hdf5_tmpfile)['msgs'] == r_h5_fmt.from_rawfile(out_filename)['msgs']

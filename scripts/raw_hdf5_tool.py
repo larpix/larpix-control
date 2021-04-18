@@ -26,7 +26,7 @@ try:
     from tqdm import tqdm
     _has_tqdm = True
 except Exception as e:
-    warnings.warn(e)
+    warnings.warn(str(e), RuntimeWarning)
     _has_tqdm = False
 
 _default_max_length = -1
