@@ -69,7 +69,7 @@ def split_file(input_filename, output_directory, max_length, block_size):
         i = 0
         curr_idx, prev_idx = 0, 0
         fo = None
-
+        output_filename = output_filename_fmt.format(i)
         try:
             for start in tqdm(range(0, len(fi['msgs']), block_size)) if _has_tqdm else range(0, len(fi['msgs']), block_size):
                 end = min(start+block_size, len(fi['msgs']))
