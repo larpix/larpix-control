@@ -69,6 +69,34 @@ class Configuration_v2(BaseConfiguration):
                         bits += [register_bits[::-1]]
         return bits
 
+    def some_data(self, registers, endian='little'):
+        '''
+        Fetch register addresses and data from a selected set of registers
+
+        :param registers: list of registers to fetch data for, specified either by register name (str) or register addresses (int)
+
+        :returns: tuple of list of register addresses and list of register data
+
+        '''
+        bits = []
+        addrs = []
+        for register in registers:
+            if isinstance(register, int):
+                register_name = self.register_map_inv[register][0]
+                register_data = getattr(self, register_name+'_data')
+            elif isinstance(register, str):
+                register_data = getattr(self, register+'_data')
+            for register_addr, register_bits in register_data:
+                if isinstance(register, int) and register_addr != register:
+                    continue
+                if endian[0] == 'l':
+                    bits += [register_bits]
+                    addrs += [register_addr]
+                else:
+                    bits += [register_bits[::-1]]
+                    addrs += [register_addr]
+        return addrs, bits
+
     def from_dict_registers(self, d, endian='little'):
         '''
         Load in the configuration specified by a dict of (register,

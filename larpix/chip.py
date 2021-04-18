@@ -73,8 +73,11 @@ class Chip(object):
         if registers is None:
             registers = range(conf.num_registers)
         packets = []
-        packet_register_data = conf.all_data()
-        for i, data in enumerate(packet_register_data):
+        if self.asic_version == 1:
+            packet_register_data = enumerate(conf.all_data())
+        elif self.asic_version in (2, 'lightpix-v1.0'):
+            packet_register_data = zip(*conf.some_data(registers))
+        for i, data in packet_register_data:
             if i not in registers:
                 continue
             if self.asic_version == 1:
