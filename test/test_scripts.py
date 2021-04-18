@@ -10,7 +10,7 @@ import larpix.format.pacman_msg_format as p_msg_fmt
 @pytest.fixture
 def test_packets():
     pkts = []
-    for _ in range(10):
+    for _ in range(100):
         pkts += [[]]
         pkts[-1] += [TimestampPacket(0)]
         pkts[-1] += [Packet_v2(b'\x00\x00\x00\x00\x00\x00\x00\x01')] * 10
@@ -41,7 +41,7 @@ def packet_hdf5_tmpfile(tmpdir, test_packets):
 def test_convert_rawhdf5_to_hdf5(tmpdir, raw_hdf5_tmpfile):
     out_filename = os.path.join(tmpdir, 'datalog_convert_test.h5')
     proc = subprocess.run(
-        ['convert_rawhdf5_to_hdf5.py', '-i', raw_hdf5_tmpfile, '-o', out_filename],
+        ['convert_rawhdf5_to_hdf5.py', '-i', raw_hdf5_tmpfile, '-o', out_filename, '--block_size', '10'],
         capture_output=True
         )
     out = proc.stdout.decode('utf-8') + '\n' + proc.stderr.decode('utf-8')
@@ -59,7 +59,7 @@ def test_packet_hdf5_tool(tmpdir, packet_hdf5_tmpfile, test_packets):
 
     # test merge
     proc = subprocess.run(
-        ['packet_hdf5_tool.py', '--merge', '-i', packet_hdf5_tmpfile, packet_hdf5_tmpfile, '-o', out_filename],
+        ['packet_hdf5_tool.py', '--merge', '-i', packet_hdf5_tmpfile, packet_hdf5_tmpfile, '-o', out_filename, '--block_size', '10'],
         capture_output=True
         )
     out = proc.stdout.decode('utf-8') + '\n' + proc.stderr.decode('utf-8')
@@ -81,7 +81,7 @@ def test_raw_hdf5_tool(tmpdir, raw_hdf5_tmpfile, test_packets):
 
     # test merge
     proc = subprocess.run(
-        ['raw_hdf5_tool.py', '--merge', '-i', raw_hdf5_tmpfile, raw_hdf5_tmpfile, '-o', out_filename],
+        ['raw_hdf5_tool.py', '--merge', '-i', raw_hdf5_tmpfile, raw_hdf5_tmpfile, '-o', out_filename, '--block_size', '10'],
         capture_output=True
         )
     out = proc.stdout.decode('utf-8') + '\n' + proc.stderr.decode('utf-8')
@@ -93,7 +93,7 @@ def test_raw_hdf5_tool(tmpdir, raw_hdf5_tmpfile, test_packets):
 
     # test merge
     proc = subprocess.run(
-        ['raw_hdf5_tool.py', '--split', '-i', out_filename, '-o', tmpdir, '--max_length', '0'],
+        ['raw_hdf5_tool.py', '--split', '-i', out_filename, '-o', tmpdir, '--max_length', '0', '--block_size', '10'],
         capture_output=True
         )
     out = proc.stdout.decode('utf-8') + '\n' + proc.stderr.decode('utf-8')
