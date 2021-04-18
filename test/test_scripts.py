@@ -49,8 +49,7 @@ def test_convert_rawhdf5_to_hdf5(tmpdir, raw_hdf5_tmpfile):
     # test read from file
     new_packets = p_h5_fmt.from_file(out_filename)['packets']
     orig_packets = [p_msg_fmt.parse(msg) for msg in r_h5_fmt.from_rawfile(raw_hdf5_tmpfile)['msgs']]
-    assert new_packets == [p for pkts in orig_packets for p in pkts], \
-        f'Return code: {proc.returncode}\nout: {out}'
+    assert new_packets == [p for pkts in orig_packets for p in pkts]
 
 def test_packet_hdf5_tool(tmpdir, packet_hdf5_tmpfile, test_packets):
     out_filename = os.path.join(tmpdir, 'datalog_tool_test.h5')
