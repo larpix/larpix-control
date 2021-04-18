@@ -27,7 +27,8 @@ except Exception as e:
 _default_max_length = -1
 _default_block_size = 102400
 
-def move_dataset(input_file, output_file, dset_name, curr_idx, block_size):
+def move_dataset(input_file, output_file, dset_name, block_size):
+    curr_idx = len(output_file[dset_name])
     output_file[dset_name].resize((len(output_file[dset_name]) + len(input_file[dset_name]),))
     # copy data in chunks
     for start in tqdm(range(0, len(input_file[dset_name]), block_size)) if _has_tqdm else range(0, len(input_file[dset_name]), block_size):
@@ -38,7 +39,6 @@ def move_dataset(input_file, output_file, dset_name, curr_idx, block_size):
 
 def merge_files(input_filenames, output_filename, block_size):
     with h5py.File(output_filename, 'w') as fo:
-        curr_idx = 0
         for i,input_filename in enumerate(input_filenames):
             print(input_filename, '{}/{}'.format(i+1, len(input_filenames)))
             with h5py.File(input_filename, 'r') as fi:
@@ -56,10 +56,10 @@ def merge_files(input_filenames, output_filename, block_size):
                             fo[dset_name].attrs[attr] = value
 
                 # copy data
-                for dset_name in fi.keys():
-                    if isinstance(fi[dset_name], h5py.Dataset):
+                for dset_name in fo.keys():
+                    if isinstance(fo[dset_name], h5py.Dataset):
                         print('copying',dset_name,'...')
-                        move_dataset(fi, fo, dset_name, curr_idx, block_size)
+                        move_dataset(fi, fo, dset_name, block_size)
 
 
 def main(input_filenames, output_filename, max_length=_default_max_length, block_size=_default_block_size, **kwargs):

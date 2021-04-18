@@ -42,23 +42,23 @@ def merge_files(input_filenames, output_filename, block_size):
                 if i == 0:
                     # create datasets and groups
                     fo.create_group('meta')
-                    fo.create_dataset('msgs', shape=fi['msgs'].shape, maxshape=(None,), compression='gzip', dtype=fi['msgs'].dtype)
-                    fo.create_dataset('msg_headers', shape=fi['msg_headers'].shape, maxshape=(None,), compression='gzip', dtype=fi['msg_headers'].dtype)
+                    fo.create_dataset('msgs', shape=(0,), maxshape=(None,), compression='gzip', dtype=fi['msgs'].dtype)
+                    fo.create_dataset('msg_headers', shape=(0,), maxshape=(None,), compression='gzip', dtype=fi['msg_headers'].dtype)
 
                     # copy meta data
                     for attr,value in fi['meta'].attrs.items():
                         fo['meta'].attrs[attr] = value
-                else:
-                    # resize datasets
-                    fo['msgs'].resize((len(fo['msgs']) + len(fi['msgs']),))
-                    fo['msg_headers'].resize((len(fo['msg_headers']) + len(fi['msg_headers']),))
+
+                # resize datasets
+                fo['msgs'].resize((len(fo['msgs']) + len(fi['msgs']),))
+                fo['msg_headers'].resize((len(fo['msg_headers']) + len(fi['msg_headers']),))
 
                 # copy data in chunks
                 for start in tqdm(range(0, len(fi['msgs']), block_size)) if _has_tqdm else range(0, len(fi['msgs']), block_size):
                     end = min(start+block_size, len(fi['msgs']))
                     prev_idx = curr_idx
                     curr_idx += end - start
-                    fo['msgs'][prev_idx:curr_idx] = fi['msgs'][start:end]
+                    fo['msgs'][prev_idx:curr_idx] = [fi['msgs'][i] for i in range(start,end)] # loop needed because h5py was giving an error
                     fo['msg_headers'][prev_idx:curr_idx] = fi['msg_headers'][start:end]
     return
 
@@ -101,7 +101,7 @@ def split_file(input_filename, output_directory, max_length, block_size):
                 fo['msg_headers'].resize((curr_idx,))
 
                 # copy data
-                fo['msgs'][prev_idx:curr_idx] = fi['msgs'][start:end]
+                fo['msgs'][prev_idx:curr_idx] = [fi['msgs'][i] for i in range(start,end)] # loop needed because h5py was giving an error
                 fo['msg_headers'][prev_idx:curr_idx] = fi['msg_headers'][start:end]
 
                 fo['msgs'].flush()
