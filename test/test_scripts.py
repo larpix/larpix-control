@@ -2,6 +2,8 @@ import pytest
 import os
 import subprocess
 import sys
+import os
+_dir_ = os.path.dirname(os.path.abspath(__file__))
 
 from larpix import TimestampPacket, Packet_v2, SyncPacket, TriggerPacket
 import larpix.format.rawhdf5format as r_h5_fmt
@@ -42,8 +44,8 @@ def packet_hdf5_tmpfile(tmpdir, test_packets):
 def test_convert_rawhdf5_to_hdf5(tmpdir, raw_hdf5_tmpfile):
     out_filename = os.path.join(tmpdir, 'datalog_convert_test.h5')
     proc = subprocess.run(
-        ['python', 'convert_rawhdf5_to_hdf5.py', '-i', raw_hdf5_tmpfile, '-o', out_filename, '--block_size', '10'],
-        check=True, shell=True
+        ['python', os.path.join(_dir_,'../scripts/convert_rawhdf5_to_hdf5.py'), '-i', raw_hdf5_tmpfile, '-o', out_filename, '--block_size', '10'],
+        check=True
         )
 
     # test read from file
@@ -56,8 +58,8 @@ def test_packet_hdf5_tool(tmpdir, packet_hdf5_tmpfile, test_packets):
 
     # test merge
     proc = subprocess.run(
-        ['python', 'packet_hdf5_tool.py', '--merge', '-i', packet_hdf5_tmpfile, packet_hdf5_tmpfile, '-o', out_filename, '--block_size', '10'],
-        check=True, shell=True
+        ['python', os.path.join(_dir_,'../scripts/packet_hdf5_tool.py'), '--merge', '-i', packet_hdf5_tmpfile, packet_hdf5_tmpfile, '-o', out_filename, '--block_size', '10'],
+        check=True
         )
 
     # test read from file
@@ -72,8 +74,8 @@ def test_raw_hdf5_tool(tmpdir, raw_hdf5_tmpfile, test_packets):
 
     # test merge
     proc = subprocess.run(
-        ['python', 'raw_hdf5_tool.py', '--merge', '-i', raw_hdf5_tmpfile, raw_hdf5_tmpfile, '-o', out_filename, '--block_size', '10'],
-        check=True, shell=True
+        ['python', os.path.join(_dir_,'../scripts/raw_hdf5_tool.py'), '--merge', '-i', raw_hdf5_tmpfile, raw_hdf5_tmpfile, '-o', out_filename, '--block_size', '10'],
+        check=True
         )
 
     # test read data
@@ -81,8 +83,8 @@ def test_raw_hdf5_tool(tmpdir, raw_hdf5_tmpfile, test_packets):
 
     # test merge
     proc = subprocess.run(
-        ['python', 'raw_hdf5_tool.py', '--split', '-i', out_filename, '-o', tmpdir, '--max_length', '0', '--block_size', '10'],
-        check=True, shell=True
+        ['python', os.path.join(_dir_,'../scripts/raw_hdf5_tool.py'), '--split', '-i', out_filename, '-o', tmpdir, '--max_length', '0', '--block_size', '10'],
+        check=True
         )
 
     # test read data
