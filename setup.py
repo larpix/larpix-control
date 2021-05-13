@@ -46,7 +46,9 @@ setup(
         scripts=[
             'scripts/gen_controller_config.py',
             'scripts/gen_hydra_simple.py',
-            'scripts/convert_rawhdf5_to_hdf5.py'
+            'scripts/convert_rawhdf5_to_hdf5.py',
+            'scripts/packet_hdf5_tool.py',
+            'scripts/raw_hdf5_tool.py'
             ],
         package_data={
             'larpix.configs': ['*/*.json'],
