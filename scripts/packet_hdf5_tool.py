@@ -33,6 +33,7 @@ def move_dataset(input_file, output_file, dset_name, block_size):
     mc_assn_flag =  dset_name == 'mc_packets_assn'
     mc_offset = curr_idx
 
+
     output_file[dset_name].resize((len(output_file[dset_name]) + len(input_file[dset_name]),))
     # copy data in chunks
     for start in tqdm(range(0, len(input_file[dset_name]), block_size)) if _has_tqdm else range(0, len(input_file[dset_name]), block_size):
@@ -55,7 +56,6 @@ def merge_files(input_filenames, output_filename, block_size):
             with h5py.File(input_filename, 'r') as fi:
                 if i == 0:
                     # create datasets and groups
-                    #fo.create_group('_header')
                     for grp_name in fi.keys():
                         if isinstance(fi[grp_name], h5py.Group):
                             fo.copy(fi[grp_name], grp_name)
