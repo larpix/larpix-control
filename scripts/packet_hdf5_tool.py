@@ -29,13 +29,24 @@ _default_block_size = 102400
 
 def move_dataset(input_file, output_file, dset_name, block_size):
     curr_idx = len(output_file[dset_name])
+
+    mc_assn_flag =  dset_name == 'mc_packets_assn'
+    mc_offset = curr_idx
+
     output_file[dset_name].resize((len(output_file[dset_name]) + len(input_file[dset_name]),))
     # copy data in chunks
     for start in tqdm(range(0, len(input_file[dset_name]), block_size)) if _has_tqdm else range(0, len(input_file[dset_name]), block_size):
         end = min(start+block_size, len(input_file[dset_name]))
         prev_idx = curr_idx
         curr_idx += end - start
-        output_file[dset_name][prev_idx:curr_idx] = input_file[dset_name][start:end]
+
+        if mc_assn_flag:
+            # special case for mc packets associations, add offset since start of dataset to track_ids
+            data = input_file[dset_name][start:end]
+            data['track_ids'] += offset
+            output_file[dset_name][prev_idx:curr_idx] = data
+        else:
+            output_file[dset_name][prev_idx:curr_idx] = input_file[dset_name][start:end]
 
 def merge_files(input_filenames, output_filename, block_size):
     with h5py.File(output_filename, 'w') as fo:
