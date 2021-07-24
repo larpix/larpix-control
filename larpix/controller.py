@@ -358,7 +358,7 @@ class Controller(object):
         if system_info['asic_version'] == 1:
             print('loading v1 controller...')
             return self.load_controller(filename)
-        if system_info['asic_version'] in (2, 'lightpix-1'):
+        if system_info['asic_version'] in (2, 'lightpix-1', '2b'):
             print('loading v2 network...')
             return self.load_network(filename, version=system_info['asic_version'])
 
