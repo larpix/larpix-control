@@ -8,6 +8,7 @@ from .. import bitarrayhelper as bah
 from .. import configs
 from . import Configuration_v2, _Smart_List
 from . import configuration_v2 as conf_v2
+from . import configuration_v2_base as v2_base
 
 class Configuration_Lightpix_v1(Configuration_v2):
     '''
@@ -34,11 +35,11 @@ class Configuration_Lightpix_v1(Configuration_v2):
 #
 _property_configuration = OrderedDict([
         ('lightpix_mode',
-            (conf_v2._compound_property, (['lightpix_mode','hit_threshold'], (int,bool), 0, 1), (1896, 1897))),
+            (v2_base._compound_property, (['lightpix_mode','hit_threshold'], (int,bool), 0, 1), (1896, 1897))),
         ('hit_threshold',
-            (conf_v2._compound_property, (['lightpix_mode','hit_threshold'], int, 0, 127), (1897, 1904))),
+            (v2_base._compound_property, (['lightpix_mode','hit_threshold'], int, 0, 127), (1897, 1904))),
         ('timeout',
-            (conf_v2._basic_property, (int, 0, 255), (1904, 1912))),
+            (v2_base._basic_property, (int, 0, 255), (1904, 1912))),
     ])
 _property_configuration.update(conf_v2._property_configuration)
 
@@ -46,4 +47,4 @@ _property_configuration.update(conf_v2._property_configuration)
 Configuration_Lightpix_v1.bit_map = OrderedDict()
 Configuration_Lightpix_v1.register_map = OrderedDict()
 Configuration_Lightpix_v1.register_names = []
-conf_v2._generate_properties(Configuration_Lightpix_v1, _property_configuration, verbose=False)
+v2_base._generate_properties(Configuration_Lightpix_v1, _property_configuration, verbose=False)

@@ -23,7 +23,7 @@ class Chip(object):
             self.config = Configuration_v2()
         elif self.asic_version == 'lightpix-v1.0':
             self.config = Configuration_Lightpix_v1()
-        elif self.asic_version == '2b' or self.asic_version == 'larpix-v2b':
+        elif self.asic_version == '2b':
             self.config = Configuration_v2b()
         else:
             raise RuntimeError('chip asic version is invalid')
@@ -77,7 +77,7 @@ class Chip(object):
         packets = []
         if self.asic_version == 1:
             packet_register_data = enumerate(conf.all_data())
-        elif self.asic_version in (2, 'lightpix-v1.0', '2b', 'larpix-v2b'):
+        elif self.asic_version in (2, 'lightpix-v1.0', '2b'):
             packet_register_data = zip(*conf.some_data(registers))
         for i, data in packet_register_data:
             if i not in registers:
