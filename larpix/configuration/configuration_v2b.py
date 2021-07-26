@@ -12,7 +12,7 @@ from . import configuration_v2_base as v2_base
 
 class Configuration_v2b(BaseConfiguration_v2):
     '''
-    Represents the desired configuration state of a LArPix v2 chip.
+    Represents the desired configuration state of a LArPix v2b chip.
 
     Each register name is available as its own attribute for inspecting and
     setting the value of the corresponding register.

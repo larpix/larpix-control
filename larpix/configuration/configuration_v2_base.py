@@ -12,34 +12,7 @@ class BaseConfiguration_v2(BaseConfiguration):
     '''
     Base class for building desired configurations of a LArPix v2 (or v2b) chip.
 
-    Each register name is available as its own attribute for inspecting and
-    setting the value of the corresponding register.
-
-    Certain configuration values are set channel-by-channel. These are
-    represented by a list of values. For example:
-
-        >>> conf.pixel_trim_dac[2:5]
-        [16, 16, 16]
-        >>> conf.channel_mask[20] = 1
-        >>> conf.external_trigger_mask = [0] * 64
-
-    Additionally, other configuration values take up more than or less
-    than one complete register. These are still set by referencing the
-    appropriate name. For example, ``cross_trigger_mode`` shares a
-    register with a few other values, and adjusting the value of the
-    ``cross_trigger_mode`` attribute will leave the other values
-    unchanged.
-
-    Each register name can cover more than one 'physical' register depending on
-    the size of the data it holds. You can see which physical registers a
-    given register name corresponds to by using the `register_map` attribute, e.g.::
-
-        >>> conf.register_map['digital_threshold']  # 64 registers, 1 per channel
-        range(173, 237)
-        >>> conf.register_map['enable_dynamic_reset']  # Register 170
-        range(170, 171)
-        >>> conf.register_map['enable_min_delta_adc']  # Shares register 170
-        range(170, 171)
+    Specific configurations (v2, v2b, lightpix-v1) inherit from this class, and their specific attributes can be added.
 
     '''
     _endian = 'little'

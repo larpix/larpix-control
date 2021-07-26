@@ -9,6 +9,7 @@ Below are links to the auto-generated python representations of the LArPix ASIC 
    v1
    v2
    lightpix
+   v2b
 
 
 :ref:`genindex`
