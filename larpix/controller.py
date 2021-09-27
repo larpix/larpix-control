@@ -739,8 +739,8 @@ class Controller(object):
          - Enable miso_us of parent chip
          - Enable mosi of parent chip
          - Write chip_id to chip on io group + io channel (assuming chip id 1)
-         - Write enable_miso_downstream to chip chip_id (also enable differential if desired)
-         - Write enable_mosi to chip chip_id (optional)
+         - Write enable_piso_downstream to chip chip_id (also enable differential if desired)
+         - Write enable_posi to chip chip_id (optional)
 
         '''
         subnetwork = self.network[io_group][io_channel]
@@ -762,14 +762,14 @@ class Controller(object):
             parent_chip_id = us_link[0]
             parent_chip_key = Key(io_group, io_channel, parent_chip_id)
             parent_uart = subnetwork['miso_us'].edges[us_link]['uart']
-            self[parent_chip_key].config.enable_miso_upstream[parent_uart] = 1
-            packets += self[parent_chip_key].get_configuration_write_packets(registers=self[parent_chip_key].config.register_map['enable_miso_upstream'])
+            self[parent_chip_key].config.enable_piso_upstream[parent_uart] = 1
+            packets += self[parent_chip_key].get_configuration_write_packets(registers=self[parent_chip_key].config.register_map['enable_piso_upstream'])
 
             for mosi_link in subnetwork['mosi'].in_edges(parent_chip_id):
                 mosi_uart = subnetwork['mosi'].edges[mosi_link]['uart']
-                if not self[parent_chip_key].config.enable_mosi[mosi_uart]:
-                    self[parent_chip_key].config.enable_mosi[mosi_uart] = 1
-                    packets += self[parent_chip_key].get_configuration_write_packets(registers=self[parent_chip_key].config.register_map['enable_mosi'])
+                if not self[parent_chip_key].config.enable_posi[mosi_uart]:
+                    self[parent_chip_key].config.enable_posi[mosi_uart] = 1
+                    packets += self[parent_chip_key].get_configuration_write_packets(registers=self[parent_chip_key].config.register_map['enable_posi'])
 
         if chip_key:
             # Only modify chip configuration if node points to a chip object
@@ -780,21 +780,23 @@ class Controller(object):
             packets[-1].chip_id = 1
 
             # Enable miso_downstream, mosi on chip
+            print(self[chip_key])
+            print(self[chip_key].config)
             if differential:
                 self[chip_key].config.enable_miso_differential = [1]*4
 
-            self[chip_key].config.enable_miso_downstream = [0]*4
+            self[chip_key].config.enable_piso_downstream = [0]*4
             for ds_link in subnetwork['miso_ds'].out_edges(chip_id):
                 ds_uart = subnetwork['miso_ds'].edges[ds_link]['uart']
-                self[chip_key].config.enable_miso_downstream[ds_uart] = 1
-            packets += self[chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['enable_miso_downstream'])
+                self[chip_key].config.enable_piso_downstream[ds_uart] = 1
+            packets += self[chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['enable_piso_downstream'])
 
             if modify_mosi:
-                self[chip_key].config.enable_mosi = [0]*4
+                self[chip_key].config.enable_posi = [0]*4
                 for mosi_link in subnetwork['mosi'].in_edges(chip_id):
                     mosi_uart = subnetwork['mosi'].edges[mosi_link]['uart']
-                    self[chip_key].config.enable_mosi[mosi_uart] = 1
-                packets += self[chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['enable_mosi'])
+                    self[chip_key].config.enable_posi[mosi_uart] = 1
+                packets += self[chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['enable_posi'])
 
         self.send(packets)
 
@@ -803,8 +805,8 @@ class Controller(object):
         Resets the hydra IO network
         To reset a Hydra io network node, the following steps are followed:
 
-         - Write enable_mosi [1,1,1,1] to chip
-         - Write enable_miso_downstream [0,0,0,0] to chip
+         - Write enable_posi [1,1,1,1] to chip
+         - Write enable_piso_downstream [0,0,0,0] to chip
          - Write chip_id 1 to chip
          - Disable miso_us channel of parent chip
 
@@ -827,12 +829,12 @@ class Controller(object):
             chip_key = Key(io_group, io_channel, chip_id)
 
             # Enable mosi
-            self[chip_key].config.enable_mosi = [1]*4
-            packets += self[chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['enable_mosi'])
+            self[chip_key].config.enable_posi = [1]*4
+            packets += self[chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['enable_posi'])
 
             # Disable miso_downstream
-            self[chip_key].config.enable_miso_downstream = [0]*4
-            packets += self[chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['enable_miso_downstream'])
+            self[chip_key].config.enable_piso_downstream = [0]*4
+            packets += self[chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['enable_piso_downstream'])
 
             # Write default chip_id to specified chip
             self[chip_key].config.chip_id = 1
@@ -845,8 +847,8 @@ class Controller(object):
             parent_chip_id = us_link[0]
             parent_chip_key = Key(io_group, io_channel, parent_chip_id)
             parent_uart = subnetwork['miso_us'].edges[us_link]['uart']
-            self[parent_chip_key].config.enable_miso_upstream[parent_uart] = 0
-            packets += self[parent_chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['enable_miso_upstream'])
+            self[parent_chip_key].config.enable_piso_upstream[parent_uart] = 0
+            packets += self[parent_chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['enable_piso_upstream'])
 
         self.send(packets)
 
@@ -1307,10 +1309,10 @@ class Controller(object):
             chip_keys = [chip_keys]
         chip_key_register_pairs = [
             (chip_key, list(self[chip_key].config.register_map['chip_id']) + \
-            list(self[chip_key].config.register_map['enable_mosi']) + \
-            list(self[chip_key].config.register_map['enable_miso_upstream']) + \
-            list(self[chip_key].config.register_map['enable_miso_downstream']) + \
-            list(self[chip_key].config.register_map['enable_miso_differential']))
+            list(self[chip_key].config.register_map['enable_posi']) + \
+            list(self[chip_key].config.register_map['enable_piso_upstream']) + \
+            list(self[chip_key].config.register_map['enable_piso_downstream']) + \
+            list(self[chip_key].config.register_map['enable_piso_differential']))
             for chip_key in chip_keys]
         return self.verify_registers(chip_key_register_pairs)
 
