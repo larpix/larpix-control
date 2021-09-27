@@ -263,4 +263,4 @@ _property_configuration = OrderedDict([
 Configuration_v2b.bit_map = OrderedDict()
 Configuration_v2b.register_map = OrderedDict()
 Configuration_v2b.register_names = []
-v2_base._generate_properties(Configuration_v2b, _property_configuration, verbose=True)
+v2_base._generate_properties(Configuration_v2b, _property_configuration, verbose=False)
