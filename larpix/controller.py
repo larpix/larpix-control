@@ -1414,8 +1414,8 @@ class Controller(object):
             chip.config.disable_analog_monitor()
             chip.config.enable_analog_monitor(channel)
             self.write_configuration(chip_key, chip.config.csa_monitor_select_addresses)
-        elif chip.asic_version in (2, 'lightpix-1'):
             chip.config.csa_monitor_select = [0]*chip.config.num_channels
+        elif chip.asic_version in (2, 'lightpix-1', '2b'):
             chip.config.csa_monitor_select[channel] = 1
             self.write_configuration(chip_key, chip.config.register_map['csa_monitor_select'])
         else:
@@ -1435,7 +1435,7 @@ class Controller(object):
             if chip.asic_version == 1:
                 chip.config.disable_analog_monitor()
                 self.write_configuration(chip_key, chip.config.csa_monitor_select_addresses)
-            elif chip.asic_version in (2, 'lightpix-1'):
+            elif chip.asic_version in (2, 'lightpix-1', '2b'):
                 if not channel is None:
                     chip.config.csa_monitor_select[channel] = 0
                 else:
@@ -1457,8 +1457,8 @@ class Controller(object):
             chip.config.csa_testpulse_dac_amplitude = start_dac
             self.write_configuration(chip_key, chip.config.csa_testpulse_enable_addresses +
                                      [chip.config.csa_testpulse_dac_amplitude_address])
-        elif chip.asic_version in (2, 'lightpix-1'):
             chip.config.csa_testpulse_enable = [1]*chip.config.num_channels
+        elif chip.asic_version in (2, 'lightpix-1', '2b'):
             for channel in channel_list:
                 chip.config.csa_testpulse_enable[channel] = 0
             chip.config.csa_testpulse_dac = start_dac
@@ -1480,7 +1480,7 @@ class Controller(object):
                 raise ValueError('Minimum DAC exceeded')
             self.write_configuration(chip_key, [chip.config.csa_testpulse_dac_amplitude_address],
                                      write_read=read_time)
-        elif chip.asic_version in (2, 'lightpix-1'):
+        elif chip.asic_version in (2, 'lightpix-1', '2b'):
             if chip.config.csa_testpulse_dac - pulse_dac < min_dac:
                 raise ValueError('Minimum DAC exceeded')
             try:
@@ -1506,7 +1506,7 @@ class Controller(object):
             if chip.asic_version == 1:
                 chip.config.disable_testpulse(channel_list)
                 self.write_configuration(chip_key, chip.config.csa_testpulse_enable_addresses)
-            elif chip.asic_version in (2, 'lightpix-1'):
+            elif chip.asic_version in (2, 'lightpix-1', '2b'):
                 for channel in channel_list:
                     chip.config.csa_testpulse_enable[channel] = 1
                 self.write_configuration(chip_key, chip.config.register_map['csa_testpulse_enable'])
@@ -1529,7 +1529,7 @@ class Controller(object):
             if chip.asic_version == 1:
                 chip.config.disable_channels(channel_list)
                 self.write_configuration(chip_key, Configuration_v1.channel_mask_addresses)
-            elif chip.asic_version in (2, 'lightpix-1'):
+            elif chip.asic_version in (2, 'lightpix-1', '2b'):
                 for channel in channel_list:
                     chip.config.channel_mask[channel] = 1
                     self.write_configuration(chip_key, chip.config.register_map['channel_mask'])
@@ -1551,7 +1551,7 @@ class Controller(object):
             if chip.asic_version == 1:
                 chip.config.enable_channels(channel_list)
                 self.write_configuration(chip_key, Configuration_v1.channel_mask_addresses)
-            elif chip.asic_version in (2, 'lightpix-1'):
+            elif chip.asic_version in (2, 'lightpix-1', '2b'):
                 for channel in channel_list:
                     chip.config.channel_mask[channel] = 0
                 self.write_configuration(chip_key, chip.config.register_map['channel_mask'])
