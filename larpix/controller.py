@@ -141,6 +141,19 @@ class Controller(object):
     '''
     network_names = ('miso_us', 'miso_ds', 'mosi')
 
+    _enable_piso_upstream = {
+        2: 'enable_miso_upstream',
+        '2b': 'enable_piso_upstream'
+    }
+    _enable_posi = {
+        2: 'enable_mosi',
+        '2b': 'enable_posi'
+    }
+    _enable_piso_downstream = {
+        2: 'enable_miso_downstream',
+        '2b': 'enable_piso_downstream'
+    }
+
     def __init__(self):
         self.chips = OrderedDict()
         self.network = OrderedDict()
@@ -762,41 +775,46 @@ class Controller(object):
             parent_chip_id = us_link[0]
             parent_chip_key = Key(io_group, io_channel, parent_chip_id)
             parent_uart = subnetwork['miso_us'].edges[us_link]['uart']
-            self[parent_chip_key].config.enable_piso_upstream[parent_uart] = 1
-            packets += self[parent_chip_key].get_configuration_write_packets(registers=self[parent_chip_key].config.register_map['enable_piso_upstream'])
+            parent_chip = self[parent_chip_key]
+            getattr(parent_chip.config, self._enable_piso_upstream[parent_chip.asic_version])[parent_uart] = 1
+            packets += parent_chip.get_configuration_write_packets(
+                registers=parent_chip.config.register_map[self._enable_piso_upstream[parent_chip.asic_version]])
 
             for mosi_link in subnetwork['mosi'].in_edges(parent_chip_id):
                 mosi_uart = subnetwork['mosi'].edges[mosi_link]['uart']
-                if not self[parent_chip_key].config.enable_posi[mosi_uart]:
-                    self[parent_chip_key].config.enable_posi[mosi_uart] = 1
-                    packets += self[parent_chip_key].get_configuration_write_packets(registers=self[parent_chip_key].config.register_map['enable_posi'])
+                if not getattr(parent_chip.config, self._enable_posi[parent_chip.asic_version])[mosi_uart]:
+                    getattr(parent_chip.config, self._enable_posi[parent_chip.asic_version])[mosi_uart] = 1
+                    packets += parent_chip.get_configuration_write_packets(
+                        registers=parent_chip.config.register_map[self._enable_posi[parent_chip.asic_version]])
 
         if chip_key:
             # Only modify chip configuration if node points to a chip object
 
             # Write chip_id to specified chip
-            self[chip_key].config.chip_id = chip_key.chip_id
-            packets += self[chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['chip_id'])
+            chip = self[chip_key]
+            chip.config.chip_id = chip_key.chip_id
+            packets += chip.get_configuration_write_packets(
+                registers=chip.config.register_map['chip_id'])
             packets[-1].chip_id = 1
 
             # Enable miso_downstream, mosi on chip
-            print(self[chip_key])
-            print(self[chip_key].config)
-            if differential:
-                self[chip_key].config.enable_miso_differential = [1]*4
+            if differential and chip.asic_version == 2:
+                chip.config.enable_miso_differential = [1] * 4
 
-            self[chip_key].config.enable_piso_downstream = [0]*4
+            setattr(chip.config, self._enable_piso_downstream[chip.asic_version], [0] * 4)
             for ds_link in subnetwork['miso_ds'].out_edges(chip_id):
                 ds_uart = subnetwork['miso_ds'].edges[ds_link]['uart']
-                self[chip_key].config.enable_piso_downstream[ds_uart] = 1
-            packets += self[chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['enable_piso_downstream'])
+                getattr(chip.config, self._enable_piso_downstream[chip.asic_version])[ds_uart] = 1
+            packets += chip.get_configuration_write_packets(
+                registers=chip.config.register_map[self._enable_piso_downstream[chip.asic_version]])
 
             if modify_mosi:
-                self[chip_key].config.enable_posi = [0]*4
+                setattr(chip.config, self._enable_posi[chip.asic_version], [0] * 4)
                 for mosi_link in subnetwork['mosi'].in_edges(chip_id):
                     mosi_uart = subnetwork['mosi'].edges[mosi_link]['uart']
-                    self[chip_key].config.enable_posi[mosi_uart] = 1
-                packets += self[chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['enable_posi'])
+                    getattr(chip.config, self._enable_posi[chip.asic_version])[mosi_uart] = 1
+                packets += chip.get_configuration_write_packets(
+                    registers=chip.config.register_map[self._enable_posi[chip.asic_version]])
 
         self.send(packets)
 
@@ -827,18 +845,22 @@ class Controller(object):
         if isinstance(chip_id, int):
             # Only modify chip configuration if node points to a chip object
             chip_key = Key(io_group, io_channel, chip_id)
+            chip = self[chip_key]
 
             # Enable mosi
-            self[chip_key].config.enable_posi = [1]*4
-            packets += self[chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['enable_posi'])
+            setattr(chip.config, self._enable_posi[chip.asic_version], [1] * 4)
+            packets += chip.get_configuration_write_packets(
+                registers=chip.config.register_map[self._enable_posi[chip.asic_version]])
 
             # Disable miso_downstream
-            self[chip_key].config.enable_piso_downstream = [0]*4
-            packets += self[chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['enable_piso_downstream'])
+            setattr(chip.config, self._enable_piso_downstream[chip.asic_version], [0] * 4)
+            packets += chip.get_configuration_write_packets(
+                registers=chip.config.register_map[self._enable_piso_downstream[chip.asic_version]])
 
             # Write default chip_id to specified chip
-            self[chip_key].config.chip_id = 1
-            packets += self[chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['chip_id'])
+            chip.config.chip_id = 1
+            packets += chip.get_configuration_write_packets(
+                registers=chip.config.register_map['chip_id'])
 
         # Disable miso_upstream on parent chips
         for us_link in subnetwork['miso_us'].in_edges(chip_id):
@@ -847,11 +869,12 @@ class Controller(object):
             parent_chip_id = us_link[0]
             parent_chip_key = Key(io_group, io_channel, parent_chip_id)
             parent_uart = subnetwork['miso_us'].edges[us_link]['uart']
-            self[parent_chip_key].config.enable_piso_upstream[parent_uart] = 0
-            packets += self[parent_chip_key].get_configuration_write_packets(registers=self[chip_key].config.register_map['enable_piso_upstream'])
+            parent_chip = self[parent_chip_key]
+            getattr(parent_chip.config, self._enable_piso_upstream[parent_chip.asic_version])[parent_uart] = 0
+            packets += parent_chip.get_configuration_write_packets(
+                registers=parent_chip.config.register_map[self._enable_piso_upstream[parent_chip.asic_version]])
 
         self.send(packets)
-
 
     def send(self, packets):
         '''
@@ -1305,15 +1328,21 @@ class Controller(object):
         '''
         if not chip_keys:
             chip_keys = self.chips.keys()
-        if isinstance(chip_keys,(str,Key)):
+        if isinstance(chip_keys, (str, Key)):
             chip_keys = [chip_keys]
+        chips = [self[chip_key] for chip_key in chip_keys]
         chip_key_register_pairs = [
-            (chip_key, list(self[chip_key].config.register_map['chip_id']) + \
-            list(self[chip_key].config.register_map['enable_posi']) + \
-            list(self[chip_key].config.register_map['enable_piso_upstream']) + \
-            list(self[chip_key].config.register_map['enable_piso_downstream']) + \
-            list(self[chip_key].config.register_map['enable_piso_differential']))
-            for chip_key in chip_keys]
+            (chip.chip_key, list(chip.config.register_map['chip_id']) +
+             list(chip.config.register_map[self._enable_posi[chip.asic_version]]) +
+             list(chip.config.register_map[self._enable_piso_upstream[chip.asic_version]]) +
+             list(chip.config.register_map[self._enable_piso_downstream[chip.asic_version]])
+             )
+            for chip in chips]
+        for i, chip in enumerate(chips):
+            if chip.asic_version == 2:
+                chip_key_register_pairs[i] = (
+                    chip.chip_key, chip_key_register_pairs[i][1]
+                    + list(chip.config.register_map['enable_miso_differential']))
         return self.verify_registers(chip_key_register_pairs)
 
     def enforce_registers(self, chip_key_register_pairs, timeout=1, connection_delay=0.02, n=1, n_verify=1):

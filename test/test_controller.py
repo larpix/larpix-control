@@ -4,8 +4,9 @@ import json
 from larpix import Controller, Configuration_v2, Key
 from larpix.io import FakeIO
 
-@pytest.fixture
-def network_config_old(tmpdir):
+
+@pytest.fixture(params=[2, '2b'])
+def network_config_old(request, tmpdir):
     '''
     Defines a network of:
         MISO_US:
@@ -20,11 +21,12 @@ def network_config_old(tmpdir):
             v
 
     '''
+    asic_version = request.param
     filename = str(tmpdir.join('test_network_conf_old.json'))
     config_dict = {
         "_config_type": "controller",
         "name": "test",
-        "asic_version": 2,
+        "asic_version": asic_version,
         "network": {
             "1": {
                 "1": {
@@ -178,84 +180,95 @@ def test_controller_init(network_controller_old, network_controller_new):
 
         c.init_network(1,1,2)
         assert c['1-1-2'].config.chip_id == 2
-        assert c['1-1-2'].config.enable_miso_upstream == [0,0,0,0]
-        assert c['1-1-2'].config.enable_miso_downstream == [0,0,1,0]
-        assert c['1-1-2'].config.enable_mosi == [1,0,1,1]
+        assert getattr(c['1-1-2'].config, c._enable_piso_upstream[c['1-1-2'].asic_version]) == [0, 0, 0, 0]
+        assert getattr(c['1-1-2'].config, c._enable_piso_downstream[c['1-1-2'].asic_version]) == [0, 0, 1, 0]
+        assert getattr(c['1-1-2'].config, c._enable_posi[c['1-1-2'].asic_version]) == [1, 0, 1, 1]
 
-        c.init_network(1,1,3)
-        assert c['1-1-2'].config.enable_miso_upstream == [1,0,0,0]
+        c.init_network(1, 1, 3)
+        assert getattr(c['1-1-2'].config, c._enable_piso_upstream[c['1-1-3'].asic_version]) == [1, 0, 0, 0]
         assert c['1-1-3'].config.chip_id == 3
-        assert c['1-1-3'].config.enable_miso_upstream == [0,0,0,0]
-        assert c['1-1-3'].config.enable_miso_downstream == [0,0,1,0]
-        assert c['1-1-3'].config.enable_mosi == [0,0,1,0]
-        assert c.io.sent[-1][-1] == c['1-1-3'].get_configuration_write_packets(registers=Configuration_v2.register_map['enable_mosi'])[0]
-        assert c.io.sent[-1][-2] == c['1-1-3'].get_configuration_write_packets(registers=Configuration_v2.register_map['enable_miso_downstream'])[0]
-        chip_id_config_packet = c['1-1-3'].get_configuration_write_packets(registers=Configuration_v2.register_map['chip_id'])[0]
+        assert getattr(c['1-1-3'].config, c._enable_piso_upstream[c['1-1-3'].asic_version]) == [0, 0, 0, 0]
+        assert getattr(c['1-1-3'].config, c._enable_piso_downstream[c['1-1-3'].asic_version]) == [0, 0, 1, 0]
+        assert getattr(c['1-1-3'].config, c._enable_posi[c['1-1-3'].asic_version]) == [0, 0, 1, 0]
+        assert c.io.sent[-1][-1] == c['1-1-3'].get_configuration_write_packets(
+            registers=c['1-1-3'].config.register_map[c._enable_posi[c['1-1-3'].asic_version]])[0]
+        assert c.io.sent[-1][-2] == c['1-1-3'].get_configuration_write_packets(
+            registers=c['1-1-3'].config.register_map[c._enable_piso_downstream[c['1-1-3'].asic_version]])[0]
+        chip_id_config_packet = c['1-1-3'].get_configuration_write_packets(
+            registers=c['1-1-3'].config.register_map['chip_id'])[0]
         chip_id_config_packet.chip_id = 1
         assert c.io.sent[-1][-3] == chip_id_config_packet
-        assert c.io.sent[-1][-4] == c['1-1-2'].get_configuration_write_packets(registers=Configuration_v2.register_map['enable_miso_upstream'])[0]
+        assert c.io.sent[-1][-4] == c['1-1-2'].get_configuration_write_packets(
+            registers=c['1-1-2'].config.register_map[c._enable_piso_upstream[c['1-1-2'].asic_version]])[0]
 
-        c.init_network(1,1)
+        c.init_network(1, 1)
         assert c['1-1-2'].config.chip_id == 2
-        assert c['1-1-2'].config.enable_miso_downstream == [0,0,1,0]
-        assert c['1-1-2'].config.enable_mosi == [1,0,1,1]
-        assert c['1-1-2'].config.enable_miso_upstream == [1,0,0,1]
+        assert getattr(c['1-1-2'].config, c._enable_piso_downstream[c['1-1-2'].asic_version]) == [0, 0, 1, 0]
+        assert getattr(c['1-1-2'].config, c._enable_posi[c['1-1-2'].asic_version]) == [1, 0, 1, 1]
+        assert getattr(c['1-1-2'].config, c._enable_piso_upstream[c['1-1-2'].asic_version]) == [1, 0, 0, 1]
         assert c['1-1-3'].config.chip_id == 3
-        assert c['1-1-3'].config.enable_miso_upstream == [0,0,0,0]
-        assert c['1-1-3'].config.enable_miso_downstream == [0,0,1,0]
-        assert c['1-1-3'].config.enable_mosi == [0,0,1,0]
+        assert getattr(c['1-1-3'].config, c._enable_piso_upstream[c['1-1-3'].asic_version]) == [0, 0, 0, 0]
+        assert getattr(c['1-1-3'].config, c._enable_piso_downstream[c['1-1-3'].asic_version]) == [0, 0, 1, 0]
+        assert getattr(c['1-1-3'].config, c._enable_posi[c['1-1-3'].asic_version]) == [0, 0, 1, 0]
         assert c['1-1-12'].config.chip_id == 12
-        assert c['1-1-12'].config.enable_miso_upstream == [1,0,0,0]
-        assert c['1-1-12'].config.enable_miso_downstream == [0,1,0,0]
-        assert c['1-1-12'].config.enable_mosi == [1,1,0,0]
+        assert getattr(c['1-1-12'].config, c._enable_piso_upstream[c['1-1-12'].asic_version]) == [1, 0, 0, 0]
+        assert getattr(c['1-1-12'].config, c._enable_piso_downstream[c['1-1-12'].asic_version]) == [0, 1, 0, 0]
+        assert getattr(c['1-1-12'].config, c._enable_posi[c['1-1-12'].asic_version]) == [1, 1, 0, 0]
         assert c['1-1-13'].config.chip_id == 13
-        assert c['1-1-13'].config.enable_miso_upstream == [0,0,0,0]
-        assert c['1-1-13'].config.enable_miso_downstream == [0,0,1,0]
-        assert c['1-1-13'].config.enable_mosi == [0,0,1,0]
+        assert getattr(c['1-1-13'].config, c._enable_piso_upstream[c['1-1-13'].asic_version]) == [0, 0, 0, 0]
+        assert getattr(c['1-1-13'].config, c._enable_piso_downstream[c['1-1-13'].asic_version]) == [0, 0, 1, 0]
+        assert getattr(c['1-1-13'].config, c._enable_posi[c['1-1-13'].asic_version]) == [0, 0, 1, 0]
+
 
 def test_controller_init_complete(network_controller_old, network_controller_new):
     for c in (network_controller_old, network_controller_new):
-        c.init_network(1,1)
+        c.init_network(1, 1)
         assert c['1-1-2'].config.chip_id == 2
-        assert c['1-1-2'].config.enable_miso_downstream == [0,0,1,0]
-        assert c['1-1-2'].config.enable_mosi == [1,0,1,1]
-        assert c['1-1-2'].config.enable_miso_upstream == [1,0,0,1]
+        assert getattr(c['1-1-2'].config, c._enable_piso_downstream[c['1-1-2'].asic_version]) == [0, 0, 1, 0]
+        assert getattr(c['1-1-2'].config, c._enable_posi[c['1-1-2'].asic_version]) == [1, 0, 1, 1]
+        assert getattr(c['1-1-2'].config, c._enable_piso_upstream[c['1-1-2'].asic_version]) == [1, 0, 0, 1]
         assert c['1-1-3'].config.chip_id == 3
-        assert c['1-1-3'].config.enable_miso_upstream == [0,0,0,0]
-        assert c['1-1-3'].config.enable_miso_downstream == [0,0,1,0]
-        assert c['1-1-3'].config.enable_mosi == [0,0,1,0]
+        assert getattr(c['1-1-3'].config, c._enable_piso_upstream[c['1-1-3'].asic_version]) == [0, 0, 0, 0]
+        assert getattr(c['1-1-3'].config, c._enable_piso_downstream[c['1-1-3'].asic_version]) == [0, 0, 1, 0]
+        assert getattr(c['1-1-3'].config, c._enable_posi[c['1-1-3'].asic_version]) == [0, 0, 1, 0]
         assert c['1-1-12'].config.chip_id == 12
-        assert c['1-1-12'].config.enable_miso_upstream == [1,0,0,0]
-        assert c['1-1-12'].config.enable_miso_downstream == [0,1,0,0]
-        assert c['1-1-12'].config.enable_mosi == [1,1,0,0]
+        assert getattr(c['1-1-12'].config, c._enable_piso_upstream[c['1-1-12'].asic_version]) == [1, 0, 0, 0]
+        assert getattr(c['1-1-12'].config, c._enable_piso_downstream[c['1-1-12'].asic_version]) == [0, 1, 0, 0]
+        assert getattr(c['1-1-12'].config, c._enable_posi[c['1-1-12'].asic_version]) == [1, 1, 0, 0]
         assert c['1-1-13'].config.chip_id == 13
-        assert c['1-1-13'].config.enable_miso_upstream == [0,0,0,0]
-        assert c['1-1-13'].config.enable_miso_downstream == [0,0,1,0]
-        assert c['1-1-13'].config.enable_mosi == [0,0,1,0]
+        assert getattr(c['1-1-13'].config, c._enable_piso_upstream[c['1-1-13'].asic_version]) == [0, 0, 0, 0]
+        assert getattr(c['1-1-13'].config, c._enable_piso_downstream[c['1-1-13'].asic_version]) == [0, 0, 1, 0]
+        assert getattr(c['1-1-13'].config, c._enable_posi[c['1-1-13'].asic_version]) == [0, 0, 1, 0]
+
 
 def test_controller_reset(network_controller_old, network_controller_new):
     for c in (network_controller_old, network_controller_new):
-        c.init_network(1,1)
+        c.init_network(1, 1)
 
-        c.reset_network(1,1,13)
+        c.reset_network(1, 1, 13)
         assert c['1-1-13'].config.chip_id == 1
-        assert c['1-1-13'].config.enable_miso_upstream == [0,0,0,0]
-        assert c['1-1-13'].config.enable_miso_downstream == [0,0,0,0]
-        assert c['1-1-13'].config.enable_mosi == [1,1,1,1]
-        assert c.io.sent[-1][-4] == c['1-1-13'].get_configuration_write_packets(registers=Configuration_v2.register_map['enable_mosi'])[0]
-        assert c.io.sent[-1][-3] == c['1-1-13'].get_configuration_write_packets(registers=Configuration_v2.register_map['enable_miso_downstream'])[0]
-        chip_id_config_packet = c['1-1-13'].get_configuration_write_packets(registers=Configuration_v2.register_map['chip_id'])[0]
+        assert getattr(c['1-1-13'].config, c._enable_piso_upstream[c['1-1-13'].asic_version]) == [0, 0, 0, 0]
+        assert getattr(c['1-1-13'].config, c._enable_piso_downstream[c['1-1-13'].asic_version]) == [0, 0, 0, 0]
+        assert getattr(c['1-1-13'].config, c._enable_posi[c['1-1-13'].asic_version]) == [1, 1, 1, 1]
+        assert c.io.sent[-1][-4] == c['1-1-13'].get_configuration_write_packets(
+            registers=c['1-1-13'].config.register_map[c._enable_posi[c['1-1-13'].asic_version]])[0]
+        assert c.io.sent[-1][-3] == c['1-1-13'].get_configuration_write_packets(
+            registers=c['1-1-13'].config.register_map[c._enable_piso_downstream[c['1-1-13'].asic_version]])[0]
+        chip_id_config_packet = c['1-1-13'].get_configuration_write_packets(
+            registers=c['1-1-13'].config.register_map['chip_id'])[0]
         chip_id_config_packet.chip_id = 13
         assert c.io.sent[-1][-2] == chip_id_config_packet
-        assert c.io.sent[-1][-1] == c['1-1-12'].get_configuration_write_packets(registers=Configuration_v2.register_map['enable_miso_upstream'])[0]
+        assert c.io.sent[-1][-1] == c['1-1-12'].get_configuration_write_packets(
+            registers=c['1-1-12'].config.register_map[c._enable_piso_upstream[c['1-1-12'].asic_version]])[0]
 
-        c.reset_network(1,1)
+        c.reset_network(1, 1)
         for chip_key in c.chips:
             print(chip_key)
-            assert c[chip_key].config.enable_miso_upstream == [0,0,0,0]
+            assert getattr(c[chip_key].config, c._enable_piso_upstream[c[chip_key].asic_version]) == [0, 0, 0, 0]
             assert c[chip_key].config.chip_id == 1
-            assert c[chip_key].config.enable_miso_downstream == [0,0,0,0]
-            assert c[chip_key].config.enable_mosi == [1,1,1,1]
+            assert getattr(c[chip_key].config, c._enable_piso_downstream[c[chip_key].asic_version]) == [0, 0, 0, 0]
+            assert getattr(c[chip_key].config, c._enable_posi[c[chip_key].asic_version]) == [1, 1, 1, 1]
+
 
 def test_controller_network_traversal(network_controller_old, network_controller_new):
     for c in (network_controller_old, network_controller_new):
