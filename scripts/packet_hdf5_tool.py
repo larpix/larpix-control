@@ -47,7 +47,7 @@ def move_dataset(input_file, output_file, dset_name, block_size):
             # special case for mc packets associations, add offset since start of dataset to track_ids
             data = input_file[dset_name][start:end]
             valid_data = data['track_ids'] >= 0
-            data[valid_data]['track_ids'] += mc_offset
+            data['track_ids'][valid_data] += mc_offset
             output_file[dset_name][prev_idx:curr_idx] = data
         else:
             output_file[dset_name][prev_idx:curr_idx] = input_file[dset_name][start:end]
@@ -75,7 +75,7 @@ def merge_files(input_filenames, output_filename, block_size):
 
                 # copy data
                 for dset_name in _packet_hdf5_dsets:
-                    if dset_name in fo.keys:
+                    if dset_name in fo.keys():
                         if isinstance(fo[dset_name], h5py.Dataset):
                             print('copying', dset_name, '...')
                             move_dataset(fi, fo, dset_name, block_size)
