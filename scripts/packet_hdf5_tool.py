@@ -34,7 +34,8 @@ def move_dataset(input_file, output_file, dset_name, block_size):
     curr_idx = len(output_file[dset_name])
 
     mc_assn_flag = dset_name == 'mc_packets_assn'
-    mc_offset = len(output_file['tracks'])
+    if mc_assn_flag:
+        mc_offset = len(output_file['tracks'])
 
     output_file[dset_name].resize((len(output_file[dset_name]) + len(input_file[dset_name]),))
     # copy data in chunks
