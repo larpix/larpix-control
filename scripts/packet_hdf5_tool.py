@@ -27,32 +27,36 @@ except Exception as e:
 _default_max_length = -1
 _default_block_size = 102400
 
+_packet_hdf5_dsets = ('configs', 'messages', 'packets', 'mc_packets_assn', 'tracks', 'trajectories')
+
+
 def move_dataset(input_file, output_file, dset_name, block_size):
     curr_idx = len(output_file[dset_name])
 
-    mc_assn_flag =  dset_name == 'mc_packets_assn'
-    mc_offset = curr_idx
-
+    mc_assn_flag = dset_name == 'mc_packets_assn'
+    mc_offset = len(output_file['tracks'])
 
     output_file[dset_name].resize((len(output_file[dset_name]) + len(input_file[dset_name]),))
     # copy data in chunks
     for start in tqdm(range(0, len(input_file[dset_name]), block_size)) if _has_tqdm else range(0, len(input_file[dset_name]), block_size):
-        end = min(start+block_size, len(input_file[dset_name]))
+        end = min(start + block_size, len(input_file[dset_name]))
         prev_idx = curr_idx
         curr_idx += end - start
 
         if mc_assn_flag:
             # special case for mc packets associations, add offset since start of dataset to track_ids
             data = input_file[dset_name][start:end]
-            data['track_ids'] += mc_offset
+            valid_data = data['track_ids'] >= 0
+            data[valid_data]['track_ids'] += mc_offset
             output_file[dset_name][prev_idx:curr_idx] = data
         else:
             output_file[dset_name][prev_idx:curr_idx] = input_file[dset_name][start:end]
 
+
 def merge_files(input_filenames, output_filename, block_size):
     with h5py.File(output_filename, 'w') as fo:
-        for i,input_filename in enumerate(input_filenames):
-            print(input_filename, '{}/{}'.format(i+1, len(input_filenames)))
+        for i, input_filename in enumerate(input_filenames):
+            print(input_filename, '{}/{}'.format(i + 1, len(input_filenames)))
             with h5py.File(input_filename, 'r') as fi:
                 if i == 0:
                     # create datasets and groups
@@ -66,14 +70,15 @@ def merge_files(input_filenames, output_filename, block_size):
                             fo.create_dataset(dset_name, shape=(0,), maxshape=(None,), compression='gzip', dtype=fi[dset_name].dtype)
 
                         # copy meta data
-                        for attr,value in fi[dset_name].attrs.items():
+                        for attr, value in fi[dset_name].attrs.items():
                             fo[dset_name].attrs[attr] = value
 
                 # copy data
-                for dset_name in fo.keys():
-                    if isinstance(fo[dset_name], h5py.Dataset):
-                        print('copying',dset_name,'...')
-                        move_dataset(fi, fo, dset_name, block_size)
+                for dset_name in _packet_hdf5_dsets:
+                    if dset_name in fo.keys:
+                        if isinstance(fo[dset_name], h5py.Dataset):
+                            print('copying', dset_name, '...')
+                            move_dataset(fi, fo, dset_name, block_size)
 
 
 def main(input_filenames, output_filename, max_length=_default_max_length, block_size=_default_block_size, **kwargs):
@@ -81,9 +86,10 @@ def main(input_filenames, output_filename, max_length=_default_max_length, block
         merge_files(
             input_filenames, output_filename,
             block_size=block_size
-            )
+        )
     else:
         print('No action specified, exiting.')
+
 
 if __name__ == '__main__':
     import argparse
@@ -98,4 +104,4 @@ if __name__ == '__main__':
         input_filenames=args.i,
         output_filename=args.o,
         **vars(args)
-        )
+    )
