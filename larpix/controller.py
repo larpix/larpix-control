@@ -13,6 +13,7 @@ from .configuration import Configuration_v1, Configuration_v2, Configuration_Lig
 from .packet import Packet_v1, Packet_v2, PacketCollection
 from . import bitarrayhelper as bah
 
+
 class Controller(object):
     '''
     Controls a collection of LArPix Chip objects.
@@ -181,9 +182,9 @@ class Controller(object):
 
     def _get_chip(self, key):
         try:
-            if isinstance(key, (str,Key)):
+            if isinstance(key, (str, Key)):
                 return self.chips[key]
-            elif isinstance(key, (tuple,list)):
+            elif isinstance(key, (tuple, list)):
                 return self.chips[Key(*key)]
             raise KeyError
         except KeyError:
@@ -372,7 +373,7 @@ class Controller(object):
             print('loading v1 controller...')
             return self.load_controller(filename)
         if system_info['asic_version'] in (2, 'lightpix-1', '2b'):
-            print('loading v2 network...')
+            print(f'loading {system_info["asic_version"]} network...')
             return self.load_network(filename, version=system_info['asic_version'])
 
     def _propogate_inherited_values(self, network_spec, value_keys):
@@ -394,12 +395,12 @@ class Controller(object):
                     continue
                 for value_key in value_keys:
                     if not value_key in channel_spec:
-                       dict_to_return[key][subkey][value_key] = dict_to_return[key][value_key]
+                        dict_to_return[key][subkey][value_key] = dict_to_return[key][value_key]
 
                 for idx, node_spec in enumerate(channel_spec['nodes']):
                     for value_key in value_keys:
                         if not value_key in node_spec:
-                           dict_to_return[key][subkey]['nodes'][idx][value_key] = dict_to_return[key][subkey][value_key]
+                            dict_to_return[key][subkey]['nodes'][idx][value_key] = dict_to_return[key][subkey][value_key]
 
         return dict_to_return
 
@@ -428,10 +429,11 @@ class Controller(object):
                     uarts = enumerate(node['miso_uart_map'])
                 for idx, uart in uarts:
                     link = (chip_id, node['miso_us'][idx])
-                    if link[1] is None: continue
+                    if link[1] is None:
+                        continue
                     self.add_network_link(io_group, io_channel, 'miso_us', link, uart)
             except KeyError:
-                raise KeyError('error generating upstream network node {}-{}-{}'.format(io_group,io_channel,chip_id))
+                raise KeyError('error generating upstream network node {}-{}-{}'.format(io_group, io_channel, chip_id))
 
     def _link_miso_ds_network_node(self, io_group, io_channel, node, hydra_network_nodes, mapping_spec):
         chip_id = node['chip_id']
@@ -446,10 +448,11 @@ class Controller(object):
                     uarts = enumerate(node['miso_uart_map'])
                 for idx, uart in uarts:
                     link = (chip_id, node['miso_ds'][idx])
-                    if link[1] is None: continue
+                    if link[1] is None:
+                        continue
                     self.add_network_link(io_group, io_channel, 'miso_ds', link, uart)
             except KeyError:
-                raise KeyError('error generating downstream network node {}-{}-{}'.format(io_group,io_channel,chip_id))
+                raise KeyError('error generating downstream network node {}-{}-{}'.format(io_group, io_channel, chip_id))
         elif subnetwork['miso_us'].in_edges(chip_id):
             try:
                 for link in subnetwork['miso_us'].in_edges(chip_id):
@@ -463,7 +466,7 @@ class Controller(object):
                     link = (chip_id, other_chip_id)
                     self.add_network_link(io_group, io_channel, 'miso_ds', link, uart)
             except KeyError:
-                raise KeyError('error auto-generating downstream network node {}-{}-{}'.format(io_group,io_channel,chip_id))
+                raise KeyError('error auto-generating downstream network node {}-{}-{}'.format(io_group, io_channel, chip_id))
 
     def _link_mosi_network_node(self, io_group, io_channel, node, hydra_network_nodes, mapping_spec):
         chip_id = node['chip_id']
@@ -473,10 +476,11 @@ class Controller(object):
             try:
                 for idx, uart in enumerate(node['mosi_uart_map']):
                     link = (node['mosi'][idx], chip_id)
-                    if link[1] is None: continue
+                    if link[1] is None:
+                        continue
                     self.add_network_link(io_group, io_channel, 'mosi', link, uart)
             except KeyError:
-                raise KeyError('mosi_uart_map unspecified for {}-{}-{}'.format(io_group,io_channel,chip_id))
+                raise KeyError('mosi_uart_map unspecified for {}-{}-{}'.format(io_group, io_channel, chip_id))
         elif subnetwork['miso_us'].in_edges(chip_id) or subnetwork['miso_ds'].in_edges(chip_id):
             try:
                 # create links for existing miso_us connections
@@ -513,7 +517,7 @@ class Controller(object):
                         link = (other_chip_id, chip_id)
                         self.add_network_link(io_group, io_channel, 'mosi', link, uart)
             except KeyError:
-                raise KeyError('mosi_uart_map unspecified for {}-{}-{}'.format(io_group,io_channel,chip_id))
+                raise KeyError('mosi_uart_map unspecified for {}-{}-{}'.format(io_group, io_channel, chip_id))
 
     def load_network(self, filename, version=2):
         '''
@@ -558,35 +562,43 @@ class Controller(object):
 
             # create nodes + chip objects first
             for key, group_spec in full_network_spec.items():
-                if key in inherited_data: continue
+                if key in inherited_data:
+                    continue
                 for subkey, channel_spec in full_network_spec[key].items():
-                    if subkey in inherited_data: continue
+                    if subkey in inherited_data:
+                        continue
                     for node_spec in channel_spec['nodes']:
                         self._create_network_node(int(key), int(subkey), node_spec, version=version)
 
             # then create miso_us network
             for key, group_spec in full_network_spec.items():
-                if key in inherited_data: continue
+                if key in inherited_data:
+                    continue
                 for subkey, channel_spec in full_network_spec[key].items():
-                    if subkey in inherited_data: continue
+                    if subkey in inherited_data:
+                        continue
                     for node_spec in channel_spec['nodes']:
-                        self._link_miso_us_network_node(int(key),int(subkey),node_spec,channel_spec['nodes'],mapping_spec)
+                        self._link_miso_us_network_node(int(key), int(subkey), node_spec, channel_spec['nodes'], mapping_spec)
 
             # then create miso_ds network
             for key, group_spec in full_network_spec.items():
-                if key in inherited_data: continue
+                if key in inherited_data:
+                    continue
                 for subkey, channel_spec in full_network_spec[key].items():
-                    if subkey in inherited_data: continue
+                    if subkey in inherited_data:
+                        continue
                     for node_spec in channel_spec['nodes']:
-                        self._link_miso_ds_network_node(int(key),int(subkey),node_spec,channel_spec['nodes'],mapping_spec)
+                        self._link_miso_ds_network_node(int(key), int(subkey), node_spec, channel_spec['nodes'], mapping_spec)
 
             # finally, create mosi network
             for key, group_spec in full_network_spec.items():
-                if key in inherited_data: continue
+                if key in inherited_data:
+                    continue
                 for subkey, channel_spec in full_network_spec[key].items():
-                    if subkey in inherited_data: continue
+                    if subkey in inherited_data:
+                        continue
                     for node_spec in channel_spec['nodes']:
-                        self._link_mosi_network_node(int(key), int(subkey), node_spec, channel_spec['nodes'],mapping_spec)
+                        self._link_mosi_network_node(int(key), int(subkey), node_spec, channel_spec['nodes'], mapping_spec)
 
         except Exception as err:
             self.chips = orig_chips
@@ -614,22 +626,22 @@ class Controller(object):
         return system_info['name']
 
     def _default_chip_id_generator(self, io_group, io_channel):
-            attempts = 0
-            reserved_ids = [255,0,1]
-            existing_ids = reserved_ids + [id for id in self.get_network_ids(io_group, io_channel) if isinstance(id,int)]
-            chip_id = (existing_ids[-1] + 1) % 256
-            while chip_id in existing_ids:
-                chip_id = (chip_id + 1) % 256
-                attempts += 1
-                if attempts > 256:
-                    raise RuntimeError('All possible chip ids are taken on network {} {}!'.format(io_group, io_channel))
-            return chip_id
+        attempts = 0
+        reserved_ids = [255, 0, 1]
+        existing_ids = reserved_ids + [id for id in self.get_network_ids(io_group, io_channel) if isinstance(id, int)]
+        chip_id = (existing_ids[-1] + 1) % 256
+        while chip_id in existing_ids:
+            chip_id = (chip_id + 1) % 256
+            attempts += 1
+            if attempts > 256:
+                raise RuntimeError('All possible chip ids are taken on network {} {}!'.format(io_group, io_channel))
+        return chip_id
 
     def grow_network(self, io_group, io_channel, chip_id,
-        miso_uart_map=[3,0,1,2], mosi_uart_map=[0,1,2,3], usds_link_map=[2,3,0,1],
-        chip_id_generator=_default_chip_id_generator, timeout=0.01,
-        modify_mosi=False, differential=True, version=2
-        ):
+                     miso_uart_map=[3, 0, 1, 2], mosi_uart_map=[0, 1, 2, 3], usds_link_map=[2, 3, 0, 1],
+                     chip_id_generator=_default_chip_id_generator, timeout=0.01,
+                     modify_mosi=False, differential=True, version=2
+                     ):
         '''
         Recurisve algorithm to auto-complete a network from a stub. It works by
         attempting to link to each available upstream node in succession, keeping links
@@ -690,7 +702,7 @@ class Controller(object):
             self.add_network_link(io_group, io_channel, 'mosi', (curr_chip_id, next_chip_id), mosi_uart_map[usds_link_map[idx]])
 
             # configure link and verify
-            ok,diff = self.init_network_and_verify(io_group, io_channel, next_chip_id, retries=0, timeout=timeout, modify_mosi=modify_mosi, differential=differential)
+            ok, diff = self.init_network_and_verify(io_group, io_channel, next_chip_id, retries=0, timeout=timeout, modify_mosi=modify_mosi, differential=differential)
             if ok:
                 next_chip_ids.append(next_chip_id)
             else:
@@ -713,14 +725,14 @@ class Controller(object):
         if chip_id is None:
             chip_ids = self.get_network_ids(io_group, io_channel, root_first_traversal=True)
             for chip_id in chip_ids:
-                ok,diff = self.init_network_and_verify(io_group, io_channel, chip_id=chip_id, timeout=timeout, retries=retries, modify_mosi=modify_mosi, differential=differential)
+                ok, diff = self.init_network_and_verify(io_group, io_channel, chip_id=chip_id, timeout=timeout, retries=retries, modify_mosi=modify_mosi, differential=differential)
                 if not ok:
-                    return ok,diff
-            return ok,dict()
+                    return ok, diff
+            return ok, dict()
 
         keys_to_verify = list()
-        if isinstance(chip_id,int):
-            keys_to_verify.append(Key(io_group,io_channel,chip_id))
+        if isinstance(chip_id, int):
+            keys_to_verify.append(Key(io_group, io_channel, chip_id))
         for us_link in self.network[io_group][io_channel]['miso_us'].in_edges(chip_id):
             if not isinstance(us_link[0], int):
                 continue
@@ -728,22 +740,24 @@ class Controller(object):
             keys_to_verify.append(Key(io_group, io_channel, parent_chip_id))
 
         if not keys_to_verify:
-            return True,dict()
-        print('init',io_group,io_channel,chip_id)
+            return True, dict()
+        print('init', io_group, io_channel, chip_id)
         self.init_network(io_group, io_channel, chip_id, modify_mosi=modify_mosi, differential=differential)
-        ok,diff = self.verify_network(keys_to_verify, timeout=timeout)
+        ok, diff = self.verify_network(keys_to_verify, timeout=timeout)
         for _ in range(retries):
-            if ok: return ok,diff
+            if ok:
+                return ok, diff
             for chip_key in diff:
                 self.write_configuration(chip_key, diff[chip_key].keys())
-            ok,diff = self.verify_registers([
+            ok, diff = self.verify_registers([
                 (chip_key, list(diff[chip_key].keys())) for chip_key in diff
             ])
         if not ok:
             print('Failed to verify network nodes {}'.format(diff.keys()))
-        return ok,diff
+        return ok, diff
 
-    def init_network(self, io_group=1, io_channel=1, chip_id=None, modify_mosi=True, differential=True):
+    def init_network(self, io_group=1, io_channel=1, chip_id=None,
+                     modify_mosi=True, differential=True, tx_slices=15, i_tx_diff=0):
         '''
         Configure a Hydra io node specified by chip_id, if none are specified,
         load complete network
@@ -779,6 +793,11 @@ class Controller(object):
             getattr(parent_chip.config, self._enable_piso_upstream[parent_chip.asic_version])[parent_uart] = 1
             packets += parent_chip.get_configuration_write_packets(
                 registers=parent_chip.config.register_map[self._enable_piso_upstream[parent_chip.asic_version]])
+            if parent_chip.asic_version in ('2b',):
+                setattr(parent_chip.config, f'i_tx_diff{parent_uart}', i_tx_diff)
+                setattr(parent_chip.config, f'tx_slices{parent_uart}', tx_slices)
+                registers = list(parent_chip.config.register_map[f'i_tx_diff{parent_uart}']) + list(parent_chip.config.register_map[f'tx_slices{parent_uart}'])
+                packets += parent_chip.get_configuration_write_packets(registers=registers)
 
             for mosi_link in subnetwork['mosi'].in_edges(parent_chip_id):
                 mosi_uart = subnetwork['mosi'].edges[mosi_link]['uart']
@@ -807,6 +826,11 @@ class Controller(object):
                 getattr(chip.config, self._enable_piso_downstream[chip.asic_version])[ds_uart] = 1
             packets += chip.get_configuration_write_packets(
                 registers=chip.config.register_map[self._enable_piso_downstream[chip.asic_version]])
+            if chip.asic_version in ('2b',):
+                setattr(chip.config, f'i_tx_diff{ds_uart}', i_tx_diff)
+                setattr(chip.config, f'tx_slices{ds_uart}', tx_slices)
+                registers = list(chip.config.register_map[f'i_tx_diff{ds_uart}']) + list(chip.config.register_map[f'tx_slices{ds_uart}'])
+                packets += chip.get_configuration_write_packets(registers=registers)
 
             if modify_mosi:
                 setattr(chip.config, self._enable_posi[chip.asic_version], [0] * 4)
@@ -1097,7 +1121,7 @@ class Controller(object):
             self.store_packets(packets, bytestream, message)
 
     def differential_write_configuration(self, chip_config_pairs, write_read=0,
-            message=None, connection_delay=0.2):
+                                         message=None, connection_delay=0.2):
         '''
         Send different configuration registers between configs passed in
         ``chip_config_pairs`` and existing configs. Performs a single
@@ -1116,18 +1140,18 @@ class Controller(object):
         register_names = [
             (key, list(self[key].config.compare(config)))
             for key, config in chip_config_pairs
-            ]
+        ]
         register_addresses = [
             (key, sorted(list(set([addr for name in names for addr in self[key].config.register_map[name]]))))
             for key, names in register_names
-            ]
+        ]
 
         self.multi_write_configuration(
             register_addresses,
             write_read=write_read,
             connection_delay=connection_delay,
             message=message
-            )
+        )
         return register_addresses
 
     def multi_read_configuration(self, chip_reg_pairs, timeout=1,
@@ -1227,7 +1251,7 @@ class Controller(object):
         different_fields = {}
         registers = {}
         for chip_key, chip_registers in chip_key_register_pairs:
-            if not isinstance(chip_registers, (list,tuple,range)):
+            if not isinstance(chip_registers, (list, tuple, range)):
                 if chip_key in registers:
                     registers[chip_key] += [chip_registers]
                 else:
@@ -1240,12 +1264,12 @@ class Controller(object):
         self.multi_read_configuration(chip_key_register_pairs, timeout=timeout, connection_delay=connection_delay)
         configuration_data = dict([
             (chip_key, dict([
-                (register,(None, None))
+                (register, (None, None))
                 for register in chip_registers]))
             for chip_key, chip_registers in registers.items()])
         for packet in self.reads[-1]:
             packet_key = packet.chip_key
-            if (hasattr(packet,'CONFIG_READ_PACKET') and packet.packet_type == packet.CONFIG_READ_PACKET):
+            if (hasattr(packet, 'CONFIG_READ_PACKET') and packet.packet_type == packet.CONFIG_READ_PACKET):
                 register_address = packet.register_address
                 if packet_key in configuration_data and register_address in configuration_data[packet_key]:
                     configuration_data[packet_key][register_address] = (None, packet.register_data)
@@ -1267,24 +1291,24 @@ class Controller(object):
                 del configuration_data[chip_key]
 
         if not return_value and n != 1:
-            retry_chip_key_register_pairs = [(key,register) for key,value in configuration_data.items() for register in value if value[register][-1] is None]
+            retry_chip_key_register_pairs = [(key, register) for key, value in configuration_data.items() for register in value if value[register][-1] is None]
             if len(retry_chip_key_register_pairs):
                 retry_return_value, retry_configuration_data = self.verify_registers(
                     retry_chip_key_register_pairs,
                     timeout=timeout,
                     connection_delay=connection_delay,
-                    n=n-1
-                    )
+                    n=n - 1
+                )
                 for chip_key in retry_configuration_data.keys():
                     configuration_data[chip_key].update(retry_configuration_data[chip_key])
-                for chip_key,register in retry_chip_key_register_pairs:
+                for chip_key, register in retry_chip_key_register_pairs:
                     if chip_key not in retry_configuration_data or register not in retry_configuration_data[chip_key]:
                         del configuration_data[chip_key][register]
                 return_value = all([
                     configuration_data[chip_key][register][0] == configuration_data[chip_key][register][1]
                     for chip_key in configuration_data
                     for register in configuration_data[chip_key]
-                    ])
+                ])
         return (return_value, configuration_data)
 
     def verify_configuration(self, chip_keys=None, timeout=1, connection_delay=0.02, n=1):
@@ -1308,7 +1332,7 @@ class Controller(object):
         '''
         if chip_keys is None:
             chip_keys = self.chips.keys()
-        if isinstance(chip_keys,(str,Key)):
+        if isinstance(chip_keys, (str, Key)):
             chip_keys = [chip_keys]
         chip_key_register_pairs = [(chip_key, range(self[chip_key].config.num_registers)) for chip_key in chip_keys]
         return self.verify_registers(chip_key_register_pairs, timeout=timeout, connection_delay=connection_delay, n=n)
@@ -1361,19 +1385,19 @@ class Controller(object):
         :returns: 2-``tuple`` with same format as ``controller.verify_registers``
 
         '''
-        ok,diff = self.verify_registers(chip_key_register_pairs, timeout=timeout, connection_delay=connection_delay, n=n_verify)
+        ok, diff = self.verify_registers(chip_key_register_pairs, timeout=timeout, connection_delay=connection_delay, n=n_verify)
         if not ok:
             chip_key_register_pairs = [
                 (chip_key, register)
                 for chip_key in diff
                 for register in diff[chip_key]
-                ]
+            ]
             self.multi_write_configuration(chip_key_register_pairs, write_read=0, connection_delay=connection_delay)
             if n != 1:
-                ok,diff = self.enforce_registers(chip_key_register_pairs, timeout=timeout, connection_delay=connection_delay, n=n-1, n_verify=n_verify)
+                ok, diff = self.enforce_registers(chip_key_register_pairs, timeout=timeout, connection_delay=connection_delay, n=n - 1, n_verify=n_verify)
             else:
-                ok,diff = self.verify_registers(chip_key_register_pairs, timeout=timeout, connection_delay=connection_delay, n=n_verify)
-        return ok,diff
+                ok, diff = self.verify_registers(chip_key_register_pairs, timeout=timeout, connection_delay=connection_delay, n=n_verify)
+        return ok, diff
 
     def enforce_configuration(self, chip_keys=None, timeout=1, connection_delay=0.02, n=1, n_verify=1):
         '''
@@ -1398,7 +1422,7 @@ class Controller(object):
         '''
         if chip_keys is None:
             chip_keys = self.chips.keys()
-        if isinstance(chip_keys,(str,Key)):
+        if isinstance(chip_keys, (str, Key)):
             chip_keys = [chip_keys]
         chip_key_register_pairs = [(chip_key, range(self[chip_key].config.num_registers)) for chip_key in chip_keys]
         return self.enforce_registers(chip_key_register_pairs, timeout=timeout, connection_delay=connection_delay, n=n, n_verify=n_verify)
@@ -1414,7 +1438,7 @@ class Controller(object):
             chip.config.disable_analog_monitor()
             chip.config.enable_analog_monitor(channel)
             self.write_configuration(chip_key, chip.config.csa_monitor_select_addresses)
-            chip.config.csa_monitor_select = [0]*chip.config.num_channels
+            chip.config.csa_monitor_select = [0] * chip.config.num_channels
         elif chip.asic_version in (2, 'lightpix-1', '2b'):
             chip.config.csa_monitor_select[channel] = 1
             self.write_configuration(chip_key, chip.config.register_map['csa_monitor_select'])
@@ -1439,7 +1463,7 @@ class Controller(object):
                 if not channel is None:
                     chip.config.csa_monitor_select[channel] = 0
                 else:
-                    chip.config.csa_monitor_select = [0]*64
+                    chip.config.csa_monitor_select = [0] * 64
                 self.write_configuration(chip_key, chip.config.register_map['csa_monitor_select'])
             else:
                 raise RuntimeError('chip has invalid asic version')
@@ -1457,7 +1481,7 @@ class Controller(object):
             chip.config.csa_testpulse_dac_amplitude = start_dac
             self.write_configuration(chip_key, chip.config.csa_testpulse_enable_addresses +
                                      [chip.config.csa_testpulse_dac_amplitude_address])
-            chip.config.csa_testpulse_enable = [1]*chip.config.num_channels
+            chip.config.csa_testpulse_enable = [1] * chip.config.num_channels
         elif chip.asic_version in (2, 'lightpix-1', '2b'):
             for channel in channel_list:
                 chip.config.csa_testpulse_enable[channel] = 0
@@ -1567,7 +1591,7 @@ class Controller(object):
         new_packets.read_id = self.nreads
         self.nreads += 1
         self.reads.append(new_packets)
-        #self.sort_packets(new_packets)
+        # self.sort_packets(new_packets)
 
     def sort_packets(self, collection):
         '''
@@ -1590,4 +1614,4 @@ class Controller(object):
         data['message'] = message
         with open(filename, 'w') as outfile:
             json.dump(data, outfile, indent=4,
-                    separators=(',',':'), sort_keys=True)
+                      separators=(',', ':'), sort_keys=True)
