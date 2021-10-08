@@ -53,30 +53,32 @@ def network_config_old(request, tmpdir):
                     ],
                 }
             },
-            "miso_us_uart_map": [0,1,2,3],
-            "miso_ds_uart_map": [2,3,0,1],
-            "mosi_uart_map": [2,3,0,1]
+            "miso_us_uart_map": [0, 1, 2, 3],
+            "miso_ds_uart_map": [2, 3, 0, 1],
+            "mosi_uart_map": [2, 3, 0, 1]
         }
     }
-    with open(filename,'w') as of:
+    with open(filename, 'w') as of:
         json.dump(config_dict, of)
     return filename
+
 
 @pytest.fixture
 def network_config_new(tmpdir, network_config_old):
     filename = str(tmpdir.join('test_network_conf_new.json'))
-    with open(network_config_old,'r') as f:
+    with open(network_config_old, 'r') as f:
         d = json.load(f)
     del d['network']['miso_us_uart_map']
     del d['network']['miso_ds_uart_map']
     del d['network']['mosi_uart_map']
 
-    d['network']['miso_uart_map'] = [0,1,2,3]
-    d['network']['mosi_uart_map'] = [0,1,2,3]
-    d['network']['usds_link_map'] = [2,3,0,1]
-    with open(filename,'w') as of:
+    d['network']['miso_uart_map'] = [0, 1, 2, 3]
+    d['network']['mosi_uart_map'] = [0, 1, 2, 3]
+    d['network']['usds_link_map'] = [2, 3, 0, 1]
+    with open(filename, 'w') as of:
         json.dump(d, of)
     return filename
+
 
 @pytest.fixture
 def inheriting_network_config(tmpdir, network_config_old):
@@ -98,15 +100,16 @@ def inheriting_network_config(tmpdir, network_config_old):
                             "chip_id": 123,
                         }
                     ],
-                    "miso_us_uart_map": [0,1,2,3],
-                    "miso_ds_uart_map": [2,3,0,1],
+                    "miso_us_uart_map": [0, 1, 2, 3],
+                    "miso_ds_uart_map": [2, 3, 0, 1],
                 }
             },
         }
     }
-    with open(filename,'w') as of:
+    with open(filename, 'w') as of:
         json.dump(config_dict, of)
     return filename
+
 
 @pytest.fixture
 def network_controller_old(network_config_old):
@@ -115,6 +118,7 @@ def network_controller_old(network_config_old):
     c.io = FakeIO()
     return c
 
+
 @pytest.fixture
 def network_controller_new(network_config_new):
     c = Controller()
@@ -122,14 +126,15 @@ def network_controller_new(network_config_new):
     c.io = FakeIO()
     return c
 
+
 def test_controller_network(network_controller_old, network_controller_new):
     for c in (network_controller_old, network_controller_new):
-        networks = ('miso_us','miso_ds','mosi')
+        networks = ('miso_us', 'miso_ds', 'mosi')
         for chip_key in c.chips:
             for network in networks:
                 assert chip_key.chip_id in c.network[chip_key.io_group][chip_key.io_channel][network].nodes()
-        us_links = [('ext',2),(2,3),(2,12),(12,13)]
-        ds_links = [(3,2),(12,2),(13,12),(2,'ext')]
+        us_links = [('ext', 2), (2, 3), (2, 12), (12, 13)]
+        ds_links = [(3, 2), (12, 2), (13, 12), (2, 'ext')]
         mosi_links = [link[::-1] for link in us_links] + [link[::-1] for link in ds_links]
         assert set(c.network[chip_key.io_group][chip_key.io_channel]['miso_us'].edges()) == set(us_links)
         assert set(c.network[chip_key.io_group][chip_key.io_channel]['miso_ds'].edges()) == set(ds_links)
@@ -149,17 +154,18 @@ def test_controller_network(network_controller_old, network_controller_new):
         assert len(c.network[1][1]['mosi'].nodes()) == 5
         assert all(3 in c.network[1][1][network] for network in networks)
 
-        c.add_network_link(1,1,'miso_us',(2,3),0)
+        c.add_network_link(1, 1, 'miso_us', (2, 3), 0)
         assert len(c.network[1][1]['miso_us'].edges()) == 4
-        assert c.network[1][1]['miso_us'].edges[(2,3)]['uart'] == 0
-        c.add_network_link(1,1,'miso_ds',(3,2),2)
+        assert c.network[1][1]['miso_us'].edges[(2, 3)]['uart'] == 0
+        c.add_network_link(1, 1, 'miso_ds', (3, 2), 2)
         assert len(c.network[1][1]['miso_ds'].edges()) == 4
-        assert c.network[1][1]['miso_ds'].edges[(3,2)]['uart'] == 2
-        c.add_network_link(1,1,'mosi',(3,2),0)
-        c.add_network_link(1,1,'mosi',(2,3),2)
+        assert c.network[1][1]['miso_ds'].edges[(3, 2)]['uart'] == 2
+        c.add_network_link(1, 1, 'mosi', (3, 2), 0)
+        c.add_network_link(1, 1, 'mosi', (2, 3), 2)
         assert len(c.network[1][1]['mosi'].edges()) == 8
-        assert c.network[1][1]['mosi'].edges[(3,2)]['uart'] == 0
-        assert c.network[1][1]['mosi'].edges[(2,3)]['uart'] == 2
+        assert c.network[1][1]['mosi'].edges[(3, 2)]['uart'] == 0
+        assert c.network[1][1]['mosi'].edges[(2, 3)]['uart'] == 2
+
 
 def test_controller_inherit_config(inheriting_network_config):
     c = Controller()
@@ -168,6 +174,7 @@ def test_controller_inherit_config(inheriting_network_config):
     assert len(c.chips) == 5
     assert len(c.network[1][1]['mosi'].nodes) == 5
     assert len(c.network[1][2]['mosi'].nodes) == 2
+
 
 def test_controller_init(network_controller_old, network_controller_new):
     for c in (network_controller_old, network_controller_new):
@@ -178,7 +185,7 @@ def test_controller_init(network_controller_old, network_controller_new):
         assert len(c.network[1][1]['mosi'].edges()) == 8
         assert ('ext', 2) in c.network[1][1]['mosi'].in_edges(2)
 
-        c.init_network(1,1,2)
+        c.init_network(1, 1, 2)
         assert c['1-1-2'].config.chip_id == 2
         assert getattr(c['1-1-2'].config, c._enable_piso_upstream[c['1-1-2'].asic_version]) == [0, 0, 0, 0]
         assert getattr(c['1-1-2'].config, c._enable_piso_downstream[c['1-1-2'].asic_version]) == [0, 0, 1, 0]
@@ -192,14 +199,23 @@ def test_controller_init(network_controller_old, network_controller_new):
         assert getattr(c['1-1-3'].config, c._enable_posi[c['1-1-3'].asic_version]) == [0, 0, 1, 0]
         assert c.io.sent[-1][-1] == c['1-1-3'].get_configuration_write_packets(
             registers=c['1-1-3'].config.register_map[c._enable_posi[c['1-1-3'].asic_version]])[0]
-        assert c.io.sent[-1][-2] == c['1-1-3'].get_configuration_write_packets(
-            registers=c['1-1-3'].config.register_map[c._enable_piso_downstream[c['1-1-3'].asic_version]])[0]
+        if c['1-1-3'].asic_version == 2:
+            assert c.io.sent[-1][-2] == c['1-1-3'].get_configuration_write_packets(
+                registers=c['1-1-3'].config.register_map[c._enable_piso_downstream[c['1-1-3'].asic_version]])[0]
+        elif c['1-1-3'].asic_version == '2b':
+            assert c.io.sent[-1][-4] == c['1-1-3'].get_configuration_write_packets(
+                registers=c['1-1-3'].config.register_map[c._enable_piso_downstream[c['1-1-3'].asic_version]])[0]
         chip_id_config_packet = c['1-1-3'].get_configuration_write_packets(
             registers=c['1-1-3'].config.register_map['chip_id'])[0]
         chip_id_config_packet.chip_id = 1
-        assert c.io.sent[-1][-3] == chip_id_config_packet
-        assert c.io.sent[-1][-4] == c['1-1-2'].get_configuration_write_packets(
-            registers=c['1-1-2'].config.register_map[c._enable_piso_upstream[c['1-1-2'].asic_version]])[0]
+        if c['1-1-3'].asic_version == 2:
+            assert c.io.sent[-1][-3] == chip_id_config_packet
+            assert c.io.sent[-1][-4] == c['1-1-2'].get_configuration_write_packets(
+                registers=c['1-1-2'].config.register_map[c._enable_piso_upstream[c['1-1-2'].asic_version]])[0]
+        elif c['1-1-3'].asic_version == '2b':
+            assert c.io.sent[-1][-5] == chip_id_config_packet
+            assert c.io.sent[-1][-8] == c['1-1-2'].get_configuration_write_packets(
+                registers=c['1-1-2'].config.register_map[c._enable_piso_upstream[c['1-1-2'].asic_version]])[0]
 
         c.init_network(1, 1)
         assert c['1-1-2'].config.chip_id == 2
@@ -274,15 +290,14 @@ def test_controller_network_traversal(network_controller_old, network_controller
     for c in (network_controller_old, network_controller_new):
         c = network_controller_new
 
-        keys = c.get_network_keys(1,1,root_first_traversal=True)
+        keys = c.get_network_keys(1, 1, root_first_traversal=True)
         assert len(keys) == 4
         assert keys[0] == '1-1-2'
-        assert set(keys[1:3]) == set(['1-1-3','1-1-12'])
+        assert set(keys[1:3]) == set(['1-1-3', '1-1-12'])
         assert keys[3] == '1-1-13'
 
-        keys = c.get_network_keys(1,1,root_first_traversal=False)
+        keys = c.get_network_keys(1, 1, root_first_traversal=False)
         assert len(keys) == 4
         assert keys[0] == '1-1-13'
-        assert set(keys[1:3]) == set(['1-1-3','1-1-12'])
+        assert set(keys[1:3]) == set(['1-1-3', '1-1-12'])
         assert keys[3] == '1-1-2'
-
