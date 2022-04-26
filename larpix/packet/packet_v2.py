@@ -251,6 +251,18 @@ class Packet_v2(object):
         return self._int
 
     @property
+    @_clears_cached_int
+    @_clears_cached_chip_key
+    def bits(self):
+        return self._bits
+
+    @bits.setter
+    @_clears_cached_int
+    @_clears_cached_chip_key    
+    def bits(self, value):
+        self._bits = value
+
+    @property
     def chip_key(self):
         ''''''
         if hasattr(self, '_chip_key'):

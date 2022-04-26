@@ -155,3 +155,8 @@ def test_parity():
     p.assign_parity()
     assert p.has_valid_parity()
     assert p.parity == 0
+
+    p.bits[-1] = 1
+    assert p.parity == 1
+    p.bits[-1] = 0
+    assert p.parity == 0
