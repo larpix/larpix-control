@@ -38,6 +38,7 @@ setup(
         'bitarray >=0.8',
         'pyzmq >= 18.0',
         'sphinx_rtd_theme >= 0.5',
+        'numba >= 0.56',
         'numpy >= 1.16',
         'h5py >= 3.1',
         'bidict >= 0.18.0',

@@ -862,6 +862,69 @@ def _encode_packet(packet, version, packet_dset_name):
         return(tuple(encoded_packet))
     return False
 
+def init_file(f: h5py.File, version=None, chip_list=None):
+    message_dset, configs_dset = None, None
+
+    if "_header" not in f.keys():
+        header = f.create_group("_header")
+        if version is None:
+            version = latest_version
+        header.attrs["version"] = version
+        header.attrs["created"] = time.time()
+    else:
+        header = f["_header"]
+        file_version = header.attrs["version"]
+        if version is None:
+            version = file_version
+        elif file_version != version:
+            raise RuntimeError(
+                "Incompatible versions: existing: %s, "
+                "specified: %s" % (file_version, version)
+            )
+    header.attrs["modified"] = time.time()
+
+    if version != "0.0":
+        message_dset_name = "messages"
+        message_dtype = dtypes[version][message_dset_name]
+        if message_dset_name not in f.keys():
+            message_dset = f.create_dataset(
+                message_dset_name, shape=(0,), maxshape=(None,), dtype=message_dtype
+            )
+            # message_start_index = 0
+        else:
+            message_dset = f[message_dset_name]
+            # message_start_index = message_dset.shape[0]
+
+    if version >= "2.4":
+        configs = []
+        configs_dset_name = "configs"
+        configs_dtype = dtypes[version][configs_dset_name]
+        if configs_dset_name not in f.keys():
+            configs_dset = f.create_dataset(
+                configs_dset_name, shape=(0,), maxshape=(None,), dtype=configs_dtype
+            )
+            configs_start_index = 0
+        else:
+            configs_dset = f[configs_dset_name]
+            configs_start_index = configs_dset.shape[0]
+        if chip_list:
+            configs_dset.attrs["asic_version"] = str(chip_list[-1].asic_version)
+        for i, chip in enumerate(chip_list):
+            encoded_config = _format_method_lookup[version][configs_dset_name][
+                chip.__class__
+            ](
+                chip,
+                counter=configs_start_index + len(configs),
+                timestamp=header.attrs["modified"],
+            )
+            configs.append(encoded_config)
+        if configs:
+            configs_dset.resize(configs_start_index + len(configs), axis=0)
+            configs_dset[configs_start_index:] = np.concatenate(configs)
+
+    return version, message_dset, configs_dset
+
+
 def to_file(filename, packet_list=None, chip_list=None, mode='a', version=None, workers=None):
     '''
     Save the given packets to the given file.
@@ -889,22 +952,7 @@ def to_file(filename, packet_list=None, chip_list=None, mode='a', version=None, 
       workers = max(min(os.cpu_count(), int(len(packet_list)//10000)),1)
 
     with h5py.File(filename, mode) as f:
-        # Create header
-        if '_header' not in f.keys():
-            header = f.create_group('_header')
-            if version is None:
-                version = latest_version
-            header.attrs['version'] = version
-            header.attrs['created'] = time.time()
-        else:
-            header = f['_header']
-            file_version = header.attrs['version']
-            if version is None:
-                version = file_version
-            elif header.attrs['version'] != version:
-                raise RuntimeError('Incompatible versions: existing: %s, '
-                    'specified: %s' % (file_version, version))
-        header.attrs['modified'] = time.time()
+        version, message_dset, _configs_dset = init_file(f, version, chip_list)
 
         # Create datasets
         if version == '0.0':
@@ -958,36 +1006,9 @@ def to_file(filename, packet_list=None, chip_list=None, mode='a', version=None, 
             start_index = packet_dset.shape[0]
             packet_dset.resize(start_index + len(packet_list), axis=0)
 
-        if version != '0.0':
-            message_dset_name = 'messages'
-            message_dtype = dtypes[version][message_dset_name]
-            if message_dset_name not in f.keys():
-                message_dset = f.create_dataset(message_dset_name,
-                        shape=(0,), maxshape=(None,),
-                        dtype=message_dtype)
-                message_start_index = 0
-            else:
-                message_dset = f[message_dset_name]
-                message_start_index = message_dset.shape[0]
-
-        if version >= '2.4':
-            configs_dset_name = 'configs'
-            configs_dtype = dtypes[version][configs_dset_name]
-            if configs_dset_name not in f.keys():
-                configs_dset = f.create_dataset(configs_dset_name,
-                    shape=(0,), maxshape=(None,),
-                    dtype=configs_dtype)
-                configs_start_index = 0
-            else:
-                configs_dset = f[configs_dset_name]
-                configs_start_index = configs_dset.shape[0]
-            if chip_list:
-                configs_dset.attrs['asic_version'] = str(chip_list[-1].asic_version)
-
         # Fill dataset
         encoded_packets = []
         messages = []
-        configs = []
 
         if workers > 1:
             packet_args = zip(packet_list, [version]*len(packet_list), [packet_dset_name]*len(packet_list))
@@ -996,24 +1017,19 @@ def to_file(filename, packet_list=None, chip_list=None, mode='a', version=None, 
         else:
             encoded_packets = list(filter(bool, [_encode_packet(packet, version, packet_dset_name) for packet in packet_list]))
 
-        for i, packet in enumerate(packet_list):
-            if version != '0.0' and packet.__class__ in _format_method_lookup[version].get(message_dset_name, tuple()):
-                encoded_message = _format_method_lookup[version][message_dset_name][packet.__class__](packet, counter=message_start_index + len(messages))
-                messages.append(encoded_message)
-
-        for i,chip in enumerate(chip_list):
-            if version >= '2.4':
-                encoded_config = _format_method_lookup[version][configs_dset_name][chip.__class__](chip, counter=configs_start_index + len(configs), timestamp=header.attrs['modified'])
-                configs.append(encoded_config)
+        if message_dset:
+            message_dset_name = message_dset.name.removeprefix('/')
+            for i, packet in enumerate(packet_list):
+                if packet.__class__ in _format_method_lookup[version].get(message_dset_name, tuple()):
+                    encoded_message = _format_method_lookup[version][message_dset_name][packet.__class__](packet, counter=message_dset.shape[0] + len(messages))
+                    messages.append(encoded_message)
 
         if encoded_packets:
             packet_dset[start_index:] = encoded_packets
         if version != '0.0' and messages:
+            message_start_index = message_dset.shape[0]
             message_dset.resize(message_start_index + len(messages), axis=0)
             message_dset[message_start_index:] = messages
-        if version >= '2.4' and configs:
-            configs_dset.resize(configs_start_index + len(configs), axis=0)
-            configs_dset[configs_start_index:] = np.concatenate(configs)
 
 def from_file(filename, version=None, start=None, end=None, load_configs=None):
     '''
