@@ -12,7 +12,7 @@ from larpix.format.hdf5format import to_file
 
 def main(input_filename, output_filename, block_size, append=False):
     if os.path.exists(output_file) and not append:
-        raise RuntimeError(f'{output_file} already exists! Run with --append if you want to concatenate data')
+        raise RuntimeError(f'{output_filename} already exists! Run with --append if you want to concatenate data')
     
     total_messages = len_rawfile(input_filename)
     total_blocks = total_messages // block_size + 1
