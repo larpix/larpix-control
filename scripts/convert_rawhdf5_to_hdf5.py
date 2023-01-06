@@ -1,5 +1,6 @@
 import argparse
 import time
+import os
 
 import larpix
 import larpix.format.rawhdf5format
@@ -9,7 +10,10 @@ from larpix.format.rawhdf5format import from_rawfile, len_rawfile
 from larpix.format.pacman_msg_format import parse
 from larpix.format.hdf5format import to_file
 
-def main(input_filename, output_filename, block_size):
+def main(input_filename, output_filename, block_size, append=False):
+    if os.path.exists(output_filename) and not append:
+        raise RuntimeError(f'{output_filename} already exists! Run with --append if you want to concatenate data')
+    
     total_messages = len_rawfile(input_filename)
     total_blocks = total_messages // block_size + 1
     last = time.time()
@@ -35,5 +39,6 @@ if __name__ == '__main__':
     parser.add_argument('--output_filename', '-o', type=str, help='''Output hdf5 file,
         to be formatted with larpix.format.hdf5format''')
     parser.add_argument('--block_size', default=10240, type=int, help='''Max number of messages to store in working memory (default=%(default)s)''')
+    parser.add_argument('--append', default=False, action='store_true', help='''Add data to the end of the output file, if it already exists''')
     args = parser.parse_args()
     c = main(**vars(args))
