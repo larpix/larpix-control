@@ -11,7 +11,7 @@ from larpix.format.pacman_msg_format import parse
 from larpix.format.hdf5format import to_file
 
 def main(input_filename, output_filename, block_size, append=False):
-    if os.path.exists(output_file) and not append:
+    if os.path.exists(output_filename) and not append:
         raise RuntimeError(f'{output_filename} already exists! Run with --append if you want to concatenate data')
     
     total_messages = len_rawfile(input_filename)
