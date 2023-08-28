@@ -144,14 +144,17 @@ class Controller(object):
 
     _enable_piso_upstream = {
         2: 'enable_miso_upstream',
+        'lightpix-1': 'enable_miso_upstream',
         '2b': 'enable_piso_upstream'
     }
     _enable_posi = {
         2: 'enable_mosi',
+        'lightpix-1': 'enable_mosi',
         '2b': 'enable_posi'
     }
     _enable_piso_downstream = {
         2: 'enable_miso_downstream',
+        'lightpix-1': 'enable_miso_downstream',
         '2b': 'enable_piso_downstream'
     }
 
@@ -906,6 +909,8 @@ class Controller(object):
 
         '''
         timestamp = time.time()
+        #for packet in packets:
+        #    print(packet)
         if self.io:
             self.io.send(packets)
         else:

@@ -21,7 +21,7 @@ class Chip(object):
             self.config = Configuration_v1()
         elif self.asic_version == 2:
             self.config = Configuration_v2()
-        elif self.asic_version == 'lightpix-v1.0':
+        elif self.asic_version == 'lightpix-1':
             self.config = Configuration_Lightpix_v1()
         elif self.asic_version == '2b':
             self.config = Configuration_v2b()
@@ -61,7 +61,7 @@ class Chip(object):
         '''
         if self.asic_version == 1:
             return True
-        elif self.asic_version in (2, 'lightpix-v1.0'):
+        elif self.asic_version in (2, 'lightpix-1'):
             return self.config.chip_id == self.chip_id
 
     def get_configuration_packets(self, packet_type, registers=None):
@@ -77,7 +77,7 @@ class Chip(object):
         packets = []
         if self.asic_version == 1:
             packet_register_data = enumerate(conf.all_data())
-        elif self.asic_version in (2, 'lightpix-v1.0', '2b'):
+        elif self.asic_version in (2, 'lightpix-1', '2b'):
             packet_register_data = zip(*conf.some_data(registers))
         for i, data in packet_register_data:
             if i not in registers:
