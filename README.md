@@ -7,7 +7,7 @@ Control the LArPix chip
 
 ## Setup and installation
 
-This code is intended to work on both Python 2.7+ and Python 3.6+.
+This code is intended to work on Python 3.9+.
 
 Install larpix-control from pip with
 
