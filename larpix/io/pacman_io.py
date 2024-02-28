@@ -312,6 +312,7 @@ class PACMAN_IO(IO):
         Set a 32-bit register in the pacman PL
 
         '''
+        #print('setting register {} to {}'.format(reg, val))
         if io_group is None:
             return dict([(io_group,self.set_reg(reg, val, io_group=io_group)) for io_group in self._io_group_table])
         msg = pacman_msg_format.format_msg('REQ',[('WRITE',reg,val)])
@@ -512,3 +513,34 @@ class PACMAN_IO(IO):
         self.set_reg(self._clk_ctrl_reg, clk_ctrl, io_group=io_group)
         return self.get_reg(self._clk_ctrl_reg, io_group=io_group)
 
+    def reset_tiles(self, tiles=None, length=256, io_group=None):
+        '''
+        
+        Issue a reset pulse to certain tiles only. 
+        
+        Note that this requires modern PACMAN firmware (firmware 384 or greater)
+        
+        '''
+        
+        no_reset_tiles = set(range(1,9))-set(tiles)
+
+        REG=0x101c
+        reg_val=0
+        for tile in no_reset_tiles: 
+            reg_val += (1 << tile)
+    
+        prev_val = self.get_reg(REG, io_group=io_group)
+    
+        #We care about bits 16:23. These should always be 0 by default
+        #Reset to 0 at the end of this
+        
+        new_val = prev_val + (reg_val << 15)
+        self.set_reg(REG, new_val, io_group=io_group)
+        self.reset_larpix(length=length, io_group=io_group)
+        self.set_reg(REG, prev_val, io_group=io_group)
+
+        return True
+
+
+
+ 
