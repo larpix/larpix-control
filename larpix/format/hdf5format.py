@@ -1018,7 +1018,11 @@ def to_file(filename, packet_list=None, chip_list=None, mode='a', version=None, 
             encoded_packets = list(filter(bool, [_encode_packet(packet, version, packet_dset_name) for packet in packet_list]))
 
         if message_dset:
-            message_dset_name = message_dset.name.removeprefix('/')
+            prefix='/'
+            message_dset_name = message_dset.name
+            if message_dset_name.startswith(prefix):
+                message_dset_name = message_dset_name[len(prefix):]
+            #message_dset_name = message_dset.name.removeprefix('/')
             for i, packet in enumerate(packet_list):
                 if packet.__class__ in _format_method_lookup[version].get(message_dset_name, tuple()):
                     encoded_message = _format_method_lookup[version][message_dset_name][packet.__class__](packet, counter=message_dset.shape[0] + len(messages))
