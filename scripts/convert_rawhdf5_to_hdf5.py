@@ -3,6 +3,8 @@
 import argparse
 import time
 
+import h5py
+
 import larpix
 import larpix.format.rawhdf5format
 import larpix.format.pacman_msg_format
@@ -35,6 +37,13 @@ def main(input_filename, output_filename, block_size, direct, max_blocks):
                 io_group,msg = data
                 pkts.extend(parse(msg, io_group=io_group))
             to_file(output_filename, packet_list=pkts)
+
+    # Copy the embedded ASIC config tarball, if it exists
+    with h5py.File(input_filename) as f_in:
+        if 'daq_configs' in f_in:
+            with h5py.File(output_filename, 'a') as f_out:
+                f_in.copy('daq_configs', f_out)
+
     print()
 
 if __name__ == '__main__':
