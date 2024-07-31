@@ -17,6 +17,7 @@ import larpix.format.pacman_msg_format as pacman_msg_format
 import larpix.format.rawhdf5format as rawhdf5format
 from larpix import Packet_v2
 
+
 class PACMAN_IO(IO):
     '''
     The PACMAN_IO object interfaces with a network of PACMAN
@@ -52,7 +53,7 @@ class PACMAN_IO(IO):
     '''
     default_filepath = 'io/pacman.json'
     default_raw_filename_fmt = 'raw_%Y_%m_%d_%H_%M_%S_%Z.h5'
-    max_msg_length = 2**16-1
+    max_msg_length = 16 # 2**16-1
     cmdserver_port = '5555'
     dataserver_port = '5556'
     _valid_config_classes = ['PACMAN_IO']
@@ -77,8 +78,8 @@ class PACMAN_IO(IO):
     _idda_adc_reg = 0x24041
     _vplus_adc_reg = 0x24022
     _iplus_adc_reg = 0x24021
-    _adc2mv = lambda _,x: ((x >> 16) >> 3) * 4
-    _adc2ma = lambda _,x: ((x >> 16) - (x >> 31) * 65535) * 500 * 0.01
+    def _adc2mv(_, x): return ((x >> 16) >> 3) * 4
+    def _adc2ma(_, x): return ((x >> 16) - (x >> 31) * 65535) * 500 * 0.01
 
     def __init__(self, config_filepath=None, hwm=20000, relaxed=True, timeout=-1, raw_directory='./', raw_filename=None):
         super(PACMAN_IO, self).__init__()
@@ -93,16 +94,16 @@ class PACMAN_IO(IO):
         self.hwm = hwm
         for receiver in self.receivers.values():
             receiver.set_hwm(self.hwm)
-            receiver.setsockopt(zmq.CONNECT_TIMEOUT,max(timeout,0))
-            receiver.setsockopt(zmq.LINGER,0)
-            receiver.setsockopt(zmq.RCVTIMEO,timeout)
+            receiver.setsockopt(zmq.CONNECT_TIMEOUT, max(timeout, 0))
+            receiver.setsockopt(zmq.LINGER, 0)
+            receiver.setsockopt(zmq.RCVTIMEO, timeout)
         for sender in self.senders.values():
             if relaxed:
-                sender.setsockopt(zmq.REQ_RELAXED,True)
-            sender.setsockopt(zmq.LINGER,0)
-            sender.setsockopt(zmq.CONNECT_TIMEOUT,max(timeout,0))
-            sender.setsockopt(zmq.RCVTIMEO,timeout)
-            sender.setsockopt(zmq.SNDTIMEO,timeout)
+                sender.setsockopt(zmq.REQ_RELAXED, True)
+            sender.setsockopt(zmq.LINGER, 0)
+            sender.setsockopt(zmq.CONNECT_TIMEOUT, max(timeout, 0))
+            sender.setsockopt(zmq.RCVTIMEO, timeout)
+            sender.setsockopt(zmq.SNDTIMEO, timeout)
         for address in self._io_group_table.inv:
             send_address = 'tcp://' + address + ':' + self.cmdserver_port
             receive_address = 'tcp://' + address + ':' + self.dataserver_port
@@ -116,12 +117,12 @@ class PACMAN_IO(IO):
         self._raw_file_queue = multiprocessing.Queue()
         self.raw_filename = os.path.join(
             raw_directory,
-            raw_filename if raw_filename is not None \
-                else time.strftime(self.default_raw_filename_fmt)
+            raw_filename if raw_filename is not None
+            else time.strftime(self.default_raw_filename_fmt)
         )
         self._launch_raw_file_worker()
 
-    def send(self, packets):
+    def send(self, packets, msg_length=max_msg_length):
         '''
         Sends a request message to PACMAN boards to send designated
         packets.
@@ -141,7 +142,8 @@ class PACMAN_IO(IO):
         if self.interleave_packets_by_io_channel and self.group_packets_by_io_group:
             interleaved_msg_packets = list()
             for packets in msg_packets:
-                interleaved_msg_packets.append(self._interleave_by_attr(packets, 'io_channel'))
+                interleaved_msg_packets.append(
+                    self._interleave_by_attr(packets, 'io_channel'))
             msg_packets = interleaved_msg_packets
 
         # double up sent packets to help avoid 512 bug
@@ -156,13 +158,15 @@ class PACMAN_IO(IO):
         resp_addresses = list()
         for packets in msg_packets:
             io_group = packets[0].io_group
-            for i in range(0, len(packets), self.max_msg_length):
-                #for packet in packets: print(packet)
-                msg_len = min(len(packets)-i, self.max_msg_length)
-                msg = pacman_msg_format.format(packets[i:i+msg_len], msg_type='REQ')
+            for i in range(0, len(packets), msg_length):
+                # for packet in packets: print(packet)
+                msg_len = min(len(packets)-i, msg_length)
+                msg = pacman_msg_format.format(
+                    packets[i:i+msg_len], msg_type='REQ')
                 address = self._io_group_table[io_group]
                 self.senders[address].send(msg)
-                self._sender_replies[address].append(self.senders[address].recv())
+                self._sender_replies[address].append(
+                    self.senders[address].recv())
 
     def start_listening(self):
         '''
@@ -195,7 +199,7 @@ class PACMAN_IO(IO):
         '''
         groupings = defaultdict(list)
         for packet in packets:
-            groupings[getattr(packet,attr)].append(packet)
+            groupings[getattr(packet, attr)].append(packet)
         return groupings
 
     @staticmethod
@@ -210,7 +214,8 @@ class PACMAN_IO(IO):
         '''
 
         groupings = PACMAN_IO._group_by_attr(packets, attr)
-        zipped_packets = itertools.zip_longest(*groupings.values(), fillvalue=None)
+        zipped_packets = itertools.zip_longest(
+            *groupings.values(), fillvalue=None)
         interleaved = list()
         for row in zipped_packets:
             for packet in row:
@@ -240,14 +245,16 @@ class PACMAN_IO(IO):
                     address_list += [self.receivers.inv[socket]]
         if not self.disable_packet_parsing:
             for message, address in zip(bytestream_list, address_list):
-                packets += pacman_msg_format.parse(message, io_group=self._io_group_table.inv[address])
+                packets += pacman_msg_format.parse(message,
+                                                   io_group=self._io_group_table.inv[address])
             bytestream = b''.join(bytestream_list)
         if self.enable_raw_file_writing:
-            self._raw_file_queue.put((bytestream_list, [self._io_group_table.inv[address] for address in address_list]))
+            self._raw_file_queue.put(
+                (bytestream_list, [self._io_group_table.inv[address] for address in address_list]))
             if not self._raw_file_worker.is_alive():
                 self._launch_raw_file_worker()
 
-        return packets,bytestream
+        return packets, bytestream
 
     def cleanup(self):
         '''
@@ -281,11 +288,13 @@ class PACMAN_IO(IO):
                     break
             # write to file
             if len(msgs):
-                rawhdf5format.to_rawfile(filename, msgs=msgs, msg_headers={'io_groups': io_groups}, io_version=pacman_msg_format.latest_version)
+                rawhdf5format.to_rawfile(filename, msgs=msgs, msg_headers={
+                                         'io_groups': io_groups}, io_version=pacman_msg_format.latest_version)
                 start_time = time.time()
 
     def _launch_raw_file_worker(self):
-        self._raw_file_worker = multiprocessing.Process(target=self._to_raw_file, args=(self._raw_file_queue, self.raw_filename))
+        self._raw_file_worker = multiprocessing.Process(
+            target=self._to_raw_file, args=(self._raw_file_queue, self.raw_filename))
         self._raw_file_worker.start()
 
     def join(self):
@@ -300,8 +309,8 @@ class PACMAN_IO(IO):
         return self._raw_filename
 
     @raw_filename.setter
-    def raw_filename(self,value):
-        if hasattr(self,'_raw_filename') \
+    def raw_filename(self, value):
+        if hasattr(self, '_raw_filename') \
                 and value != self._raw_filename \
                 and self._raw_file_worker.is_alive():
             self.join()
@@ -312,10 +321,10 @@ class PACMAN_IO(IO):
         Set a 32-bit register in the pacman PL
 
         '''
-        #print('setting register {} to {}'.format(reg, val))
+        # print('setting register {} to {}'.format(reg, val))
         if io_group is None:
-            return dict([(io_group,self.set_reg(reg, val, io_group=io_group)) for io_group in self._io_group_table])
-        msg = pacman_msg_format.format_msg('REQ',[('WRITE',reg,val)])
+            return dict([(io_group, self.set_reg(reg, val, io_group=io_group)) for io_group in self._io_group_table])
+        msg = pacman_msg_format.format_msg('REQ', [('WRITE', reg, val)])
         addr = self._io_group_table[io_group]
         self.senders[addr].send(msg)
         self._sender_replies[addr].append(self.senders[addr].recv())
@@ -330,7 +339,7 @@ class PACMAN_IO(IO):
         '''
         if io_group is None:
             return dict([(io_group, self.get_reg(reg, io_group=io_group)) for io_group in self._io_group_table])
-        msg = pacman_msg_format.format_msg('REQ',[('READ',reg,0)])
+        msg = pacman_msg_format.format_msg('REQ', [('READ', reg, 0)])
         addr = self._io_group_table[io_group]
         self.senders[addr].send(msg)
         self._sender_replies[addr].append(self.senders[addr].recv())
@@ -349,16 +358,17 @@ class PACMAN_IO(IO):
         '''
         if io_group is None:
             return dict([(io_group, self.ping(io_group=io_group)) for io_group in self._io_group_table])
-        msg = pacman_msg_format.format_msg('REQ',[('PING',)])
+        msg = pacman_msg_format.format_msg('REQ', [('PING',)])
         addr = self._io_group_table[io_group]
         try:
             self.senders[addr].send(msg)
             self._sender_replies[addr].append(self.senders[addr].recv())
-            msg_data = pacman_msg_format.parse_msg(self._sender_replies[addr][-1])
+            msg_data = pacman_msg_format.parse_msg(
+                self._sender_replies[addr][-1])
             if msg_data[1][0][0] == 'PONG':
                 return True
         except zmq.ZMQError as e:
-            print('IO error on {}: {}'.format(io_group,e))
+            print('IO error on {}: {}'.format(io_group, e))
         return False
 
     def get_vddd(self, io_group=None):
@@ -449,7 +459,7 @@ class PACMAN_IO(IO):
             return dict([(io_group, self.enable_tile(tile_indices=tile_indices, io_group=io_group)) for io_group in self._io_group_table])
         if tile_indices is None:
             tile_indices = list(range(8))
-        elif isinstance(tile_indices,int):
+        elif isinstance(tile_indices, int):
             tile_indices = [tile_indices]
         val = self.get_reg(self._base_ctrl_reg, io_group=io_group)
         for idx in tile_indices:
@@ -469,7 +479,7 @@ class PACMAN_IO(IO):
             return dict([(io_group, self.disable_tile(tile_indices=tile_indices, io_group=io_group)) for io_group in self._io_group_table])
         if tile_indices is None:
             tile_indices = list(range(8))
-        elif isinstance(tile_indices,int):
+        elif isinstance(tile_indices, int):
             tile_indices = [tile_indices]
         val = self.get_reg(self._base_ctrl_reg, io_group=io_group)
         for idx in tile_indices:
@@ -490,7 +500,8 @@ class PACMAN_IO(IO):
         '''
         if io_group is None:
             return dict([(io_group, self.set_uart_clock_ratio(channel, ratio, io_group=io_group)) for io_group in self._io_group_table])
-        reg = self._channel_size*channel + self._uart_clock_ratio_offset + self._channel_offset
+        reg = self._channel_size*channel + \
+            self._uart_clock_ratio_offset + self._channel_offset
         self.set_reg(reg, ratio, io_group=io_group)
         return self.get_reg(reg, io_group=io_group)
 
@@ -509,38 +520,34 @@ class PACMAN_IO(IO):
         self.set_reg(self._sw_reset_cycles_reg, length, io_group=io_group)
         # toggle reset bit
         clk_ctrl = self.get_reg(self._clk_ctrl_reg, io_group=io_group)
-        self.set_reg(self._clk_ctrl_reg, clk_ctrl|4, io_group=io_group)
+        self.set_reg(self._clk_ctrl_reg, clk_ctrl | 4, io_group=io_group)
         self.set_reg(self._clk_ctrl_reg, clk_ctrl, io_group=io_group)
         return self.get_reg(self._clk_ctrl_reg, io_group=io_group)
 
     def reset_tiles(self, tiles=None, length=256, io_group=None):
         '''
-        
-        Issue a reset pulse to certain tiles only. 
-        
-        Note that this requires modern PACMAN firmware (firmware 384 or greater)
-        
-        '''
-        
-        no_reset_tiles = set(range(1,9))-set(tiles)
 
-        REG=0x101c
-        reg_val=0
-        for tile in no_reset_tiles: 
+        Issue a reset pulse to certain tiles only. 
+
+        Note that this requires modern PACMAN firmware (firmware 384 or greater)
+
+        '''
+
+        no_reset_tiles = set(range(1, 9))-set(tiles)
+
+        REG = 0x101c
+        reg_val = 0
+        for tile in no_reset_tiles:
             reg_val += (1 << tile)
-    
+
         prev_val = self.get_reg(REG, io_group=io_group)
-    
-        #We care about bits 16:23. These should always be 0 by default
-        #Reset to 0 at the end of this
-        
+
+        # We care about bits 16:23. These should always be 0 by default
+        # Reset to 0 at the end of this
+
         new_val = prev_val + (reg_val << 15)
         self.set_reg(REG, new_val, io_group=io_group)
         self.reset_larpix(length=length, io_group=io_group)
         self.set_reg(REG, prev_val, io_group=io_group)
 
         return True
-
-
-
- 
