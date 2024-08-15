@@ -1050,6 +1050,7 @@ class Controller(object):
         else:
             message = 'configuration read: ' + message
         packets = chip.get_configuration_read_packets(registers)
+
         already_listening = False
         if self.io:
             already_listening = self.io.is_listening

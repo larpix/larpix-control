@@ -1,5 +1,6 @@
 from .packet_v1 import *
 from .packet_v2 import *
+from .packet_v3 import *
 from .timestamp_packet import *
 from .message_packet import *
 from .trigger_packet import *

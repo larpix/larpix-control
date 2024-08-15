@@ -1,6 +1,6 @@
 from .key import Key
-from .configuration import Configuration_v1, Configuration_v2, Configuration_v2b, Configuration_Lightpix_v1, Configuration_v2d
-from .packet import Packet_v1, Packet_v2
+from .configuration import Configuration_v1, Configuration_v2, Configuration_v2b, Configuration_Lightpix_v1, Configuration_v2d, Configuration_v3
+from .packet import Packet_v1, Packet_v2, Packet_v3
 
 class Chip(object):
     '''
@@ -27,6 +27,8 @@ class Chip(object):
             self.config = Configuration_v2b()
         elif self.asic_version == '2d':
             self.config = Configuration_v2d()
+        elif self.asic_version == 3:
+            self.config = Configuration_v3()
         else:
             raise RuntimeError('chip asic version is invalid')
         chip_key = Key(chip_key)
@@ -79,7 +81,7 @@ class Chip(object):
         packets = []
         if self.asic_version == 1:
             packet_register_data = enumerate(conf.all_data())
-        elif self.asic_version in (2, 'lightpix-1', '2b', '2d'):
+        elif self.asic_version in (2, 'lightpix-1', '2b', '2d', 3):
             packet_register_data = zip(*conf.some_data(registers))
         for i, data in packet_register_data:
             if i not in registers:
@@ -88,6 +90,9 @@ class Chip(object):
                 packet = Packet_v1()
             elif self.asic_version == '2d':
                 packet = Packet_v2()
+                packet.magic_word = 0x89504E47
+            elif self.asic_version == 3:
+                packet = Packet_v3()
                 packet.magic_word = 0x89504E47
             else:# self.asic_version in (2, 'lightpix-1', '2b'):
                 packet = Packet_v2()
@@ -113,6 +118,7 @@ class Chip(object):
             #    print('CONGIF_READ_PACKET')
             #    print('bits:',packet.bits)
             #    print('magic_word:',packet.magic_word)
+            
         return packets
 
     def get_configuration_write_packets(self, registers=None):
