@@ -135,7 +135,7 @@ _property_configuration = OrderedDict([
         ('dropped_packets',
             (v2_base._basic_property, (int, 0, 63), (960,968))),
         ('adc_hold_delay',
-            (v2_base._basic_property, (int, 0, 15), (968,976))),
+            (v2_base._basic_property, (int, 0, 255), (968,976))),
         ('chip_id',
             (v2_base._basic_property, (int, 0, 255), (976,984))),
         ('cds_mode',
