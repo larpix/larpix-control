@@ -146,19 +146,22 @@ class Controller(object):
         2: 'enable_miso_upstream',
         'lightpix-1': 'enable_miso_upstream',
         '2b': 'enable_piso_upstream',
-        '2d': 'enable_piso_upstream'
+        '2d': 'enable_piso_upstream',
+        'lightpix-3': 'enable_piso_upstream'
     }
     _enable_posi = {
         2: 'enable_mosi',
         'lightpix-1': 'enable_mosi',
         '2b': 'enable_posi',
-        '2d': 'enable_posi'
+        '2d': 'enable_posi',
+        'lightpix-3': 'enable_posi'
     }
     _enable_piso_downstream = {
         2: 'enable_miso_downstream',
         'lightpix-1': 'enable_miso_downstream',
         '2b': 'enable_piso_downstream',
-        '2d': 'enable_piso_downstream'
+        '2d': 'enable_piso_downstream',
+        'lightpix-3': 'enable_piso_downstream'
     }
 
     def __init__(self):
@@ -1050,6 +1053,7 @@ class Controller(object):
         else:
             message = 'configuration read: ' + message
         packets = chip.get_configuration_read_packets(registers)
+
         already_listening = False
         if self.io:
             already_listening = self.io.is_listening

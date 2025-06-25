@@ -10,7 +10,7 @@ from . import BaseConfiguration_v2, _Smart_List
 from . import configuration_v2_base as v2_base
 
 
-class Configuration_v2d(BaseConfiguration_v2):
+class Configuration_Lightpix_v3(BaseConfiguration_v2):
     '''
     Represents the desired configuration state of a LArPix v2d chip.
 
@@ -45,8 +45,8 @@ class Configuration_v2d(BaseConfiguration_v2):
 
     '''
 
-    asic_version = '2d'
-    default_configuration_file = 'chip/default_v2d.json'
+    asic_version = 'lightpix-3'
+    default_configuration_file = 'chip/default_lightpix_v3.json'
     num_registers = 256
     num_bits = 2048
 
@@ -54,32 +54,38 @@ class Configuration_v2d(BaseConfiguration_v2):
 
     def __init__(self):
         # Note: properties, getters and setters are constructed after this class definition at the bottom of the file.
-        super(Configuration_v2d, self).__init__()
+        super(Configuration_Lightpix_v3, self).__init__()
         return
 
 ## Set up property info
 #
 _property_configuration = OrderedDict([
         ('pixel_trim_dac',
-            (v2_base._list_property, (int, 0, 31, Configuration_v2d.num_channels, 8), (0,512))),
+            (v2_base._list_property, (int, 0, 31, Configuration_Lightpix_v3.num_channels, 8), (0,512))),
         ('threshold_global',
             (v2_base._basic_property, (int, 0, 255), (512, 520))),
         ('csa_gain',
-            (v2_base._compound_property, (['csa_gain', 'csa_bypass_enable','bypass_caps_en'], (int,bool), 0, 1), (520,521))),
-        ('csa_bypass_enable',
-            (v2_base._compound_property, (['csa_gain', 'csa_bypass_enable','bypass_caps_en'], (int,bool), 0, 1), (521,522))),
+            (v2_base._compound_property, (['csa_gain', 'tia_bypass_enable','bypass_caps_en'], (int,bool), 0, 1), (520,521))),
+        ('tia_bypass_enable',
+            (v2_base._compound_property, (['csa_gain', 'tia_bypass_enable','bypass_caps_en'], (int,bool), 0, 1), (521,522))),
         ('bypass_caps_en',
-            (v2_base._compound_property, (['csa_gain', 'csa_bypass_enable','bypass_caps_en'], (int,bool), 0, 1), (522,523))),
-        ('csa_enable',
-            (v2_base._list_property, ((int,bool), 0, 1, Configuration_v2d.num_channels, 1), (528, 592))),
+            (v2_base._compound_property, (['csa_gain', 'tia_bypass_enable','bypass_caps_en'], (int,bool), 0, 1), (522,523))),
+        ('csa_reset',
+            (v2_base._list_property, ((int,bool), 0, 1, Configuration_Lightpix_v3.num_channels, 1), (528, 592))),
         ('ibias_tdac',
             (v2_base._basic_property, (int, 0, 15), (592, 596))),
         ('ibias_comp',
             (v2_base._basic_property, (int, 0, 15), (600, 604))),
         ('ibias_buffer',
             (v2_base._basic_property, (int, 0, 15), (608, 612))),
-        ('ibias_csa',
-            (v2_base._basic_property, (int, 0, 15), (616, 620))),
+        ('ibias_buffer',
+            (v2_base._compound_property, (['ibias_buffer', 'ibias_tia_main'], int, 0, 15), (608, 612))),
+        ('ibias_tia_main',
+            (v2_base._compound_property, (['ibias_buffer', 'ibias_tia_main'], int, 0, 15), (612, 616))),
+         ('ibias_csa',
+            (v2_base._compound_property, (['ibias_csa', 'ibias_tia_gm'], int, 0, 15), (616, 620))),
+        ('ibias_tia_gm',
+            (v2_base._compound_property, (['ibias_csa', 'ibias_tia_gm'], int, 0, 15), (620, 624))),
         ('ibias_vref_buffer',
             (v2_base._basic_property, (int, 0, 15), (624, 628))),
         ('ibias_vcm_buffer',
@@ -97,11 +103,11 @@ _property_configuration = OrderedDict([
         ('vcm_dac',
             (v2_base._basic_property, (int, 0, 255), (664,672))),
         ('csa_bypass_select',
-            (v2_base._list_property, ((int,bool), 0, 1, Configuration_v2d.num_channels, 1), (672,736))),
+            (v2_base._list_property, ((int,bool), 0, 1, Configuration_Lightpix_v3.num_channels, 1), (672,736))),
         ('csa_monitor_select',
-            (v2_base._list_property, ((int,bool), 0, 1, Configuration_v2d.num_channels, 1), (736,800))),
+            (v2_base._list_property, ((int,bool), 0, 1, Configuration_Lightpix_v3.num_channels, 1), (736,800))),
         ('csa_testpulse_enable',
-            (v2_base._list_property, ((int,bool), 0, 1, Configuration_v2d.num_channels, 1), (800,864))),
+            (v2_base._list_property, ((int,bool), 0, 1, Configuration_Lightpix_v3.num_channels, 1), (800,864))),
         ('csa_testpulse_dac',
             (v2_base._basic_property, (int, 0, 255), (864,872))),
         ('current_monitor_bank0',
@@ -177,13 +183,13 @@ _property_configuration = OrderedDict([
         ('adc_burst_length',
             (v2_base._basic_property, (int, 0, 255), (1040, 1048))),
         ('channel_mask',
-            (v2_base._list_property, (int, 0, 1, Configuration_v2d.num_channels, 1), (1048, 1112))),
+            (v2_base._list_property, (int, 0, 1, Configuration_Lightpix_v3.num_channels, 1), (1048, 1112))),
         ('external_trigger_mask',
-            (v2_base._list_property, (int, 0, 1, Configuration_v2d.num_channels, 1), (1112, 1176))),
+            (v2_base._list_property, (int, 0, 1, Configuration_Lightpix_v3.num_channels, 1), (1112, 1176))),
         ('cross_trigger_mask',
-            (v2_base._list_property, (int, 0, 1, Configuration_v2d.num_channels, 1), (1176, 1240))),
+            (v2_base._list_property, (int, 0, 1, Configuration_Lightpix_v3.num_channels, 1), (1176, 1240))),
         ('periodic_trigger_mask',
-            (v2_base._list_property, (int, 0, 1, Configuration_v2d.num_channels, 1), (1240, 1304))),
+            (v2_base._list_property, (int, 0, 1, Configuration_Lightpix_v3.num_channels, 1), (1240, 1304))),
         ('periodic_reset_cycles',
             (v2_base._basic_property, (int, 0, 2**24-1), (1304, 1328))),
         ('periodic_trigger_cycles',
@@ -203,9 +209,13 @@ _property_configuration = OrderedDict([
         ('min_delta_adc',
             (v2_base._basic_property, (int, 0, 255), (1376,1384))),
         ('digital_threshold',
-            (v2_base._list_property, (int, 0, 255, Configuration_v2d.num_channels, 8), (1384,1896))),
-        ('RESERVED',
-            (v2_base._basic_property, (int, 0, 0), (1896, 1912))),
+            (v2_base._list_property, (int, 0, 255, Configuration_Lightpix_v3.num_channels, 8), (1384,1896))),
+        ('lightpix_mode',
+            (v2_base._compound_property, (['lightpix_mode','hit_threshold'], (int,bool), 0, 1), (1896, 1897))),
+        ('hit_threshold',
+            (v2_base._compound_property, (['lightpix_mode','hit_threshold'], int, 0, 127), (1897, 1904))),
+        ('timeout',
+            (v2_base._basic_property, (int, 0, 255), (1904, 1912))),
         ('tx_slices0',
             (v2_base._compound_property, (['tx_slices0', 'tx_slices1'], int, 0, 15), (1912, 1916))),
         ('tx_slices1',
@@ -262,7 +272,7 @@ _property_configuration = OrderedDict([
     ])
 
 # GENERATE THE PROPERTIES!
-Configuration_v2d.bit_map = OrderedDict()
-Configuration_v2d.register_map = OrderedDict()
-Configuration_v2d.register_names = []
-v2_base._generate_properties(Configuration_v2d, _property_configuration, verbose=False)
+Configuration_Lightpix_v3.bit_map = OrderedDict()
+Configuration_Lightpix_v3.register_map = OrderedDict()
+Configuration_Lightpix_v3.register_names = []
+v2_base._generate_properties(Configuration_Lightpix_v3, _property_configuration, verbose=False)

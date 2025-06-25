@@ -37,6 +37,8 @@
         "digital_monitor_select": 0,
         "digital_monitor_chan": 0,
         "adc_hold_delay": 0,
+	"enable_external_sync": 1,
+	"enable_external_trigger": 0,
         "enable_tx_dynamic_powerdown": 0,
         "chip_id": 1,
         "enable_tx_dynamic_powerdown": 0,
