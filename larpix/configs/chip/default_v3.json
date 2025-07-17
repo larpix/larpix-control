@@ -81,7 +81,7 @@
         "threshold_polarity": 1,
         "reset_length": 1,
         "mark_first_packet": 1,
-        "reset_threshold": 0,
+        "reset_threshold_lsbs": 0,
         "min_delta_adc": 0,
         "digital_threshold": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         "RESERVED": 0,

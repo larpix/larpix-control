@@ -11,7 +11,7 @@ from . import configuration_v2_base as v2_base
 
 class Configuration_v3(BaseConfiguration_v2):
     '''
-    Represents the desired configuration state of a LArPix v2 chip.
+    Represents the desired configuration state of a LArPix v3 chip.
 
     Each register name is available as its own attribute for inspecting and
     setting the value of the corresponding register.
@@ -204,7 +204,7 @@ _property_configuration = OrderedDict([
             (v2_base._compound_property, (['enable_dynamic_reset', 'enable_min_delta_adc', 'threshold_polarity', 'reset_length', 'mark_first_packet'], (int), 0, 7), (1363,1366))),
         ('mark_first_packet',
             (v2_base._compound_property, (['enable_dynamic_reset', 'enable_min_delta_adc', 'threshold_polarity', 'reset_length', 'mark_first_packet'], (int,bool), 0, 1), (1366,1367))),
-        ('reset_threshold',
+        ('reset_threshold_lsbs',
             (v2_base._basic_property, (int, 0, 255), (1368,1376))),
         ('min_delta_adc',
             (v2_base._basic_property, (int, 0, 255), (1376,1384))),
