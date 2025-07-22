@@ -95,7 +95,7 @@
         "i_rx_clk": 0,
         "i_rx_rst": 0,
         "i_rx_ext_trig": 0,
-        "r_term0": 2,
+        "r_term0": 4,
         "r_term1": 2,
         "r_term2": 2,
         "r_term3": 2,
