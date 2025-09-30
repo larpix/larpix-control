@@ -129,6 +129,8 @@ class Chip(object):
         '''
         if self.asic_version == 1:
             return self.get_configuration_packets(Packet_v1.CONFIG_WRITE_PACKET, registers)
+        elif self.asic_version == 3:
+            return self.get_configuration_packets(Packet_v3.CONFIG_WRITE_PACKET, registers)
         return self.get_configuration_packets(Packet_v2.CONFIG_WRITE_PACKET, registers)
 
     def get_configuration_read_packets(self, registers=None):
