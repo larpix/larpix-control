@@ -46,7 +46,7 @@
         "load_config_defaults": 0,
         "enable_fifo_diagnostics": 0,
         "enable_local_fifo_diagnostics": 0,
-        "enable_tally": 1,
+        "enable_tally": 0,
         "enable_external_trigger": 0,
         "enable_external_sync": 0,
         "enable_data_stats": 1,
