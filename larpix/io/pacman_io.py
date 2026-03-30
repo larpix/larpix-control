@@ -15,7 +15,7 @@ from larpix.io import IO
 from larpix.configs import load
 import larpix.format.pacman_msg_format as pacman_msg_format
 import larpix.format.rawhdf5format as rawhdf5format
-from larpix import Packet_v2
+import larpix.format
 
 class PACMAN_IO(IO):
     '''
@@ -80,7 +80,7 @@ class PACMAN_IO(IO):
     _adc2mv = lambda _,x: ((x >> 16) >> 3) * 4
     _adc2ma = lambda _,x: ((x >> 16) - (x >> 31) * 65535) * 500 * 0.01
 
-    def __init__(self, config_filepath=None, hwm=20000, relaxed=True, timeout=-1, raw_directory='./', raw_filename=None):
+    def __init__(self, config_filepath=None, hwm=20000, relaxed=True, timeout=-1, raw_directory='./', raw_filename=None, asic_version=2):
         super(PACMAN_IO, self).__init__()
         self.load(config_filepath)
 
@@ -119,7 +119,12 @@ class PACMAN_IO(IO):
             raw_filename if raw_filename is not None \
                 else time.strftime(self.default_raw_filename_fmt)
         )
+
+        larpix.format.pacman_msg_format._use_pkt_version = asic_version
+
         self._launch_raw_file_worker()
+
+
 
     def send(self, packets):
         '''
@@ -157,7 +162,6 @@ class PACMAN_IO(IO):
         for packets in msg_packets:
             io_group = packets[0].io_group
             for i in range(0, len(packets), self.max_msg_length):
-                #for packet in packets: print(packet)
                 msg_len = min(len(packets)-i, self.max_msg_length)
                 msg = pacman_msg_format.format(packets[i:i+msg_len], msg_type='REQ')
                 address = self._io_group_table[io_group]
