@@ -5,7 +5,8 @@ import h5py
 import copy
 
 from larpix.larpix import (Packet_v1, Packet_v2, PacketCollection, TimestampPacket,
-                           MessagePacket, Key, SyncPacket, TriggerPacket, Chip)
+                           MessagePacket, Key, SyncPacket, TriggerPacket, Chip,
+                           Packet_v3)
 from larpix.format.hdf5format import (to_file, from_file,
         dtype_property_index_lookup)
 
@@ -66,6 +67,21 @@ def fifo_diagnostics_packet_v2():
     p.shared_fifo = 1
     p.shared_fifo_events = 5
     p.local_fifo_events = 1
+    p.assign_parity()
+    p.chip_key = Key('1-2-123')
+    p.direction = 1
+    return p
+
+
+@pytest.fixture
+def data_packet_v3():
+    p = Packet_v3()
+    p.packet_type = Packet_v3.DATA_PACKET
+    p.chip_id = 123
+    p.channel_id = 7
+    p.timestamp = 123456
+    p.dataword = 120
+    p.shared_fifo = 1
     p.assign_parity()
     p.chip_key = Key('1-2-123')
     p.direction = 1
@@ -450,6 +466,23 @@ def test_to_file_v2_4_chips(tmpfile, chip):
     new_chips = from_file(tmpfile, load_configs=slice(1,4))['configs']
     assert len(new_chips) == 3
     assert new_chips[0].chip_key == chips[1].chip_key
+
+
+def test_to_file_infer_version_v2(tmpfile, data_packet_v2):
+    to_file(tmpfile, [data_packet_v2], version=None)
+    with h5py.File(tmpfile, 'r') as f:
+        assert f['_header'].attrs['version'] == '2.4'
+
+
+def test_to_file_infer_version_v3(tmpfile, data_packet_v3):
+    to_file(tmpfile, [data_packet_v3], version=None)
+    with h5py.File(tmpfile, 'r') as f:
+        assert f['_header'].attrs['version'] == '3.0'
+
+
+def test_to_file_infer_version_mixed_v2_v3_raises(tmpfile, data_packet_v2, data_packet_v3):
+    with pytest.raises(ValueError):
+        to_file(tmpfile, [data_packet_v2, data_packet_v3], version=None)
 
 def test_from_file_incompatible(tmpfile):
     to_file(tmpfile, [], version='0.0')

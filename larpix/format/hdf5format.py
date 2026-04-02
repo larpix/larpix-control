@@ -1043,6 +1043,22 @@ def _encode_packet(packet, version, packet_dset_name):
         return(tuple(encoded_packet))
     return False
 
+
+def _infer_version_from_packets(packet_list):
+    has_v2 = any(isinstance(packet, Packet_v2) for packet in packet_list)
+    has_v3 = any(isinstance(packet, Packet_v3) for packet in packet_list)
+
+    if has_v2 and has_v3:
+        raise ValueError(
+            'Cannot infer version from mixed Packet_v2 and Packet_v3 list; '
+            'specify version explicitly'
+        )
+    if has_v3:
+        return '3.0'
+    if has_v2:
+        return '2.4'
+    return latest_version
+
 def init_file(f: h5py.File, version=None, chip_list=None):
     message_dset, configs_dset = None, None
 
@@ -1133,6 +1149,8 @@ def to_file(filename, packet_list=None, chip_list=None, mode='a', version=None, 
       workers = max(min(os.cpu_count(), int(len(packet_list)//10000)),1)
 
     with h5py.File(filename, mode) as f:
+        if '_header' not in f.keys() and version is None:
+            version = _infer_version_from_packets(packet_list)
         version, message_dset, _configs_dset = init_file(f, version, chip_list)
 
         # Create datasets
