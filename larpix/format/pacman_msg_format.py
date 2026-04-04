@@ -51,7 +51,16 @@ import struct
 from bidict import bidict
 import time
 
-from larpix import Packet_v2, TriggerPacket, SyncPacket, TimestampPacket
+from larpix import Packet_v2, Packet_v3, TriggerPacket, SyncPacket, TimestampPacket
+
+_use_pkt_version = 2
+
+_pkt_versions = {
+    
+    2 : Packet_v2,
+    3 : Packet_v3
+}
+
 
 #: Most up-to-date message format version.
 latest_version = '0.0'
@@ -194,14 +203,16 @@ def _replace_none(obj, attr, default=0):
     return getattr(obj, attr) if getattr(obj, attr) is not None else default
 
 def _packet_data_req(pkt, *args):
-    if isinstance(pkt, Packet_v2):
+    _use_pkt_type = _pkt_versions[_use_pkt_version]
+    if isinstance(pkt, _use_pkt_type):
         return ('TX',
                 _replace_none(pkt,'io_channel'),
                 pkt.bytes())
     return tuple()
 
 def _packet_data_data(pkt, ts_pacman, *args):
-    if isinstance(pkt, Packet_v2):
+    _use_pkt_type = _pkt_versions[_use_pkt_version]
+    if isinstance(pkt, _use_pkt_type):
         return ('DATA',
                 _replace_none(pkt,'io_channel'),
                 pkt.receipt_timestamp if hasattr(pkt,'receipt_timestamp') else ts_pacman,
@@ -241,11 +252,12 @@ def parse(msg, io_group=None):
     Converts a PACMAN message into larpix packets
 
     The header is parsed into a ``TimestampPacket``,
-    data words are parsed into ``Packet_v2`` objects,
+    data words are parsed into ``_use_pkt_type`` objects,
     trigger words are parsed into ``TriggerPacket`` objects,
     and sync words are parsed into ``SyncPacket`` objects.
 
     '''
+    _use_pkt_type = _pkt_versions[_use_pkt_version]
     packets = list()
     header, word_datas = parse_msg(msg)
     packets.append(TimestampPacket(timestamp=header[1]))
@@ -253,7 +265,7 @@ def parse(msg, io_group=None):
     for word_data in word_datas:
         packet = None
         if word_data[0] in ('TX', 'DATA'):
-            packet = Packet_v2(word_data[-1])
+            packet = _use_pkt_type(word_data[-1])
             packet.receipt_timestamp = word_data[2]
             packet.io_group = io_group
             packet.io_channel = word_data[1]

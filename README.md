@@ -661,7 +661,8 @@ You can also view entire "columns" of data:
 # all packets' ADC counts, including non-data packets
 raw_values['dataword']
 # Select based on data type using a numpy bool / "mask" array:
-raw_values['dataword'][raw_values['packet_type'] == 0] # all data packets' ADC counts
+raw_values['dataword'][raw_values['packet_type'] == 1] # all data packets' ADC counts 
+# ==1 for v3 of the ASIC, ==0 for Any previous versions/generation
 ```
 
 ``h5py`` and ``numpy`` optimize the retrieval of data so you can read

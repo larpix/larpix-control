@@ -146,19 +146,25 @@ class Controller(object):
         2: 'enable_miso_upstream',
         'lightpix-1': 'enable_miso_upstream',
         '2b': 'enable_piso_upstream',
-        '2d': 'enable_piso_upstream'
+        '2d': 'enable_piso_upstream',
+        3: 'enable_piso_upstream',
+
     }
     _enable_posi = {
         2: 'enable_mosi',
         'lightpix-1': 'enable_mosi',
         '2b': 'enable_posi',
-        '2d': 'enable_posi'
+        '2d': 'enable_posi',
+        3: 'enable_posi',
+
     }
     _enable_piso_downstream = {
         2: 'enable_miso_downstream',
         'lightpix-1': 'enable_miso_downstream',
         '2b': 'enable_piso_downstream',
-        '2d': 'enable_piso_downstream'
+        '2d': 'enable_piso_downstream',
+        3: 'enable_piso_downstream',
+
     }
 
     def __init__(self):
@@ -388,7 +394,7 @@ class Controller(object):
         if system_info['asic_version'] == 1:
             print('loading v1 controller...')
             return self.load_controller(filename)
-        if system_info['asic_version'] in (2, 'lightpix-1', '2b', '2d'):
+        if system_info['asic_version'] in (2, 'lightpix-1', '2b', '2d', 3):
             print(f'loading {system_info["asic_version"]} network...')
             return self.load_network(filename, version=system_info['asic_version'])
 
@@ -816,7 +822,7 @@ class Controller(object):
         return ok, diff
 
     def init_network(self, io_group=1, io_channel=1, chip_id=None,
-                     modify_mosi=True, differential=True, tx_slices=15, i_tx_diff=0):
+                     modify_mosi=True, differential=True, tx_slices=15, i_tx_diff=7):
         '''
         Configure a Hydra io node specified by chip_id, if none are specified,
         load complete network
@@ -855,15 +861,11 @@ class Controller(object):
                 parent_uart] = 1
             packets += parent_chip.get_configuration_write_packets(
                 registers=parent_chip.config.register_map[self._enable_piso_upstream[parent_chip.asic_version]])
-            if parent_chip.asic_version in ('2b', '2d',):
-                setattr(parent_chip.config,
-                        f'i_tx_diff{parent_uart}', i_tx_diff)
-                setattr(parent_chip.config,
-                        f'tx_slices{parent_uart}', tx_slices)
-                registers = list(parent_chip.config.register_map[f'i_tx_diff{parent_uart}']) + list(
-                    parent_chip.config.register_map[f'tx_slices{parent_uart}'])
-                packets += parent_chip.get_configuration_write_packets(
-                    registers=registers)
+            if parent_chip.asic_version in ('2b', '2d', 3):
+                setattr(parent_chip.config, f'i_tx_diff{parent_uart}', i_tx_diff)
+                setattr(parent_chip.config, f'tx_slices{parent_uart}', tx_slices)
+                registers = list(parent_chip.config.register_map[f'i_tx_diff{parent_uart}']) + list(parent_chip.config.register_map[f'tx_slices{parent_uart}'])
+                packets += parent_chip.get_configuration_write_packets(registers=registers)
 
             for mosi_link in subnetwork['mosi'].in_edges(parent_chip_id):
                 mosi_uart = subnetwork['mosi'].edges[mosi_link]['uart']
@@ -881,7 +883,9 @@ class Controller(object):
             chip.config.chip_id = chip_key.chip_id
             packets += chip.get_configuration_write_packets(
                 registers=chip.config.register_map['chip_id'])
+
             packets[-1].chip_id = 1
+            packets[-1].assign_parity()
 
             # Enable miso_downstream, mosi on chip
             if differential and chip.asic_version == 2:
@@ -895,7 +899,7 @@ class Controller(object):
                     ds_uart] = 1
             packets += chip.get_configuration_write_packets(
                 registers=chip.config.register_map[self._enable_piso_downstream[chip.asic_version]])
-            if chip.asic_version in ('2b', '2d'):
+            if chip.asic_version in ('2b','2d', 3):
                 setattr(chip.config, f'i_tx_diff{ds_uart}', i_tx_diff)
                 setattr(chip.config, f'tx_slices{ds_uart}', tx_slices)
                 registers = list(chip.config.register_map[f'i_tx_diff{ds_uart}']) + list(
@@ -1125,18 +1129,7 @@ class Controller(object):
         else:
             message = 'configuration read: ' + message
         packets = chip.get_configuration_read_packets(registers)
-        new_packets = []
-        blank_packet = Packet_v2()
-        blank_packet.bits = bah.fromuint(0, nbits=64, endian='little')
-        blank_packet.io_group = 1
-        blank_packet.io_channel = 1
-        for i in range(len(packets)):
-            new_packets.append(packets[i])
-            for j in range(0):
-                new_packets.append(blank_packet)
-                # print('blank')
 
-        packets = new_packets
         already_listening = False
         if self.io:
             already_listening = self.io.is_listening

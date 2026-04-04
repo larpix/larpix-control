@@ -349,13 +349,13 @@ import h5py
 import numpy as np
 import struct
 
-from larpix.larpix import Packet_v1, Packet_v2, TimestampPacket, MessagePacket, SyncPacket, TriggerPacket, Chip, Configuration_Lightpix_v1, Key
+from larpix.larpix import Packet_v1, Packet_v2, Packet_v3, TimestampPacket, MessagePacket, SyncPacket, TriggerPacket, Chip, Configuration_Lightpix_v1, Key
 from larpix.logger import Logger
 from .. import bitarrayhelper as bah
 _max_config_registers = Configuration_Lightpix_v1.num_registers
 
 #: The most recent / up-to-date LArPix+HDF5 format version
-latest_version = '2.4'
+latest_version = '3.0'
 
 #: The dtype specification used in the HDF5 files.
 #:
@@ -444,6 +444,48 @@ dtypes['2.4']['configs'] = [
     ('registers','({},)u1'.format(_max_config_registers))
 ]
 
+dtypes['3.0'] = { # compatible with v3 packets and timestamp packets only
+            'packets': [
+                ('io_group','u1'),
+                ('io_channel','u1'),
+                ('chip_id','u1'),
+                ('packet_type','u1'),
+                ('downstream_marker','u1'),
+                ('parity','u1'),
+                ('valid_parity','u1'),
+                ('channel_id','u1'),
+                ('timestamp','u8'),
+                ('dataword','u2'),
+                ('trigger_type','u1'),
+                ('local_fifo','u1'),
+                ('shared_fifo','u1'),
+                ('register_address','u1'),
+                ('register_data','u1'),
+                ('direction', 'u1'),
+                ('local_fifo_events','u1'),
+                ('shared_fifo_events','u2'),
+                ('counter','u4'),
+                ('fifo_diagnostics_enabled','u1'),
+                ('first_packet','u1'),
+                ('receipt_timestamp','u4'),
+                ('reset_sample_flag', 'u1'),
+                ('cds_flag', 'u1')
+                ],
+            'messages': [
+                ('message', 'S64'),
+                ('timestamp', 'u8'),
+                ('index', 'u4'),
+                ],
+
+            'configs' : [
+                ('timestamp','u8'),
+                ('io_group','u1'),
+                ('io_channel','u1'),
+                ('chip_id','u1'),
+                ('registers','({},)u1'.format(_max_config_registers)) 
+                ]
+            }
+
 #: A map between attribute name and "column index" in the structured
 #: dtypes.
 #:
@@ -531,6 +573,51 @@ dtype_property_index_lookup['2.4']['configs'] = {
     'chip_id': 3,
     'registers': 4
 }
+
+
+dtype_property_index_lookup['3.0'] = {
+            'packets': {
+                'io_group': 0,
+                'io_channel': 1,
+                'chip_id': 2,
+                'packet_type': 3,
+                'downstream_marker': 4,
+                'parity': 5,
+                'valid_parity': 6,
+                'channel_id': 7,
+                'timestamp': 8,
+                'dataword': 9,
+                'trigger_type': 10,
+                'local_fifo': 11,
+                'shared_fifo': 12,
+                'register_address': 13,
+                'register_data': 14,
+                'direction': 15,
+                'local_fifo_events': 16,
+                'shared_fifo_events': 17,
+                'counter': 18,
+                'fifo_diagnostics_enabled': 19,
+                'first_packet' : 20,
+                'receipt_timestamp' : 21,
+                'reset_sample_flag' : 22,
+                'cds_flag' : 23
+                },
+            'messages': {
+                'message': 0,
+                'timestamp': 1,
+                'index': 2,
+                },
+
+            'configs' : {
+              'timestamp': 0,
+              'io_group': 1,
+              'io_channel': 2,
+              'chip_id': 3,
+              'registers': 4
+            }
+}
+
+
 
 def _format_raw_packet_v0_0(pkt, version='0.0', dset='raw_packet', *args, **kwargs):
     dict_rep = pkt.export()
@@ -714,6 +801,68 @@ def _parse_packets_v2_3(row, message_dset, *args, **kwargs):
         p.receipt_timestamp = row['receipt_timestamp']
     return p
 
+def _parse_packets_v3_0(row, message_dset, *args, **kwargs):
+    if row['packet_type'] == 4:
+        return TimestampPacket(row['timestamp'])
+    if row['packet_type'] == 5:
+        index = row['counter']
+        message_row = message_dset[index]
+        message = message_row['message'].decode()
+        timestamp = row['timestamp']
+        return MessagePacket(message, timestamp)
+    if row['packet_type'] < 4:
+        p = Packet_v3()
+        p.io_group = row['io_group']
+        p.io_channel = row['io_channel']
+        p.chip_id = row['chip_id']
+        p.packet_type = row['packet_type']
+        p.downstream_marker = row['downstream_marker']
+        p.parity = row['parity']
+        p.valid_parity = row['valid_parity']
+        p.direction = row['direction']
+        p.receipt_timestamp = row['receipt_timestamp']
+        p.first_packet = row['first_packet']
+        if p.packet_type == Packet_v3.DATA_PACKET:
+            p.channel_id = row['channel_id']
+            p.timestamp = row['timestamp']
+            p.dataword = row['dataword']
+            p.trigger_type = row['trigger_type']
+            p.local_fifo = row['local_fifo']
+            p.shared_fifo = row['shared_fifo']
+            if row['fifo_diagnostics_enabled'] != 0:
+                p.fifo_diagnostics_enabled = True
+                p.local_fifo = row['local_fifo_events']
+                p.shared_fifo = row['shared_fifo_events']
+                p.timestamp = row['timestamp']
+            p.cds_flag = row['cds_flag']
+            p.reset_sample_flag = row['reset_sample_flag']
+
+        elif p.packet_type in (Packet_v3.CONFIG_READ_PACKET, Packet_v3.CONFIG_WRITE_PACKET):
+            p.register_address = row['register_address']
+            p.register_data = row['register_data']
+        return p
+    return None
+
+def _format_packets_packet_v3_0(pkt, version='3.0', dset='packets', *args, **kwargs):
+    encoded_packet = [0]*len(dtypes[version][dset])
+    i = 0
+    for value_name, value_type in dtypes[version][dset]:
+        encoded_packet[i] = getattr(pkt, value_name, None)
+        if encoded_packet[i] is None:
+            if value_name == 'valid_parity' and hasattr(pkt, 'has_valid_parity'):
+                encoded_packet[i] = pkt.has_valid_parity()
+            elif value_type[0] == 'S': # string default
+                encoded_packet[i] = ''
+            else:
+                encoded_packet[i] = 0
+        i += 1
+    if pkt.packet_type == 6: # sync packets
+        encoded_packet[dtype_property_index_lookup[version]['packets']['trigger_type']] = _uint8_struct.unpack(pkt.sync_type)[0]
+        encoded_packet[dtype_property_index_lookup[version]['packets']['dataword']] = pkt.clk_source
+    elif pkt.packet_type == 7: # trigger packets
+        encoded_packet[dtype_property_index_lookup[version]['packets']['trigger_type']] = _uint8_struct.unpack(pkt.trigger_type)[0]
+    return encoded_packet
+
 def _format_configs_chip_v2_4(chip, version='2.4', dset='configs', timestamp=0, *args, **kwargs):
     row = np.zeros((1,),dtype=dtypes[version][dset])
     row['timestamp'] = timestamp
@@ -727,7 +876,7 @@ def _format_configs_chip_v2_4(chip, version='2.4', dset='configs', timestamp=0, 
 
 def _parse_configs_v2_4(row, asic_version, *args, **kwargs):
     key = Key(row['io_group'],row['io_channel'],row['chip_id'])
-    if asic_version in ('1','2'):
+    if asic_version in ('1','2', '3'):
         c = Chip(key,version=int(asic_version))
     else:
         c = Chip(key,version=asic_version)
@@ -736,7 +885,19 @@ def _parse_configs_v2_4(row, asic_version, *args, **kwargs):
         d[i] = row['registers'][i]
     endian = 'big' if asic_version == '1' else 'little'
     c.config.from_dict_registers(d, endian=endian)
-    return c
+    return 
+
+
+def _format_configs_chip_v3_0(chip, version='3.0', dset='configs', timestamp=0, *args, **kwargs):
+    row = np.zeros((1,),dtype=dtypes[version][dset])
+    row['timestamp'] = timestamp
+    row['io_group'] = chip.io_group
+    row['io_channel'] = chip.io_channel
+    row['chip_id'] = chip.chip_id
+    endian='big' if chip.asic_version == 1 else 'little'
+    for i,bits in enumerate(chip.config.all_data()):
+        row['registers'][0,i] = bah.touint(bits, endian=endian)
+    return row
 
 # A map between packet class and the formatting method used to convert to structured
 # dtypes.
@@ -818,6 +979,22 @@ _format_method_lookup = {
             Chip: _format_configs_chip_v2_4
         }
     },
+
+    '3.0': {
+        'packets': {
+            Packet_v3: _format_packets_packet_v3_0,
+            TimestampPacket: _format_packets_packet_v3_0,
+            MessagePacket: _format_packets_packet_v3_0,
+            SyncPacket: _format_packets_packet_v3_0,
+            TriggerPacket: _format_packets_packet_v3_0
+        },
+        'messages': {
+            MessagePacket: _format_messages_message_packet_v1_0
+        },
+        'configs': {
+            Chip: _format_configs_chip_v3_0
+        }
+    },
 }
 
 # A map between dset the parsing method used to convert from structured
@@ -845,6 +1022,10 @@ _parse_method_lookup = {
     },
     '2.4': {
         'packets': _parse_packets_v2_3,
+        'configs': _parse_configs_v2_4
+    },
+    '3.0': {
+        'packets': _parse_packets_v3_0,
         'configs': _parse_configs_v2_4
     }
 }
@@ -962,7 +1143,7 @@ def to_file(filename, packet_list=None, chip_list=None, mode='a', version=None, 
             direction_index = (
                     dtype_property_index_lookup[version]['packets']
                     ['direction'])
-            if version[0] == '2':
+            if version[0] in ['2', '3']:
                 packet_type_index = (
                         dtype_property_index_lookup[version]['packets']
                         ['packet_type'])

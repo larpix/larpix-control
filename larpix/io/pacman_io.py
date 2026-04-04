@@ -15,7 +15,7 @@ from larpix.io import IO
 from larpix.configs import load
 import larpix.format.pacman_msg_format as pacman_msg_format
 import larpix.format.rawhdf5format as rawhdf5format
-from larpix import Packet_v2
+import larpix.format
 
 
 class PACMAN_IO(IO):
@@ -81,7 +81,7 @@ class PACMAN_IO(IO):
     def _adc2mv(_, x): return ((x >> 16) >> 3) * 4
     def _adc2ma(_, x): return ((x >> 16) - (x >> 31) * 65535) * 500 * 0.01
 
-    def __init__(self, config_filepath=None, hwm=20000, relaxed=True, timeout=-1, raw_directory='./', raw_filename=None):
+    def __init__(self, config_filepath=None, hwm=20000, relaxed=True, timeout=-1, raw_directory='./', raw_filename=None, asic_version=2):
         super(PACMAN_IO, self).__init__()
         self.load(config_filepath)
 
@@ -120,6 +120,9 @@ class PACMAN_IO(IO):
             raw_filename if raw_filename is not None
             else time.strftime(self.default_raw_filename_fmt)
         )
+
+        larpix.format.pacman_msg_format._use_pkt_version = asic_version
+
         self._launch_raw_file_worker()
 
     def send(self, packets, msg_length=max_msg_length):
