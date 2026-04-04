@@ -981,7 +981,7 @@ class Controller(object):
 
         self.send(packets)
 
-    def send(self, packets, msg_length=16):
+    def send(self, packets, msg_length=2**16-1):
         '''
         Send the specified packets to the LArPix ASICs.
 
