@@ -53,7 +53,7 @@ class PACMAN_IO(IO):
     '''
     default_filepath = 'io/pacman.json'
     default_raw_filename_fmt = 'raw_%Y_%m_%d_%H_%M_%S_%Z.h5'
-    max_msg_length = 16 # 2**16-1
+    max_msg_length = 2**16-1
     cmdserver_port = '5555'
     dataserver_port = '5556'
     _valid_config_classes = ['PACMAN_IO']
