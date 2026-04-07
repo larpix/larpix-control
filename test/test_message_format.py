@@ -9,8 +9,8 @@ def test_message_format_test_packets(chip):
     expected_messages += [b'\x01\x00'+b'T'+b'\x00'*5 + ts_packet.bytes() + b'\x00']
     print(expected_packets[-1])
     print(expected_messages[-1])
-    print(dataserver_message_decode(expected_messages)[-1])
+    print(dataserver_message_decode(expected_messages, asic_version=2)[-1])
     print(expected_messages[-1])
     print(dataserver_message_encode(expected_packets)[-1])
     assert expected_messages == dataserver_message_encode(expected_packets)
-    assert expected_packets == dataserver_message_decode(expected_messages)
+    assert expected_packets == dataserver_message_decode(expected_messages, asic_version=2)
