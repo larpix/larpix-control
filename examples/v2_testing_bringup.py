@@ -4,7 +4,7 @@ from larpix.io import PACMAN_IO
 ctl = Controller()
 
 # Bring up communications with io groups
-ctl.io = PACMAN_IO('io/testing_io.json') # specifies ip addresses + etc for io groups
+ctl.io = PACMAN_IO('io/testing_io.json', asic_version=2) # specifies ip addresses + etc for io groups
 if not ctl.io.ping():
     raise RuntimeError
 
