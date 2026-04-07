@@ -358,7 +358,7 @@ _max_config_registers = Configuration_Lightpix_v1.num_registers
 latest_version = '3.0'
 
 _FORMAT_VERSION_REQUIRED_MSG = (
-    'Format version is required. Pass version explicitly (for example version="2.4" or version="3.0"). '
+    'Format version is required. Pass version explicitly (for example version="2.4" for LArPix-v2x, or version="3.0" for LArPix-v3x). '
     'CLI users should pass --format-version.'
 )
 
