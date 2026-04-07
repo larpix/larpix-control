@@ -9,7 +9,25 @@ with larpix-control:
 import warnings
 import struct
 
-from larpix.larpix import Packet, TimestampPacket, Packet_v1, Packet_v2
+from larpix.larpix import Packet, TimestampPacket, Packet_v1, Packet_v2, Packet_v3
+
+
+def _require_decode_asic_version(asic_version):
+    msg = (
+        'ASIC version is required for dataserver message decoding.\n'
+        '\tUse asic_version=2 for LArPix-v2\n'
+        '\tUse asic_version=3 for LArPix-v3\n'
+        '\tExample: dataserver_message_decode(..., asic_version=2)'
+    )
+    if asic_version is None:
+        raise ValueError(msg)
+    try:
+        asic_version = int(asic_version)
+    except (TypeError, ValueError):
+        raise ValueError(msg)
+    if asic_version not in (2, 3):
+        raise ValueError(msg)
+    return asic_version
 
 def dataserver_message_encode(packets, version=(1,0)):
     r'''
@@ -83,12 +101,12 @@ def dataserver_message_encode(packets, version=(1,0)):
         msgs += [msg]
     return msgs
 
-def dataserver_message_decode(msgs, version=(1,0), **kwargs):
+def dataserver_message_decode(msgs, version=(1,0), asic_version=None, **kwargs):
     r'''
     Convert a list of larpix data server messages into packets. Additional packet meta data can be passed along via kwargs E.g.::
 
         msg = b'\x01\x00D\x01\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00'
-        packets = dataserver_message_decode([msg], io_group=1)
+        packets = dataserver_message_decode([msg], io_group=1, asic_version=2)
         packets[0] # Packet(b'\x04\x00\x00\x00\x00\x00\x00'), key of '1-1-1'
 
     :param msgs: list of bytestream messages each starting with a single 8-byte header word, followed by N 8-byte data words
@@ -99,6 +117,8 @@ def dataserver_message_decode(msgs, version=(1,0), **kwargs):
 
     '''
     packets = []
+    asic_version = _require_decode_asic_version(asic_version)
+    packet_cls = Packet_v2 if asic_version == 2 else Packet_v3
     for msg in msgs:
         major, minor = struct.unpack('BB',msg[:2])
         if (major, minor) != version:
@@ -118,8 +138,8 @@ def dataserver_message_decode(msgs, version=(1,0), **kwargs):
                     packet_bytes = payload[start_index:start_index+8]
                     if Packet == Packet_v1:
                         packets.append(Packet(packet_bytes[:-1]))
-                    elif Packet == Packet_v2:
-                        packets.append(Packet(packet_bytes))
+                    else:
+                        packets.append(packet_cls(packet_bytes))
                     packets[-1].io_channel = io_chain
                     if kwargs:
                         for key,value in kwargs.items():
