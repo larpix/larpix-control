@@ -60,11 +60,12 @@ class IO(object):
         '''
         pass
 
-    def send(self, packets):
+    def send(self, packets, msg_length=None):
         '''
         Function for sending larpix packet objects
 
         :param packets: ``list`` of larpix ``Packet`` objects to send via IO
+        :param msg_length: optional maximum packets per transport message
 
         :returns: ``None``
 
