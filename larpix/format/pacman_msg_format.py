@@ -32,13 +32,14 @@ E.g.::
     msg = pacman_msg_fmt.format_msg(*data) # b'D----\x00\x01\x00D\x01\x00\x00\x00\x00\x00\x00datadata'
 
 To facilitate translating to/from ``larpix-control`` packet objects, you can use
-the ``format(pkts, msg_type)`` and ``parse(msg, io_group=None)`` methods. E.g.::
+the ``format(pkts, msg_type, asic_version=...)`` and
+``parse(msg, io_group=None, asic_version=...)`` methods. E.g.::
 
     packet = Packet_v2()
     packet.io_channel = 1
-    msg = pacman_msg_fmt.format([packet]) # b'?----\x00\x01\x00D\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+    msg = pacman_msg_fmt.format([packet], asic_version=2) # b'?----\x00\x01\x00D\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
-    packets = pacman_msg_fmt.parse(msg, io_group=1) # [Packet_v2(b'\x00\x00\x00\x00\x00\x00\x00\x00')]
+    packets = pacman_msg_fmt.parse(msg, io_group=1, asic_version=2) # [Packet_v2(b'\x00\x00\x00\x00\x00\x00\x00\x00')]
     packets[0].io_group # 1
 
 Note that no ``io_group`` data is contained within a pacman message. This means
@@ -53,13 +54,32 @@ import time
 
 from larpix import Packet_v2, Packet_v3, TriggerPacket, SyncPacket, TimestampPacket
 
-_use_pkt_version = 2
-
 _pkt_versions = {
     
     2 : Packet_v2,
     3 : Packet_v3
 }
+
+_ASIC_VERSION_REQUIRED_MSG = (
+    'ASIC version is required.\n'
+    '\tUse asic_version=2 for LArPix-v2\n'
+    '\tUse asic_version=3 for LArPix-v3\n'
+    '\tExample: parse(msg, io_group=1, asic_version=2)\n'
+    'For PACMAN_IO, set asic_version in the constructor.\n'
+    'For CLI conversion, pass --asic-version {2,3}.'
+)
+
+
+def _require_asic_version(asic_version):
+    if asic_version is None:
+        raise ValueError(_ASIC_VERSION_REQUIRED_MSG)
+    try:
+        asic_version = int(asic_version)
+    except (TypeError, ValueError):
+        raise ValueError(_ASIC_VERSION_REQUIRED_MSG)
+    if asic_version not in _pkt_versions:
+        raise ValueError(_ASIC_VERSION_REQUIRED_MSG)
+    return asic_version
 
 
 #: Most up-to-date message format version.
@@ -202,16 +222,16 @@ def parse_msg(msg):
 def _replace_none(obj, attr, default=0):
     return getattr(obj, attr) if getattr(obj, attr) is not None else default
 
-def _packet_data_req(pkt, *args):
-    _use_pkt_type = _pkt_versions[_use_pkt_version]
+def _packet_data_req(pkt, ts_pacman, asic_version):
+    _use_pkt_type = _pkt_versions[asic_version]
     if isinstance(pkt, _use_pkt_type):
         return ('TX',
                 _replace_none(pkt,'io_channel'),
                 pkt.bytes())
     return tuple()
 
-def _packet_data_data(pkt, ts_pacman, *args):
-    _use_pkt_type = _pkt_versions[_use_pkt_version]
+def _packet_data_data(pkt, ts_pacman, asic_version):
+    _use_pkt_type = _pkt_versions[asic_version]
     if isinstance(pkt, _use_pkt_type):
         return ('DATA',
                 _replace_none(pkt,'io_channel'),
@@ -228,7 +248,7 @@ def _packet_data_data(pkt, ts_pacman, *args):
                 _replace_none(pkt,'timestamp'))
     return tuple()
 
-def format(packets, msg_type='REQ', ts_pacman=0):
+def format(packets, msg_type='REQ', ts_pacman=0, asic_version=None):
     '''
     Converts larpix packets into a single PACMAN message.
     The message header is automatically generated.
@@ -236,18 +256,20 @@ def format(packets, msg_type='REQ', ts_pacman=0):
     Note:: For request messages, this method only formats ``Packet_v2`` objects. For data messages, this method only formats ``Packet_v2``, ``SyncPacket``, and ``TriggerPacket`` objects.
 
     '''
+    asic_version = _require_asic_version(asic_version)
+
     get_data = _packet_data_req
     if msg_type == 'DATA':
         get_data = _packet_data_data
 
     word_datas = list()
     for packet in packets:
-        word_data = get_data(packet, ts_pacman)
+        word_data = get_data(packet, ts_pacman, asic_version)
         if len(word_data) == 0: continue
         word_datas.append(word_data)
     return format_msg(msg_type, word_datas)
 
-def parse(msg, io_group=None):
+def parse(msg, io_group=None, asic_version=None):
     '''
     Converts a PACMAN message into larpix packets
 
@@ -257,7 +279,8 @@ def parse(msg, io_group=None):
     and sync words are parsed into ``SyncPacket`` objects.
 
     '''
-    _use_pkt_type = _pkt_versions[_use_pkt_version]
+    asic_version = _require_asic_version(asic_version)
+    _use_pkt_type = _pkt_versions[asic_version]
     packets = list()
     header, word_datas = parse_msg(msg)
     packets.append(TimestampPacket(timestamp=header[1]))
