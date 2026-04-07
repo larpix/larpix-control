@@ -220,7 +220,7 @@ def test_running_with_bern_daq_v1():
     from larpix.io import ZMQ_IO
 
     controller = Controller()
-    controller.io = ZMQ_IO(config_filepath='io/loopback.json')
+    controller.io = ZMQ_IO(config_filepath='io/loopback.json', asic_version=2)
 
     controller.load('controller/pcb-2_chip_info.json')
 
