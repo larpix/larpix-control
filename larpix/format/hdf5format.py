@@ -880,6 +880,8 @@ def _format_configs_chip_v2_4(chip, version='2.4', dset='configs', timestamp=0, 
     return row
 
 def _parse_configs_v2_4(row, asic_version, *args, **kwargs):
+    if isinstance(asic_version, bytes):
+        asic_version = asic_version.decode()
     key = Key(row['io_group'],row['io_channel'],row['chip_id'])
     if asic_version in ('1','2', '3'):
         c = Chip(key,version=int(asic_version))
@@ -890,7 +892,7 @@ def _parse_configs_v2_4(row, asic_version, *args, **kwargs):
         d[i] = row['registers'][i]
     endian = 'big' if asic_version == '1' else 'little'
     c.config.from_dict_registers(d, endian=endian)
-    return 
+    return c
 
 
 def _format_configs_chip_v3_0(chip, version='3.0', dset='configs', timestamp=0, *args, **kwargs):
