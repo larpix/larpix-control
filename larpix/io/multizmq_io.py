@@ -79,7 +79,7 @@ class MultiZMQ_IO(IO):
     def sender_replies(self, val):
         self._sender_replies = val
 
-    def send(self, packets):
+    def send(self, packets, msg_length=None):
         self.sender_replies = defaultdict(list)
         send_time = time.time()
         addresses = [self._io_group_table[packet.io_group] for packet in packets]
