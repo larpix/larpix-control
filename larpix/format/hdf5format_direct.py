@@ -6,9 +6,48 @@ import numpy as np
 
 from .hdf5format import dtypes, init_file
 
-VERSION = "2.4"
-DTYPE = dtypes[VERSION]["packets"]
+DEFAULT_DIRECT_VERSION = "2.4"
 BUFSIZE = 100000
+
+
+def _require_direct_versions(asic_version, version):
+    asic_msg = (
+        'ASIC version is required.\n'
+        '\tUse asic_version=2 for LArPix-v2\n'
+        '\tUse asic_version=3 for LArPix-v3\n'
+        '\tExample: to_file_direct(..., asic_version=2, version="2.4")\n'
+        'For CLI conversion, pass --asic-version {2,3}.'
+    )
+    format_msg = (
+        'Format version is required.\n'
+        '\tUse format_version="2.4" for typical LArPix-v2 data\n'
+        '\tUse format_version="3.0" for typical LArPix-v3 data\n'
+        '\tExample: to_file_direct(..., asic_version=2, version="2.4")\n'
+        'For CLI conversion, pass --format-version.'
+    )
+    if asic_version is None:
+        raise ValueError(asic_msg)
+    if version is None:
+        raise ValueError(format_msg)
+    try:
+        asic_version = int(asic_version)
+    except (TypeError, ValueError):
+        raise ValueError(asic_msg)
+    if asic_version not in (2, 3):
+        raise ValueError(asic_msg)
+
+    if asic_version == 2 and version != "2.4":
+        raise ValueError(
+            'Direct conversion currently supports ASIC v2 only with format version="2.4". '
+            'Set version="2.4", or use non-direct conversion for other format versions.'
+        )
+    if asic_version == 3:
+        raise ValueError(
+            'Direct conversion does not support ASIC v3 packet decoding yet. '
+            'Use non-direct conversion (without --direct) and pass asic_version=3 to the parser.'
+        )
+
+    return asic_version, version
 
 
 @numba.njit
@@ -142,9 +181,12 @@ def parse_msg(msg: np.array, packets: np.array, io_group=0) -> int:
     return npackets
 
 
-def to_file_direct(filename, msg_list=[], io_groups=[], chip_list=[], mode="a"):
+def to_file_direct(filename, msg_list=[], io_groups=[], chip_list=[], mode="a", asic_version=None, version=None):
+    _require_direct_versions(asic_version, version)
+    dtype = dtypes[version]["packets"]
+
     with h5py.File(filename, mode) as f:
-        init_file(f, VERSION, chip_list)
+        init_file(f, version, chip_list)
 
         packet_dset_name = "packets"
         if packet_dset_name not in f.keys():
@@ -152,14 +194,14 @@ def to_file_direct(filename, msg_list=[], io_groups=[], chip_list=[], mode="a"):
                 packet_dset_name,
                 shape=(0,),
                 maxshape=(None,),
-                dtype=DTYPE,
+                dtype=dtype,
             )
             start_index = 0
         else:
             packet_dset = f[packet_dset_name]
             start_index = packet_dset.shape[0]
 
-        packets = np.zeros(shape=(2*BUFSIZE,), dtype=DTYPE)
+        packets = np.zeros(shape=(2*BUFSIZE,), dtype=dtype)
         npackets = 0
 
         def write():
