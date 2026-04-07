@@ -90,8 +90,8 @@ case, to convert to the standard ``larpix.format.hdf5format``::
     rd = from_rawfile('raw.h5')
     pkts = list()
     for io_group,msg in zip(rd['msg_headers']['io_groups'], rd['msgs']):
-        pkts.extend(parse(msg, io_group=io_group))
-    to_file('new_filename.h5', packet_list=pkts)
+        pkts.extend(parse(msg, io_group=io_group, asic_version=2))
+    to_file('new_filename.h5', packet_list=pkts, version='2.4')
 
 but as always, the most efficient means of accessing the data is to operate on
 the data itself, rather than converting between types.
