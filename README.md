@@ -564,7 +564,7 @@ To create a permanent record of communications with the LArPix ASICs, an
 
 ```python
 from larpix.logger import HDF5Logger
-controller.logger = HDF5Logger(filename=None, buffer_length=10000) # a filename of None uses the default filename formatting
+controller.logger = HDF5Logger(filename=None, buffer_length=10000, version='2.4') # a filename of None uses the default filename formatting
 controller.logger.enable() # starts tracking all communications
 ```
 
@@ -572,7 +572,7 @@ You can also initialize and enable the logger in one call by passing the
 ``enabled`` keyword argument (which defaults to ``False``):
 
 ```
-controller.logger = HDF5Logger(filename=None, enabled=True)
+controller.logger = HDF5Logger(filename=None, version='2.4', enabled=True)
 ```
 
 Now whenever you send or receive packets, they will be captured by the logger
