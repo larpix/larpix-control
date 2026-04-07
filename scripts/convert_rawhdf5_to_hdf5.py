@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 import time
 
 import h5py
@@ -14,12 +15,19 @@ from larpix.format.pacman_msg_format import parse
 from larpix.format.hdf5format import to_file
 from larpix.format.hdf5format_direct import to_file_direct
 
-def main(input_filename, output_filename, block_size, direct, max_blocks):
+def main(input_filename, output_filename, block_size, direct, max_blocks, asic_version, format_version):
+    if os.path.exists(output_filename):
+        raise RuntimeError(
+            'Output file already exists: {}\n'
+            '\tChoose a new output filename or remove the existing file first.'.format(output_filename)
+        )
+
     total_messages = len_rawfile(input_filename)
     total_blocks = total_messages // block_size + 1
     if max_blocks != -1:
         total_blocks = min(max_blocks, total_blocks)
     last = time.time()
+    write_mode = 'w'
     for i_block in range(total_blocks):
         start = i_block * block_size
         end = min(start + block_size, total_messages)
@@ -30,13 +38,23 @@ def main(input_filename, output_filename, block_size, direct, max_blocks):
             last = time.time()
         rd = from_rawfile(input_filename, start=start, end=end)
         if direct:
-            to_file_direct(output_filename, rd['msgs'], rd['msg_headers']['io_groups'])
+            to_file_direct(
+                output_filename,
+                rd['msgs'],
+                rd['msg_headers']['io_groups'],
+                mode=write_mode,
+                asic_version=asic_version,
+                version=format_version
+            )
         else:
             pkts = list()
             for i_msg,data in enumerate(zip(rd['msg_headers']['io_groups'], rd['msgs'])):
                 io_group,msg = data
-                pkts.extend(parse(msg, io_group=io_group))
-            to_file(output_filename, packet_list=pkts)
+                pkts.extend(parse(msg, io_group=io_group, asic_version=asic_version))
+            to_file(output_filename, packet_list=pkts, mode=write_mode, version=format_version)
+
+        # Truncate/create the destination file only once, then append chunks.
+        write_mode = 'a'
 
     # Copy the embedded ASIC config tarball, if it exists
     with h5py.File(input_filename) as f_in:
@@ -54,5 +72,7 @@ if __name__ == '__main__':
     parser.add_argument('--block_size', default=10240, type=int, help='''Max number of messages to store in working memory (default=%(default)s)''')
     parser.add_argument('--direct', action='store_true', help='Enable direct conversion (experimental)')
     parser.add_argument('--max_blocks', type=int, default=-1)
+    parser.add_argument('--asic-version', type=int, required=True, choices=(2,3), help='ASIC packet version used to decode PACMAN binary packets (LArPix-v2: 2, LArPix-v3: 3)')
+    parser.add_argument('--format-version', type=str, required=True, help='LArPix HDF5 packet format version to write (recommended pairs: v2 -> 2.4, v3 -> 3.0)')
     args = parser.parse_args()
     c = main(**vars(args))
