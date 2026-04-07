@@ -15,7 +15,6 @@ from larpix.io import IO
 from larpix.configs import load
 import larpix.format.pacman_msg_format as pacman_msg_format
 import larpix.format.rawhdf5format as rawhdf5format
-import larpix.format
 
 class PACMAN_IO(IO):
     '''
@@ -80,9 +79,25 @@ class PACMAN_IO(IO):
     _adc2mv = lambda _,x: ((x >> 16) >> 3) * 4
     _adc2ma = lambda _,x: ((x >> 16) - (x >> 31) * 65535) * 500 * 0.01
 
-    def __init__(self, config_filepath=None, hwm=20000, relaxed=True, timeout=-1, raw_directory='./', raw_filename=None, asic_version=2):
+    def __init__(self, config_filepath=None, hwm=20000, relaxed=True, timeout=-1, raw_directory='./', raw_filename=None, asic_version=None):
         super(PACMAN_IO, self).__init__()
         self.load(config_filepath)
+
+        asic_msg = (
+            'ASIC version is required when constructing PACMAN_IO.\n'
+            '\tUse asic_version=2 for LArPix-v2\n'
+            '\tUse asic_version=3 for LArPix-v3\n'
+            '\tExample: PACMAN_IO(..., asic_version=2)'
+        )
+
+        if asic_version is None:
+            raise ValueError(asic_msg)
+        try:
+            self.asic_version = int(asic_version)
+        except (TypeError, ValueError):
+            raise ValueError(asic_msg)
+        if self.asic_version not in (2, 3):
+            raise ValueError(asic_msg)
 
         self.context = zmq.Context()
         self.senders = bidict.bidict()
@@ -119,8 +134,6 @@ class PACMAN_IO(IO):
             raw_filename if raw_filename is not None \
                 else time.strftime(self.default_raw_filename_fmt)
         )
-
-        larpix.format.pacman_msg_format._use_pkt_version = asic_version
 
         self._launch_raw_file_worker()
 
@@ -163,7 +176,11 @@ class PACMAN_IO(IO):
             io_group = packets[0].io_group
             for i in range(0, len(packets), self.max_msg_length):
                 msg_len = min(len(packets)-i, self.max_msg_length)
-                msg = pacman_msg_format.format(packets[i:i+msg_len], msg_type='REQ')
+                msg = pacman_msg_format.format(
+                    packets[i:i+msg_len],
+                    msg_type='REQ',
+                    asic_version=self.asic_version
+                )
                 address = self._io_group_table[io_group]
                 self.senders[address].send(msg)
                 self._sender_replies[address].append(self.senders[address].recv())
@@ -244,7 +261,11 @@ class PACMAN_IO(IO):
                     address_list += [self.receivers.inv[socket]]
         if not self.disable_packet_parsing:
             for message, address in zip(bytestream_list, address_list):
-                packets += pacman_msg_format.parse(message, io_group=self._io_group_table.inv[address])
+                packets += pacman_msg_format.parse(
+                    message,
+                    io_group=self._io_group_table.inv[address],
+                    asic_version=self.asic_version
+                )
             bytestream = b''.join(bytestream_list)
         if self.enable_raw_file_writing:
             self._raw_file_queue.put((bytestream_list, [self._io_group_table.inv[address] for address in address_list]))
