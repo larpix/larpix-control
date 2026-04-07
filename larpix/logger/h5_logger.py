@@ -17,7 +17,7 @@ from larpix.format.hdf5format import to_file
 
 _FORMAT_VERSION_REQUIRED_MSG = (
     'Format version is required when constructing HDF5Logger.\n'
-    '\tExample: HDF5Logger(..., version="2.4")'
+    '\tExample: HDF5Logger(..., version=...) where version="2.4" for LArPix-v2x or version="3.0" for LArPix-v3x'
 )
 
 class HDF5Logger(Logger):
