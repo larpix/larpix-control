@@ -12,7 +12,13 @@ import h5py
 
 from larpix.logger import Logger
 from larpix import Packet, TimestampPacket, Packet_v1, Packet_v2, Packet_v3, SyncPacket, TriggerPacket
-from larpix.format.hdf5format import to_file, latest_version
+from larpix.format.hdf5format import to_file
+
+
+_FORMAT_VERSION_REQUIRED_MSG = (
+    'Format version is required when constructing HDF5Logger.\n'
+    '\tExample: HDF5Logger(..., version="2.4")'
+)
 
 class HDF5Logger(Logger):
     '''
@@ -34,8 +40,7 @@ class HDF5Logger(Logger):
         buffer to the file (optional, default: ``10000``)
     :param directory: the directory to save the data in (optional,
         default: '')
-    :param version: the format version of LArPix+HDF5 to use (optional,
-        default: ``larpix.format.hdf5format.latest_version``)
+    :param version: the format version of LArPix+HDF5 to use (required)
 
     '''
     data_desc_map = {
@@ -48,8 +53,10 @@ class HDF5Logger(Logger):
     }
 
     def __init__(self, filename=None, buffer_length=10000,
-            directory='', version=latest_version, enabled=False):
+            directory='', version=None, enabled=False):
         super(HDF5Logger, self).__init__(enabled=enabled)
+        if version is None:
+            raise ValueError(_FORMAT_VERSION_REQUIRED_MSG)
         self.version = version
         self.filename = filename
         self.directory = directory

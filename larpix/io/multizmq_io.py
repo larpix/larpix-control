@@ -26,8 +26,22 @@ class MultiZMQ_IO(IO):
     '''
     _valid_config_classes = ['MultiZMQ_IO']
 
-    def __init__(self, config_filepath=None, miso_map=None, mosi_map=None):
+    def __init__(self, config_filepath=None, miso_map=None, mosi_map=None, asic_version=None):
         super(MultiZMQ_IO, self).__init__()
+        asic_msg = (
+            'ASIC version is required when constructing MultiZMQ_IO.\n'
+            '\tUse asic_version=2 for LArPix-v2\n'
+            '\tUse asic_version=3 for LArPix-v3\n'
+            '\tExample: MultiZMQ_IO(..., asic_version=2)'
+        )
+        if asic_version is None:
+            raise ValueError(asic_msg)
+        try:
+            self.asic_version = int(asic_version)
+        except (TypeError, ValueError):
+            raise ValueError(asic_msg)
+        if self.asic_version not in (2, 3):
+            raise ValueError(asic_msg)
         self.load(config_filepath)
 
         if miso_map is None:
@@ -65,7 +79,7 @@ class MultiZMQ_IO(IO):
     def sender_replies(self, val):
         self._sender_replies = val
 
-    def send(self, packets):
+    def send(self, packets, msg_length=None):
         self.sender_replies = defaultdict(list)
         send_time = time.time()
         addresses = [self._io_group_table[packet.io_group] for packet in packets]
@@ -94,7 +108,13 @@ class MultiZMQ_IO(IO):
         Convert a list ZMQ messages into packets
 
         '''
-        return_packets = dataserver_message_decode(msgs, version=(1,0), io_group=self._io_group_table.inv[address], **kwargs)
+        return_packets = dataserver_message_decode(
+            msgs,
+            version=(1,0),
+            asic_version=self.asic_version,
+            io_group=self._io_group_table.inv[address],
+            **kwargs
+        )
         if self._miso_map.keys():
             for packet in return_packets:
                 if hasattr(packet, 'io_channel') and packet.io_channel in self._miso_map.keys():

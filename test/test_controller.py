@@ -208,6 +208,7 @@ def test_controller_init(network_controller_old, network_controller_new):
         chip_id_config_packet = c['1-1-3'].get_configuration_write_packets(
             registers=c['1-1-3'].config.register_map['chip_id'])[0]
         chip_id_config_packet.chip_id = 1
+        chip_id_config_packet.assign_parity()
         if c['1-1-3'].asic_version == 2:
             assert c.io.sent[-1][-3] == chip_id_config_packet
             assert c.io.sent[-1][-4] == c['1-1-2'].get_configuration_write_packets(

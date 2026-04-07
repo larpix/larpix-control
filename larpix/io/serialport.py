@@ -148,7 +148,7 @@ class SerialPort(IO):
             return False
         return True
 
-    def send(self, packets):
+    def send(self, packets, msg_length=None):
         '''
         Format the packets as a bytestream and send it to the FPGA and on
         to the LArPix ASICs.

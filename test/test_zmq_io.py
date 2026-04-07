@@ -16,6 +16,7 @@ def io_config(tmpdir):
     config_dict = {
             "_config_type": "io",
             "io_class": "ZMQ_IO",
+            "asic_version": 2,
             "io_group": [
                 [1, "192.0.2.1"]
             ]
@@ -26,7 +27,7 @@ def io_config(tmpdir):
 
 @pytest.fixture
 def zmq_io_obj(io_config):
-    return ZMQ_IO(io_config)
+    return ZMQ_IO(io_config, asic_version=2)
 
 def test_encode(zmq_io_obj):
     io_chain = 1

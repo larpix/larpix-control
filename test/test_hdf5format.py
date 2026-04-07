@@ -266,7 +266,7 @@ def test_from_file_v1_0_many_packets(tmpfile, data_packet,
     packets = [data_packet, config_read_packet, timestamp_packet,
             message_packet]
     to_file(tmpfile, packets, version='1.0')
-    new_packets_dict = from_file(tmpfile)
+    new_packets_dict = from_file(tmpfile, version='1.0')
     assert new_packets_dict['created']
     assert new_packets_dict['version']
     assert new_packets_dict['modified']
@@ -363,7 +363,7 @@ def test_from_file_v2_0_many_packets(tmpfile, data_packet_v2,
     packets = [data_packet_v2, config_read_packet_v2, timestamp_packet,
             message_packet]
     to_file(tmpfile, packets, version='2.0')
-    new_packets_dict = from_file(tmpfile)
+    new_packets_dict = from_file(tmpfile, version='2.0')
     assert new_packets_dict['created']
     assert new_packets_dict['version']
     assert new_packets_dict['modified']
@@ -391,7 +391,7 @@ def test_from_file_v2_2_many_packets(tmpfile, data_packet_v2,
     packets = [data_packet_v2, config_read_packet_v2, timestamp_packet,
                message_packet, sync_packet, trigger_packet]
     to_file(tmpfile, packets, version='2.2')
-    new_packets_dict = from_file(tmpfile)
+    new_packets_dict = from_file(tmpfile, version='2.2')
     assert new_packets_dict['created']
     assert new_packets_dict['version']
     assert new_packets_dict['modified']
@@ -421,7 +421,7 @@ def test_from_file_v2_3_many_packets(tmpfile, data_packet_v2,
     packets = [data_packet_v2, config_read_packet_v2, timestamp_packet,
                message_packet, sync_packet, trigger_packet]
     to_file(tmpfile, packets, version='2.3')
-    new_packets_dict = from_file(tmpfile)
+    new_packets_dict = from_file(tmpfile, version='2.3')
     assert new_packets_dict['created']
     assert new_packets_dict['version']
     assert new_packets_dict['modified']
@@ -441,13 +441,13 @@ def test_to_file_v2_4_chips(tmpfile, chip):
     chips[0].config.pixel_trim_dac[12] = 0
     chips[1].config.threshold_global = 1
     to_file(tmpfile, chip_list=chips, version='2.4')
-    new_chips = from_file(tmpfile, load_configs=True)['configs']
+    new_chips = from_file(tmpfile, version='2.4', load_configs=True)['configs']
     assert [chip.chip_key for chip in chips] == [chip.chip_key for chip in new_chips]
     assert [chip.config for chip in chips] == [chip.config for chip in new_chips]
     assert new_chips[0].config.pixel_trim_dac[12] == chips[0].config.pixel_trim_dac[12]
     assert new_chips[1].config.threshold_global == chips[1].config.threshold_global
 
-    new_chips = from_file(tmpfile, load_configs=slice(1,4))['configs']
+    new_chips = from_file(tmpfile, version='2.4', load_configs=slice(1,4))['configs']
     assert len(new_chips) == 3
     assert new_chips[0].chip_key == chips[1].chip_key
 

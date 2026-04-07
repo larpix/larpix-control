@@ -79,7 +79,7 @@ class FakeIO(IO):
         for position, timestamp in reversed(list(zip(positions, timestamps))):
             packets.insert(position, TimestampPacket(timestamp))
 
-    def send(self, packets):
+    def send(self, packets, msg_length=None):
         '''
         Print the packets to stdout.
 

@@ -40,9 +40,9 @@ def test_packets():
     packets.append(SyncPacket(timestamp=123456, sync_type=b'H', clk_source=1))
     packets.append(TriggerPacket(timestamp=123456, trigger_type=b'\x01'))
 
-    msg = format(packets, msg_type='DATA')
+    msg = format(packets, msg_type='DATA', asic_version=2)
     print(msg)
-    new_packets = parse(msg)
+    new_packets = parse(msg, asic_version=2)
 
     assert packets[1:] == new_packets[1:]
     assert isinstance(new_packets[0], TimestampPacket)

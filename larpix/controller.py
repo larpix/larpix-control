@@ -862,10 +862,14 @@ class Controller(object):
             packets += parent_chip.get_configuration_write_packets(
                 registers=parent_chip.config.register_map[self._enable_piso_upstream[parent_chip.asic_version]])
             if parent_chip.asic_version in ('2b', '2d', 3):
-                setattr(parent_chip.config, f'i_tx_diff{parent_uart}', i_tx_diff)
-                setattr(parent_chip.config, f'tx_slices{parent_uart}', tx_slices)
-                registers = list(parent_chip.config.register_map[f'i_tx_diff{parent_uart}']) + list(parent_chip.config.register_map[f'tx_slices{parent_uart}'])
-                packets += parent_chip.get_configuration_write_packets(registers=registers)
+                setattr(parent_chip.config,
+                        f'i_tx_diff{parent_uart}', i_tx_diff)
+                setattr(parent_chip.config,
+                        f'tx_slices{parent_uart}', tx_slices)
+                registers = list(parent_chip.config.register_map[f'i_tx_diff{parent_uart}']) + list(
+                    parent_chip.config.register_map[f'tx_slices{parent_uart}'])
+                packets += parent_chip.get_configuration_write_packets(
+                    registers=registers)
 
             for mosi_link in subnetwork['mosi'].in_edges(parent_chip_id):
                 mosi_uart = subnetwork['mosi'].edges[mosi_link]['uart']
@@ -899,7 +903,7 @@ class Controller(object):
                     ds_uart] = 1
             packets += chip.get_configuration_write_packets(
                 registers=chip.config.register_map[self._enable_piso_downstream[chip.asic_version]])
-            if chip.asic_version in ('2b','2d', 3):
+            if chip.asic_version in ('2b', '2d', 3):
                 setattr(chip.config, f'i_tx_diff{ds_uart}', i_tx_diff)
                 setattr(chip.config, f'tx_slices{ds_uart}', tx_slices)
                 registers = list(chip.config.register_map[f'i_tx_diff{ds_uart}']) + list(
@@ -1393,7 +1397,7 @@ class Controller(object):
         for packet in self.reads[-1]:
             packet_key = packet.chip_key
             if (hasattr(packet, 'CONFIG_READ_PACKET') and packet.packet_type == packet.CONFIG_READ_PACKET) and packet.has_valid_parity():
-                #print(packet)
+                # print(packet)
                 register_address = packet.register_address
                 if packet_key in configuration_data and register_address in configuration_data[packet_key]:
                     configuration_data[packet_key][register_address] = (
