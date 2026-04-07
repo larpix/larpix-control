@@ -138,12 +138,19 @@ class PACMAN_IO(IO):
 
         self._launch_raw_file_worker()
 
-    def send(self, packets, msg_length=max_msg_length):
+    def send(self, packets, msg_length=None):
         '''
         Sends a request message to PACMAN boards to send designated
         packets.
 
         '''
+        if msg_length is None:
+            msg_length = self.max_msg_length
+        else:
+            msg_length = int(msg_length)
+            if msg_length <= 0:
+                raise ValueError('msg_length must be a positive integer')
+
         msg_packets = list()
         # group packets into messages destined for a single io group (otherwise 1pkt = 1msg)
         if self.group_packets_by_io_group:
@@ -178,7 +185,10 @@ class PACMAN_IO(IO):
                 # for packet in packets: print(packet)
                 msg_len = min(len(packets)-i, msg_length)
                 msg = pacman_msg_format.format(
-                    packets[i:i+msg_len], msg_type='REQ')
+                    packets[i:i+msg_len],
+                    msg_type='REQ',
+                    asic_version=self.asic_version
+                )
                 address = self._io_group_table[io_group]
                 self.senders[address].send(msg)
                 self._sender_replies[address].append(
