@@ -23,7 +23,7 @@ def test_packets():
 
 @pytest.fixture
 def raw_hdf5_tmpfile(tmpdir, test_packets):
-    msgs = [p_msg_fmt.format(pkts, asic_version=2) for pkts in test_packets]
+    msgs = [p_msg_fmt.format(pkts, msg_type='DATA', asic_version=2) for pkts in test_packets]
     io_groups = [0 for _ in test_packets]
 
     test_filename = os.path.join(tmpdir,'raw_test.h5')
@@ -51,7 +51,11 @@ def test_convert_rawhdf5_to_hdf5(tmpdir, raw_hdf5_tmpfile):
 
     # test read from file
     new_packets = p_h5_fmt.from_file(out_filename, version='2.4')['packets']
-    orig_packets = [p_msg_fmt.parse(msg, asic_version=2) for msg in r_h5_fmt.from_rawfile(raw_hdf5_tmpfile)['msgs']]
+    raw_data = r_h5_fmt.from_rawfile(raw_hdf5_tmpfile)
+    orig_packets = [
+        p_msg_fmt.parse(msg, io_group=io_group, asic_version=2)
+        for io_group, msg in zip(raw_data['msg_headers']['io_groups'], raw_data['msgs'])
+    ]
     assert new_packets == [p for pkts in orig_packets for p in pkts]
 
 def test_packet_hdf5_tool(tmpdir, packet_hdf5_tmpfile, test_packets):
