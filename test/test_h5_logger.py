@@ -11,7 +11,7 @@ from larpix.io.fakeio import FakeIO
 from larpix.logger.h5_logger import HDF5Logger
 
 def test_enable(tmpdir):
-    logger = HDF5Logger(directory=str(tmpdir))
+    logger = HDF5Logger(directory=str(tmpdir), version='2.4')
     assert not logger.is_enabled()
     logger.record([Packet_v2()])
     assert len(logger._buffer['packets']) == 0
@@ -21,7 +21,7 @@ def test_enable(tmpdir):
     assert len(logger._buffer['packets']) == 1
 
 def test_disable(tmpdir):
-    logger =HDF5Logger(directory=str(tmpdir), enabled=True)
+    logger =HDF5Logger(directory=str(tmpdir), version='2.4', enabled=True)
     logger.disable()
     assert not logger.is_enabled()
     logger.record([Packet_v2()])
@@ -29,7 +29,7 @@ def test_disable(tmpdir):
 
 def test_flush(tmpdir):
     logger = HDF5Logger(directory=str(tmpdir), buffer_length=5,
-            enabled=True)
+            version='2.4', enabled=True)
     logger.record([Packet_v2()])
     assert len(logger._buffer['packets']) == 1
     logger.flush()
@@ -40,7 +40,7 @@ def test_flush(tmpdir):
     assert len(logger._buffer['packets']) == 0
 
 def test_record(tmpdir):
-    logger = HDF5Logger(directory=str(tmpdir), enabled=True)
+    logger = HDF5Logger(directory=str(tmpdir), version='2.4', enabled=True)
     logger.record([Packet_v2()])
     assert len(logger._buffer['packets']) == 1
     logger.record([TimestampPacket(timestamp=123)])
@@ -49,7 +49,7 @@ def test_record(tmpdir):
 @pytest.mark.filterwarnings("ignore:no IO object")
 def test_controller_write_capture(tmpdir, chip):
     controller = Controller()
-    controller.logger = HDF5Logger(directory=str(tmpdir), buffer_length=1)
+    controller.logger = HDF5Logger(directory=str(tmpdir), buffer_length=1, version='2.4')
     controller.logger.enable()
     controller.chips[chip.chip_key] = chip
     controller.write_configuration(chip.chip_key, 0)
@@ -60,7 +60,7 @@ def test_controller_read_capture(tmpdir):
     controller = Controller()
     controller.io = FakeIO()
     controller.io.queue.append(([Packet_v2()], b'\x00\x00'))
-    controller.logger = HDF5Logger(directory=str(tmpdir), buffer_length=1)
+    controller.logger = HDF5Logger(directory=str(tmpdir), buffer_length=1, version='2.4')
     controller.logger.enable()
     controller.run(0.1,'test')
     assert len(controller.logger._buffer['packets']) == 1
