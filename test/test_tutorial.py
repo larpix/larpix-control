@@ -170,11 +170,11 @@ def test_tutorial(capsys, tmpdir, temp_logfilename):
 
 
     from larpix.logger import HDF5Logger
-    controller.logger = HDF5Logger(filename=temp_logfilename, directory=str(tmpdir), buffer_length=10000) # a filename of None uses the default filename formatting
+    controller.logger = HDF5Logger(filename=temp_logfilename, directory=str(tmpdir), buffer_length=10000, version='2.4') # a filename of None uses the default filename formatting
     controller.logger.enable() # opens hdf5 file and starts tracking all communications
 
     controller.logger = HDF5Logger(filename=temp_logfilename,
-            directory=str(tmpdir), enabled=True)
+            directory=str(tmpdir), version='2.4', enabled=True)
 
     controller.verify_configuration()
     controller.logger.flush()
@@ -232,7 +232,7 @@ def test_running_with_pacman_v1r1():
     from larpix import Controller
     from larpix.io import PACMAN_IO
     controller = Controller()
-    controller.io = PACMAN_IO(config_filepath='io/pacman.json',timeout=1000)
+    controller.io = PACMAN_IO(config_filepath='io/pacman.json', timeout=1000, asic_version=2)
     controller.load('controller/network-3x3-tile-channel0.json')
     assert isinstance(controller.io.ping(),dict)
 
