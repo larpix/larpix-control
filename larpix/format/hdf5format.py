@@ -357,6 +357,11 @@ _max_config_registers = Configuration_Lightpix_v1.num_registers
 #: The most recent / up-to-date LArPix+HDF5 format version
 latest_version = '3.0'
 
+_FORMAT_VERSION_REQUIRED_MSG = (
+    'Format version is required. Pass version explicitly (for example version="2.4" or version="3.0"). '
+    'CLI users should pass --format-version.'
+)
+
 #: The dtype specification used in the HDF5 files.
 #:
 #: Structure: ``{version: {dset_name: [structured dtype fields]}}``
@@ -1041,23 +1046,27 @@ def _encode_packet(packet, version, packet_dset_name):
             if encoded_packet[idx] is None:
                 encoded_packet[idx] = 0
         return(tuple(encoded_packet))
-    return False
+    raise ValueError(
+        'Unsupported packet class {} for format version {} dataset {}. '
+        'Choose a compatible format version or convert packet types before writing.'.format(
+            packet.__class__.__name__, version, packet_dset_name
+        )
+    )
 
 def init_file(f: h5py.File, version=None, chip_list=None):
     message_dset, configs_dset = None, None
 
+    if version is None:
+        raise ValueError(_FORMAT_VERSION_REQUIRED_MSG)
+
     if "_header" not in f.keys():
         header = f.create_group("_header")
-        if version is None:
-            version = latest_version
         header.attrs["version"] = version
         header.attrs["created"] = time.time()
     else:
         header = f["_header"]
         file_version = header.attrs["version"]
-        if version is None:
-            version = file_version
-        elif file_version != version:
+        if file_version != version:
             raise RuntimeError(
                 "Incompatible versions: existing: %s, "
                 "specified: %s" % (file_version, version)
@@ -1129,6 +1138,8 @@ def to_file(filename, packet_list=None, chip_list=None, mode='a', version=None, 
     '''
     if packet_list is None: packet_list = []
     if chip_list is None: chip_list = []
+    if version is None:
+        raise ValueError(_FORMAT_VERSION_REQUIRED_MSG)
     if workers is None:
       workers = max(min(os.cpu_count(), int(len(packet_list)//10000)),1)
 
@@ -1194,9 +1205,9 @@ def to_file(filename, packet_list=None, chip_list=None, mode='a', version=None, 
         if workers > 1:
             packet_args = zip(packet_list, [version]*len(packet_list), [packet_dset_name]*len(packet_list))
             with multiprocessing.Pool(workers) as p:
-                encoded_packets = list(filter(bool, p.starmap(_encode_packet, packet_args)))
+                encoded_packets = list(p.starmap(_encode_packet, packet_args))
         else:
-            encoded_packets = list(filter(bool, [_encode_packet(packet, version, packet_dset_name) for packet in packet_list]))
+            encoded_packets = [_encode_packet(packet, version, packet_dset_name) for packet in packet_list]
 
         if message_dset:
             message_dset_name = message_dset.name.removeprefix('/')
@@ -1239,11 +1250,12 @@ def from_file(filename, version=None, start=None, end=None, load_configs=None):
         ``'version'``, containing the file metadata.
 
     '''
+    if version is None:
+        raise ValueError(_FORMAT_VERSION_REQUIRED_MSG)
+
     with h5py.File(filename, 'r') as f:
         file_version = f['_header'].attrs['version']
-        if version is None:
-            version = file_version
-        elif version[0] == '~':
+        if version[0] == '~':
             file_major, _, file_minor = file_version.split('.')
             version_major, _, version_minor = version.split('.')
             version_major = version_major[1:]
