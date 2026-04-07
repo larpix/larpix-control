@@ -27,7 +27,7 @@ def io_config(tmpdir):
 
 @pytest.fixture
 def multizmq_io_obj(io_config):
-    return MultiZMQ_IO(io_config)
+    return MultiZMQ_IO(io_config, asic_version=2)
 
 def test_encode(multizmq_io_obj):
     chip_id = 64
