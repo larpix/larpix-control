@@ -4,7 +4,7 @@ from larpix.io import PACMAN_IO
 ctl = Controller()
 
 # Bring up communications with io group
-ctl.io = PACMAN_IO('io/manual_io.json') # specifies ip addresses + etc for io group
+ctl.io = PACMAN_IO('io/manual_io.json', asic_version=2) # specifies ip addresses + etc for io group
 ctl.io.ping()
 
 # Load network configuration
