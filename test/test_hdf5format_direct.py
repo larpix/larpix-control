@@ -59,10 +59,10 @@ def test_direct_raw2packet(in_file_raw, out_file_indirect, out_file_direct):
 
     pkts = []
     for msg, io_group in zip(msgs, io_groups):
-        pkts.extend(parse(msg, io_group=io_group))
-    to_file(out_file_indirect, packet_list=pkts)
+        pkts.extend(parse(msg, io_group=io_group, asic_version=2))
+    to_file(out_file_indirect, packet_list=pkts, version='2.4')
 
-    to_file_direct(out_file_direct, msgs, io_groups)
+    to_file_direct(out_file_direct, msgs, io_groups, asic_version=2, version='2.4')
 
     pkts_indirect = h5py.File(out_file_indirect)['packets']
     pkts_direct = h5py.File(out_file_direct)['packets']
