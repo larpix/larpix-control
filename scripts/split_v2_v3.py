@@ -30,8 +30,8 @@ def main():
             mask = np.zeros(len(infile['msgs']), dtype=bool)
             for iog in iogs:
                 mask |= infile['msg_headers']['io_groups'] == iog
-            infile['msg_headers'] = infile['msg_headers'][:][mask]
-            infile['msgs'] = infile['msgs'][:][mask]
+            outfile['msg_headers'] = infile['msg_headers'][:][mask]
+            outfile['msgs'] = infile['msgs'][:][mask]
 
 
 if __name__ == '__main__':
