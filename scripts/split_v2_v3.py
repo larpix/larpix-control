@@ -18,8 +18,8 @@ def main():
     args = ap.parse_args()
     
     inpath = Path(args.inpath)
-    outpath_v2 = inpath.parent / (inpath.stem + '.v2.h5')
-    outpath_v3 = inpath.parent / (inpath.stem + '.v3.h5')
+    outpath_v2 = inpath.parent / (inpath.stem + '.v2.hdf5')
+    outpath_v3 = inpath.parent / (inpath.stem + '.v3.hdf5')
 
     infile = h5py.File(inpath)
 
