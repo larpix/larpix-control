@@ -20,7 +20,7 @@ class Packet_v1(object):
     Packet objects do not restrict you from adjusting an attribute for an
     inappropriate packet type. For example, you can create a data packet and
     then set ``packet.register_address = 5``. This will adjust the packet
-    bits corresponding to a configuration packet's "register\_address"
+    bits corresponding to a configuration packet's "register_address"
     region, which is probably not what you want for your data packet.
 
     Packets have a parity bit which enforces odd parity, i.e. the sum of

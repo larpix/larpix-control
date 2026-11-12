@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from collections import defaultdict
 import argparse
 import os
 import time
@@ -15,7 +16,20 @@ from larpix.format.pacman_msg_format import parse
 from larpix.format.hdf5format import to_file
 from larpix.format.hdf5format_direct import to_file_direct
 
-def main(input_filename, output_filename, block_size, direct, max_blocks, asic_version, format_version):
+
+def parse_asic_map(asic_version_map: str) -> dict[int, int]:
+    mappings = asic_version_map.split(',')
+    parse1 = lambda s: map(int, s.split(':'))
+    return {iog: ver for iog, ver
+            in map(parse1, mappings)}
+
+
+def main(input_filename, output_filename, block_size, direct, max_blocks, asic_version: str, format_version):
+    if ':' in asic_version:
+        asic_versions = parse_asic_map(asic_version)
+    else:
+        asic_versions = defaultdict(lambda: int(asic_version))
+
     if os.path.exists(output_filename):
         raise RuntimeError(
             'Output file already exists: {}\n'
@@ -43,14 +57,14 @@ def main(input_filename, output_filename, block_size, direct, max_blocks, asic_v
                 rd['msgs'],
                 rd['msg_headers']['io_groups'],
                 mode=write_mode,
-                asic_version=asic_version,
-                version=format_version
+                asic_versions=asic_versions,
+                format_version=format_version
             )
         else:
             pkts = list()
             for i_msg,data in enumerate(zip(rd['msg_headers']['io_groups'], rd['msgs'])):
                 io_group,msg = data
-                pkts.extend(parse(msg, io_group=io_group, asic_version=asic_version))
+                pkts.extend(parse(msg, io_group=io_group, asic_version=asic_versions[io_group]))
             to_file(output_filename, packet_list=pkts, mode=write_mode, version=format_version)
 
         # Truncate/create the destination file only once, then append chunks.
@@ -72,7 +86,11 @@ if __name__ == '__main__':
     parser.add_argument('--block_size', default=10240, type=int, help='''Max number of messages to store in working memory (default=%(default)s)''')
     parser.add_argument('--direct', action='store_true', help='Enable direct conversion (experimental)')
     parser.add_argument('--max_blocks', type=int, default=-1)
-    parser.add_argument('--asic-version', type=int, required=True, choices=(2,3), help='ASIC packet version used to decode PACMAN binary packets (LArPix-v2: 2, LArPix-v3: 3)')
+    parser.add_argument('--asic-version', type=str, required=True, 
+                        help=('ASIC packet version used to decode PACMAN binary packets (LArPix-v2: 2, LArPix-v3: 3). ' +
+                              'This can be either a single number or a comma-separated list of iogroup:version mappings ' +
+                              '(for example, 1:2,2:2,3:2,4:2,5:3,6:3)'))
     parser.add_argument('--format-version', type=str, required=True, help='LArPix HDF5 packet format version to write (recommended pairs: v2 -> 2.4, v3 -> 3.0)')
     args = parser.parse_args()
+
     c = main(**vars(args))
