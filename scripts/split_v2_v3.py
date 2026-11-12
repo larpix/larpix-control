@@ -25,8 +25,9 @@ def main():
 
     for iogs, outpath in [(IOGS_V2, outpath_v2), (IOGS_V3, outpath_v3)]:
         with h5py.File(outpath, 'w') as outfile:
-            infile.copy('daq_configs', outfile)
-            infile.copy('meta', outfile)
+            for k in ['daq_configs', 'meta']:
+                if k in infile:
+                    infile.copy(k, outfile)
             mask = np.zeros(len(infile['msgs']), dtype=bool)
             for iog in iogs:
                 mask |= infile['msg_headers']['io_groups'] == iog
